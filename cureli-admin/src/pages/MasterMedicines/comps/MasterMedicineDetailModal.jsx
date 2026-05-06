@@ -1,423 +1,1078 @@
 // cadmin/src/pages/MasterMedicines/comps/MasterMedicineDetailModal.jsx
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   X,
   Pill,
   Building2,
   Package,
-  FileText,
-  Image as ImageIcon,
+  Link2,
+  Upload,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
   ImageOff,
+  Eye,
   Calendar,
+  Hash,
+  Store,
+  Shield,
+  Beaker,
+  Tag,
+  IndianRupee,
   CheckCircle2,
   AlertTriangle,
-  Link2,
-  Star,
-  ChevronLeft,
-  ChevronRight,
-  Upload,
-  ExternalLink,
+  Image as ImageIcon,
+  Unlink,
+  Clock,
 } from "lucide-react";
-import { IMAGE_STATUS, getImageStatusInfo } from "../mockMasterMedicineDataV3";
+import {
+  getImageStatusInfo,
+  getImageUrl,
+} from "../../../api/cadminMasterMedicines";
 
 const MasterMedicineDetailModal = ({
   isOpen,
   medicine,
+  linkedData = [],
   onClose,
-  onViewLinked,
   onUploadImage,
+  onViewVariantLinked,
+  onEdit,
+  onDelete,
+  zIndex = 50,
 }) => {
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [expandedVariant, setExpandedVariant] = useState(null);
+  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
-  // ESC key handler
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab("overview");
+      setExpandedVariant(null);
+      setSelectedImageIdx(0);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
-
     const handleEsc = (e) => {
       if (e.key === "Escape") onClose();
     };
-
     document.addEventListener("keydown", handleEsc);
     document.body.style.overflow = "hidden";
-
     return () => {
       document.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
-  // Reset image index when medicine changes
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [medicine?.id]);
+  const allImages = useMemo(() => {
+    if (!medicine?.images?.length) return [];
+    return medicine.images.map((img) => ({
+      ...img,
+      resolvedUrl: getImageUrl(img.url),
+    }));
+  }, [medicine]);
 
   if (!isOpen || !medicine) return null;
 
-  const activeImages = (medicine.images || []).filter((img) => img.status !== "DEPRECATED");
-  const linkedCount = medicine.linkedMedicines?.length || 0;
-  const totalOccurrences = (medicine.linkedMedicines || []).reduce(
-    (sum, lm) => sum + (lm.occurrenceCount || 0),
-    0
-  );
   const statusInfo = getImageStatusInfo(medicine.imageStatus);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const handlePrevImage = () => {
-    setActiveImageIndex((prev) => (prev > 0 ? prev - 1 : activeImages.length - 1));
-  };
-
-  const handleNextImage = () => {
-    setActiveImageIndex((prev) => (prev < activeImages.length - 1 ? prev + 1 : 0));
-  };
+  const TABS = [
+    { id: "overview", label: "Overview" },
+    { id: "variants", label: "Variants", count: medicine.variantCount || 0 },
+    { id: "linked", label: "Linked", count: linkedData.length },
+    { id: "images", label: "Images", count: allImages.length },
+  ];
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex }}          
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
+      {/* ── Modal container: fixed height instead of auto-sizing ── */}
       <div
-        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden 
-                   animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ height: "min(92vh, 900px)" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4 flex-shrink-0">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Pill size={20} className="text-white" />
+        {/* ══════════════ HEADER ══════════════ */}
+        <div className="bg-gradient-to-r from-[#05015A] to-[#0a0280] flex-shrink-0 border-b border-gray-200 px-6 pt-5 pb-0">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            {/* Left: medicine identity */}
+            <div className="flex items-start gap-4 min-w-0 flex-1">
+              {/* Image preview in header */}
+              <div className="w-14 h-14 rounded-xl border border-gray-200 bg-indigo-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {allImages.length > 0 ? (
+                  <img
+                    src={allImages[0].resolvedUrl}
+                    alt={medicine.genericName}
+                    className="w-full h-full object-contain p-1"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                <div
+                  className={`w-full h-full items-center justify-center ${allImages.length > 0 ? "hidden" : "flex"}`}
+                >
+                  <Pill size={24} className="text-gray-300" />
+                </div>
               </div>
-              <div>
-                <h2 className="text-white text-lg font-semibold truncate max-w-lg">
-                  {medicine.name}
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-white truncate">
+                    {medicine.genericName}
+                  </h2>
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    className={`px-2 py-0.5 rounded-md text-xs font-semibold flex-shrink-0 ${
                       medicine.type === "DRUG"
-                        ? "bg-blue-400/30 text-blue-100"
-                        : "bg-green-400/30 text-green-100"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-green-100 text-green-700"
                     }`}
                   >
-                    {medicine.type === "DRUG" ? "Prescription Drug" : "OTC"}
+                    {medicine.type}
                   </span>
                   {medicine.prescriptionRequired && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-400/30 text-red-100">
-                      Rx Required
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-md text-xs font-semibold flex items-center gap-1 flex-shrink-0">
+                      <Shield size={10} /> Rx
+                    </span>
+                  )}
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-xs font-semibold flex-shrink-0 ${statusInfo.bgClass} ${statusInfo.textClass}`}
+                  >
+                    {statusInfo.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  <span className="text-sm font-mono text-gray-300">
+                    {medicine.masterKey}
+                  </span>
+                  {medicine.form && (
+                    <span className="flex items-center gap-1 text-sm text-gray-500">
+                      <Package size={12} /> {medicine.form}
+                    </span>
+                  )}
+                  {medicine.primaryCategory && (
+                    <span className="flex items-center gap-1 text-sm text-gray-300">
+                      <Tag size={12} /> {medicine.primaryCategory}
                     </span>
                   )}
                 </div>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 text-white hover:bg-white/30 transition-colors"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-            {/* Left Column - Images */}
-            <div className="space-y-4">
-              {/* Main Image Display */}
-              <div className="relative bg-gray-100 rounded-xl aspect-square flex items-center justify-center overflow-hidden">
-                {activeImages.length > 0 ? (
-                  <>
-                    {/* Image placeholder - would be actual image */}
-                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                      <ImageIcon size={64} className="text-gray-400" />
-                    </div>
-
-                    {/* Navigation Arrows */}
-                    {activeImages.length > 1 && (
-                      <>
-                        <button
-                          onClick={handlePrevImage}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 flex items-center justify-center"
-                        >
-                          <ChevronLeft size={24} />
-                        </button>
-                        <button
-                          onClick={handleNextImage}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 flex items-center justify-center"
-                        >
-                          <ChevronRight size={24} />
-                        </button>
-                      </>
-                    )}
-
-                    {/* Image Status Badge */}
-                    <div className="absolute top-3 left-3">
-                      <span
-                        className={`px-2 py-1 rounded-lg text-xs font-bold text-white ${
-                          activeImages[activeImageIndex]?.status === "VERIFIED"
-                            ? "bg-green-500"
-                            : "bg-amber-500"
-                        }`}
-                      >
-                        {activeImages[activeImageIndex]?.status}
-                      </span>
-                    </div>
-
-                    {/* Primary Badge */}
-                    {activeImages[activeImageIndex]?.isPrimary && (
-                      <div className="absolute top-3 right-3">
-                        <span className="px-2 py-1 rounded-lg text-xs font-bold text-white bg-blue-500 flex items-center gap-1">
-                          <Star size={12} fill="currentColor" />
-                          PRIMARY
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Image Counter */}
-                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
-                      <span className="px-3 py-1 rounded-full bg-black/50 text-white text-xs">
-                        {activeImageIndex + 1} / {activeImages.length}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-gray-400">
-                    <ImageOff size={64} className="mb-3" />
-                    <p className="text-lg font-medium">No Images</p>
-                    <p className="text-sm">Upload images for this medicine</p>
-                    <button
-                      onClick={() => onUploadImage?.(medicine)}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium
-                                 hover:bg-green-700 transition-colors flex items-center gap-2"
-                    >
-                      <Upload size={16} />
-                      Upload Image
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Image Thumbnails */}
-              {activeImages.length > 1 && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                  {activeImages.map((img, idx) => (
-                    <button
-                      key={img.id}
-                      onClick={() => setActiveImageIndex(idx)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                        idx === activeImageIndex
-                          ? "border-indigo-500 ring-2 ring-indigo-500/20"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                        <ImageIcon size={16} className="text-gray-400" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Image Status */}
-              <div className={`rounded-xl p-4 ${statusInfo.bgClass} ${statusInfo.borderClass} border`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {medicine.imageStatus === IMAGE_STATUS.VERIFIED ? (
-                      <CheckCircle2 size={24} className={statusInfo.textClass} />
-                    ) : medicine.imageStatus === IMAGE_STATUS.RAW ? (
-                      <AlertTriangle size={24} className={statusInfo.textClass} />
-                    ) : (
-                      <ImageOff size={24} className={statusInfo.textClass} />
-                    )}
-                    <div>
-                      <p className={`font-semibold ${statusInfo.textClass}`}>
-                        {statusInfo.label}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {medicine.imageStatus === IMAGE_STATUS.VERIFIED
-                          ? "Image verified by Cureli team"
-                          : medicine.imageStatus === IMAGE_STATUS.RAW
-                          ? "Raw image needs replacement"
-                          : "No image uploaded yet"}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onUploadImage?.(medicine)}
-                    className="px-3 py-1.5 bg-white rounded-lg text-sm font-medium shadow-sm
-                               hover:bg-gray-50 transition-colors flex items-center gap-2"
-                  >
-                    <Upload size={14} />
-                    {medicine.imageStatus === IMAGE_STATUS.NONE ? "Upload" : "Change"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Details */}
-            <div className="space-y-4">
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => linkedCount > 0 && onViewLinked?.(medicine)}
-                  disabled={linkedCount === 0}
-                  className={`p-4 rounded-xl border transition-all ${
-                    linkedCount > 0
-                      ? "border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer"
-                      : "border-gray-200 bg-gray-50 cursor-not-allowed"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      linkedCount > 0 ? "bg-blue-100" : "bg-gray-100"
-                    }`}>
-                      <Link2 size={20} className={linkedCount > 0 ? "text-blue-600" : "text-gray-400"} />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-2xl font-bold text-gray-900">{linkedCount}</p>
-                      <p className="text-xs text-gray-500">Linked Medicines</p>
-                    </div>
-                  </div>
-                  {linkedCount > 0 && (
-                    <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                      View all <ExternalLink size={10} />
-                    </p>
-                  )}
-                </button>
-
-                <div className="p-4 rounded-xl border border-green-200 bg-green-50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                      <CheckCircle2 size={20} className="text-green-600" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-2xl font-bold text-gray-900">{totalOccurrences}</p>
-                      <p className="text-xs text-gray-500">Total Occurrences</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Basic Info */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Pill size={16} />
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <DetailRow label="Name" value={medicine.name} fullWidth />
-                  <DetailRow label="Type" value={medicine.type} badge />
-                  <DetailRow
-                    label="Prescription"
-                    value={medicine.prescriptionRequired ? "Required" : "Not Required"}
-                  />
-                  <DetailRow label="Status" value={medicine.isActive ? "Active" : "Inactive"} />
-                </div>
-              </div>
-
-              {/* Composition */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <FileText size={16} />
-                  Composition
-                </h3>
-                <p className="text-gray-700">{medicine.composition || "No composition info"}</p>
-              </div>
-
-              {/* Manufacturer */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Building2 size={16} />
-                  Manufacturer / Marketer
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <DetailRow label="Manufacturer" value={medicine.manufacturer || "—"} />
-                  <DetailRow label="Marketer" value={medicine.marketer || "—"} />
-                </div>
-              </div>
-
-              {/* Pack Info */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Package size={16} />
-                  Pack Information
-                </h3>
-                <DetailRow label="Pack Size" value={medicine.packSize || "—"} />
-              </div>
-
-              {/* Timestamps */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Calendar size={16} />
-                  Timestamps
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <DetailRow label="Created" value={formatDate(medicine.createdAt)} />
-                  <DetailRow label="Updated" value={formatDate(medicine.updatedAt)} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500 font-mono">{medicine.id}</p>
-            <div className="flex items-center gap-3">
-              {linkedCount > 0 && (
-                <button
-                  onClick={() => onViewLinked?.(medicine)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium
-                             hover:bg-gray-100 transition-colors flex items-center gap-2"
-                >
-                  <Link2 size={16} />
-                  View Linked ({linkedCount})
-                </button>
-              )}
+            {/* Right: actions */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => onUploadImage(medicine)}
+                className="h-9 px-3 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <Upload size={14} /> Images
+              </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium
-                           hover:bg-gray-300 transition-colors"
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               >
-                Close
+                <X size={20} />
               </button>
             </div>
           </div>
+
+          {/* Quick stats row */}
+          <div className="flex items-center gap-6 mb-3 flex-wrap">
+            <QuickStat
+              icon={Package}
+              label={`${medicine.variantCount || 0} Variants`}
+            />
+            <QuickStat icon={Link2} label={`${linkedData.length} Linked`} />
+            <QuickStat icon={ImageIcon} label={`${allImages.length} Images`} />
+            {medicine.priceRange && (
+              <QuickStat
+                icon={IndianRupee}
+                label={`₹${medicine.priceRange.min} – ₹${medicine.priceRange.max}`}
+              />
+            )}
+            <QuickStat
+              icon={Calendar}
+              label={`Updated ${new Date(medicine.updatedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`}
+            />
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 mt-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === tab.id
+                    ? "bg-white text-indigo-700"
+                    : "text-white/80 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      activeTab === tab.id
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "bg-white/15 text-white/80"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ══════════════ CONTENT — fills remaining space, scrolls internally ══════════════ */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {activeTab === "overview" && (
+            <OverviewTab
+              medicine={medicine}
+              allImages={allImages}
+              selectedImageIdx={selectedImageIdx}
+              setSelectedImageIdx={setSelectedImageIdx}
+            />
+          )}
+          {activeTab === "variants" && (
+            <VariantsTab
+              variants={medicine.variants || []}
+              expandedVariant={expandedVariant}
+              setExpandedVariant={setExpandedVariant}
+              onViewVariantLinked={onViewVariantLinked}
+            />
+          )}
+          {activeTab === "linked" && <LinkedTab linkedData={linkedData} />}
+          {activeTab === "images" && (
+            <ImagesTab
+              images={allImages}
+              onUploadImage={() => onUploadImage(medicine)}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// Detail Row Component
-const DetailRow = ({ label, value, badge = false, fullWidth = false }) => (
-  <div className={fullWidth ? "col-span-2" : ""}>
-    <p className="text-xs text-gray-500 mb-1">{label}</p>
-    {badge ? (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
-          value === "DRUG" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-        }`}
-      >
-        {value}
-      </span>
-    ) : (
-      <p className="text-sm font-medium text-gray-900 truncate">{value}</p>
-    )}
+// ═══════════════════════════════════════════════════════════════
+// OVERVIEW TAB
+// ═══════════════════════════════════════════════════════════════
+
+const OverviewTab = ({
+  medicine,
+  allImages,
+  selectedImageIdx,
+  setSelectedImageIdx,
+}) => {
+  return (
+    <div className="grid grid-cols-5 h-full">
+      {/* Left column: image gallery */}
+      <div className="col-span-2 border-r border-gray-100 p-6 flex flex-col gap-5">
+        {/* Main image */}
+        <div className="w-full aspect-square rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+          {allImages.length > 0 ? (
+            <>
+              <img
+                src={allImages[selectedImageIdx]?.resolvedUrl}
+                alt={medicine.genericName}
+                className="w-full h-full object-contain p-4"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                  e.target.nextElementSibling.style.display = "flex";
+                }}
+              />
+              <div className="w-full h-full hidden items-center justify-center flex-col gap-2">
+                <ImageOff size={36} className="text-gray-300" />
+                <span className="text-xs text-gray-400">Image unavailable</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-gray-300">
+              <ImageOff size={48} />
+              <span className="text-sm">No image</span>
+            </div>
+          )}
+        </div>
+
+        {/* Thumbnail strip */}
+        {allImages.length > 1 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {allImages.slice(0, 10).map((img, idx) => (
+              <button
+                key={img.id}
+                onClick={() => setSelectedImageIdx(idx)}
+                className={`w-12 h-12 rounded-lg border flex-shrink-0 overflow-hidden transition-all ${
+                  selectedImageIdx === idx
+                    ? "border-indigo-500 ring-2 ring-indigo-200"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <img
+                  src={img.resolvedUrl}
+                  alt=""
+                  className="w-full h-full object-contain p-0.5"
+                  onError={(e) => {
+                    e.target.style.opacity = "0.3";
+                  }}
+                />
+              </button>
+            ))}
+            {allImages.length > 10 && (
+              <span className="text-xs text-gray-400 flex-shrink-0">
+                +{allImages.length - 10} more
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Primary image badge */}
+        {allImages[selectedImageIdx] && (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            {allImages[selectedImageIdx].type === "PRIMARY" && (
+              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded font-medium">
+                PRIMARY
+              </span>
+            )}
+            <span
+              className={`px-2 py-0.5 rounded font-medium ${
+                allImages[selectedImageIdx].source === "UPLOADED"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {allImages[selectedImageIdx].source}
+            </span>
+            {allImages[selectedImageIdx].uploadedBy && (
+              <span>by {allImages[selectedImageIdx].uploadedBy}</span>
+            )}
+          </div>
+        )}
+
+        {/* Composition */}
+        {Array.isArray(medicine.composition) &&
+          medicine.composition.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Beaker size={12} /> Composition
+              </h4>
+              <div className="flex flex-col gap-1.5">
+                {medicine.composition.map((comp, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-baseline justify-between gap-2 py-1 border-b border-gray-100 last:border-0"
+                  >
+                    <span className="text-sm font-medium text-gray-800">
+                      {comp.name || comp}
+                    </span>
+                    {comp.strength && (
+                      <span className="text-xs text-gray-500 flex-shrink-0">
+                        {comp.strength}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+      </div>
+
+      {/* Right column: details */}
+      <div className="col-span-3 p-6 flex flex-col gap-5">
+        {/* Details grid */}
+        <div>
+          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            Basic Information
+          </h4>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+            <DetailField
+              label="Generic Name"
+              value={medicine.genericName}
+              bold
+            />
+            <DetailField label="Master Key" value={medicine.masterKey} mono />
+            <DetailField label="Type" value={medicine.type} />
+            <DetailField label="Form" value={medicine.form} />
+            <DetailField label="Category" value={medicine.primaryCategory} />
+            <DetailField
+              label="Rx Required"
+              value={medicine.prescriptionRequired ? "Yes" : "No"}
+            />
+            <DetailField
+              label="Price Range"
+              value={
+                medicine.priceRange
+                  ? `₹${medicine.priceRange.min} – ₹${medicine.priceRange.max}`
+                  : null
+              }
+            />
+            <DetailField label="Variants" value={medicine.variantCount} />
+            <DetailField
+              label="Created"
+              value={new Date(medicine.createdAt).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            />
+            <DetailField
+              label="Updated"
+              value={new Date(medicine.updatedAt).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            />
+          </div>
+        </div>
+
+        {/* Strengths */}
+        {medicine.strengths?.length > 0 && (
+          <TagGroup
+            label="Available Strengths"
+            icon={Hash}
+            items={medicine.strengths}
+            color="purple"
+          />
+        )}
+
+        {/* Brands */}
+        {medicine.brands?.length > 0 && (
+          <TagGroup
+            label="Brands"
+            icon={Tag}
+            items={medicine.brands}
+            color="blue"
+          />
+        )}
+
+        {/* Marketers */}
+        {medicine.marketers?.length > 0 && (
+          <TagGroup
+            label="Marketers"
+            icon={Building2}
+            items={medicine.marketers}
+            color="orange"
+          />
+        )}
+
+        {/* Manufacturers */}
+        {medicine.manufacturers?.length > 0 && (
+          <TagGroup
+            label="Manufacturers"
+            icon={Building2}
+            items={medicine.manufacturers}
+            color="gray"
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VARIANTS TAB
+// ═══════════════════════════════════════════════════════════════
+
+const VariantsTab = ({
+  variants,
+  expandedVariant,
+  setExpandedVariant,
+  onViewVariantLinked,
+}) => {
+  if (!variants?.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <EmptyState
+          icon={Package}
+          title="No Variants"
+          subtitle="This medicine has no variants yet"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-2">
+      {variants.map((variant) => {
+        const isExpanded = expandedVariant === variant.id;
+
+        return (
+          <div
+            key={variant.id}
+            className="border border-gray-200 rounded-xl overflow-hidden"
+          >
+            {/* Collapsed row */}
+            <button
+              onClick={() => setExpandedVariant(isExpanded ? null : variant.id)}
+              className="w-full px-4 py-3 flex items-center gap-4 hover:bg-gray-50 transition-colors text-left"
+            >
+              {/* Thumbnail */}
+              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {variant.images?.[0] ? (
+                  <img
+                    src={getImageUrl(variant.images[0])}
+                    alt={variant.name}
+                    className="w-full h-full object-contain p-0.5"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextElementSibling.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                <div
+                  className={`w-full h-full items-center justify-center ${variant.images?.[0] ? "hidden" : "flex"}`}
+                >
+                  <ImageOff size={14} className="text-gray-300" />
+                </div>
+              </div>
+
+              {/* Name + badges */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-gray-900 truncate">
+                    {variant.name}
+                  </span>
+                  {variant.strength?.display && (
+                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium flex-shrink-0">
+                      {variant.strength.display}
+                    </span>
+                  )}
+                  {variant.brand && (
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {variant.brand}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                  <span className="font-mono">{variant.skuId}</span>
+                  {variant.marketer && <span>{variant.marketer}</span>}
+                  {variant.packSize && <span>{variant.packSize}</span>}
+                </div>
+              </div>
+
+              {/* Price */}
+              {variant.pricing?.mrp && (
+                <div className="text-right flex-shrink-0">
+                  <p className="text-xs text-gray-400">MRP</p>
+                  <p className="font-bold text-gray-900">
+                    ₹{variant.pricing.mrp}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex-shrink-0 text-gray-400">
+                {isExpanded ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </div>
+            </button>
+
+            {/* Expanded */}
+            {isExpanded && (
+              <div className="border-t border-gray-100 bg-gray-50/60">
+                <div className="grid grid-cols-5 divide-x divide-gray-100">
+                  {/* Left: image + pricing */}
+                  <div className="col-span-2 p-4 flex flex-col gap-4">
+                    {variant.images?.[0] && (
+                      <div className="w-full aspect-square max-w-[200px] mx-auto rounded-xl bg-white border border-gray-200 overflow-hidden flex items-center justify-center">
+                        <img
+                          src={getImageUrl(variant.images[0])}
+                          alt={variant.name}
+                          className="w-full h-full object-contain p-3"
+                          onError={(e) => {
+                            e.target.style.opacity = "0.3";
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: details */}
+                  <div className="col-span-3 p-4 flex flex-col gap-4">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                      <DetailField
+                        label="SKU ID"
+                        value={variant.skuId}
+                        mono
+                        small
+                      />
+                      <DetailField label="Brand" value={variant.brand} small />
+                      <DetailField
+                        label="Manufacturer"
+                        value={variant.manufacturer}
+                        small
+                      />
+                      <DetailField
+                        label="Marketer"
+                        value={variant.marketer}
+                        small
+                      />
+                      <DetailField
+                        label="Strength"
+                        value={variant.strength?.display}
+                        small
+                      />
+                      <DetailField
+                        label="Pack Size"
+                        value={variant.packSize}
+                        small
+                      />
+                    </div>
+
+                    {/* Composition */}
+                    {Array.isArray(variant.composition) &&
+                      variant.composition.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                            Composition
+                          </h5>
+                          <div className="flex flex-wrap gap-1.5">
+                            {variant.composition.map((comp, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs text-gray-700"
+                              >
+                                {comp.name || comp}
+                                {comp.strength ? ` (${comp.strength})` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Description */}
+                    {variant.description && (
+                      <div>
+                        <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                          Description
+                        </h5>
+                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                          {variant.description
+                            .replace(/&rsquo;/g, "'")
+                            .replace(/<[^>]*>/g, "")}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-gray-200 mt-auto">
+                      <button
+                        onClick={() => onViewVariantLinked(variant)}
+                        className="h-8 px-3 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
+                      >
+                        <Link2 size={12} /> View Linked
+                      </button>
+                      <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
+                        <Clock size={11} />
+                        {new Date(variant.updatedAt).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// LINKED TAB
+// ═══════════════════════════════════════════════════════════════
+
+const LinkedTab = ({ linkedData }) => {
+  if (!linkedData?.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <EmptyState
+          icon={Link2}
+          title="No Linked Medicines"
+          subtitle="No shop medicines linked to variants of this master"
+        />
+      </div>
+    );
+  }
+
+  const byVariant = linkedData.reduce((acc, med) => {
+    const variantKey = med.linkedVariantId || "unknown";
+    if (!acc[variantKey]) {
+      acc[variantKey] = {
+        variantName: med.linkedVariantName || "Unknown Variant",
+        variantSku: med.linkedVariantSku || null,
+        items: [],
+      };
+    }
+    acc[variantKey].items.push(med);
+    return acc;
+  }, {});
+
+  const totalShops = new Set(linkedData.map((l) => l.shopId).filter(Boolean))
+    .size;
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Summary */}
+      <div className="flex items-center gap-4 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+        <div className="text-center px-4 border-r border-indigo-200">
+          <p className="text-2xl font-bold text-indigo-700">
+            {linkedData.length}
+          </p>
+          <p className="text-xs text-indigo-500">Total Linked</p>
+        </div>
+        <div className="text-center px-4 border-r border-indigo-200">
+          <p className="text-2xl font-bold text-indigo-700">
+            {Object.keys(byVariant).length}
+          </p>
+          <p className="text-xs text-indigo-500">Variants</p>
+        </div>
+        <div className="text-center px-4 border-r border-indigo-200">
+          <p className="text-2xl font-bold text-indigo-700">{totalShops}</p>
+          <p className="text-xs text-indigo-500">Shops</p>
+        </div>
+        <div className="text-center px-4">
+          <p className="text-2xl font-bold text-indigo-700">
+            {linkedData.filter((l) => l.linkedBy === "System").length}
+          </p>
+          <p className="text-xs text-indigo-500">Auto-linked</p>
+        </div>
+      </div>
+
+      {/* Grouped by variant */}
+      {Object.entries(byVariant).map(
+        ([variantId, { variantName, variantSku, items }]) => (
+          <div
+            key={variantId}
+            className="border border-gray-200 rounded-xl overflow-hidden"
+          >
+            {/* Variant header */}
+            <div className="px-4 py-2.5 bg-indigo-50/50 border-b border-gray-200 flex items-center gap-2">
+              <Package size={14} className="text-indigo-500" />
+              <span className="text-sm font-semibold text-gray-800">
+                {variantName}
+              </span>
+              {variantSku && (
+                <span className="text-xs font-mono text-gray-400">
+                  SKU: {variantSku}
+                </span>
+              )}
+              <span className="ml-auto text-xs text-gray-400">
+                {items.length} linked
+              </span>
+            </div>
+
+            {/* Linked items */}
+            <div className="divide-y divide-gray-100">
+              {items.map((linked) => (
+                <div
+                  key={linked.id}
+                  className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900 truncate">
+                        {linked.originalName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Store size={10} />
+                        {linked.shopName}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          linked.linkedBy === "System"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {linked.linkedBy}
+                      </span>
+                      {linked.confidence && (
+                        <span className="text-xs text-gray-400">
+                          {Math.round(linked.confidence)}%
+                        </span>
+                      )}
+                      {linked.linkedAt && (
+                        <span className="text-xs text-gray-400">
+                          {new Date(linked.linkedAt).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {linked.manufacturer && (
+                    <span className="text-xs text-gray-400 hidden sm:block truncate max-w-[120px]">
+                      {linked.manufacturer}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ),
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// IMAGES TAB
+// ═══════════════════════════════════════════════════════════════
+
+const ImagesTab = ({ images, onUploadImage }) => {
+  const [selected, setSelected] = useState(0);
+  const primaryImages = images.filter((img) => img.type === "PRIMARY");
+  const galleryImages = images.filter((img) => img.type === "GALLERY");
+
+  if (!images.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <EmptyState
+          icon={ImageIcon}
+          title="No Images"
+          subtitle="Upload the first image for this medicine"
+          action={
+            <button
+              onClick={onUploadImage}
+              className="mt-4 h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+            >
+              <Upload size={14} /> Upload Image
+            </button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600">
+            <span className="font-semibold text-gray-900">{images.length}</span>{" "}
+            total ·{" "}
+            <span className="font-semibold text-green-600">
+              {primaryImages.length}
+            </span>{" "}
+            primary ·{" "}
+            <span className="font-semibold text-gray-600">
+              {galleryImages.length}
+            </span>{" "}
+            gallery
+          </span>
+        </div>
+        <button
+          onClick={onUploadImage}
+          className="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+        >
+          <Upload size={14} /> Manage Images
+        </button>
+      </div>
+
+      {/* Two-column: large preview + grid */}
+      <div className="grid grid-cols-3 gap-5">
+        {/* Preview pane */}
+        <div className="col-span-1 flex flex-col gap-3">
+          <div className="aspect-square rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex items-center justify-center">
+            <img
+              src={images[selected]?.resolvedUrl}
+              alt=""
+              className="w-full h-full object-contain p-4"
+              onError={(e) => {
+                e.target.style.opacity = "0.3";
+              }}
+            />
+          </div>
+          <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-1.5">
+            <DetailField label="Type" value={images[selected]?.type} small />
+            <DetailField
+              label="Source"
+              value={images[selected]?.source}
+              small
+            />
+            <DetailField
+              label="SKU"
+              value={images[selected]?.skuId}
+              small
+              mono
+            />
+            {images[selected]?.uploadedBy && (
+              <DetailField
+                label="Uploaded by"
+                value={images[selected].uploadedBy}
+                small
+              />
+            )}
+          </div>
+          <button
+            onClick={() => window.open(images[selected]?.resolvedUrl, "_blank")}
+            className="h-8 w-full border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center gap-1.5"
+          >
+            <ExternalLink size={12} /> Open full size
+          </button>
+        </div>
+
+        {/* Grid */}
+        <div className="col-span-2">
+          {primaryImages.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Primary
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {primaryImages.map((img) => {
+                  const idx = images.indexOf(img);
+                  return (
+                    <ImageThumb
+                      key={img.id}
+                      img={img}
+                      isSelected={selected === idx}
+                      onClick={() => setSelected(idx)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {galleryImages.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Gallery
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {galleryImages.map((img) => {
+                  const idx = images.indexOf(img);
+                  return (
+                    <ImageThumb
+                      key={img.id}
+                      img={img}
+                      isSelected={selected === idx}
+                      onClick={() => setSelected(idx)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+
+const ImageThumb = ({ img, isSelected, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`aspect-square rounded-lg border overflow-hidden bg-gray-50 transition-all ${
+      isSelected
+        ? "border-indigo-500 ring-2 ring-indigo-200"
+        : "border-gray-200 hover:border-gray-300"
+    }`}
+  >
+    <img
+      src={img.resolvedUrl}
+      alt=""
+      className="w-full h-full object-contain p-1"
+      onError={(e) => {
+        e.target.style.opacity = "0.3";
+      }}
+    />
+  </button>
+);
+
+const QuickStat = ({ icon: Icon, label }) => (
+  <span className="flex items-center gap-1.5 text-sm text-gray-300">
+    <Icon size={13} className="text-gray-200" />
+    {label}
+  </span>
+);
+
+const DetailField = ({
+  label,
+  value,
+  bold = false,
+  mono = false,
+  small = false,
+}) => (
+  <div>
+    <p
+      className={`${small ? "text-[11px]" : "text-xs"} text-gray-400 font-medium mb-0.5`}
+    >
+      {label}
+    </p>
+    <p
+      className={`${small ? "text-xs" : "text-sm"} ${bold ? "font-semibold text-gray-900" : "text-gray-700"} ${mono ? "font-mono" : ""}`}
+    >
+      {value || "—"}
+    </p>
+  </div>
+);
+
+const TagGroup = ({ label, icon: Icon, items, color }) => {
+  const colors = {
+    purple: "bg-purple-50 text-purple-700 border-purple-100",
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    orange: "bg-orange-50 text-orange-700 border-orange-100",
+    gray: "bg-gray-100 text-gray-600 border-gray-200",
+  };
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+        <Icon size={12} /> {label} ({items.length})
+      </h4>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item, idx) => (
+          <span
+            key={idx}
+            className={`px-2 py-1 rounded-lg text-xs font-medium border ${colors[color]}`}
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
+  <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+    <Icon size={40} className="mb-3 opacity-40" />
+    <p className="text-base font-medium text-gray-600">{title}</p>
+    <p className="text-sm mt-1">{subtitle}</p>
+    {action}
   </div>
 );
 

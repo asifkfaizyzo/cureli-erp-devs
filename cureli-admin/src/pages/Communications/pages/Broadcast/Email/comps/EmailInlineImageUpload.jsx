@@ -56,12 +56,12 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
       try {
         const response = await emailBroadcastAPI.uploadInlineImage(
           file,
-          (progress) => setUploadProgress(progress)
+          (progress) => setUploadProgress(progress),
         );
 
-        console.log("[EmailInlineImageUpload] Upload response:", response);
+      
 
-        // ✅ FIXED: Check response.success, not response.data.success
+        //  FIXED: Check response.success, not response.data.success
         // API returns response.data, so response is already the data object
         if (response && response.success) {
           const uploadedFile = response.data;
@@ -88,13 +88,15 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
       } catch (err) {
         console.error("[EmailInlineImageUpload] Upload error:", err);
         setError(
-          err.response?.data?.message || err.message || "Failed to upload image"
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to upload image",
         );
       } finally {
         setIsUploading(false);
       }
     },
-    [disabled, onChange]
+    [disabled, onChange],
   );
 
   const handleInputChange = (e) => {
@@ -273,8 +275,8 @@ function EmailInlineImageUpload({ image, onChange, disabled }) {
       {isUploading
         ? renderUploadProgress()
         : image
-        ? renderImagePreview()
-        : renderUploadArea()}
+          ? renderImagePreview()
+          : renderUploadArea()}
 
       {image && !isUploading && (
         <div className="flex items-center gap-1.5 text-xs text-green-600">

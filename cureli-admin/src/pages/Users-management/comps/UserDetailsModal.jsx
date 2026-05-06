@@ -351,7 +351,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
         return;
       }
 
-      console.log("Saving changes:", payload); // Debug log
+     
 
       const response = await updateCAdminUser(user.user_id, payload);
 

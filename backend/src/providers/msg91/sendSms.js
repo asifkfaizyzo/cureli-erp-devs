@@ -47,10 +47,7 @@ export async function msg91SendSms({ templateId, mobile, variables = {} }) {
     ],
   };
 
-  console.log("📡 MSG91 request:", {
-    templateId,
-    mobile: mobile.slice(0, 5) + "****" + mobile.slice(-2),
-  });
+
 
   try {
     const resp = await axios.post(BASE, payload, {
@@ -62,11 +59,10 @@ export async function msg91SendSms({ templateId, mobile, variables = {} }) {
       timeout: 15000,
     });
 
-    console.log("✅ MSG91 response:", resp.data);
 
     if (resp.data?.type !== "success") {
       const error = new Error(
-        `MSG91 send failed: ${resp.data?.message || "Unknown error"}`
+        `MSG91 send failed: ${resp.data?.message || "Unknown error"}`,
       );
       error.response = resp;
       throw error;
@@ -74,7 +70,7 @@ export async function msg91SendSms({ templateId, mobile, variables = {} }) {
 
     return resp.data;
   } catch (err) {
-    console.error("❌ MSG91 error:", err.response?.data || err.message);
+    console.error(" MSG91 error:", err.response?.data || err.message);
     throw err;
   }
 }

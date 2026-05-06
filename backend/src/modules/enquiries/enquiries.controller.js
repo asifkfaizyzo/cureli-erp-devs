@@ -7,9 +7,9 @@ import * as audit from "../audit/index.js";
 // Logger utility - only logs in development
 const log = {
   info: (...args) => {
-    if (process.env.NODE_ENV !== "production") {
-      console.log(...args);
-    }
+    // if (process.env.NODE_ENV !== "production") {
+    //   console.log(...args);
+    // }
   },
   error: (...args) => console.error(...args),
 };
@@ -38,7 +38,7 @@ export const submitEnquiry = async (req, res) => {
           return fail(
             res,
             "Security verification failed. Please try again.",
-            400
+            400,
           );
         }
 
@@ -51,7 +51,7 @@ export const submitEnquiry = async (req, res) => {
           return fail(
             res,
             "Security verification failed. Please try again.",
-            400
+            400,
           );
         }
       } catch (recaptchaError) {
@@ -68,12 +68,12 @@ export const submitEnquiry = async (req, res) => {
       message,
     });
 
-    log.info("✅ Enquiry created:", enquiry.enquiry_number);
+    log.info(" Enquiry created:", enquiry.enquiry_number);
     return success(
       res,
       { enquiry_number: enquiry.enquiry_number },
       "Your enquiry has been submitted successfully!",
-      201
+      201,
     );
   } catch (error) {
     log.error("Submit enquiry error:", error);
@@ -88,14 +88,7 @@ export const listEnquiries = async (req, res) => {
     const { page, limit, status, search, sortBy, sortOrder } =
       req.validatedQuery || req.query;
 
-    log.info("📥 List Enquiries Request:", {
-      page,
-      limit,
-      status,
-      search,
-      sortBy,
-      sortOrder,
-    });
+
 
     const result = await enquiryService.listEnquiries({
       page: parseInt(page) || 1,
@@ -106,14 +99,11 @@ export const listEnquiries = async (req, res) => {
       sortOrder: sortOrder || "desc",
     });
 
-    log.info("📤 List Enquiries Response:", {
-      count: result.enquiries?.length,
-      pagination: result.pagination,
-    });
+    
 
     return success(res, result, "Enquiries fetched successfully");
   } catch (error) {
-    log.error("❌ List enquiries error:", error);
+    log.error(" List enquiries error:", error);
     return fail(res, "Failed to fetch enquiries", 500);
   }
 };
@@ -123,11 +113,9 @@ export const getEnquiryStats = async (req, res) => {
   try {
     const stats = await enquiryService.getEnquiryStats();
 
-    log.info("📊 Enquiry Stats:", stats);
-
     return success(res, { stats }, "Enquiry stats fetched successfully");
   } catch (error) {
-    log.error("❌ Get enquiry stats error:", error);
+    log.error(" Get enquiry stats error:", error);
     return fail(res, "Failed to fetch enquiry stats", 500);
   }
 };
@@ -154,7 +142,7 @@ export const getEnquiryDetails = async (req, res) => {
   }
 };
 
-// ✅ UPDATED: Extract audit context and pass to service
+//  UPDATED: Extract audit context and pass to service
 export const replyToEnquiry = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;
@@ -176,7 +164,7 @@ export const replyToEnquiry = async (req, res) => {
       enquiryId,
       adminId,
       { subject, message },
-      auditContext
+      auditContext,
     );
 
     if (!result.emailSent) {
@@ -185,17 +173,17 @@ export const replyToEnquiry = async (req, res) => {
         res,
         { reply: result.reply, emailSent: false },
         `Reply saved but email failed to send: ${result.emailError}`,
-        201
+        201,
       );
     }
 
-    log.info("✅ Reply sent successfully for enquiry:", enquiryId);
+    log.info(" Reply sent successfully for enquiry:", enquiryId);
 
     return success(
       res,
       { reply: result.reply, emailSent: true },
       "Reply sent successfully",
-      201
+      201,
     );
   } catch (error) {
     log.error("Reply to enquiry error:", error);
@@ -206,7 +194,7 @@ export const replyToEnquiry = async (req, res) => {
   }
 };
 
-// ✅ UPDATED: Extract audit context and pass to service
+//  UPDATED: Extract audit context and pass to service
 export const updateEnquiryStatus = async (req, res) => {
   try {
     const { enquiryId } = req.validatedParams;
@@ -226,10 +214,10 @@ export const updateEnquiryStatus = async (req, res) => {
     const enquiry = await enquiryService.updateEnquiryStatus(
       enquiryId,
       status,
-      auditContext
+      auditContext,
     );
 
-    log.info("✅ Enquiry status updated:", enquiryId, "->", status);
+    log.info(" Enquiry status updated:", enquiryId, "->", status);
 
     return success(res, { enquiry }, "Enquiry status updated successfully");
   } catch (error) {
@@ -252,7 +240,7 @@ export const deleteEnquiry = async (req, res) => {
 
     await enquiryService.deleteEnquiry(enquiryId);
 
-    log.info("✅ Enquiry deleted:", enquiryId);
+    log.info(" Enquiry deleted:", enquiryId);
 
     return success(res, {}, "Enquiry deleted successfully");
   } catch (error) {

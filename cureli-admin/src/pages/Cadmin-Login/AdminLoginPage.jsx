@@ -5,7 +5,7 @@ import CAdminLoginForm from "./comps/CAdminLoginForm";
 import CAdminOtpForm from "./comps/CAdminOtpForm";
 import { AUTH_CONFIG } from "../../config/modules/authConfig.js";
 
-import logo from "../../assets/icons/cureli.svg";
+import logo from "../../assets/icons/curelinew.svg";
 import {
   Shield,
   Lock,
@@ -54,7 +54,7 @@ const AdminLoginPage = () => {
     transition={{ duration: 0.5 }}
     className="absolute top-8 left-8 flex items-center gap-3"
   >
-    <img src={logo} alt="Cureli" className="h-9 w-auto" />
+    <img src={logo} alt="Cureli" className="h-13 w-auto" />
     <div className="flex items-center gap-2">
       <span className="text-xl font-bold text-[#000060] font-manrope">Cureli</span>
       <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#000060] text-white rounded">ADMIN</span>

@@ -22,6 +22,8 @@ import ConfirmDialog from "../../../../components/common/ConfirmDialog";
 import StyledSelect from "../../../../components/common/StyledSelect";
 import useDebounce from "../../../../hooks/useDebounce";
 import useDynamicRowCount from "../../../../hooks/useDynamicRowCount";
+import { useCAdminPermission } from "../../../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS } from "../../../../config/cadminPermissions";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -34,6 +36,14 @@ const STATUS_OPTIONS = [
 const EnquiriesPage = () => {
   const toast = useToast();
   const rowsPerPage = useDynamicRowCount();
+
+  // ── Permission gates ─────────────────────────────────────────────────────
+  const { hasPermission } = useCAdminPermission();
+  const canViewStats    = hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_STATS);
+  const canViewDetail   = hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_DETAIL);
+  const canReply        = hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_REPLY);
+  const canUpdateStatus = hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_UPDATE_STATUS);
+  const canDelete       = hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_DELETE);
 
   // Data state
   const [enquiries, setEnquiries] = useState([]);
@@ -67,7 +77,6 @@ const EnquiriesPage = () => {
     return [statusFilter].filter(Boolean).length;
   }, [statusFilter]);
 
-  // Check if any filter is active
   const hasActiveFilters = useMemo(() => {
     return activeFiltersCount > 0 || debouncedSearch.trim().length > 0;
   }, [activeFiltersCount, debouncedSearch]);
@@ -105,15 +114,16 @@ const EnquiriesPage = () => {
       setEnquiries(enquiriesData);
       setTotalItems(paginationData?.total || enquiriesData.length);
 
-      // Auto-adjust page if current page exceeds total pages
-      const totalPages = Math.ceil((paginationData?.total || enquiriesData.length) / rowsPerPage);
+      const totalPages = Math.ceil(
+        (paginationData?.total || enquiriesData.length) / rowsPerPage,
+      );
       if (currentPage > totalPages && totalPages > 0) {
         setCurrentPage(totalPages);
       }
     } catch (err) {
       console.error("Failed to fetch enquiries:", err);
       setError("Failed to load enquiries. Please try again.");
-      toast.error("Load Failed", "Failed to load enquiries"); // ✅ Fixed: 2 arguments
+      toast.error("Load Failed", "Failed to load enquiries");
       setEnquiries([]);
       setTotalItems(0);
     } finally {
@@ -121,8 +131,10 @@ const EnquiriesPage = () => {
     }
   }, [currentPage, rowsPerPage, debouncedSearch, statusFilter, toast]);
 
-  // Fetch stats
+  // Fetch stats — only if admin has permission
   const fetchStats = useCallback(async () => {
+    if (!canViewStats) return;
+
     try {
       const response = await getEnquiryStats();
 
@@ -134,7 +146,10 @@ const EnquiriesPage = () => {
         statsData = response.data.stats;
       } else if (response?.stats) {
         statsData = response.stats;
-      } else if (response?.data?.data && typeof response.data.data === "object") {
+      } else if (
+        response?.data?.data &&
+        typeof response.data.data === "object"
+      ) {
         statsData = response.data.data;
       } else if (response?.data && typeof response.data === "object") {
         statsData = response.data;
@@ -144,9 +159,8 @@ const EnquiriesPage = () => {
     } catch (err) {
       console.error("Failed to fetch stats:", err);
     }
-  }, []);
+  }, [canViewStats]);
 
-  // Initial load - runs once on mount
   useEffect(() => {
     fetchEnquiries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,7 +175,6 @@ const EnquiriesPage = () => {
     setCurrentPage(1);
   }, [debouncedSearch, statusFilter]);
 
-  // Manual refresh handler - with toast
   const handleRefresh = useCallback(() => {
     toast.info("Data Refreshed", "Loading latest enquiries...");
     fetchEnquiries();
@@ -173,41 +186,65 @@ const EnquiriesPage = () => {
     setStatusFilter("");
   }, []);
 
-  const handleView = useCallback((enquiry) => {
-    setSelectedEnquiry(enquiry);
-    setIsDetailsModalOpen(true);
-  }, []);
+  // Only open details modal if admin has the permission
+  const handleView = useCallback(
+    (enquiry) => {
+      if (!canViewDetail) return;
+      setSelectedEnquiry(enquiry);
+      setIsDetailsModalOpen(true);
+    },
+    [canViewDetail],
+  );
 
-  const handleReply = useCallback((enquiry) => {
-    setSelectedEnquiry(enquiry);
-    setIsReplyModalOpen(true);
-  }, []);
+  // Only open reply modal if admin has the permission
+  const handleReply = useCallback(
+    (enquiry) => {
+      if (!canReply) return;
+      setSelectedEnquiry(enquiry);
+      setIsReplyModalOpen(true);
+    },
+    [canReply],
+  );
 
-  const handleReplyFromDetails = useCallback((enquiry) => {
-    setSelectedEnquiry(enquiry);
-    setIsReplyModalOpen(true);
-  }, []);
+  const handleReplyFromDetails = useCallback(
+    (enquiry) => {
+      if (!canReply) return;
+      setSelectedEnquiry(enquiry);
+      setIsReplyModalOpen(true);
+    },
+    [canReply],
+  );
 
-  const handleDeleteClick = useCallback((enquiry) => {
-    setSelectedEnquiry(enquiry);
-    setIsDeleteDialogOpen(true);
-  }, []);
+  // Only open delete dialog if admin has the permission
+  const handleDeleteClick = useCallback(
+    (enquiry) => {
+      if (!canDelete) return;
+      setSelectedEnquiry(enquiry);
+      setIsDeleteDialogOpen(true);
+    },
+    [canDelete],
+  );
 
   const handleDeleteConfirm = async () => {
-    if (!selectedEnquiry) return;
+    if (!selectedEnquiry || !canDelete) return;
 
     setIsDeleting(true);
     try {
       await deleteEnquiry(selectedEnquiry.enquiry_id);
-      toast.success("Deleted", `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`);
+      toast.success(
+        "Deleted",
+        `Enquiry ${selectedEnquiry.enquiry_number} has been deleted.`,
+      );
       setIsDeleteDialogOpen(false);
       setSelectedEnquiry(null);
-      // Refresh without showing toast (since we just showed success toast)
       fetchEnquiries();
       fetchStats();
     } catch (err) {
       console.error("Failed to delete enquiry:", err);
-      toast.error("Delete Failed", "Could not delete the enquiry. Please try again.");
+      toast.error(
+        "Delete Failed",
+        "Could not delete the enquiry. Please try again.",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -217,13 +254,11 @@ const EnquiriesPage = () => {
     setIsReplyModalOpen(false);
     setIsDetailsModalOpen(false);
     setSelectedEnquiry(null);
-    // Refresh without showing toast (reply modal already showed success toast)
     fetchEnquiries();
     fetchStats();
   }, [fetchEnquiries, fetchStats]);
 
   const handleStatusChange = useCallback(() => {
-    // Refresh without showing toast
     fetchEnquiries();
     fetchStats();
   }, [fetchEnquiries, fetchStats]);
@@ -289,8 +324,8 @@ const EnquiriesPage = () => {
                 placeholder="Search by name, email, or enquiry number..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
-                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm
+                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20
                            focus:border-[#000060] transition-all"
               />
               {searchText && (
@@ -305,7 +340,7 @@ const EnquiriesPage = () => {
               )}
             </div>
 
-            {/* Filter Toggle Button */}
+            {/* Filter Toggle */}
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
@@ -321,7 +356,7 @@ const EnquiriesPage = () => {
               <span className="hidden sm:inline">Filters</span>
               {activeFiltersCount > 0 && (
                 <span
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white
                                  text-xs font-bold rounded-full flex items-center justify-center"
                 >
                   {activeFiltersCount}
@@ -347,7 +382,7 @@ const EnquiriesPage = () => {
                 <div className="mt-3 flex items-center justify-end">
                   <button
                     onClick={handleClearFilters}
-                    className="px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                    className="px-4 py-2 text-sm text-red-600 hover:text-red-700
                                hover:bg-red-50 rounded-lg transition-all flex items-center gap-2"
                   >
                     <X size={16} />
@@ -385,6 +420,10 @@ const EnquiriesPage = () => {
           setCurrentPage={setCurrentPage}
           rowsPerPage={rowsPerPage}
           totalItems={totalItems}
+          // Pass permission flags so the table can show/hide action buttons
+          canViewDetail={canViewDetail}
+          canReply={canReply}
+          canDelete={canDelete}
           onViewEnquiry={handleView}
           onReplyEnquiry={handleReply}
           onDeleteEnquiry={handleDeleteClick}
@@ -392,32 +431,40 @@ const EnquiriesPage = () => {
         />
       </div>
 
-      {/* Modals */}
-      <EnquiryDetailsModal
-        enquiry={selectedEnquiry}
-        isOpen={isDetailsModalOpen}
-        onClose={handleCloseDetailsModal}
-        onReply={handleReplyFromDetails}
-        onStatusChange={handleStatusChange}
-      />
+      {/* Modals — only mount if admin has the matching permission */}
+      {canViewDetail && (
+        <EnquiryDetailsModal
+          enquiry={selectedEnquiry}
+          isOpen={isDetailsModalOpen}
+          onClose={handleCloseDetailsModal}
+          // Only show reply button inside detail modal if admin can reply
+          onReply={canReply ? handleReplyFromDetails : undefined}
+          // Only allow status change if admin has that permission
+          onStatusChange={canUpdateStatus ? handleStatusChange : undefined}
+        />
+      )}
 
-      <EnquiryReplyModal
-        enquiry={selectedEnquiry}
-        isOpen={isReplyModalOpen}
-        onClose={handleCloseReplyModal}
-        onSuccess={handleReplySuccess}
-      />
+      {canReply && (
+        <EnquiryReplyModal
+          enquiry={selectedEnquiry}
+          isOpen={isReplyModalOpen}
+          onClose={handleCloseReplyModal}
+          onSuccess={handleReplySuccess}
+        />
+      )}
 
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={handleCloseDeleteDialog}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Enquiry"
-        message={`Are you sure you want to delete enquiry "${selectedEnquiry?.enquiry_number}"? This action cannot be undone.`}
-        confirmText="Delete"
-        confirmVariant="danger"
-        isLoading={isDeleting}
-      />
+      {canDelete && (
+        <ConfirmDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={handleCloseDeleteDialog}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Enquiry"
+          message={`Are you sure you want to delete enquiry "${selectedEnquiry?.enquiry_number}"? This action cannot be undone.`}
+          confirmText="Delete"
+          confirmVariant="danger"
+          isLoading={isDeleting}
+        />
+      )}
     </div>
   );
 };

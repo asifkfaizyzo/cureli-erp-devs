@@ -14,15 +14,30 @@ import {
 
 // ============================================
 // CREATE PURCHASE INVOICE
-// ✅ Updated with improved validation for same medicine different batches
-// ✅ Updated to handle free items
+//  Updated with improved validation for same medicine different batches
+//  Updated to handle free items
 // ============================================
 
-export async function createPurchaseInvoice(userId, shopId, branchId, data, auditContext) {
-  const { supplier_id, invoice_date, lineItems, paid_amount, payment_mode, ...invoiceData } = data;
+export async function createPurchaseInvoice(
+  userId,
+  shopId,
+  branchId,
+  data,
+  auditContext,
+) {
+  const {
+    supplier_id,
+    invoice_date,
+    lineItems,
+    paid_amount,
+    payment_mode,
+    ...invoiceData
+  } = data;
 
   if (!branchId) {
-    const err = new Error("Branch selection is required to create purchase invoices. Please select a specific branch.");
+    const err = new Error(
+      "Branch selection is required to create purchase invoices. Please select a specific branch.",
+    );
     err.code = "BRANCH_REQUIRED";
     throw err;
   }
@@ -49,13 +64,13 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ✅ FIXED: Separate billable and free items using is_free_item flag
+  //  FIXED: Separate billable and free items using is_free_item flag
   // ═══════════════════════════════════════════════════════════════════════
+
+  const billableItems = lineItems.filter((item) => item.is_free_item !== true);
+  const freeItems = lineItems.filter((item) => item.is_free_item === true);
+
   
-  const billableItems = lineItems.filter(item => item.is_free_item !== true);
-  const freeItems = lineItems.filter(item => item.is_free_item === true);
-  
-  console.log(`📦 Processing ${billableItems.length} billable items and ${freeItems.length} free items`);
 
   // Get unique medicine IDs from billable items only (free items will share medicine_id)
   const medicineIds = billableItems.map((item) => item.medicine_id);
@@ -63,22 +78,22 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
 
   // Validate all medicines exist and belong to this branch
   const medicines = await prisma.medicine.findMany({
-    where: { 
+    where: {
       medicine_id: { in: uniqueMedicineIds },
-      shop_id: shopId, 
+      shop_id: shopId,
       branch_id: branchId,
-      is_active: true 
+      is_active: true,
     },
     select: {
       medicine_id: true,
       name: true,
-    }
+    },
   });
 
   if (medicines.length !== uniqueMedicineIds.length) {
-    const foundIds = new Set(medicines.map(m => m.medicine_id));
-    const missingIds = uniqueMedicineIds.filter(id => !foundIds.has(id));
-    
+    const foundIds = new Set(medicines.map((m) => m.medicine_id));
+    const missingIds = uniqueMedicineIds.filter((id) => !foundIds.has(id));
+
     // Check if medicines exist in other branches
     const otherBranchMeds = await prisma.medicine.findMany({
       where: {
@@ -92,13 +107,16 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     if (otherBranchMeds.length > 0) {
       const details = otherBranchMeds
         .slice(0, 3)
-        .map(m => `"${m.name}"`)
-        .join(', ');
-      const more = otherBranchMeds.length > 3 ? ` and ${otherBranchMeds.length - 3} more` : '';
-      
+        .map((m) => `"${m.name}"`)
+        .join(", ");
+      const more =
+        otherBranchMeds.length > 3
+          ? ` and ${otherBranchMeds.length - 3} more`
+          : "";
+
       const err = new Error(
         `${otherBranchMeds.length} medicine(s) belong to a different branch: ${details}${more}. ` +
-        `Please add these medicines to the current branch first, or switch to the correct branch.`
+          `Please add these medicines to the current branch first, or switch to the correct branch.`,
       );
       err.code = "BRANCH_MISMATCH";
       throw err;
@@ -113,32 +131,34 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
     if (existingMeds.length === 0) {
       const err = new Error(
         `${missingIds.length} medicine(s) not found in database. ` +
-        `Please add these products to the master list first.`
+          `Please add these products to the master list first.`,
       );
       err.code = "INVALID_MEDICINE";
       throw err;
     }
 
     const err = new Error(
-      `${missingIds.length} medicine(s) are invalid or don't belong to this shop.`
+      `${missingIds.length} medicine(s) are invalid or don't belong to this shop.`,
     );
     err.code = "INVALID_MEDICINE";
     throw err;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // ✅ FIXED: VALIDATE BATCH UNIQUENESS for BILLABLE items only
+  //  FIXED: VALIDATE BATCH UNIQUENESS for BILLABLE items only
   // Free items can share batch with their parent
   // ═══════════════════════════════════════════════════════════════════════
   const batchMap = new Map();
   for (const item of billableItems) {
     const key = `${item.medicine_id}|${item.batch_number}`;
     if (batchMap.has(key)) {
-      const medicine = medicines.find(m => m.medicine_id === item.medicine_id);
+      const medicine = medicines.find(
+        (m) => m.medicine_id === item.medicine_id,
+      );
       const err = new Error(
-        `Duplicate batch "${item.batch_number}" for medicine "${medicine?.name || 'Unknown'}". ` +
-        `Each medicine+batch combination should appear only once in billable items. ` +
-        `If you're adding free items, mark them with is_free_item flag.`
+        `Duplicate batch "${item.batch_number}" for medicine "${medicine?.name || "Unknown"}". ` +
+          `Each medicine+batch combination should appear only once in billable items. ` +
+          `If you're adding free items, mark them with is_free_item flag.`,
       );
       err.code = "DUPLICATE_BATCH";
       throw err;
@@ -147,13 +167,17 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   }
 
   const invoiceNumber = await generateInvoiceNumber(shopId);
-  
-  // ✅ Calculate totals from BILLABLE items only (exclude free items)
+
+  //  Calculate totals from BILLABLE items only (exclude free items)
   const calculations = calculateInvoiceTotals(billableItems);
 
   const paidAmt = parseFloat(paid_amount) || 0;
   const netAmt = calculations.net_amount;
-  const paymentCalc = calculatePaymentStatus(paidAmt, netAmt, PAYMENT_BALANCE_THRESHOLD);
+  const paymentCalc = calculatePaymentStatus(
+    paidAmt,
+    netAmt,
+    PAYMENT_BALANCE_THRESHOLD,
+  );
 
   const result = await prisma.$transaction(async (tx) => {
     const invoice = await tx.purchaseInvoice.create({
@@ -182,12 +206,12 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
       },
     });
 
-    // ✅ Create ALL line items (both billable and free)
+    //  Create ALL line items (both billable and free)
     const items = await Promise.all(
       lineItems.map((item) => {
         // For free items, set amounts to 0
         const isFreeItem = item.is_free_item === true;
-        const itemCalc = isFreeItem 
+        const itemCalc = isFreeItem
           ? {
               discount_amount: 0,
               taxable_amount: 0,
@@ -208,7 +232,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
               ? new Date(item.manufacturing_date)
               : null,
             quantity: item.quantity,
-            free_quantity: isFreeItem ? item.quantity : (item.free_quantity || 0),
+            free_quantity: isFreeItem ? item.quantity : item.free_quantity || 0,
             pack_size: item.pack_size || null,
             unit_of_measure: item.unit_of_measure || "UNIT",
             purchase_rate: item.purchase_rate,
@@ -229,7 +253,7 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
             line_total: itemCalc.line_total,
           },
         });
-      })
+      }),
     );
 
     // Create payment record if amount paid
@@ -244,9 +268,10 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
           payment_mode: payment_mode || "CASH",
           status: "COMPLETED",
           created_by: userId,
-          remarks: paymentCalc.status === "PAID" && paidAmt < netAmt 
-            ? `Full payment (balance ₹${(netAmt - paidAmt).toFixed(2)} within threshold)` 
-            : "Initial payment on invoice creation",
+          remarks:
+            paymentCalc.status === "PAID" && paidAmt < netAmt
+              ? `Full payment (balance ₹${(netAmt - paidAmt).toFixed(2)} within threshold)`
+              : "Initial payment on invoice creation",
         },
       });
     }
@@ -281,13 +306,18 @@ export async function createPurchaseInvoice(userId, shopId, branchId, data, audi
   return result;
 }
 
-
 // ============================================
 // CONFIRM PURCHASE INVOICE & UPDATE STOCK
-// ✅ FIXED: Skip free item rows to prevent double-counting
+//  FIXED: Skip free item rows to prevent double-counting
 // ============================================
 
-export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId, auditContext) {
+export async function confirmPurchaseInvoice(
+  userId,
+  shopId,
+  branchId,
+  invoiceId,
+  auditContext,
+) {
   const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: { role: true },
@@ -330,18 +360,17 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 
   const invoiceBranchId = invoice.branch_id;
 
-  // ✅ Count billable vs free items for logging
-  const billableItems = invoice.lineItems.filter(item => 
-    !(parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0)
+  //  Count billable vs free items for logging
+  const billableItems = invoice.lineItems.filter(
+    (item) =>
+      !(parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0),
   );
-  const freeItemRows = invoice.lineItems.filter(item => 
-    parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0
+  const freeItemRows = invoice.lineItems.filter(
+    (item) =>
+      parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0,
   );
 
-  console.log(`📦 Confirming invoice ${invoice.invoice_number}:`);
-  console.log(`   - Billable items: ${billableItems.length}`);
-  console.log(`   - Free item rows: ${freeItemRows.length} (will be skipped for stock)`);
-
+  
   const result = await prisma.$transaction(async (tx) => {
     const updatedInvoice = await tx.purchaseInvoice.update({
       where: { invoice_id: invoiceId },
@@ -355,16 +384,17 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
     // Process each line item and update stock
     for (const item of invoice.lineItems) {
       // ═══════════════════════════════════════════════════════════════════════
-      // ✅ FIXED: SKIP FREE ITEM ROWS FOR STOCK UPDATE
+      //  FIXED: SKIP FREE ITEM ROWS FOR STOCK UPDATE
       // Free item rows have line_total = 0 with quantity > 0
       // Their quantity is ALREADY included in the parent row's free_quantity
       // We still link them to inventory but DON'T add to stock
       // ═══════════════════════════════════════════════════════════════════════
-      const isFreeItemRow = parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
-      
+      const isFreeItemRow =
+        parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0;
+
       if (isFreeItemRow) {
-        console.log(`⏭️ Skipping stock for free item row: Batch ${item.batch_number} (qty: ${item.quantity}) - already in parent's free_quantity`);
-        
+       
+
         // Still link to inventory for record keeping
         const existingInventory = await tx.inventory.findFirst({
           where: {
@@ -395,15 +425,15 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
         item.medicine_id,
         item.batch_number,
         item.expiry_date,
-        item.mrp
+        item.mrp,
       );
 
-      // ✅ Calculate total quantity: purchased qty + free qty (from sch field)
+      //  Calculate total quantity: purchased qty + free qty (from sch field)
       const purchasedQty = Number(item.quantity) || 0;
       const freeQty = Number(item.free_quantity) || 0;
       const totalQuantity = purchasedQty + freeQty;
 
-      console.log(`✅ Adding stock: Batch ${item.batch_number} → ${purchasedQty} purchased + ${freeQty} free = ${totalQuantity} total`);
+      
 
       // Update stock
       await inventoryService.updateStock(
@@ -421,12 +451,13 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
           referenceId: invoice.invoice_id,
           referenceNumber: invoice.invoice_number,
           transactionDate: invoice.invoice_date,
-          remarks: freeQty > 0 
-            ? `Purchase: ${purchasedQty} + ${freeQty} free from ${invoice.supplier_invoice_no || invoice.invoice_number}`
-            : `Purchase from ${invoice.supplier_invoice_no || invoice.invoice_number}`,
+          remarks:
+            freeQty > 0
+              ? `Purchase: ${purchasedQty} + ${freeQty} free from ${invoice.supplier_invoice_no || invoice.invoice_number}`
+              : `Purchase from ${invoice.supplier_invoice_no || invoice.invoice_number}`,
         },
         userId,
-        tx
+        tx,
       );
 
       // Update inventory metadata
@@ -480,7 +511,13 @@ export async function confirmPurchaseInvoice(userId, shopId, branchId, invoiceId
 // GET PURCHASE INVOICES
 // ============================================
 
-export async function getPurchaseInvoices(shopId, branchId, role, branchMode, filters = {}) {
+export async function getPurchaseInvoices(
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  filters = {},
+) {
   const {
     startDate,
     endDate,
@@ -543,11 +580,15 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
     prisma.purchaseInvoice.count({ where }),
   ]);
 
-  // ✅ Calculate billable vs free items
-  const transformedInvoices = invoices.map(invoice => {
-    const billableItems = invoice.lineItems.filter(item => parseFloat(item.line_total) > 0);
-    const freeItems = invoice.lineItems.filter(item => parseFloat(item.line_total) === 0);
-    
+  //  Calculate billable vs free items
+  const transformedInvoices = invoices.map((invoice) => {
+    const billableItems = invoice.lineItems.filter(
+      (item) => parseFloat(item.line_total) > 0,
+    );
+    const freeItems = invoice.lineItems.filter(
+      (item) => parseFloat(item.line_total) === 0,
+    );
+
     return {
       ...invoice,
       _count: {
@@ -565,12 +606,18 @@ export async function getPurchaseInvoices(shopId, branchId, role, branchMode, fi
 // GET INVOICE DETAILS
 // ============================================
 
-export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branchMode) {
+export async function getInvoiceDetails(
+  invoiceId,
+  shopId,
+  branchId,
+  role,
+  branchMode,
+) {
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
   const invoice = await prisma.purchaseInvoice.findFirst({
-    where: { 
-      invoice_id: invoiceId, 
+    where: {
+      invoice_id: invoiceId,
       ...baseFilter,
     },
     include: {
@@ -631,7 +678,7 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           },
         },
         orderBy: {
-          created_at: 'asc',
+          created_at: "asc",
         },
       },
       payments: {
@@ -647,7 +694,7 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
           created_at: true,
         },
         orderBy: {
-          payment_date: 'desc',
+          payment_date: "desc",
         },
       },
       creator: {
@@ -675,10 +722,11 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
     throw err;
   }
 
-  // ✅ Mark free items in response
-  const lineItemsWithFreeFlag = invoice.lineItems.map(item => ({
+  //  Mark free items in response
+  const lineItemsWithFreeFlag = invoice.lineItems.map((item) => ({
     ...item,
-    is_free_item: parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0,
+    is_free_item:
+      parseFloat(item.line_total) === 0 && parseFloat(item.quantity) > 0,
   }));
 
   return {
@@ -691,7 +739,13 @@ export async function getInvoiceDetails(invoiceId, shopId, branchId, role, branc
 // GET PURCHASE STATISTICS
 // ============================================
 
-export async function getPurchaseStats(shopId, branchId, role, branchMode, filters = {}) {
+export async function getPurchaseStats(
+  shopId,
+  branchId,
+  role,
+  branchMode,
+  filters = {},
+) {
   const { startDate, endDate } = filters;
 
   const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);

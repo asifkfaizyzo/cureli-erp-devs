@@ -3,52 +3,65 @@
 import { Router } from "express";
 import { validateBody, validateQuery } from "../../../middleware/validate.js";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
-
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
 import {
   getAllTicketsController,
   getTicketStatsController,
   getTicketByIdController,
-  getTicketHistoryController,
+  getTicketActivitiesController,  // ← replaces getTicketHistoryController
   updateTicketStatusController,
+  addCommentController,           // ← new
 } from "./cadminTickets.controller.js";
-
 import {
   getTicketsQuerySchema,
   updateTicketStatusSchema,
+  addCommentSchema,               // ← new
 } from "./cadminTickets.schema.js";
 
 const router = Router();
 
-// All routes require CAdmin authentication
 router.use(requireCAdmin);
 
-/**
- * GET /cadmin/tickets/stats
- */
-router.get("/tickets/stats", getTicketStatsController);
+// Stats MUST be before /:ticket_id
+router.get(
+  "/tickets/stats",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_STATS),
+  getTicketStatsController
+);
 
-/**
- * GET /cadmin/tickets
- */
-router.get("/tickets", validateQuery(getTicketsQuerySchema), getAllTicketsController);
+router.get(
+  "/tickets",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
+  validateQuery(getTicketsQuerySchema),
+  getAllTicketsController
+);
 
-/**
- * GET /cadmin/tickets/:ticket_id
- */
-router.get("/tickets/:ticket_id", getTicketByIdController);
+router.get(
+  "/tickets/:ticket_id",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_DETAIL),
+  getTicketByIdController
+);
 
-/**
- * GET /cadmin/tickets/:ticket_id/history
- */
-router.get("/tickets/:ticket_id/history", getTicketHistoryController);
+// ← replaces /history
+router.get(
+  "/tickets/:ticket_id/activities",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_VIEW_HISTORY),
+  getTicketActivitiesController
+);
 
-/**
- * PATCH /cadmin/tickets/:ticket_id/status
- */
 router.patch(
   "/tickets/:ticket_id/status",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS),
   validateBody(updateTicketStatusSchema),
   updateTicketStatusController
+);
+
+router.post(
+  "/tickets/:ticket_id/comment",
+  requireCAdminPermission(CADMIN_PERMISSIONS.TICKETS_UPDATE_STATUS),
+  validateBody(addCommentSchema),
+  addCommentController
 );
 
 export default router;

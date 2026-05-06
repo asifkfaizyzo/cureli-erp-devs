@@ -1,43 +1,37 @@
 // src/pages/Dashboard/AdminDashboard.jsx
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { 
-  RefreshCw, 
-  LayoutDashboard, 
-  Loader2, 
-  AlertCircle,
-  Sparkles,
-  Clock,
+import { useState, useEffect, useCallback } from "react";
+import {
+  RefreshCw, LayoutDashboard, Loader2, AlertCircle, Clock,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../../context/AuthContext";
-import { useToast } from "../../components/common/Toast";
-import { useMenuStore } from "../../store/useMenuStore";
+import { useAuth }        from "../../context/AuthContext";
+import { useToast }       from "../../components/common/Toast";
+import { useMenuStore }   from "../../store/useMenuStore";
+import { useCAdminPermission } from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS }  from "../../config/cadminPermissions";
+import NoPermission        from "../../components/common/NoPermission";
 
-// Components
-import WelcomeBanner from "./comps/WelcomeBanner";
-import AlertsBanner from "./comps/AlertsBanner";
-import PeriodSelector from "./comps/PeriodSelector";
-import KPICardsGrid from "./comps/KPICardsGrid";
-import QuickActionsPanel from "./comps/QuickActionsPanel";
+// Dashboard sub-components
+import WelcomeBanner      from "./comps/WelcomeBanner";
+import AlertsBanner       from "./comps/AlertsBanner";
+import PeriodSelector     from "./comps/PeriodSelector";
+import KPICardsGrid       from "./comps/KPICardsGrid";
+import QuickActionsPanel  from "./comps/QuickActionsPanel";
 import PendingActionsPanel from "./comps/PendingActionsPanel";
-import RevenueChart from "./comps/RevenueChart";
-import SubscriptionDonut from "./comps/SubscriptionDonut";
-import UserGrowthChart from "./comps/UserGrowthChart";
-import OnboardingTable from "./comps/OnboardingTable";
-import TopShopsTable from "./comps/TopShopsTable";
-import ActivityFeed from "./comps/ActivityFeed";
+import RevenueChart       from "./comps/RevenueChart";
+import SubscriptionDonut  from "./comps/SubscriptionDonut";
+import UserGrowthChart    from "./comps/UserGrowthChart";
+import OnboardingTable    from "./comps/OnboardingTable";
+import TopShopsTable      from "./comps/TopShopsTable";
+import ActivityFeed       from "./comps/ActivityFeed";
 
 // API
-import {
-  getDashboardOverview,
-  getDashboardAlerts,
-} from "../../api/cadminDashboard";
+import { getDashboardOverview, getDashboardAlerts } from "../../api/cadminDashboard";
 
-// ════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
 // GRID PATTERN BACKGROUND
-// ════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
 
 const GridPattern = () => (
   <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.02]">
@@ -52,115 +46,59 @@ const GridPattern = () => (
   </div>
 );
 
-// ════════════════════════════════════════════
-// ROLE PERMISSIONS
-// ════════════════════════════════════════════
-
-const ROLE_PERMISSIONS = {
-  SUPER_CADMIN: {
-    canViewKPIs: true,
-    canViewRevenue: true,
-    canViewSubscriptions: true,
-    canViewUserGrowth: true,
-    canViewOnboarding: true,
-    canViewTopShops: true,
-    canViewActivity: true,
-    canViewAlerts: true,
-    canViewQuickActions: true,
-    canViewPendingActions: true,
-  },
-  ANALYST: {
-    canViewKPIs: true,
-    canViewRevenue: false,
-    canViewSubscriptions: true,
-    canViewUserGrowth: true,
-    canViewOnboarding: true,
-    canViewTopShops: false,
-    canViewActivity: true,
-    canViewAlerts: true,
-    canViewQuickActions: false,
-    canViewPendingActions: true,
-  },
-  ACCOUNTANT: {
-    canViewKPIs: true,
-    canViewRevenue: true,
-    canViewSubscriptions: true,
-    canViewUserGrowth: false,
-    canViewOnboarding: false,
-    canViewTopShops: true,
-    canViewActivity: false,
-    canViewAlerts: true,
-    canViewQuickActions: false,
-    canViewPendingActions: true,
-  },
-  SALESMAN: {
-    canViewKPIs: true,
-    canViewRevenue: false,
-    canViewSubscriptions: false,
-    canViewUserGrowth: false,
-    canViewOnboarding: true,
-    canViewTopShops: true,
-    canViewActivity: false,
-    canViewAlerts: false,
-    canViewQuickActions: false,
-    canViewPendingActions: false,
-  },
-};
-
-const normalizeRole = (role) => {
-  if (!role) return "ANALYST";
-  const upper = role.toUpperCase();
-  if (upper === "SUPER_ADMIN" || upper === "SUPER_CADMIN") return "SUPER_CADMIN";
-  if (upper === "ACCOUNTING" || upper === "ACCOUNTANT") return "ACCOUNTANT";
-  if (upper === "SALES" || upper === "SALESMAN") return "SALESMAN";
-  return upper;
-};
-
 const formatDateTime = (date) =>
   new Date(date).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
+    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
-// ════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN DASHBOARD
-// ════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
-  const toast = useToast();
+  const toast            = useToast();
   const { admin, pendingCounts } = useAuth();
-  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+  const setBreadcrumbs   = useMenuStore((s) => s.setBreadcrumbs);
 
-  const [period, setPeriod] = useState("30d");
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  // ── Real permission checks — replaces the old ROLE_PERMISSIONS object ─────
+  const { hasPermission, isSuperCAdmin } = useCAdminPermission();
+
+  const canViewDashboard    = isSuperCAdmin || hasPermission(CADMIN_PERMISSIONS.DASHBOARD_VIEW);
+
+  // These granular checks control which dashboard sections are visible.
+  // Since the dashboard is a single page all gated behind dashboard.view,
+  // any admin who passes canViewDashboard will see all sections.
+  // If you want per-section gating in future, split these out further.
+  // For now: if you can see the dashboard you see everything on it.
+  // Super admins always see everything.
+
+  const [period, setPeriod]             = useState("30d");
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
+  const [error, setError]               = useState(null);
   const [overviewData, setOverviewData] = useState(null);
-  const [alerts, setAlerts] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
-
-  const normalizedRole = useMemo(() => normalizeRole(admin?.role), [admin?.role]);
-  const permissions = useMemo(
-    () => ROLE_PERMISSIONS[normalizedRole] || ROLE_PERMISSIONS.ANALYST,
-    [normalizedRole]
-  );
+  const [alerts, setAlerts]             = useState([]);
+  const [lastUpdated, setLastUpdated]   = useState(null);
 
   useEffect(() => {
     setBreadcrumbs(["Dashboard"]);
   }, [setBreadcrumbs]);
 
   const fetchDashboardData = useCallback(async (showToast = false) => {
+    // ── Skip fetching if no permission — avoids unnecessary 403s ─────────
+    if (!canViewDashboard) {
+      setLoading(false);
+      return;
+    }
+
     try {
       if (showToast) setRefreshing(true);
-      else setLoading(true);
+      else           setLoading(true);
       setError(null);
 
       const [overviewRes, alertsRes] = await Promise.allSettled([
         getDashboardOverview(period),
-        permissions.canViewAlerts ? getDashboardAlerts() : Promise.resolve({ data: [] }),
+        getDashboardAlerts(),
       ]);
 
       if (overviewRes.status === "fulfilled") {
@@ -174,10 +112,7 @@ const AdminDashboard = () => {
       }
 
       setLastUpdated(new Date());
-
-      if (showToast) {
-        toast.success("Refreshed", "Dashboard data updated");
-      }
+      if (showToast) toast.success("Refreshed", "Dashboard data updated");
     } catch (err) {
       setError(err.message || "Failed to load dashboard");
       toast.error("Error", "Could not load dashboard data");
@@ -185,16 +120,49 @@ const AdminDashboard = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period, permissions.canViewAlerts, toast]);
+  }, [period, canViewDashboard, toast]);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleRefresh = useCallback(() => fetchDashboardData(true), [fetchDashboardData]);
-  const handleDismissAlert = useCallback((id) => setAlerts((p) => p.filter((a) => a.id !== id)), []);
+  const handleRefresh      = useCallback(() => fetchDashboardData(true), [fetchDashboardData]);
+  const handleDismissAlert = useCallback(
+    (id) => setAlerts((p) => p.filter((a) => a.id !== id)),
+    []
+  );
 
-  // Loading state
+  // ── No permission — show NoPermission block, don't redirect ──────────────
+  if (!canViewDashboard) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-sm w-full text-center"
+        >
+          {/* Greeting even without dashboard access
+          <p className="text-sm font-semibold text-gray-600 mb-6">
+            {(() => {
+              const h = new Date().getHours();
+              if (h < 12) return "Uh-oh";
+              if (h < 17) return "Uh-oh";
+              return "Uh-oh";
+            })()}, {admin?.name?.split(" ")[0] || "Admin"}
+          </p> */}
+
+          <NoPermission
+            variant="block"
+            icon="lock"
+            title="Dashboard Access Restricted"
+            description="You don't have permission to view the dashboard. Use the sidebar to navigate to sections you have access to, or contact your Super Admin to request dashboard access."
+          />
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center">
@@ -204,10 +172,12 @@ const AdminDashboard = () => {
           className="flex flex-col items-center gap-3"
         >
           <div className="relative">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#000060] to-violet-600 flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#000060] to-violet-600
+                            flex items-center justify-center">
               <LayoutDashboard size={24} className="text-white" />
             </div>
-            <Loader2 size={20} className="absolute -bottom-1 -right-1 text-[#000060] animate-spin" />
+            <Loader2 size={20}
+              className="absolute -bottom-1 -right-1 text-[#000060] animate-spin" />
           </div>
           <p className="text-sm font-semibold text-gray-700">Loading Dashboard</p>
           <p className="text-[10px] text-gray-400">Fetching your data...</p>
@@ -216,7 +186,7 @@ const AdminDashboard = () => {
     );
   }
 
-  // Error state
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (error && !overviewData) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center p-4">
@@ -232,7 +202,8 @@ const AdminDashboard = () => {
           <p className="text-xs text-gray-500 mb-4">{error}</p>
           <button
             onClick={() => fetchDashboardData(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium text-xs hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium
+                       text-xs hover:bg-indigo-700 transition-colors"
           >
             Retry
           </button>
@@ -241,94 +212,74 @@ const AdminDashboard = () => {
     );
   }
 
-  const showChartsRow = permissions.canViewRevenue || permissions.canViewSubscriptions;
-  const showTablesRow = permissions.canViewOnboarding || permissions.canViewTopShops;
-
+  // ── Full dashboard — only reached if canViewDashboard is true ─────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50/30 relative">
       <GridPattern />
 
       <div className="relative max-w-[1800px] mx-auto px-3 py-3 lg:px-4 lg:py-3 space-y-3">
-        {/* ── HEADER ── */}
+
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <WelcomeBanner 
-            admin={admin} 
-            role={normalizedRole}
+          <WelcomeBanner
+            admin={admin}
             pendingCounts={pendingCounts}
             overviewData={overviewData}
           />
-
           <div className="flex items-center gap-2 flex-shrink-0">
             <PeriodSelector value={period} onChange={setPeriod} />
-            
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="p-2 rounded-xl bg-white/80 backdrop-blur border border-gray-200/60 
-                text-gray-500 hover:bg-gray-50 transition-all disabled:opacity-40 shadow-sm"
+              className="p-2 rounded-xl bg-white/80 backdrop-blur border border-gray-200/60
+                         text-gray-500 hover:bg-gray-50 transition-all disabled:opacity-40 shadow-sm"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
 
-        {/* ── ALERTS ── */}
-        {permissions.canViewAlerts && alerts.length > 0 && (
+        {/* Alerts */}
+        {alerts.length > 0 && (
           <AlertsBanner alerts={alerts} onDismiss={handleDismissAlert} />
         )}
 
-        {/* ── QUICK ACTIONS ── */}
-        {permissions.canViewQuickActions && <QuickActionsPanel />}
+        {/* Quick Actions */}
+        <QuickActionsPanel />
 
-        {/* ── KPI CARDS ── */}
-        {permissions.canViewKPIs && overviewData && (
-          <KPICardsGrid data={overviewData} period={period} role={normalizedRole} loading={false} />
+        {/* KPI Cards */}
+        {overviewData && (
+          <KPICardsGrid data={overviewData} period={period} loading={false} />
         )}
 
-        {/* ── PENDING ACTIONS ── */}
-        {permissions.canViewPendingActions && overviewData && (
-          <PendingActionsPanel data={overviewData} pendingCounts={pendingCounts} role={normalizedRole} />
+        {/* Pending Actions */}
+        {overviewData && (
+          <PendingActionsPanel data={overviewData} pendingCounts={pendingCounts} />
         )}
 
-        {/* ── CHARTS ROW ── */}
-        {showChartsRow && (
-          <div className={`grid gap-3 ${
-            permissions.canViewRevenue && permissions.canViewSubscriptions
-              ? "grid-cols-1 xl:grid-cols-12"
-              : "grid-cols-1"
-          }`}>
-            {permissions.canViewRevenue && (
-              <div className={permissions.canViewSubscriptions ? "xl:col-span-7" : ""}>
-                <RevenueChart period={period} />
-              </div>
-            )}
-            {permissions.canViewSubscriptions && (
-              <div className={permissions.canViewRevenue ? "xl:col-span-5" : ""}>
-                <SubscriptionDonut />
-              </div>
-            )}
+        {/* Charts */}
+        <div className="grid gap-3 grid-cols-1 xl:grid-cols-12">
+          <div className="xl:col-span-7">
+            <RevenueChart period={period} />
           </div>
-        )}
-
-        {/* ── USER GROWTH ── */}
-        {permissions.canViewUserGrowth && <UserGrowthChart period={period} />}
-
-        {/* ── TABLES ROW ── */}
-        {showTablesRow && (
-          <div className={`grid gap-3 ${
-            permissions.canViewOnboarding && permissions.canViewTopShops
-              ? "grid-cols-1 lg:grid-cols-2"
-              : "grid-cols-1"
-          }`}>
-            {permissions.canViewOnboarding && <OnboardingTable />}
-            {permissions.canViewTopShops && <TopShopsTable period={period} />}
+          <div className="xl:col-span-5">
+            <SubscriptionDonut />
           </div>
-        )}
+        </div>
 
-        {/* ── ACTIVITY FEED ── */}
-        {permissions.canViewActivity && <ActivityFeed limit={8} />}
+        {/* User Growth */}
+        <UserGrowthChart period={period} />
 
-        {/* ── FOOTER ── */}
+        {/* Tables */}
+        <div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
+          <OnboardingTable />
+          <TopShopsTable period={period} />
+        </div>
+
+        {/* Activity Feed */}
+        <ActivityFeed limit={8} />
+
+        {/* Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

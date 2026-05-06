@@ -2,38 +2,33 @@
 // cureli-admin/src/store/useCAdminNotificationStore.js
 // ============================================
 
-import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import {
   fetchUnreadCount as fetchUnreadCountAPI,
   fetchRecentNotifications as fetchRecentAPI,
   fetchNotifications as fetchNotificationsAPI,
   markNotificationAsRead as markAsReadAPI,
   markAllNotificationsAsRead as markAllAsReadAPI,
-} from '../api/cadminNotifications';
+} from "../api/cadminNotifications";
 
-// ============================================
-// INITIAL STATE
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Initial State
+// ─────────────────────────────────────────────────────────────────────────────
 
 const initialState = {
-  // Dropdown (recent) notifications
+  // Recent / dropdown
   recentNotifications: [],
   isRecentLoading: false,
   recentError: null,
 
-  // Badge count
+  // Badge counts
   unreadCount: 0,
-  byPriority: {
-    critical: 0,
-    high: 0,
-    normal: 0,
-    low: 0,
-  },
+  byPriority: { critical: 0, high: 0, normal: 0, low: 0 },
   hasCritical: false,
   hasHigh: false,
 
-  // Full page notifications
+  // Full notification list
   notifications: [],
   pagination: {
     page: 1,
@@ -45,69 +40,106 @@ const initialState = {
   isLoading: false,
   error: null,
 
-  // Selected notification (for side panel)
+  // Detail view
   selectedNotification: null,
 
-  // Filters (for full page)
+  // Filters
   filters: {
     unreadOnly: false,
     priority: null,
     eventType: null,
   },
 
+  // SSE state — NEW
+  hasNewNotifications: false,
+
   // Polling
   lastFetched: null,
   pollingInterval: null,
 };
 
-// ============================================
-// STORE
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: build clean query params
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildQueryParams({ page, limit, unreadOnly, priority, eventType }) {
+  const params = { page, limit };
+
+  if (unreadOnly === true) params.unread_only = true;
+  if (priority && typeof priority === "string") params.priority = priority;
+  if (eventType && typeof eventType === "string") params.event_type = eventType;
+
+  return params;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Store
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useCAdminNotificationStore = create(
   devtools(
     (set, get) => ({
       ...initialState,
 
-      // ─────────────────────────────────────────
-      // BADGE COUNT ACTIONS
-      // ─────────────────────────────────────────
+      // ── SSE Actions ──────────────────────────────────────────────────────
+
+      /**
+       * Manually set the hasNewNotifications flag.
+       * Useful for clearing the indicator after user opens the dropdown.
+       */
+      setHasNewNotifications: (val) => set({ hasNewNotifications: val }),
+
+      /**
+       * Called by the SSE hook when a `new_notification` event arrives.
+       * Updates badge count, prepends the new notification to recentNotifications,
+       * and sets the hasNewNotifications flag to trigger UI indicators.
+       */
+      receiveSSENotification: (data) => {
+        const { unread_count, notification } = data;
+
+        set((state) => ({
+          unreadCount: unread_count,
+          hasNewNotifications: true,
+          recentNotifications: notification
+            ? [notification, ...state.recentNotifications].slice(0, 10)
+            : state.recentNotifications,
+        }));
+      },
+
+      // ── Badge Count ──────────────────────────────────────────────────────
 
       fetchUnreadCount: async () => {
         try {
           const response = await fetchUnreadCountAPI();
-          console.log('[CAdminNotificationStore] fetchUnreadCount response:', response);
-          
           if (response.success) {
-            const { total, by_priority, has_critical, has_high } = response.data;
-            
+            const { total, by_priority, has_critical, has_high } =
+              response.data;
             set({
               unreadCount: total,
-              byPriority: by_priority || { critical: 0, high: 0, normal: 0, low: 0 },
+              byPriority: by_priority || {
+                critical: 0,
+                high: 0,
+                normal: 0,
+                low: 0,
+              },
               hasCritical: has_critical || false,
               hasHigh: has_high || false,
               lastFetched: new Date().toISOString(),
             });
           }
-          
           return response;
         } catch (error) {
-          console.error('[CAdminNotificationStore] fetchUnreadCount error:', error);
+          console.error("[NotificationStore] fetchUnreadCount error:", error);
           return { success: false, error };
         }
       },
 
-      // ─────────────────────────────────────────
-      // DROPDOWN (RECENT) ACTIONS
-      // ─────────────────────────────────────────
+      // ── Dropdown (Recent) ────────────────────────────────────────────────
 
       fetchRecent: async (limit = 5) => {
         set({ isRecentLoading: true, recentError: null });
-        
         try {
           const response = await fetchRecentAPI(limit);
-          console.log('[CAdminNotificationStore] fetchRecent response:', response);
-          
           if (response.success) {
             set({
               recentNotifications: response.data.notifications || [],
@@ -118,224 +150,229 @@ export const useCAdminNotificationStore = create(
           } else {
             set({ isRecentLoading: false });
           }
-          
           return response;
         } catch (error) {
-          console.error('[CAdminNotificationStore] fetchRecent error:', error);
+          console.error("[NotificationStore] fetchRecent error:", error);
           set({
             isRecentLoading: false,
-            recentError: error.message || 'Failed to load notifications',
+            recentError: error.message || "Failed to load notifications",
           });
           return { success: false, error };
         }
       },
 
-      // ─────────────────────────────────────────
-      // FULL PAGE ACTIONS
-      // ─────────────────────────────────────────
+      // ── Full Page ────────────────────────────────────────────────────────
 
       fetchNotifications: async (params = {}) => {
         const { filters, pagination } = get();
-        
         set({ isLoading: true, error: null });
-        
-        try {
-          const queryParams = {
-            page: params.page || pagination.page,
-            limit: params.limit || pagination.limit,
-            unread_only: params.unreadOnly ?? filters.unreadOnly,
-            priority: params.priority ?? filters.priority,
-            event_type: params.eventType ?? filters.eventType,
-          };
 
-          // Clean undefined/null values
-          Object.keys(queryParams).forEach(key => {
-            if (queryParams[key] === null || queryParams[key] === undefined || queryParams[key] === false) {
-              delete queryParams[key];
-            }
+        try {
+          const mergedUnreadOnly = params.unreadOnly ?? filters.unreadOnly;
+          const mergedPriority =
+            params.priority !== undefined ? params.priority : filters.priority;
+          const mergedEventType =
+            params.eventType !== undefined
+              ? params.eventType
+              : filters.eventType;
+          const mergedPage = params.page || pagination.page;
+          const mergedLimit = params.limit || pagination.limit;
+
+          const queryParams = buildQueryParams({
+            page: mergedPage,
+            limit: mergedLimit,
+            unreadOnly: mergedUnreadOnly,
+            priority: mergedPriority,
+            eventType: mergedEventType,
           });
 
-          console.log('[CAdminNotificationStore] fetchNotifications params:', queryParams);
-
           const response = await fetchNotificationsAPI(queryParams);
-          
-          console.log('[CAdminNotificationStore] fetchNotifications response:', response);
-          
+
           if (response.success) {
-            const { notifications, unread_count, pagination: paginationData } = response.data;
-            
+            const {
+              notifications,
+              unread_count,
+              pagination: pg,
+            } = response.data;
             set({
               notifications: notifications || [],
               unreadCount: unread_count || 0,
               pagination: {
-                page: paginationData?.page || 1,
-                limit: paginationData?.limit || 20,
-                total: paginationData?.total || 0,
-                totalPages: paginationData?.total_pages || 0,
-                hasMore: paginationData?.has_more || false,
+                page: pg?.page || 1,
+                limit: pg?.limit || 20,
+                total: pg?.total || 0,
+                totalPages: pg?.total_pages || 0,
+                hasMore: pg?.has_more || false,
               },
               isLoading: false,
               lastFetched: new Date().toISOString(),
             });
-            
-            console.log('[CAdminNotificationStore] State updated with', notifications?.length || 0, 'notifications');
           } else {
-            console.warn('[CAdminNotificationStore] Response not successful:', response);
-            set({ isLoading: false, error: 'Failed to load notifications' });
+            set({ isLoading: false, error: "Failed to load notifications" });
           }
-          
+
           return response;
         } catch (error) {
-          console.error('[CAdminNotificationStore] fetchNotifications error:', error);
+          console.error("[NotificationStore] fetchNotifications error:", error);
           set({
             isLoading: false,
-            error: error.message || 'Failed to load notifications',
+            error: error.message || "Failed to load notifications",
           });
           return { success: false, error };
         }
       },
 
+      //  setFilters: update filter state then re-fetch from page 1
       setFilters: async (newFilters) => {
-        const { filters } = get();
-        
-        const updatedFilters = { ...filters, ...newFilters };
-        console.log('[CAdminNotificationStore] setFilters:', updatedFilters);
-        
+        const currentFilters = get().filters;
+        const updatedFilters = { ...currentFilters, ...newFilters };
+
         set({
           filters: updatedFilters,
           pagination: { ...get().pagination, page: 1 },
         });
 
-        return get().fetchNotifications({ page: 1, ...newFilters });
+        return get().fetchNotifications({
+          page: 1,
+          unreadOnly: updatedFilters.unreadOnly,
+          priority: updatedFilters.priority,
+          eventType: updatedFilters.eventType,
+        });
       },
 
       goToPage: async (page) => {
-        console.log('[CAdminNotificationStore] goToPage:', page);
-        set({
-          pagination: { ...get().pagination, page },
-        });
-        
+        set({ pagination: { ...get().pagination, page } });
         return get().fetchNotifications({ page });
       },
 
+      //  clearFilters: reset then re-fetch
       clearFilters: async () => {
-        console.log('[CAdminNotificationStore] clearFilters');
+        const clearedFilters = {
+          unreadOnly: false,
+          priority: null,
+          eventType: null,
+        };
         set({
-          filters: {
-            unreadOnly: false,
-            priority: null,
-            eventType: null,
-          },
+          filters: clearedFilters,
           pagination: { ...get().pagination, page: 1 },
         });
-
-        return get().fetchNotifications({ page: 1 });
+        return get().fetchNotifications({
+          page: 1,
+          unreadOnly: false,
+          priority: null,
+          eventType: null,
+        });
       },
 
-      // ─────────────────────────────────────────
-      // MARK AS READ ACTIONS
-      // ─────────────────────────────────────────
+      // ── Mark As Read ─────────────────────────────────────────────────────
 
+      //  Single markAsRead — updates local state optimistically, no refetch needed
       markAsRead: async (notificationId) => {
         try {
           const response = await markAsReadAPI(notificationId);
-          console.log('[CAdminNotificationStore] markAsRead response:', response);
-          
           if (response.success) {
             const now = new Date().toISOString();
-            
+            const alreadyRead = response.data?.already_read ?? false;
+
             set((state) => ({
-              recentNotifications: state.recentNotifications.map((n) =>
-                n.notification_id === notificationId
-                  ? { ...n, is_read: true, read_at: now }
-                  : n
-              ),
               notifications: state.notifications.map((n) =>
                 n.notification_id === notificationId
                   ? { ...n, is_read: true, read_at: now }
-                  : n
+                  : n,
               ),
+              recentNotifications: state.recentNotifications.map((n) =>
+                n.notification_id === notificationId
+                  ? { ...n, is_read: true, read_at: now }
+                  : n,
+              ),
+              //  Update selectedNotification if it matches
               selectedNotification:
                 state.selectedNotification?.notification_id === notificationId
-                  ? { ...state.selectedNotification, is_read: true, read_at: now }
+                  ? {
+                      ...state.selectedNotification,
+                      is_read: true,
+                      read_at: now,
+                    }
                   : state.selectedNotification,
-              unreadCount: Math.max(0, state.unreadCount - (response.data?.already_read ? 0 : 1)),
+              //  Only decrement if it was actually unread
+              unreadCount: alreadyRead
+                ? state.unreadCount
+                : Math.max(0, state.unreadCount - 1),
             }));
           }
-          
           return response;
         } catch (error) {
-          console.error('[CAdminNotificationStore] markAsRead error:', error);
+          console.error("[NotificationStore] markAsRead error:", error);
           return { success: false, error };
         }
       },
 
+      //  markAllAsRead — updates all local state, no refetch needed
       markAllAsRead: async (options = {}) => {
         try {
           const response = await markAllAsReadAPI(options);
-          console.log('[CAdminNotificationStore] markAllAsRead response:', response);
-          
           if (response.success) {
             const now = new Date().toISOString();
-            
             set((state) => ({
-              recentNotifications: state.recentNotifications.map((n) => ({
-                ...n,
-                is_read: true,
-                read_at: n.read_at || now,
-              })),
               notifications: state.notifications.map((n) => ({
                 ...n,
                 is_read: true,
                 read_at: n.read_at || now,
               })),
+              recentNotifications: state.recentNotifications.map((n) => ({
+                ...n,
+                is_read: true,
+                read_at: n.read_at || now,
+              })),
+              //  Also update selected if open
+              selectedNotification: state.selectedNotification
+                ? {
+                    ...state.selectedNotification,
+                    is_read: true,
+                    read_at: state.selectedNotification.read_at || now,
+                  }
+                : null,
               unreadCount: 0,
               byPriority: { critical: 0, high: 0, normal: 0, low: 0 },
               hasCritical: false,
               hasHigh: false,
+              //  Clear new-notification indicator when user reads everything
+              hasNewNotifications: false,
             }));
           }
-          
           return response;
         } catch (error) {
-          console.error('[CAdminNotificationStore] markAllAsRead error:', error);
+          console.error("[NotificationStore] markAllAsRead error:", error);
           return { success: false, error };
         }
       },
 
-      // ─────────────────────────────────────────
-      // SELECTION ACTIONS
-      // ─────────────────────────────────────────
+      // ── Selection ────────────────────────────────────────────────────────
 
+      //  setSelectedNotification auto-marks as read via store (not raw API)
       setSelectedNotification: (notification) => {
         set({ selectedNotification: notification });
-        
-        // Auto-mark as read when selected
         if (notification && !notification.is_read) {
           get().markAsRead(notification.notification_id);
         }
       },
 
-      clearSelectedNotification: () => {
-        set({ selectedNotification: null });
-      },
+      clearSelectedNotification: () => set({ selectedNotification: null }),
 
-      // ─────────────────────────────────────────
-      // POLLING ACTIONS
-      // ─────────────────────────────────────────
+      // ── Polling ──────────────────────────────────────────────────────────
 
-      startPolling: (intervalMs = 60000) => {
+      /**
+       * Start polling for unread count.
+       * Default interval raised to 5 minutes (300_000 ms) since SSE
+       * handles real-time updates — polling is now just a fallback.
+       */
+      startPolling: (intervalMs = 300000) => {
         const { pollingInterval } = get();
-        
-        // Clear existing interval
-        if (pollingInterval) {
-          clearInterval(pollingInterval);
-        }
+        if (pollingInterval) clearInterval(pollingInterval);
 
-        // Fetch immediately
+        // Fetch immediately on start
         get().fetchUnreadCount();
 
-        // Set up polling
         const interval = setInterval(() => {
           get().fetchUnreadCount();
         }, intervalMs);
@@ -345,46 +382,34 @@ export const useCAdminNotificationStore = create(
 
       stopPolling: () => {
         const { pollingInterval } = get();
-        
         if (pollingInterval) {
           clearInterval(pollingInterval);
           set({ pollingInterval: null });
         }
       },
 
-      // ─────────────────────────────────────────
-      // UTILITY ACTIONS
-      // ─────────────────────────────────────────
-
       refresh: async () => {
-        console.log('[CAdminNotificationStore] refresh');
-        await Promise.all([
-          get().fetchUnreadCount(),
-          get().fetchRecent(),
-        ]);
+        await Promise.all([get().fetchUnreadCount(), get().fetchRecent()]);
       },
 
       reset: () => {
         const { pollingInterval } = get();
-        
-        if (pollingInterval) {
-          clearInterval(pollingInterval);
-        }
-        
+        if (pollingInterval) clearInterval(pollingInterval);
         set(initialState);
       },
     }),
-    { name: 'cadmin-notification-store' }
-  )
+    { name: "cadmin-notification-store" },
+  ),
 );
 
-// ============================================
-// SELECTORS
-// ============================================
+// ─────────────────────────────────────────────────────────────────────────────
+// Selectors
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const selectUnreadCount = (state) => state.unreadCount;
 export const selectHasCritical = (state) => state.hasCritical;
 export const selectHasHigh = (state) => state.hasHigh;
+export const selectHasNewNotifications = (state) => state.hasNewNotifications; // NEW
 export const selectRecentNotifications = (state) => state.recentNotifications;
 export const selectIsRecentLoading = (state) => state.isRecentLoading;
 export const selectNotifications = (state) => state.notifications;

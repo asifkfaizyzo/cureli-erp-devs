@@ -15,7 +15,7 @@ const EnquiriesHeader = memo(
   ({ stats, filters, onFilterChange, onRefresh, isLoading }) => {
     const [searchValue, setSearchValue] = useState(filters.search || "");
 
-    // ✅ Debounce search to prevent too many API calls
+    //  Debounce search to prevent too many API calls
     const debouncedSearch = useDebouncedCallback((value) => {
       onFilterChange({ search: value });
     }, 500);
@@ -26,14 +26,14 @@ const EnquiriesHeader = memo(
         setSearchValue(value);
         debouncedSearch(value);
       },
-      [debouncedSearch]
+      [debouncedSearch],
     );
 
     const handleStatusChange = useCallback(
       (e) => {
         onFilterChange({ status: e.target.value });
       },
-      [onFilterChange]
+      [onFilterChange],
     );
 
     return (
@@ -42,7 +42,9 @@ const EnquiriesHeader = memo(
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
             <p className="text-xs text-gray-500 font-medium">Total</p>
-            <p className="text-2xl font-bold text-gray-900">{stats?.total ?? 0}</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {stats?.total ?? 0}
+            </p>
           </div>
           <div className="bg-yellow-50 rounded-xl p-4 shadow-sm border border-yellow-100">
             <p className="text-xs text-yellow-600 font-medium">Pending</p>
@@ -64,7 +66,9 @@ const EnquiriesHeader = memo(
           </div>
           <div className="bg-gray-50 rounded-xl p-4 shadow-sm border border-gray-200">
             <p className="text-xs text-gray-500 font-medium">Closed</p>
-            <p className="text-2xl font-bold text-gray-700">{stats?.closed ?? 0}</p>
+            <p className="text-2xl font-bold text-gray-700">
+              {stats?.closed ?? 0}
+            </p>
           </div>
         </div>
 
@@ -113,11 +117,9 @@ const EnquiriesHeader = memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 EnquiriesHeader.displayName = "EnquiriesHeader";
 
 export default EnquiriesHeader;
-
-

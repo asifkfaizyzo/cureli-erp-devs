@@ -10,26 +10,26 @@ import { useMenuStore } from "../../store/useMenuStore";
  */
 const BREADCRUMB_PATHS = {
   // Main sections
-  "Dashboard": "/dashboard",
-  "Users": "/users",
-  "Shops": "/shops",
-  "Verification": "/verification",
-  "Subscriptions": "/subscriptions",
-  "Plans": "/subscriptions/manage",
-  "Audits": "/audits",
-  "Admins": "/admins",
-  "Settings": "/settings",
+  Dashboard: "/dashboard",
+  Users: "/users",
+  Shops: "/shops",
+  Verification: "/verification",
+  Subscriptions: "/subscriptions",
+  Plans: "/subscriptions/manage",
+  Audits: "/audits",
+  Admins: "/admins",
+  Settings: "/settings",
 
   // Communications
-  "Communications": "/communications",
-  "Tickets": "/communications/tickets",
-  "Enquiries": "/communications/enquiries",
-  "Broadcast": "/communications/broadcast",
+  Communications: "/communications",
+  Tickets: "/communications/tickets",
+  Enquiries: "/communications/enquiries",
+  Broadcast: "/communications/broadcast",
   "In-App Broadcast": "/communications/broadcast/in-app",
   "Email Broadcast": "/communications/broadcast/email",
 
-  // ✅ NEW: Notifications
-  "Notifications": "/notifications",
+  //  NEW: Notifications
+  Notifications: "/notifications",
 };
 
 /**

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Home } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 
 /**
@@ -9,78 +10,51 @@ import { useMenuStore } from "../../store/useMenuStore";
  * Derived from App.jsx routes and Sidebar.jsx menu structure
  */
 const BREADCRUMB_PATHS = {
-  // ═══════════════════════════════════════════
-  // MAIN SECTIONS
-  // ═══════════════════════════════════════════
-  "Dashboard": "/dashboard",
-  "Inventory": "/inventory",
-  "Suppliers": "/suppliers",
+  // ── Has real hub page = clickable ──
+  Dashboard: "/dashboard",
+  Inventory: "/inventory",
+  Suppliers: "/suppliers",
+  Notifications: "/notifications",
+  "Support Tickets": "/tickets",
 
-  // ═══════════════════════════════════════════
-  // SALES
-  // ═══════════════════════════════════════════
-  "Sales": "/Salesbilling",
+  // ── Settings sub-pages = clickable ──
+  Users: "/settings/users",
+  Branches: "/settings/branches",
+  Profile: "/settings/profile",
+  Plans: "/settings/upgrade",
 
-  // ═══════════════════════════════════════════
-  // PURCHASE
-  // ═══════════════════════════════════════════
-  "Purchase": "/purchase-billing",
-
-  // ═══════════════════════════════════════════
-  // REPORTS
-  // ═══════════════════════════════════════════
-  "Reports": "/reports-sales",
+  // ── Reports sub-pages ──
   "Sales Report": "/reports-sales",
   "Purchase Report": "/reports-purchase",
   "Inventory Report": "/reports-inventory",
   "Finance Report": "/reports-finance",
 
-  // ═══════════════════════════════════════════
-  // SETTINGS
-  // ═══════════════════════════════════════════
-  "Settings": "/settings/profile",
-  "Users": "/settings/users",
-  "Branches": "/settings/branches",
-  "Profile": "/settings/profile",
-  "Plans": "/settings/upgrade",
-
-  // ═══════════════════════════════════════════
-  // SUPPORT
-  // ═══════════════════════════════════════════
-  "Support": "/tickets",
-  "Tickets": "/tickets",
-
-  // ═══════════════════════════════════════════
-  // NOTIFICATIONS
-  // ═══════════════════════════════════════════
-  "Notifications": "/notifications",
+  // ── NO ENTRY for: Settings, Sales, Purchase, Orders, Reports ──
+  // These have no hub page → getBreadcrumbPath returns null → non-clickable automatically
 };
 
-/**
- * Context-dependent paths
- * Some breadcrumbs like "Billing" or "Invoices" depend on their parent
- */
 const CONTEXT_PATHS = {
-  "Billing": {
-    "Sales": "/Salesbilling",
-    "Purchase": "/purchase-billing",
+  Billing: {
+    Sales: "/Sales-billing",
+    Purchase: "/purchase-billing",
   },
-  "Invoices": {
-    "Sales": "/Salesinvoice",
-    "Purchase": "/purchase-invoices",
+  Invoices: {
+    Sales: "/Sales-invoice",
+    Purchase: "/purchase-invoices",
   },
+  Returns: {
+    Sales: "/sales-returns",
+    Purchase: "/purchase-returns",
+  },
+  "All Orders": { Orders: "/orders" },
+  Pending: { Orders: "/orders-pending" },
+  Completed: { Orders: "/orders-completed" },
+  Sessions: { Orders: "/orders-sessions" },
 };
 
-/**
- * Get the navigation path for a breadcrumb
- */
 const getBreadcrumbPath = (crumb, allCrumbs, index) => {
-  // Check direct mapping first
-  if (BREADCRUMB_PATHS[crumb]) {
-    return BREADCRUMB_PATHS[crumb];
-  }
+  if (BREADCRUMB_PATHS[crumb]) return BREADCRUMB_PATHS[crumb];
 
-  // Check context-dependent paths
   if (CONTEXT_PATHS[crumb]) {
     const parent = allCrumbs[index - 1];
     if (parent && CONTEXT_PATHS[crumb][parent]) {
@@ -88,7 +62,7 @@ const getBreadcrumbPath = (crumb, allCrumbs, index) => {
     }
   }
 
-  return null;
+  return null; // → non-clickable
 };
 
 const Breadcrumb = () => {
@@ -102,23 +76,25 @@ const Breadcrumb = () => {
 
   const handleCrumbClick = (crumb, index) => {
     const path = getBreadcrumbPath(crumb, crumbs, index);
-
     if (path) {
-      const newBreadcrumbs = crumbs.slice(0, index + 1);
-      setBreadcrumbs(newBreadcrumbs);
+      setBreadcrumbs(crumbs.slice(0, index + 1));
       navigate(path);
     }
   };
 
   return (
-    <nav 
-      className="text-sm flex items-center gap-1.5 mb-3" 
+    <nav
+      className="text-sm flex items-center gap-1.5 mb-3"
       aria-label="Breadcrumb"
     >
+      {/* Home icon — decorative only, no click */}
+      <Home size={14} className="text-gray-400 flex-shrink-0" />
+      <span className="text-gray-300 select-none">›</span>
+
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         const path = getBreadcrumbPath(crumb, crumbs, index);
-        const isClickable = !isLast && path;
+        const isClickable = !isLast && path; // null path = non-clickable automatically
 
         return (
           <span key={index} className="flex items-center gap-1.5">
@@ -132,17 +108,13 @@ const Breadcrumb = () => {
             ) : (
               <span
                 className={
-                  isLast
-                    ? "text-gray-700 font-medium"
-                    : "text-gray-400"
+                  isLast ? "text-gray-700 font-medium" : "text-gray-400"
                 }
               >
                 {crumb}
               </span>
             )}
-            {!isLast && (
-              <span className="text-gray-300 select-none">›</span>
-            )}
+            {!isLast && <span className="text-gray-300 select-none">›</span>}
           </span>
         );
       })}

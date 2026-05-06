@@ -79,12 +79,12 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
     try {
       const response = await emailBroadcastAPI.uploadAttachment(
         file,
-        (progress) => setUploadProgress(progress)
+        (progress) => setUploadProgress(progress),
       );
 
-      console.log("[EmailAttachmentsPanel] Upload response:", response);
+    
 
-      // ✅ FIXED: Check response.success, not response.data.success
+      //  FIXED: Check response.success, not response.data.success
       // API returns response.data, so response is already the data object
       if (response && response.success) {
         const uploadedFile = response.data;
@@ -117,7 +117,7 @@ function EmailAttachmentsPanel({ attachments = [], onChange, disabled }) {
     } catch (err) {
       console.error("[EmailAttachmentsPanel] Upload error:", err);
       setError(
-        err.response?.data?.message || err.message || "Failed to upload file"
+        err.response?.data?.message || err.message || "Failed to upload file",
       );
     } finally {
       setIsUploading(false);

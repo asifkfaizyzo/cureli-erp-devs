@@ -1,7 +1,7 @@
 // frontend/src/pages/tickets/TicketsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Plus, Search, X, Filter, Calendar } from "lucide-react";
+import { Plus, Search, X, Filter, Calendar, RefreshCw } from "lucide-react";
 import { getTickets, reopenTicket } from "../../api/tickets";
 import TicketListTable from "./components/TicketListTable";
 import CreateTicketModal from "./components/CreateTicketModal";
@@ -10,11 +10,15 @@ import CancelTicketModal from "./components/CancelTicketModal";
 import StyledSelect from "../../components/common/StyledSelect";
 import { useToast } from "../../components/common/Toast";
 import useDynamicRowCount from "../../hooks/useDynamicRowCount";
-import { TICKET_STATUSES, TICKET_CATEGORIES, SLA_RESPONSE_HINT } from "../../constant/tickets";
+import {
+  TICKET_STATUSES,
+  TICKET_CATEGORIES,
+  SLA_RESPONSE_HINT,
+} from "../../constant/tickets";
 
 const TicketsPage = () => {
   const toast = useToast();
-  
+
   // Use dynamic row count hook
   const rowsPerPage = useDynamicRowCount();
 
@@ -47,31 +51,45 @@ const TicketsPage = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   // Status options for filter
-  const statusOptions = useMemo(() => [
-    { label: "All Status", value: "" },
-    ...Object.entries(TICKET_STATUSES).map(([key, label]) => ({
-      label,
-      value: key,
-    })),
-  ], []);
+  const statusOptions = useMemo(
+    () => [
+      { label: "All Status", value: "" },
+      ...Object.entries(TICKET_STATUSES).map(([key, label]) => ({
+        label,
+        value: key,
+      })),
+    ],
+    [],
+  );
 
   // Category options for filter
-  const categoryOptions = useMemo(() => [
-    { label: "All Categories", value: "" },
-    ...Object.entries(TICKET_CATEGORIES).map(([key, label]) => ({
-      label,
-      value: key,
-    })),
-  ], []);
+  const categoryOptions = useMemo(
+    () => [
+      { label: "All Categories", value: "" },
+      ...Object.entries(TICKET_CATEGORIES).map(([key, label]) => ({
+        label,
+        value: key,
+      })),
+    ],
+    [],
+  );
 
   // Count active filters
-  const activeFiltersCount = useMemo(() => 
-    [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length,
-  [statusFilter, categoryFilter, dateFrom, dateTo]);
+  const activeFiltersCount = useMemo(
+    () =>
+      [statusFilter, categoryFilter, dateFrom, dateTo].filter(Boolean).length,
+    [statusFilter, categoryFilter, dateFrom, dateTo],
+  );
 
   // Check if any filters are active (including search)
   const hasActiveFilters = useMemo(() => {
-    return !!(searchText || statusFilter || categoryFilter || dateFrom || dateTo);
+    return !!(
+      searchText ||
+      statusFilter ||
+      categoryFilter ||
+      dateFrom ||
+      dateTo
+    );
   }, [searchText, statusFilter, categoryFilter, dateFrom, dateTo]);
 
   // Fetch tickets
@@ -97,11 +115,24 @@ const TicketsPage = () => {
       setTotalItems(data?.pagination?.total || 0);
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
-      toast.error("Failed to Load", "Could not fetch tickets. Please try again.");
+      toast.error(
+        "Failed to Load",
+        "Could not fetch tickets. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, searchText, statusFilter, categoryFilter, dateFrom, dateTo, sortConfig, toast]);
+  }, [
+    currentPage,
+    rowsPerPage,
+    searchText,
+    statusFilter,
+    categoryFilter,
+    dateFrom,
+    dateTo,
+    sortConfig,
+    toast,
+  ]);
 
   // Initial fetch and refetch on dependency changes
   useEffect(() => {
@@ -153,7 +184,10 @@ const TicketsPage = () => {
   const handleReopenTicket = async (ticket, reason) => {
     try {
       await reopenTicket(ticket.ticket_id, reason);
-      toast.success("Ticket Reopened", `Ticket ${ticket.ticket_number} has been reopened successfully.`);
+      toast.success(
+        "Ticket Reopened",
+        `Ticket ${ticket.ticket_number} has been reopened successfully.`,
+      );
       setIsViewModalOpen(false);
       setSelectedTicket(null);
       fetchTickets();
@@ -161,25 +195,29 @@ const TicketsPage = () => {
       console.error("Failed to reopen ticket:", error);
       toast.error(
         "Reopen Failed",
-        error.response?.data?.message || "Failed to reopen ticket. Please try again."
+        error.response?.data?.message ||
+          "Failed to reopen ticket. Please try again.",
       );
     }
   };
+  const handleRefresh = useCallback(() => {
+    toast.info("Data Refreshed", "Loading latest ticket data...");
+    fetchTickets();
+  }, [fetchTickets, toast]);
 
   const handleTicketCreated = () => {
     setIsCreateModalOpen(false);
-    toast.success(
-      "Ticket Created Successfully",
-      SLA_RESPONSE_HINT,
-      6000
-    );
+    toast.success("Ticket Created Successfully", SLA_RESPONSE_HINT, 6000);
     fetchTickets();
   };
 
   const handleTicketCancelled = () => {
     setIsCancelModalOpen(false);
     setSelectedTicket(null);
-    toast.success("Ticket Cancelled", "Your ticket has been cancelled successfully.");
+    toast.success(
+      "Ticket Cancelled",
+      "Your ticket has been cancelled successfully.",
+    );
     fetchTickets();
   };
 
@@ -194,15 +232,25 @@ const TicketsPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
         </div>
-
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2.5 bg-[#05015A] text-white rounded-lg text-sm font-medium 
+        <div className="flex gap-2"> 
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg
+                       hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2
+                       disabled:opacity-50 flex-shrink-0"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="px-4 py-2.5 bg-[#05015A] text-white rounded-lg text-sm font-medium 
                      flex items-center gap-2 hover:bg-[#06027a] transition-all shadow-sm"
-        >
-          <Plus size={18} />
-          <span>Create Ticket</span>
-        </button>
+          >
+            <Plus size={18} />
+            <span>Create Ticket</span>
+          </button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -210,7 +258,10 @@ const TicketsPage = () => {
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="flex items-center gap-3">
           <div className="relative flex-1">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder="Search by ticket number or subject..."
@@ -254,8 +305,10 @@ const TicketsPage = () => {
             <Filter size={18} />
             <span>Filters</span>
             {activeFiltersCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
-                               text-xs font-bold rounded-full flex items-center justify-center">
+              <span
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white 
+                               text-xs font-bold rounded-full flex items-center justify-center"
+              >
                 {activeFiltersCount}
               </span>
             )}

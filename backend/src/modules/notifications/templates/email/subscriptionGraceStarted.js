@@ -1,134 +1,142 @@
+// backend/src/modules/notifications/templates/email/subscriptionGraceStarted.js
 // ============================================
 // SUBSCRIPTION GRACE STARTED EMAIL TEMPLATE
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  renderButton,
+  getSupportLink,
+} from './_helpers.js';
+import { ICONS } from './_icons.js';
 
 export function subscriptionGraceStartedTemplate(context) {
-  const { 
-    recipientName, 
-    shop_name, 
+  const {
+    recipientName,
+    shop_name,
     business_name,
     grace_period_until,
-    plan_name 
+    plan_name,
   } = context;
-  
+
   const shopName = shop_name || business_name || 'your shop';
-  
-  const graceEndDate = grace_period_until 
+
+  const graceEndDate = grace_period_until
     ? new Date(grace_period_until).toLocaleDateString('en-IN', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
       })
     : 'soon';
 
-  const subject = ' Your subscription has expired - Grace period active - Cureli Health';
+  const subject = ` Your subscription has expired - Grace period active - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grace Period Active - Cureli Health</title>
+  ${getBaseHeadContent(`Grace Period Active - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;"> Grace Period Active</h1>
-      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;">Your subscription has expired</p>
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;-webkit-font-smoothing:antialiased;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
+
+    <!-- Header: WARNING icon replaces ⚠️ -->
+    <div class="header-warning" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.WARNING} 0%,${EMAIL_CONFIG.COLORS.WARNING_DARK} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Grace Period Active</h1>
+      <p style="margin:8px 0 0;opacity:0.95;font-size:14px;color:#fef3c7;">Your subscription has expired</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-      
-      <p style="font-size:15px;color:#333;margin:0 0 16px;">
-        Hello <strong style="color:#05015A;">${recipientName}</strong>,
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
+        Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName}</strong>,
       </p>
-      
-      <!-- Alert Box -->
-      <div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 8px;color:#b45309;font-weight:600;font-size:14px;">
-          Your <strong>Cureli Health</strong> subscription for <strong>${shopName}</strong> has expired.
+
+      <!-- Alert Box: CLOCK icon replaces inline warning -->
+      <div class="warning-box" style="background-color:#fffbeb;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:16px 20px;margin:20px 0;border-radius:0 10px 10px 0;">
+        <p class="warning-text" style="margin:0 0 8px;color:#b45309;font-weight:600;font-size:14px;background-color:#fffbeb;">
+          Your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> subscription for <strong>${shopName}</strong> has expired.
         </p>
-        <p style="margin:0;color:#92400e;font-size:13px;">
-          You are now in a grace period until <strong>${graceEndDate}</strong>.
+        <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fffbeb;">
+          ${ICONS.CLOCK}
+          <span style="vertical-align:middle;">
+            You are now in a grace period until
+            <strong class="grace-date" style="color:${EMAIL_CONFIG.COLORS.ERROR};-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">${graceEndDate}</strong>.
+          </span>
         </p>
       </div>
 
       <!-- Account Details -->
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:24px 0;">
+      <div class="card-bg" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:24px 0;">
         <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;width:100px;">Shop</td>
-            <td style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;">${shopName}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;width:100px;background-color:#f9fafb;">Shop</td>
+            <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${shopName}</td>
           </tr>
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;">Plan</td>
-            <td style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;">${plan_name || 'Standard'}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Plan</td>
+            <td class="table-value" style="padding:12px 16px;color:#1f2937;font-weight:600;font-size:14px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">${plan_name || 'Standard'}</td>
           </tr>
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;">Status</td>
-            <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;">
-              <span style="background:#fef3c7;color:#f59e0b;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">GRACE PERIOD</span>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">Status</td>
+            <td style="padding:12px 16px;border-bottom:1px solid #e5e7eb;background-color:#f9fafb;">
+              <span style="background-color:#fef3c7;color:${EMAIL_CONFIG.COLORS.WARNING};padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">
+                GRACE PERIOD
+              </span>
             </td>
           </tr>
           <tr>
-            <td style="padding:12px 16px;color:#6b7280;font-size:13px;">Grace Ends</td>
-            <td style="padding:12px 16px;color:#dc2626;font-weight:700;font-size:14px;">${graceEndDate}</td>
+            <td class="table-label" style="padding:12px 16px;color:#6b7280;font-size:13px;background-color:#f9fafb;">Grace Ends</td>
+            <td class="grace-date" style="padding:12px 16px;color:${EMAIL_CONFIG.COLORS.ERROR};font-weight:700;font-size:14px;background-color:#f9fafb;-webkit-text-fill-color:${EMAIL_CONFIG.COLORS.ERROR};">
+              ${graceEndDate}
+            </td>
           </tr>
         </table>
       </div>
 
-      <!-- Important Info -->
-      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;">
+      <!-- Important Info: WARNING_RED icon replaces ⚠️ -->
+      <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
            <strong>Important:</strong> During the grace period, you still have access to your dashboard. However, if you don't renew before <strong>${graceEndDate}</strong>, your account will be <strong>SUSPENDED</strong>.
         </p>
       </div>
 
-      <!-- What Happens -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 8px;color:#05015A;font-size:13px;font-weight:600;"> What Happens If You Don't Renew:</p>
-        <ul style="margin:0;padding-left:20px;color:#374151;font-size:12px;line-height:1.6;">
-          <li>Complete loss of access to Cureli Health</li>
-          <li>Your shop and branches will be locked</li>
-          <li>Staff cannot log in or perform operations</li>
-          <li>All business activities will halt</li>
+      <!-- What Happens: BAN icon replaces 🚫 -->
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> What Happens If You Don't Renew:</p>
+        <ul style="margin:0;padding-left:20px;font-size:12px;line-height:1.6;">
+          <li class="info-text" style="color:#0c4a6e;">Complete loss of access to ${EMAIL_CONFIG.COMPANY.NAME}</li>
+          <li class="info-text" style="color:#0c4a6e;">Your shop and branches will be locked</li>
+          <li class="info-text" style="color:#0c4a6e;">Staff cannot log in or perform operations</li>
+          <li class="info-text" style="color:#0c4a6e;">All business activities will halt</li>
         </ul>
       </div>
 
       <!-- Urgent CTA -->
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${FRONTEND_URL}/subscription" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:white;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;box-shadow:0 3px 10px rgba(220,38,38,0.3);">
-           Renew Now - Avoid Suspension
-        </a>
-      </div>
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/subscription`, text: 'Renew Now - Avoid Suspension',  color: 'error' })}
 
-      <!-- Support -->
-      <div style="background:#fef9e7;border-left:4px solid #f59e0b;padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
-        <p style="margin:0;color:#92400e;font-size:13px;">
+      <!-- Support: LIGHTBULB_AMBER icon replaces 💡 -->
+      <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;margin:24px 0;border-radius:0 8px 8px 0;">
+        <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;background-color:#fef9e7;">
            <strong>Need Help?</strong> Contact our support team immediately for assistance with renewal.
         </p>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        <strong>Support:</strong> <a href="mailto:support@curelihealth.com" style="color:#dc2626;text-decoration:none;font-weight:600;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        <strong>Support:</strong>
+        <a href="mailto:${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}"
+           style="color:${EMAIL_CONFIG.COLORS.ERROR};text-decoration:none;font-weight:600;">
+          ${EMAIL_CONFIG.COMPANY.SUPPORT_EMAIL}
+        </a>
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

@@ -4,17 +4,27 @@ import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
 import { generateResetToken, hashToken } from "../../utils/tokens.js";
 import jwt from "jsonwebtoken";
-import { ACCESS_SECRET, REFRESH_SECRET, ACCESS_EXPIRES, REFRESH_EXPIRES } from "../../config/jwt.js";
+import {
+  ACCESS_SECRET,
+  REFRESH_SECRET,
+  ACCESS_EXPIRES,
+  REFRESH_EXPIRES,
+} from "../../config/jwt.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 import * as audit from "../audit/index.js";
 import { invalidateAllUserSessions } from "../../utils/session.js";
 
-export async function createOwnerAccount({ first_name, last_name, email, password }, auditContext) {
+export async function createOwnerAccount(
+  { first_name, last_name, email, password },
+  auditContext,
+) {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     if (existing.login_provider === "google") {
-      const err = new Error("Email already registered via Google. Please login with Google.");
+      const err = new Error(
+        "Email already registered via Google. Please login with Google.",
+      );
       err.code = "EMAIL_GOOGLE_EXISTS";
       throw err;
     }
@@ -57,14 +67,12 @@ export async function createOwnerAccount({ first_name, last_name, email, passwor
   const accessToken = jwt.sign(
     { user_id: user.user_id, role: user.role, status: user.status },
     ACCESS_SECRET,
-    { expiresIn: ACCESS_EXPIRES }
+    { expiresIn: ACCESS_EXPIRES },
   );
 
-  const refreshToken = jwt.sign(
-    { user_id: user.user_id },
-    REFRESH_SECRET,
-    { expiresIn: REFRESH_EXPIRES }
-  );
+  const refreshToken = jwt.sign({ user_id: user.user_id }, REFRESH_SECRET, {
+    expiresIn: REFRESH_EXPIRES,
+  });
 
   return {
     user,
@@ -81,9 +89,9 @@ export async function requestPasswordReset(email) {
     return { success: true };
   }
 
-if (user.login_provider === "google" && !user.password_hash) {
-  return { success: true };
-}
+  if (user.login_provider === "google" && !user.password_hash) {
+    return { success: true };
+  }
 
   const resetToken = generateResetToken();
   const hashedToken = hashToken(resetToken);
@@ -140,7 +148,7 @@ export async function resetPassword(token, newPassword, auditContext) {
       reset_token_expires: null,
     },
   });
-   await invalidateAllUserSessions(user.user_id, "password_reset");
+  await invalidateAllUserSessions(user.user_id, "password_reset");
 
   // Audit: Password reset completed (SECURITY ACTION - must not fail)
   await audit.log({
@@ -155,19 +163,21 @@ export async function resetPassword(token, newPassword, auditContext) {
     ...auditContext, // For IP and user agent
     reason_code: audit.AuditReasonCode.SECURITY_ACTION,
     metadata: {
-      reset_method: 'email_token',
+      reset_method: "email_token",
     },
   });
 
-  // ✅ Notify user about password change (security alert - fire-and-forget)
+  //  Notify user about password change (security alert - fire-and-forget)
   notify({
     type: NOTIFICATION_EVENTS.PASSWORD_CHANGED,
     context: {
       user_id: user.user_id,
       email: user.email,
-      name: user.first_name || user.full_name || 'User',
+      name: user.first_name || user.full_name || "User",
     },
-  }).catch(err => console.error('[Notification] PASSWORD_CHANGED failed:', err));
+  }).catch((err) =>
+    console.error("[Notification] PASSWORD_CHANGED failed:", err),
+  );
 
   return { success: true };
 }

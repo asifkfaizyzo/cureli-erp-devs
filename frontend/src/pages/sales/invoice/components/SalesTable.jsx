@@ -71,16 +71,25 @@ const StatusBadge = ({ status }) => {
 };
 
 const PaymentStatusBadge = ({ invoice }) => {
-  const { effectiveStatus, thresholdApplied } = getEffectivePaymentDisplay(invoice);
+  const { effectiveStatus, thresholdApplied } =
+    getEffectivePaymentDisplay(invoice);
 
   const badges = {
-    UNPAID: { bg: "bg-red-100", text: "text-red-700", border: "border-red-300" },
+    UNPAID: {
+      bg: "bg-red-100",
+      text: "text-red-700",
+      border: "border-red-300",
+    },
     PARTIALLY_PAID: {
       bg: "bg-yellow-100",
       text: "text-yellow-700",
       border: "border-yellow-300",
     },
-    PAID: { bg: "bg-green-100", text: "text-green-700", border: "border-green-300" },
+    PAID: {
+      bg: "bg-green-100",
+      text: "text-green-700",
+      border: "border-green-300",
+    },
   };
 
   const config = badges[effectiveStatus] || badges.UNPAID;
@@ -97,7 +106,10 @@ const PaymentStatusBadge = ({ invoice }) => {
     >
       {displayText}
       {thresholdApplied && (
-        <span className="ml-0.5 text-[8px] opacity-70" title="Threshold applied">
+        <span
+          className="ml-0.5 text-[8px] opacity-70"
+          title="Threshold applied"
+        >
           ~
         </span>
       )}
@@ -136,9 +148,17 @@ const BranchBadge = ({ branchName }) => {
 
 const getRoleBadgeConfig = (role) => {
   const roleConfigs = {
-    super_admin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super Admin" },
+    super_admin: {
+      bg: "bg-purple-100",
+      text: "text-purple-700",
+      label: "Super Admin",
+    },
     branch_admin: { bg: "bg-blue-100", text: "text-blue-700", label: "Admin" },
-    pharmacist: { bg: "bg-green-100", text: "text-green-700", label: "Pharmacist" },
+    pharmacist: {
+      bg: "bg-green-100",
+      text: "text-green-700",
+      label: "Pharmacist",
+    },
     staff: { bg: "bg-gray-100", text: "text-gray-700", label: "Staff" },
     owner: { bg: "bg-amber-100", text: "text-amber-700", label: "Owner" },
     cashier: { bg: "bg-teal-100", text: "text-teal-700", label: "Cashier" },
@@ -353,14 +373,16 @@ const SalesTable = ({
 
     if (status === "CONFIRMED") {
       return {
-        className: "hover:bg-amber-50 hover:text-amber-600 text-amber-500 cursor-pointer",
+        className:
+          "hover:bg-amber-50 hover:text-amber-600 text-amber-500 cursor-pointer",
         icon: Shield,
         title: "Edit as Super Admin (Stock will be adjusted)",
       };
     }
 
     return {
-      className: "hover:bg-amber-50 hover:text-amber-600 text-gray-400 cursor-pointer",
+      className:
+        "hover:bg-amber-50 hover:text-amber-600 text-gray-400 cursor-pointer",
       icon: Pencil,
       title: "Edit Invoice",
     };
@@ -371,7 +393,11 @@ const SalesTable = ({
   };
 
   const uniqueBranches = showBranchColumn
-    ? [...new Set(safeInvoices.map((inv) => inv.branch?.branch_name).filter(Boolean))]
+    ? [
+        ...new Set(
+          safeInvoices.map((inv) => inv.branch?.branch_name).filter(Boolean),
+        ),
+      ]
     : [];
 
   return (
@@ -438,7 +464,7 @@ const SalesTable = ({
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 Invoice Date
               </th>
-              {/* ✅ NEW: Billed By Column Header */}
+              {/*  NEW: Billed By Column Header */}
               <th className="px-4 py-3 text-left text-[10px] font-bold text-white uppercase tracking-wider bg-[#000060] border-r border-[#000060]/30 whitespace-nowrap">
                 <div className="flex items-center gap-1.5">
                   <UserCheck size={12} />
@@ -528,9 +554,15 @@ const SalesTable = ({
                       <div className="flex flex-col">
                         <span
                           className="font-semibold text-gray-700 truncate max-w-[140px]"
-                          title={invoice.customer?.name || invoice.walkin_name || "Walk-in Customer"}
+                          title={
+                            invoice.customer?.name ||
+                            invoice.walkin_name ||
+                            "Walk-in Customer"
+                          }
                         >
-                          {invoice.customer?.name || invoice.walkin_name || "Walk-in Customer"}
+                          {invoice.customer?.name ||
+                            invoice.walkin_name ||
+                            "Walk-in Customer"}
                         </span>
                         {(invoice.customer?.phone || invoice.walkin_phone) && (
                           <span className="text-[10px] text-gray-500">
@@ -545,7 +577,7 @@ const SalesTable = ({
                       {formatDate(invoice.invoice_date)}
                     </td>
 
-                    {/* ✅ NEW: Billed By Column */}
+                    {/*  NEW: Billed By Column */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       {invoice.creator ? (
                         <div className="flex flex-col">
@@ -581,7 +613,9 @@ const SalesTable = ({
                     {/* Items Count */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#000060]/10 text-[#000060] text-[10px] font-bold">
-                        {invoice._count?.lineItems || invoice.lineItems?.length || 0}
+                        {invoice._count?.lineItems ||
+                          invoice.lineItems?.length ||
+                          0}
                       </span>
                     </td>
 
@@ -598,11 +632,12 @@ const SalesTable = ({
                     {/* Payment Status */}
                     <td className="py-3 px-4 border-b border-gray-100 text-xs">
                       <PaymentStatusBadge invoice={invoice} />
-                      {paymentDisplay.showBalance && paymentDisplay.balance > 0 && (
-                        <div className="text-[10px] text-gray-500 mt-0.5">
-                          Due: {formatCurrency(paymentDisplay.balance)}
-                        </div>
-                      )}
+                      {paymentDisplay.showBalance &&
+                        paymentDisplay.balance > 0 && (
+                          <div className="text-[10px] text-gray-500 mt-0.5">
+                            Due: {formatCurrency(paymentDisplay.balance)}
+                          </div>
+                        )}
                     </td>
 
                     {/* Status */}
@@ -677,7 +712,9 @@ const SalesTable = ({
                       <Package size={24} className="text-[#000060]/40" />
                     </div>
                     <div>
-                      <p className="text-gray-600 font-medium">No sales invoices found</p>
+                      <p className="text-gray-600 font-medium">
+                        No sales invoices found
+                      </p>
                       <p className="text-sm text-gray-400 mt-1">
                         {showBranchColumn
                           ? "No invoices found across all branches"
@@ -693,7 +730,9 @@ const SalesTable = ({
       </div>
 
       {/* Fixed Pagination Footer */}
-      <div className="shrink-0 border-t border-gray-200 bg-gray-50/80">{children}</div>
+      <div className="shrink-0 border-t border-gray-200 bg-gray-50/80">
+        {children}
+      </div>
     </div>
   );
 };

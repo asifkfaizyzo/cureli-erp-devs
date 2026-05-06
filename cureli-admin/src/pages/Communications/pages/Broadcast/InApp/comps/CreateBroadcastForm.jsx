@@ -1,6 +1,6 @@
 // src/pages/Communications/pages/Broadcast/InApp/comps/CreateBroadcastForm.jsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Send,
   Save,
@@ -49,7 +49,6 @@ function CreateBroadcastForm({
   onScheduled,
   editDraft = null,
 }) {
-  // Form state
   const [formData, setFormData] = useState({
     title: "",
     message: "",
@@ -62,20 +61,22 @@ function CreateBroadcastForm({
     target_cadmins: false,
   });
 
-  // UI state
   const [recipientPreview, setRecipientPreview] = useState(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-
-  // Modals
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
 
-  // Debounced filters for auto-preview
-  const debouncedFilters = useDebounce(formData.target_filters, 500);
+  //  Use ref to always have latest formData in async callbacks
+  const formDataRef = useRef(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  const debouncedFilters = useDebounce(formData.target_filters, 600);
 
   // Load draft data
   useEffect(() => {
@@ -94,40 +95,48 @@ function CreateBroadcastForm({
     }
   }, [editDraft]);
 
-  // Auto-preview recipient count when filters change
-  useEffect(() => {
-    const hasFilters =
-      Object.keys(debouncedFilters).length > 0 ||
-      formData.target_users ||
-      formData.target_cadmins;
+  //  fetchRecipientCount reads from ref — never stale
+  const fetchRecipientCount = useCallback(async () => {
+    const current = formDataRef.current;
 
-    if (hasFilters) {
-      fetchRecipientCount();
-    } else {
+    // Must have at least one audience type selected
+    if (!current.target_users && !current.target_cadmins) {
       setRecipientPreview(null);
+      return;
     }
-  }, [debouncedFilters, formData.target_users, formData.target_cadmins]);
 
-  const fetchRecipientCount = async () => {
     setIsPreviewLoading(true);
     try {
-      const filters = {
-        ...formData.target_filters,
-        includeUsers: formData.target_users,
-        includeCAdmins: formData.target_cadmins,
+      //  Merge audience flags into filters for the API call
+      const filtersToSend = {
+        ...current.target_filters,
+        includeUsers: current.target_users,
+        includeCAdmins: current.target_cadmins,
       };
-      const response = await broadcastAPI.previewBroadcast(filters, true);
+
+      const response = await broadcastAPI.previewBroadcast(filtersToSend, true);
       if (response.data.success) {
         setRecipientPreview(response.data.data);
       }
     } catch (err) {
       console.error("Preview failed:", err);
+      // Don't show error for preview — it's background
     } finally {
       setIsPreviewLoading(false);
     }
-  };
+  }, []); //  Stable — uses ref internally
 
-  const handleInputChange = (e) => {
+  //  Re-fetch when debounced filters OR audience toggles change
+  useEffect(() => {
+    fetchRecipientCount();
+  }, [
+    debouncedFilters,
+    formData.target_users,
+    formData.target_cadmins,
+    fetchRecipientCount,
+  ]);
+
+  const handleInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -135,7 +144,7 @@ function CreateBroadcastForm({
     }));
     setError(null);
     setSuccess(null);
-  };
+  }, []);
 
   const handleFiltersChange = useCallback((filters) => {
     setFormData((prev) => ({ ...prev, target_filters: filters }));
@@ -166,7 +175,7 @@ function CreateBroadcastForm({
     return true;
   };
 
-  const prepareFormDataForSubmission = () => {
+  const preparePayload = () => {
     const cleanedAttachments = formData.attachments.map((att) => ({
       type: att.type,
       url: att.url,
@@ -176,7 +185,7 @@ function CreateBroadcastForm({
       size: att.size || null,
     }));
 
-    // ✅ FIX: Merge audience flags INTO target_filters
+    //  Merge audience flags into target_filters so backend resolveAudience gets them
     const mergedFilters = {
       ...formData.target_filters,
       includeUsers: formData.target_users,
@@ -187,12 +196,12 @@ function CreateBroadcastForm({
       title: formData.title,
       message: formData.message,
       priority: formData.priority,
-      target_filters: mergedFilters, // ✅ Filters now include audience flags
+      target_filters: mergedFilters,
       attachments: cleanedAttachments,
       action_url: formData.action_url,
       action_label: formData.action_label,
-      target_users: formData.target_users, // Keep for campaign record
-      target_cadmins: formData.target_cadmins, // Keep for campaign record
+      target_users: formData.target_users,
+      target_cadmins: formData.target_cadmins,
     };
   };
 
@@ -201,13 +210,12 @@ function CreateBroadcastForm({
     setLoading(true);
     setError(null);
     try {
-      const submissionData = prepareFormDataForSubmission();
-
+      const payload = preparePayload();
       if (editDraft?.campaign_id) {
-        await broadcastAPI.updateDraft(editDraft.campaign_id, submissionData);
+        await broadcastAPI.updateDraft(editDraft.campaign_id, payload);
         setSuccess("Draft updated");
       } else {
-        await broadcastAPI.createDraft(submissionData);
+        await broadcastAPI.createDraft(payload);
         setSuccess("Draft saved");
       }
       setTimeout(() => onDraftSaved?.(), 1000);
@@ -218,7 +226,7 @@ function CreateBroadcastForm({
     }
   };
 
-  const handleSendNow = async () => {
+  const handleSendNow = () => {
     if (!validateForm()) return;
     setShowConfirmModal(true);
   };
@@ -227,8 +235,8 @@ function CreateBroadcastForm({
     setShowConfirmModal(false);
     setLoading(true);
     try {
-      const submissionData = prepareFormDataForSubmission();
-      const res = await broadcastAPI.sendBroadcastNow(submissionData);
+      const payload = preparePayload();
+      const res = await broadcastAPI.sendBroadcastNow(payload);
       if (res.data.success) {
         setSuccess(`Sent to ${res.data.data.sent_to} recipients`);
         setTimeout(() => onSuccess?.(), 1500);
@@ -249,14 +257,14 @@ function CreateBroadcastForm({
     setShowScheduleModal(false);
     setLoading(true);
     try {
-      const submissionData = prepareFormDataForSubmission();
+      const payload = preparePayload();
       let campaignId = editDraft?.campaign_id;
 
       if (!campaignId) {
-        const draftRes = await broadcastAPI.createDraft(submissionData);
+        const draftRes = await broadcastAPI.createDraft(payload);
         campaignId = draftRes.data.data.campaign_id;
       } else {
-        await broadcastAPI.updateDraft(campaignId, submissionData);
+        await broadcastAPI.updateDraft(campaignId, payload);
       }
 
       await broadcastAPI.scheduleBroadcast(campaignId, scheduledFor);
@@ -297,7 +305,7 @@ function CreateBroadcastForm({
         </div>
       )}
 
-      {/* Main Content - Horizontal Layout */}
+      {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="h-full flex flex-col lg:flex-row">
           {/* LEFT: Message Content */}
@@ -365,14 +373,11 @@ function CreateBroadcastForm({
                         setFormData((p) => ({ ...p, priority: opt.value }))
                       }
                       disabled={loading}
-                      className={`
-                        px-3 py-1.5 text-xs font-medium rounded-lg border transition-all
-                        ${
-                          formData.priority === opt.value
-                            ? opt.color + " ring-1 ring-offset-1 ring-gray-300"
-                            : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
-                        }
-                      `}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                        formData.priority === opt.value
+                          ? opt.color + " ring-1 ring-offset-1 ring-gray-300"
+                          : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                      }`}
                     >
                       {opt.label}
                     </button>
@@ -418,7 +423,7 @@ function CreateBroadcastForm({
             </div>
           </div>
 
-          {/* RIGHT: Audience - Takes remaining space */}
+          {/* RIGHT: Audience */}
           <div className="flex-1 bg-gray-50 min-w-0">
             <div className="p-5 h-full overflow-y-auto">
               {/* Header with recipient count */}
@@ -429,7 +434,6 @@ function CreateBroadcastForm({
                     Target Audience
                   </h3>
                 </div>
-
                 <div className="flex items-center gap-3">
                   {isPreviewLoading ? (
                     <span className="text-xs text-gray-400 flex items-center gap-1.5">
@@ -453,6 +457,7 @@ function CreateBroadcastForm({
 
               {/* Audience Type Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                {/* ERP Users */}
                 <div
                   onClick={() =>
                     !loading &&
@@ -464,21 +469,19 @@ function CreateBroadcastForm({
                       },
                     })
                   }
-                  className={`
-                    flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                    ${
-                      formData.target_users
-                        ? "border-[#05015A] bg-white shadow-sm"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }
-                  `}
+                  className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    formData.target_users
+                      ? "border-[#05015A] bg-white shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`
-                      w-10 h-10 rounded-lg flex items-center justify-center
-                      ${formData.target_users ? "bg-[#05015A]/10" : "bg-gray-100"}
-                    `}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        formData.target_users
+                          ? "bg-[#05015A]/10"
+                          : "bg-gray-100"
+                      }`}
                     >
                       <Users
                         size={18}
@@ -499,14 +502,11 @@ function CreateBroadcastForm({
                     </div>
                   </div>
                   <div
-                    className={`
-                    w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                    ${
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                       formData.target_users
                         ? "border-[#05015A] bg-[#05015A]"
                         : "border-gray-300"
-                    }
-                  `}
+                    }`}
                   >
                     {formData.target_users && (
                       <svg
@@ -524,6 +524,7 @@ function CreateBroadcastForm({
                   </div>
                 </div>
 
+                {/* Admins */}
                 <div
                   onClick={() =>
                     !loading &&
@@ -535,21 +536,19 @@ function CreateBroadcastForm({
                       },
                     })
                   }
-                  className={`
-                    flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                    ${
-                      formData.target_cadmins
-                        ? "border-[#05015A] bg-white shadow-sm"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }
-                  `}
+                  className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    formData.target_cadmins
+                      ? "border-[#05015A] bg-white shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`
-                      w-10 h-10 rounded-lg flex items-center justify-center
-                      ${formData.target_cadmins ? "bg-[#05015A]/10" : "bg-gray-100"}
-                    `}
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        formData.target_cadmins
+                          ? "bg-[#05015A]/10"
+                          : "bg-gray-100"
+                      }`}
                     >
                       <Users
                         size={18}
@@ -570,14 +569,11 @@ function CreateBroadcastForm({
                     </div>
                   </div>
                   <div
-                    className={`
-                    w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
-                    ${
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
                       formData.target_cadmins
                         ? "border-[#05015A] bg-[#05015A]"
                         : "border-gray-300"
-                    }
-                  `}
+                    }`}
                   >
                     {formData.target_cadmins && (
                       <svg
@@ -638,7 +634,6 @@ function CreateBroadcastForm({
             <Eye size={15} />
             Preview
           </button>
-
           <button
             type="button"
             onClick={handleSaveDraft}
@@ -648,7 +643,6 @@ function CreateBroadcastForm({
             <Save size={15} />
             Save Draft
           </button>
-
           <button
             type="button"
             onClick={handleSchedule}
@@ -658,7 +652,6 @@ function CreateBroadcastForm({
             <Calendar size={15} />
             Schedule
           </button>
-
           <button
             type="button"
             onClick={handleSendNow}
@@ -687,14 +680,12 @@ function CreateBroadcastForm({
           onCancel={() => setShowConfirmModal(false)}
         />
       )}
-
       {showScheduleModal && (
         <ScheduleModal
           onConfirm={confirmSchedule}
           onCancel={() => setShowScheduleModal(false)}
         />
       )}
-
       {showPreviewModal && recipientPreview && (
         <PreviewModal
           data={recipientPreview}

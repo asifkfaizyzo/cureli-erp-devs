@@ -12,7 +12,7 @@ export async function getPlansController(req, res) {
     const plans = await getActivePlans();
     return success(res, { plans });
   } catch (err) {
-    console.error("❌ Error fetching plans:", err);
+    console.error(" Error fetching plans:", err);
     return fail(res, "Failed to load plans.", 500);
   }
 }
@@ -32,7 +32,7 @@ export async function getPlanByIdController(req, res) {
 
     return success(res, { plan });
   } catch (err) {
-    console.error("❌ Error fetching plan:", err);
+    console.error(" Error fetching plan:", err);
     return fail(res, "Failed to load plan.", 500);
   }
 }

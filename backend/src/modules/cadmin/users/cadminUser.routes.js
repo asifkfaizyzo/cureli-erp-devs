@@ -1,8 +1,11 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\cadmin\users\cadminUser.routes.js
+// backend/src/modules/cadmin/users/cadminUser.routes.js
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
-import {getUsersController,
+import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
+import {
+  getUsersController,
   getUserByIdController,
   updateUserController,
   toggleUserAccessController,
@@ -11,19 +14,39 @@ import {getUsersController,
 
 const router = express.Router();
 
-// GET  /cadmin/users
-router.get("/users", requireCAdmin, getUsersController);
+router.get(
+  "/users",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_VIEW),
+  getUsersController
+);
 
-// GET /cadmin/users/:id
-router.get("/users/:id", requireCAdmin, getUserByIdController);
+router.get(
+  "/users/:id",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_VIEW_DETAIL),
+  getUserByIdController
+);
 
-// PATCH /cadmin/users/:id  -> update allowed fields (first_name, last_name, username, role)
-router.patch("/users/:id", requireCAdmin, updateUserController);
+router.patch(
+  "/users/:id",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_EDIT),
+  updateUserController
+);
 
-// PATCH /cadmin/users/:id/access  -> toggle is_active
-router.patch("/users/:id/access", requireCAdmin, toggleUserAccessController);
+router.patch(
+  "/users/:id/access",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_TOGGLE_ACCESS),
+  toggleUserAccessController
+);
 
-// POST /cadmin/users/:id/reset-password -> send reset link to user's email
-router.post("/users/:id/reset-password", requireCAdmin, resetUserPasswordController);
+router.post(
+  "/users/:id/reset-password",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_RESET_PASSWORD),
+  resetUserPasswordController
+);
 
 export default router;

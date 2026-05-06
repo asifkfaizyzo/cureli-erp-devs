@@ -1,79 +1,92 @@
+// backend/src/modules/notifications/templates/email/passwordChanged.js
 // ============================================
 // PASSWORD CHANGED NOTIFICATION TEMPLATE
 // ============================================
 
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  getSupportLink,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
+
 export function passwordChangedTemplate(context) {
   const { recipientName, changed_at } = context;
 
-  const subject = 'Password Changed - Cureli';
+  const subject = `Password Changed - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Changed - Cureli Health</title>
+  ${getBaseHeadContent(`Password Changed - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
     
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:22px;font-weight:600;"> Password Changed</h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">Security Notification</p>
+    <!-- Header: LOCK_KEY icon replaces 🔐 -->
+    <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Password Changed</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Security Notification</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
       
-      <p style="font-size:15px;color:#333;margin:0 0 12px;">
-        Hi <strong style="color:#05015A;">${recipientName || 'there'}</strong>,
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
+        Hi <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">
+          ${recipientName || "there"}
+        </strong>,
       </p>
       
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
-        This is a confirmation that your password was successfully changed for your <strong>Cureli Health</strong> account.
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
+        This is a confirmation that your password was successfully changed 
+        for your <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> account.
       </p>
 
-      <!-- Success Box -->
-      <div style="background:#f0fdf4;border-left:4px solid #059669;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 6px;color:#065f46;font-size:13px;font-weight:600;"> Change Successful</p>
-        <p style="margin:0;color:#047857;font-size:13px;">
-          <strong>Date & Time:</strong> ${changed_at || new Date().toLocaleString()}
+      <!-- Success Box: CHECK_CIRCLE icon replaces  -->
+      <div class="success-box" style="background-color:#f0fdf4;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="success-text" style="margin:0 0 6px;color:#065f46;font-size:13px;font-weight:600;background-color:#f0fdf4;"> Change Successful</p>
+        <p class="success-text" style="margin:0;color:#047857;font-size:13px;background-color:#f0fdf4;">
+          <strong>Date &amp; Time:</strong> ${changed_at || new Date().toLocaleString()}
         </p>
       </div>
 
-      <!-- Security Warning -->
-      <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;">
+      <!-- Security Warning: WARNING_RED icon replaces ⚠️ -->
+      <div class="error-box" style="background-color:#fef2f2;border-left:4px solid ${EMAIL_CONFIG.COLORS.ERROR};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="error-text" style="margin:0;color:#991b1b;font-size:13px;line-height:1.6;background-color:#fef2f2;">
            <strong>Didn't make this change?</strong><br>
           If you did not authorize this password change, please contact our support team immediately to secure your account.
         </p>
       </div>
 
-      <!-- Security Tips -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 8px;color:#05015A;font-size:13px;font-weight:600;"> Security Tips:</p>
+      <!-- Security Tips: SHIELD icon replaces 🛡️ -->
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:14px 18px;margin:20px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0 0 8px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;font-weight:600;background-color:#e0f2fe;"> Security Tips:</p>
         <ul style="margin:0;padding-left:20px;color:#374151;font-size:12px;line-height:1.6;">
-          <li>Never share your password with anyone</li>
-          <li>Use a unique password for your Cureli Health account</li>
-          <li>Enable two-factor authentication if available</li>
+          <li class="info-text" style="color:#0c4a6e;">
+            Never share your password with anyone
+          </li>
+          <li class="info-text" style="color:#0c4a6e;">
+            Use a unique password for your ${EMAIL_CONFIG.COMPANY.NAME} account
+          </li>
+          <li class="info-text" style="color:#0c4a6e;">
+            Enable two-factor authentication if available
+          </li>
         </ul>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Questions? Contact us at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Questions? Contact us at ${getSupportLink()}
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

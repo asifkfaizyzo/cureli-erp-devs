@@ -53,7 +53,7 @@ const BusinessInfo = ({ onContinue }) => {
   const navigate = useNavigate();
   const shop_id = localStorage.getItem("shop_id");
 
-  // ✅ Auth check
+  //  Auth check
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
@@ -70,7 +70,7 @@ const BusinessInfo = ({ onContinue }) => {
     nameRef.current?.focus();
   }, []);
 
-  // ✅ Click outside to close dropdowns
+  //  Click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -93,7 +93,7 @@ const BusinessInfo = ({ onContinue }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Load pincode data lazily
+  //  Load pincode data lazily
   const ensurePincodeLoaded = useCallback(async () => {
     if (!dataLoaded.pincode) {
       await loadPincodeMap();
@@ -101,7 +101,7 @@ const BusinessInfo = ({ onContinue }) => {
     }
   }, [dataLoaded.pincode]);
 
-  // ✅ Load city data lazily
+  //  Load city data lazily
   const ensureCityLoaded = useCallback(async () => {
     if (!dataLoaded.city) {
       await loadCityList();
@@ -109,7 +109,7 @@ const BusinessInfo = ({ onContinue }) => {
     }
   }, [dataLoaded.city]);
 
-  // ✅ Load state data lazily
+  //  Load state data lazily
   const ensureStateLoaded = useCallback(async () => {
     if (!dataLoaded.state) {
       await loadStateList();
@@ -117,12 +117,12 @@ const BusinessInfo = ({ onContinue }) => {
     }
   }, [dataLoaded.state]);
 
-  // ✅ Handle form changes
+  //  Handle form changes
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Handle Pincode Input
+  //  Handle Pincode Input
   const handlePincodeChange = async (value) => {
     // Only allow digits
     const sanitized = value.replace(/\D/g, "").slice(0, 6);
@@ -144,7 +144,7 @@ const BusinessInfo = ({ onContinue }) => {
     }
   };
 
-  // ✅ Handle City Input with Debounce
+  //  Handle City Input with Debounce
   const handleCityChange = async (value) => {
     handleChange("city", value);
     setActiveIndex(-1);
@@ -169,7 +169,7 @@ const BusinessInfo = ({ onContinue }) => {
     }, 100);
   };
 
-  // ✅ Handle City Selection
+  //  Handle City Selection
   const handleCitySelect = (item) => {
     setForm((prev) => ({
       ...prev,
@@ -180,7 +180,7 @@ const BusinessInfo = ({ onContinue }) => {
     setCitySuggestions([]);
   };
 
-  // ✅ Handle State Input
+  //  Handle State Input
   const handleStateChange = async (value) => {
     handleChange("state", value);
     setActiveIndex(-1);
@@ -191,14 +191,14 @@ const BusinessInfo = ({ onContinue }) => {
     setShowStateDropdown(results.length > 0);
   };
 
-  // ✅ Handle State Selection
+  //  Handle State Selection
   const handleStateSelect = (state) => {
     handleChange("state", state);
     setShowStateDropdown(false);
     setStateSuggestions([]);
   };
 
-  // ✅ Handle State Focus (show all states)
+  //  Handle State Focus (show all states)
   const handleStateFocus = async () => {
     await ensureStateLoaded();
     const results = searchStates(form.state);
@@ -206,7 +206,7 @@ const BusinessInfo = ({ onContinue }) => {
     setShowStateDropdown(true);
   };
 
-  // ✅ Keyboard navigation for dropdowns
+  //  Keyboard navigation for dropdowns
   const handleKeyDown = (e, type) => {
     const suggestions = type === "city" ? citySuggestions : stateSuggestions;
     const setShow =
@@ -233,7 +233,7 @@ const BusinessInfo = ({ onContinue }) => {
     }
   };
 
-  // ✅ Validation
+  //  Validation
   const validate = () => {
     let newErrors = {};
 
@@ -249,7 +249,7 @@ const BusinessInfo = ({ onContinue }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Submit
+  //  Submit
   const handleSubmit = async () => {
     if (!validate()) return;
 
@@ -266,7 +266,7 @@ const BusinessInfo = ({ onContinue }) => {
       });
       onContinue();
     } catch (err) {
-      console.log("SHOP ERROR:", err.response?.data);
+    
       alert(err?.response?.data?.message || "Failed to save business info");
     }
     setLoading(false);

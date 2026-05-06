@@ -22,7 +22,7 @@ const OnboardingTable = () => {
       setLoading(true);
       try {
         const res = await getRecentOnboarding(page, 5);
-        console.log("[OnboardingTable] Response:", res);
+        
         setData(res.data?.users || []);
         setPagination(res.data?.pagination || null);
       } catch (e) {

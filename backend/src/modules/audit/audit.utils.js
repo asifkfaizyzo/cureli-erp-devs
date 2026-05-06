@@ -1,5 +1,5 @@
 // ============================================
-// AUDIT UTILITIES
+// backend\src\modules\audit\audit.utils.js
 // ============================================
 
 import { ActorType } from './audit.constants.js';
@@ -43,7 +43,7 @@ export function extractRequestContext(req) {
   else if (req.cadmin) {
     actor_type = ActorType.CADMIN;
     actor_id = req.cadmin.cadmin_id || null;
-    actor_role = req.cadmin.role || null;
+    actor_role = req.cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE";
     // CAdmins don't have shop/branch context
     shop_id = null;
     branch_id = null;
@@ -132,7 +132,7 @@ export function buildCAdminContext(cadmin) {
   return {
     actor_type: ActorType.CADMIN,
     actor_id: cadmin.cadmin_id,
-    actor_role: cadmin.role,
+    actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",
     shop_id: null,
     branch_id: null,
   };

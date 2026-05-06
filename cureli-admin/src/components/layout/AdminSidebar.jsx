@@ -23,7 +23,9 @@ import {
   useCAdminPermission,
 } from "../../hooks/useCAdminPermission";
 
-/* ───────────────── Sidebar Width Config ───────────────── */
+// ============================================
+// SIDEBAR WIDTH CONFIG
+// ============================================
 const COLLAPSED_WIDTH = 72;
 
 const EXPANDED_WIDTH_CONFIG = {
@@ -37,9 +39,7 @@ const EXPANDED_WIDTH_CONFIG = {
 
 const getExpandedWidth = () => {
   if (typeof window === "undefined") return EXPANDED_WIDTH_CONFIG.default;
-
   const width = window.innerWidth;
-
   if (width >= 1536) return EXPANDED_WIDTH_CONFIG["2xl"];
   if (width >= 1280) return EXPANDED_WIDTH_CONFIG["xl"];
   if (width >= 1024) return EXPANDED_WIDTH_CONFIG["lg"];
@@ -54,7 +54,9 @@ const SIDEBAR_TRANSITION = {
   mass: 0.8,
 };
 
-/* ───────────────── Menu Items ───────────────── */
+// ============================================
+// MENU ITEMS
+// ============================================
 const MENU_ITEMS = [
   {
     id: "dashboard",
@@ -62,7 +64,7 @@ const MENU_ITEMS = [
     icon: LayoutGrid,
     path: "/dashboard",
     breadcrumbs: ["Dashboard"],
-    permissionKey: "dashboard",
+    // permissionKey: "dashboard",
   },
   {
     id: "users",
@@ -86,7 +88,7 @@ const MENU_ITEMS = [
     icon: ClipboardList,
     path: "/orders",
     breadcrumbs: ["Orders"],
-    permissionKey: "orders",
+    // permissionKey: "orders",
   },
   {
     id: "master-medicines",
@@ -143,11 +145,12 @@ const MENU_ITEMS = [
     path: "/settings",
     breadcrumbs: ["Settings"],
     permissionKey: "settings",
-    superAdminOnly: true, // Flag for super admin only access
   },
 ];
 
-/* ───────────────── Child routes mapping ───────────────── */
+// ============================================
+// CHILD ROUTES MAPPING
+// ============================================
 const CHILD_ROUTES = {
   "/communications/tickets": {
     parentId: "communications",
@@ -187,22 +190,24 @@ const CHILD_ROUTES = {
   },
 };
 
-/* ───────────────── NON-SIDEBAR ROUTES ───────────────── */
+// ============================================
+// NON-SIDEBAR ROUTES (no active highlight)
+// ============================================
 const NON_SIDEBAR_ROUTES = ["/notifications"];
 
-/* ───────────────── Menu Item Component ───────────────── */
+// ============================================
+// MENU ITEM COMPONENT
+// ============================================
 const MenuItem = ({ item, activeMenu, isExpanded, onNavigate }) => {
   const Icon = item.icon;
   const isActive = activeMenu === item.id;
 
-  const handleClick = (e) => {
-    e.preventDefault();
-    onNavigate(item);
-  };
-
   return (
     <motion.button
-      onClick={handleClick}
+      onClick={(e) => {
+        e.preventDefault();
+        onNavigate(item);
+      }}
       className={`
         relative flex items-center w-full h-11 rounded-xl
         transition-colors duration-200
@@ -233,7 +238,9 @@ const MenuItem = ({ item, activeMenu, isExpanded, onNavigate }) => {
   );
 };
 
-/* ───────────────── Main Sidebar ───────────────── */
+// ============================================
+// MAIN SIDEBAR COMPONENT
+// ============================================
 const AdminSidebar = ({ expanded, onExpandChange }) => {
   const activeMenu = useMenuStore((s) => s.activeMenu);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
@@ -245,33 +252,29 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
 
-  const isExpanded = expanded;
-
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
 
   useEffect(() => {
-    const handleResize = () => {
-      setExpandedWidth(getExpandedWidth());
-    };
-
+    const handleResize = () => setExpandedWidth(getExpandedWidth());
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  /* ───────────── Filter menu items based on permissions ───────────── */
+  // ============================================
+  // VISIBLE MENU ITEMS
+  // ============================================
   const visibleMenuItems = useMemo(() => {
     return MENU_ITEMS.filter((item) => {
-      // Check if item is super admin only
-      if (item.superAdminOnly && !isSuperCAdmin) {
-        return false;
-      }
-
+      if (item.superAdminOnly) return isSuperCAdmin;
+      if (!item.permissionKey) return true;
       const permission = permissions[item.permissionKey];
-      return permission?.visible !== false;
+      return permission === undefined ? true : permission.visible !== false;
     });
   }, [permissions, isSuperCAdmin]);
 
-  /* ───────────── navigation handler ───────────── */
+  // ============================================
+  // NAVIGATION HANDLER
+  // ============================================
   const handleNavigation = useCallback(
     (item) => {
       navigate(item.path);
@@ -281,19 +284,26 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     [navigate, setActiveMenu, setBreadcrumbs],
   );
 
-  const handleMouseEnter = useCallback(() => {
-    onExpandChange(true);
-  }, [onExpandChange]);
+  const handleMouseEnter = useCallback(
+    () => onExpandChange(true),
+    [onExpandChange],
+  );
+  const handleMouseLeave = useCallback(
+    () => onExpandChange(false),
+    [onExpandChange],
+  );
 
-  const handleMouseLeave = useCallback(() => {
-    onExpandChange(false);
-  }, [onExpandChange]);
-
-  /* 1️⃣ ROUTE → SIDEBAR SYNC */
+  // ============================================
+  // ROUTE → SIDEBAR SYNC
+  // ============================================
   useEffect(() => {
     const currentPath = location.pathname;
 
-    if (NON_SIDEBAR_ROUTES.includes(currentPath)) {
+    if (NON_SIDEBAR_ROUTES.includes(currentPath)) return;
+
+    if (currentPath === "/dashboard") {
+      setActiveMenu("dashboard");
+      setBreadcrumbs(["Dashboard"]);
       return;
     }
 
@@ -313,17 +323,20 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     }
   }, [location.pathname, setActiveMenu, setBreadcrumbs, visibleMenuItems]);
 
-  /* 2️⃣ FALLBACK for invalid routes */
+  // ============================================
+  // FALLBACK FOR INVALID / UNMATCHED ROUTES
+  // ============================================
   useEffect(() => {
     const currentPath = location.pathname;
+
+    if (currentPath === "/dashboard") return;
 
     const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
     const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
-    if (isValidMain || isValidChild || isNonSidebarRoute) {
-      return;
-    }
+    // Path is already valid — do nothing
+    if (isValidMain || isValidChild || isNonSidebarRoute) return;
 
     const allValidPaths = [
       ...visibleMenuItems.map((m) => m.path),
@@ -331,6 +344,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       ...NON_SIDEBAR_ROUTES,
     ];
 
+    // Path is a prefix match (e.g. /admins/123) — do nothing, let the page handle it
     const isPartialMatch = allValidPaths.some((p) => currentPath.startsWith(p));
 
     if (!isPartialMatch) {
@@ -346,6 +360,9 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     visibleMenuItems,
   ]);
 
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <motion.aside
       onMouseEnter={handleMouseEnter}
@@ -357,11 +374,11 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         overflow-hidden
       "
       initial={false}
-      animate={{ width: isExpanded ? expandedWidth : COLLAPSED_WIDTH }}
+      animate={{ width: expanded ? expandedWidth : COLLAPSED_WIDTH }}
       transition={SIDEBAR_TRANSITION}
     >
       <nav
-        className="flex flex-col h-full pt-6 pb-4 px-2"
+        className="flex flex-col h-full pt-2 pb-4 px-2 overflow-y-auto sidebar-nav"
         style={{ gap: "clamp(4px, 1.5vh, 16px)" }}
       >
         <div className="flex flex-col" style={{ gap: "clamp(2px, 1vh, 12px)" }}>
@@ -370,7 +387,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
               key={item.id}
               item={item}
               activeMenu={activeMenu}
-              isExpanded={isExpanded}
+              isExpanded={expanded}
               onNavigate={handleNavigation}
             />
           ))}

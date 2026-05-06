@@ -63,12 +63,13 @@ export const getTicketsQuerySchema = z.object({
  * ============================================
  */
 export const updateTicketStatusSchema = z.object({
-  status: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
+  status:      z.enum(["PENDING", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
+  note:        z.string().max(500).optional().nullable()
+                 .transform((v) => v?.trim() || null),
+  is_internal: z.boolean().optional().default(false),
+});
 
-  note: z
-    .string()
-    .max(500, "Note must be at most 500 characters")
-    .optional()
-    .nullable()
-    .transform((val) => val?.trim() || null),
+export const addCommentSchema = z.object({
+  note:        z.string().min(2).max(1000).transform((v) => v.trim()),
+  is_internal: z.boolean().optional().default(false),
 });

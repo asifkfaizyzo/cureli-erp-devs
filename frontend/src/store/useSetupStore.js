@@ -51,7 +51,7 @@ export const useSetupStore = create(
 
         // Force refresh means clear everything and start fresh
         if (forceRefresh) {
-          console.log("📦 Force refreshing setup store");
+  
           set({
             isSetupComplete: false,
             isInitialized: false,
@@ -64,11 +64,11 @@ export const useSetupStore = create(
 
         // Skip if already complete and not forcing
         if (state.isSetupComplete && !forceRefresh) {
-          console.log("📦 Setup already complete, skipping init");
+      
           return;
         }
 
-        console.log("📦 Initializing setup store:", { planLimits, superAdmin });
+      
 
         set({
           isInitialized: true,
@@ -103,7 +103,7 @@ export const useSetupStore = create(
         const { branches, planLimits, isInitialized } = state;
 
         if (!isInitialized) {
-          console.error("❌ Store not initialized!");
+          console.error(" Store not initialized!");
           return {
             success: false,
             error: "Setup not initialized. Please refresh the page.",
@@ -139,7 +139,7 @@ export const useSetupStore = create(
           error: null,
         });
 
-        console.log("✅ Branch added:", newBranch.branch_name);
+       
         return { success: true, branch: newBranch };
       },
 
@@ -147,7 +147,7 @@ export const useSetupStore = create(
         const state = get();
         set({
           branches: state.branches.map((b) =>
-            b.temp_id === temp_id ? { ...b, ...updates } : b
+            b.temp_id === temp_id ? { ...b, ...updates } : b,
           ),
         });
       },
@@ -156,7 +156,9 @@ export const useSetupStore = create(
         const state = get();
 
         const newBranches = state.branches.filter((b) => b.temp_id !== temp_id);
-        const newUsers = state.users.filter((u) => u.branch_temp_id !== temp_id);
+        const newUsers = state.users.filter(
+          (u) => u.branch_temp_id !== temp_id,
+        );
 
         set({
           branches: newBranches,
@@ -181,7 +183,7 @@ export const useSetupStore = create(
           (u) =>
             u.branch_temp_id === branch_temp_id &&
             u.role === "branch_admin" &&
-            u.temp_id !== excludeUserTempId
+            u.temp_id !== excludeUserTempId,
         );
       },
 
@@ -190,9 +192,10 @@ export const useSetupStore = create(
         const branchesWithAdmin = new Set(
           state.users
             .filter(
-              (u) => u.role === "branch_admin" && u.temp_id !== excludeUserTempId
+              (u) =>
+                u.role === "branch_admin" && u.temp_id !== excludeUserTempId,
             )
-            .map((u) => u.branch_temp_id)
+            .map((u) => u.branch_temp_id),
         );
 
         return state.branches.filter((b) => !branchesWithAdmin.has(b.temp_id));
@@ -203,7 +206,7 @@ export const useSetupStore = create(
         return (
           state.users.find(
             (u) =>
-              u.branch_temp_id === branch_temp_id && u.role === "branch_admin"
+              u.branch_temp_id === branch_temp_id && u.role === "branch_admin",
           ) || null
         );
       },
@@ -217,14 +220,17 @@ export const useSetupStore = create(
         const { users, planLimits, isInitialized } = state;
 
         if (!isInitialized) {
-          console.error("❌ Store not initialized!");
+          console.error(" Store not initialized!");
           return {
             success: false,
             error: "Setup not initialized. Please refresh the page.",
           };
         }
 
-        if (planLimits.max_users !== -1 && users.length >= planLimits.max_users) {
+        if (
+          planLimits.max_users !== -1 &&
+          users.length >= planLimits.max_users
+        ) {
           return {
             success: false,
             error: `User limit reached (${planLimits.max_users} max)`,
@@ -232,14 +238,14 @@ export const useSetupStore = create(
         }
 
         const phoneExists = users.some(
-          (u) => u.phone_number === userData.phone_number
+          (u) => u.phone_number === userData.phone_number,
         );
         if (phoneExists) {
           return { success: false, error: "Phone number already exists" };
         }
 
         const usernameExists = users.some(
-          (u) => u.username.toLowerCase() === userData.username.toLowerCase()
+          (u) => u.username.toLowerCase() === userData.username.toLowerCase(),
         );
         if (usernameExists) {
           return { success: false, error: "Username already exists" };
@@ -249,7 +255,7 @@ export const useSetupStore = create(
           const branchHasAdmin = users.some(
             (u) =>
               u.branch_temp_id === userData.branch_temp_id &&
-              u.role === "branch_admin"
+              u.role === "branch_admin",
           );
 
           if (branchHasAdmin) {
@@ -280,7 +286,6 @@ export const useSetupStore = create(
           error: null,
         });
 
-        console.log("✅ User added:", newUser.full_name);
         return { success: true, user: newUser };
       },
 
@@ -293,14 +298,15 @@ export const useSetupStore = create(
         }
 
         const newRole = updates.role || existingUser.role;
-        const newBranchId = updates.branch_temp_id || existingUser.branch_temp_id;
+        const newBranchId =
+          updates.branch_temp_id || existingUser.branch_temp_id;
 
         if (newRole === "branch_admin") {
           const branchHasOtherAdmin = state.users.some(
             (u) =>
               u.branch_temp_id === newBranchId &&
               u.role === "branch_admin" &&
-              u.temp_id !== temp_id
+              u.temp_id !== temp_id,
           );
 
           if (branchHasOtherAdmin) {
@@ -318,7 +324,7 @@ export const useSetupStore = create(
         ) {
           const phoneExists = state.users.some(
             (u) =>
-              u.phone_number === updates.phone_number && u.temp_id !== temp_id
+              u.phone_number === updates.phone_number && u.temp_id !== temp_id,
           );
           if (phoneExists) {
             return { success: false, error: "Phone number already exists" };
@@ -332,7 +338,7 @@ export const useSetupStore = create(
           const usernameExists = state.users.some(
             (u) =>
               u.username.toLowerCase() === updates.username.toLowerCase() &&
-              u.temp_id !== temp_id
+              u.temp_id !== temp_id,
           );
           if (usernameExists) {
             return { success: false, error: "Username already exists" };
@@ -341,7 +347,7 @@ export const useSetupStore = create(
 
         set({
           users: state.users.map((u) =>
-            u.temp_id === temp_id ? { ...u, ...updates } : u
+            u.temp_id === temp_id ? { ...u, ...updates } : u,
           ),
         });
 
@@ -436,7 +442,7 @@ export const useSetupStore = create(
       },
 
       resetSetup: () => {
-        console.log("🔄 Resetting setup store completely");
+
         set({
           isSetupComplete: false,
           isInitialized: false,
@@ -482,8 +488,8 @@ export const useSetupStore = create(
         users: state.users,
         superAdmin: state.superAdmin,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Selectors

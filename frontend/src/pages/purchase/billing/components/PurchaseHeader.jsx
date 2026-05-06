@@ -1,14 +1,22 @@
 // src/pages/purchase/billing/components/PurchaseHeader.jsx
 import { useRef } from "react";
-import { 
-  Save, Printer, Upload, FileSpreadsheet, 
-  CheckCircle, Clock, AlertCircle, Loader2,
-  Trash2, FilePlus, User
+import {
+  Save,
+  Printer,
+  Upload,
+  FileSpreadsheet,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Loader2,
+  Trash2,
+  FilePlus,
+  User,
 } from "lucide-react";
 
-const PurchaseHeader = ({ 
-  onSave, 
-  onSavePrint, 
+const PurchaseHeader = ({
+  onSave,
+  onSavePrint,
   onImportFile,
   onExportExcel,
   onClearTable,
@@ -40,34 +48,34 @@ const PurchaseHeader = ({
   };
 
   const getStatusConfig = (status) => {
-    switch(status) {
-      case 'CONFIRMED':
+    switch (status) {
+      case "CONFIRMED":
         return {
-          bg: 'bg-green-100',
-          text: 'text-green-700',
-          border: 'border-green-200',
-          icon: CheckCircle
+          bg: "bg-green-100",
+          text: "text-green-700",
+          border: "border-green-200",
+          icon: CheckCircle,
         };
-      case 'DRAFT':
+      case "DRAFT":
         return {
-          bg: 'bg-yellow-100',
-          text: 'text-yellow-700',
-          border: 'border-yellow-200',
-          icon: Clock
+          bg: "bg-yellow-100",
+          text: "text-yellow-700",
+          border: "border-yellow-200",
+          icon: Clock,
         };
-      case 'CANCELLED':
+      case "CANCELLED":
         return {
-          bg: 'bg-red-100',
-          text: 'text-red-700',
-          border: 'border-red-200',
-          icon: AlertCircle
+          bg: "bg-red-100",
+          text: "text-red-700",
+          border: "border-red-200",
+          icon: AlertCircle,
         };
       default:
         return {
-          bg: 'bg-gray-100',
-          text: 'text-gray-700',
-          border: 'border-gray-200',
-          icon: Clock
+          bg: "bg-gray-100",
+          text: "text-gray-700",
+          border: "border-gray-200",
+          icon: Clock,
         };
     }
   };
@@ -89,7 +97,7 @@ const PurchaseHeader = ({
             <Skeleton className="w-48 h-3" />
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Skeleton className="w-20 h-9 rounded-lg" />
           <Skeleton className="w-20 h-9 rounded-lg" />
@@ -106,28 +114,46 @@ const PurchaseHeader = ({
       {/* Left: Title & Invoice Info */}
       <div className="flex items-center gap-3">
         <div className="p-2 bg-gradient-to-br from-[#05015A] to-[#0a0280] rounded-lg shadow-sm">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-5 h-5 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-[#05015A] font-bold text-lg">Purchase Entry</h1>
-            
+
             {invoiceNumber && (
               <>
                 <div className="h-4 w-px bg-slate-300" />
                 <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-200 rounded-lg">
-                  <span className="text-[10px] text-indigo-600 font-medium">Invoice:</span>
-                  <span className="text-[11px] font-bold text-indigo-700 font-mono">{invoiceNumber}</span>
+                  <span className="text-[10px] text-indigo-600 font-medium">
+                    Invoice:
+                  </span>
+                  <span className="text-[11px] font-bold text-indigo-700 font-mono">
+                    {invoiceNumber}
+                  </span>
                 </div>
               </>
             )}
 
             {invoiceStatus && statusConfig && (
-              <div className={`flex items-center gap-1 px-2 py-1 ${statusConfig.bg} border ${statusConfig.border} rounded-lg`}>
+              <div
+                className={`flex items-center gap-1 px-2 py-1 ${statusConfig.bg} border ${statusConfig.border} rounded-lg`}
+              >
                 <StatusIcon size={12} className={statusConfig.text} />
-                <span className={`text-[10px] font-medium ${statusConfig.text} uppercase`}>
+                <span
+                  className={`text-[10px] font-medium ${statusConfig.text} uppercase`}
+                >
                   {invoiceStatus}
                 </span>
               </div>
@@ -136,20 +162,28 @@ const PurchaseHeader = ({
             {hasUnsavedData && !invoiceNumber && (
               <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg">
                 <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-                <span className="text-[10px] text-amber-700 font-medium">Unsaved</span>
+                <span className="text-[10px] text-amber-700 font-medium">
+                  Unsaved
+                </span>
               </div>
             )}
 
-            {/* ✅ BILLED BY BADGE */}
+            {/*  BILLED BY BADGE */}
             <div className="h-4 w-px bg-slate-300" />
             <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-50 border border-purple-200 rounded-lg">
               <User size={10} className="text-purple-600" />
-              <span className="text-[10px] text-purple-600 font-medium">By:</span>
-              <span className="text-[10px] font-semibold text-purple-800">{billedBy}</span>
+              <span className="text-[10px] text-purple-600 font-medium">
+                By:
+              </span>
+              <span className="text-[10px] font-semibold text-purple-800">
+                {billedBy}
+              </span>
             </div>
           </div>
           <p className="text-slate-500 text-xs mt-0.5">
-            {invoiceNumber ? 'Update invoice details' : 'Create new purchase invoice'}
+            {invoiceNumber
+              ? "Update invoice details"
+              : "Create new purchase invoice"}
           </p>
         </div>
       </div>
@@ -208,11 +242,12 @@ const PurchaseHeader = ({
 
         <button
           onClick={onSave}
-          disabled={invoiceStatus === 'CONFIRMED' || isSaving}
+          disabled={invoiceStatus === "CONFIRMED" || isSaving}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-sm
-            ${invoiceStatus === 'CONFIRMED' || isSaving
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-[#05015A] hover:bg-[#0a0280] text-white'
+            ${
+              invoiceStatus === "CONFIRMED" || isSaving
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-[#05015A] hover:bg-[#0a0280] text-white"
             }`}
         >
           {isSaving ? (
@@ -220,16 +255,19 @@ const PurchaseHeader = ({
           ) : (
             <Save size={14} />
           )}
-          {isSaving ? 'Saving...' : invoiceNumber ? 'Update' : 'Save Draft'}
+          {isSaving ? "Saving..." : invoiceNumber ? "Update" : "Save Draft"}
         </button>
 
         <button
           onClick={onSavePrint}
-          disabled={invoiceStatus === 'CONFIRMED' || isSaving || isEditingConfirmed}
+          disabled={
+            invoiceStatus === "CONFIRMED" || isSaving || isEditingConfirmed
+          }
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border
-            ${invoiceStatus === 'CONFIRMED' || isSaving || isEditingConfirmed
-              ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
-              : 'bg-indigo-50 text-[#05015A] hover:bg-indigo-100 border-indigo-200'
+            ${
+              invoiceStatus === "CONFIRMED" || isSaving || isEditingConfirmed
+                ? "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-indigo-50 text-[#05015A] hover:bg-indigo-100 border-indigo-200"
             }`}
         >
           {isSaving ? (
@@ -237,7 +275,11 @@ const PurchaseHeader = ({
           ) : (
             <Printer size={14} />
           )}
-          {invoiceStatus === 'CONFIRMED' ? 'Confirmed' : isSaving ? 'Processing...' : 'Confirm & Print'}
+          {invoiceStatus === "CONFIRMED"
+            ? "Confirmed"
+            : isSaving
+              ? "Processing..."
+              : "Confirm & Print"}
         </button>
       </div>
     </div>

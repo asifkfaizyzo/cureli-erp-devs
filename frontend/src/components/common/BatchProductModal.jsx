@@ -1,25 +1,100 @@
 // src/components/common/BatchProductModal.jsx
-import React, { useState, useEffect } from 'react';
-import { 
-  X, Package, AlertCircle, ChevronRight, 
+
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  X, Package, AlertCircle, ChevronRight,
   SkipForward, Plus, Check, Loader2,
-  Building2, Hash, MapPin, Percent
+  Building2, Hash, MapPin, Percent,
+  CheckCircle, ArrowRight, Info
 } from 'lucide-react';
 import ProductMasterModal from './ProductMasterModal';
 
-const BatchProductModal = ({ 
-  open, 
-  onClose, 
-  newProducts = [], 
+// ══════════════════════════════════════════════════════════════
+// CATALOG STATUS INDICATOR
+// ══════════════════════════════════════════════════════════════
+
+const CatalogBadge = ({ catalogMatch }) => {
+  if (!catalogMatch) return null;
+
+  const config = {
+    AUTO_LINKED: {
+      label: "Catalog Linked",
+      bg: "bg-emerald-50",
+      border: "border-emerald-200",
+      text: "text-emerald-700",
+      dot: "bg-emerald-500",
+    },
+    PENDING: {
+      label: "Pending Review",
+      bg: "bg-amber-50",
+      border: "border-amber-200",
+      text: "text-amber-700",
+      dot: "bg-amber-500",
+    },
+    NO_MATCH: {
+      label: "Not in Catalog",
+      bg: "bg-slate-50",
+      border: "border-slate-200",
+      text: "text-slate-600",
+      dot: "bg-slate-400",
+    },
+  };
+
+  const c = config[catalogMatch.status] || config.NO_MATCH;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {c.label}
+    </span>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// DETAIL FIELD COMPONENT
+// ══════════════════════════════════════════════════════════════
+
+const DetailField = ({ icon: Icon, label, value, detected = false }) => (
+  <div className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+      detected ? 'bg-emerald-50' : 'bg-gray-100'
+    }`}>
+      <Icon size={14} className={detected ? 'text-emerald-600' : 'text-gray-400'} />
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide leading-tight">
+        {label}
+      </p>
+      <p className={`text-xs font-medium truncate mt-0.5 ${
+        value && value !== 'Not specified'
+          ? 'text-gray-900'
+          : 'text-gray-400 italic'
+      }`}>
+        {value || 'Not specified'}
+      </p>
+    </div>
+    {detected && (
+      <Check size={12} className="text-emerald-500 shrink-0" />
+    )}
+  </div>
+);
+
+// ══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════
+
+const BatchProductModal = ({
+  open,
+  onClose,
+  newProducts = [],
   onSaveAll,
-  onSkipAll 
+  onSkipAll,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [savedProducts, setSavedProducts] = useState([]);
   const [showProductModal, setShowProductModal] = useState(false);
   const [processingStatus, setProcessingStatus] = useState({});
 
-  // Reset state when modal opens with new products
   useEffect(() => {
     if (open && newProducts.length > 0) {
       setCurrentIndex(0);
@@ -30,14 +105,28 @@ const BatchProductModal = ({
 
   const currentProduct = newProducts[currentIndex];
   const hasMore = currentIndex < newProducts.length - 1;
-  const progress = newProducts.length > 0 ? ((currentIndex + 1) / newProducts.length) * 100 : 0;
+  const progress = newProducts.length > 0
+    ? ((Object.keys(processingStatus).length) / newProducts.length) * 100
+    : 0;
+
+  const savedCount = useMemo(() =>
+    Object.values(processingStatus).filter(s => s === 'saved').length,
+    [processingStatus]
+  );
+
+  const skippedCount = useMemo(() =>
+    Object.values(processingStatus).filter(s => s === 'skipped').length,
+    [processingStatus]
+  );
+
+  const remainingCount = newProducts.length - Object.keys(processingStatus).length;
 
   const handleSaveProduct = (productData) => {
     const updatedProducts = [...savedProducts, productData];
     setSavedProducts(updatedProducts);
     setProcessingStatus(prev => ({ ...prev, [currentIndex]: 'saved' }));
     setShowProductModal(false);
-    
+
     if (hasMore) {
       setTimeout(() => setCurrentIndex(prev => prev + 1), 300);
     } else {
@@ -63,278 +152,312 @@ const BatchProductModal = ({
 
   if (!open || !currentProduct) return null;
 
-  // ✅ ENHANCED: Prepare initial data with ALL available fields from import
-  const getInitialDataForModal = () => {
-    console.log('📦 BatchProductModal - Current product data:', currentProduct);
-    
-    return {
-      // Basic info
-      name: currentProduct.name || '',
-      manufacturer: currentProduct.manufacturer || currentProduct.mfac || '',
-      genericName: currentProduct.genericName || '',
-      category: currentProduct.category || '',
-      
-      // ✅ FIXED: Pass HSN code properly
-      hsnCode: currentProduct.hsnCode || currentProduct.hsn || '',
-      
-      // ✅ FIXED: Pass pack size properly
-      packSize: currentProduct.packSize || currentProduct.pack || '',
-      
-      // ✅ FIXED: Pass rack location properly
-      rackNo: currentProduct.rackNo || currentProduct.rack || '',
-      
-      // ✅ NEW: Pass GST values from import
-      gst: currentProduct.gst || '12',
-      cgstPercent: currentProduct.cgstPercent || '6',
-      sgstPercent: currentProduct.sgstPercent || '6',
-    };
-  };
+  const hasHsn = !!(currentProduct.hsnCode || currentProduct.hsn);
+  const hasRack = !!(currentProduct.rackNo || currentProduct.rack);
+  const hasPack = !!(currentProduct.packSize || currentProduct.pack);
+  const hasGst = !!(currentProduct.gst || currentProduct.cgstPercent);
+  const hasManufacturer = !!(currentProduct.manufacturer || currentProduct.mfac);
+  const detectedFieldCount = [hasHsn, hasRack, hasPack, hasGst, hasManufacturer].filter(Boolean).length;
+
+  const gstDisplay = currentProduct.gst
+    ? `${currentProduct.gst}%`
+    : currentProduct.cgstPercent && currentProduct.sgstPercent
+      ? `${parseFloat(currentProduct.cgstPercent) + parseFloat(currentProduct.sgstPercent)}%`
+      : null;
+
+  const cgstSgstDisplay = currentProduct.cgstPercent && currentProduct.sgstPercent
+    ? `${currentProduct.cgstPercent}% / ${currentProduct.sgstPercent}%`
+    : null;
+
+  const getInitialDataForModal = () => ({
+    name: currentProduct.name || '',
+    manufacturer: currentProduct.manufacturer || currentProduct.mfac || '',
+    genericName: currentProduct.genericName || '',
+    category: currentProduct.category || '',
+    hsnCode: currentProduct.hsnCode || currentProduct.hsn || '',
+    packSize: currentProduct.packSize || currentProduct.pack || '',
+    rackNo: currentProduct.rackNo || currentProduct.rack || '',
+    gst: currentProduct.gst || '12',
+    cgstPercent: currentProduct.cgstPercent || '6',
+    sgstPercent: currentProduct.sgstPercent || '6',
+  });
 
   return (
     <>
-      <div className="fixed inset-0 z-40 overflow-hidden">
+      {/* ── OVERLAY ── */}
+      <div className="fixed inset-0 z-40 flex items-center justify-center">
+
         {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         />
-        
-        {/* Modal Container */}
-        <div className="relative flex items-center justify-center min-h-screen p-4">
-          <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center justify-center w-10 h-10 bg-white/20 backdrop-blur rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-white" />
+
+        {/* ── MODAL PANEL ──
+            Key fixes:
+            - Use fixed positioning with explicit top/bottom instead of min-h-screen
+            - Add top offset to clear the navbar (adjust --navbar-h to match yours)
+            - Use overflow-hidden on the panel itself
+        */}
+        <div
+          className="
+            relative z-10 w-full max-w-4xl mx-4
+            flex flex-col
+            bg-white rounded-2xl shadow-2xl overflow-hidden
+            max-h-[calc(100vh-5rem)]
+            sm:max-h-[calc(100vh-5rem)]
+            lg:max-h-[calc(100vh-6rem)]
+          "
+          style={{
+            // Pushes the modal down so it doesn't hide under the navbar.
+            // Change 64px to match your actual navbar height (common: 56px, 64px, 72px)
+            marginTop: '64px',
+            maxHeight: 'calc(100vh - 80px)',
+          }}
+        >
+          {/* ═══════════ HEADER ═══════════ */}
+          <div className="shrink-0 bg-gradient-to-r from-[#05015A] to-[#0a0280] px-5 py-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+                  <Package size={18} className="text-white" />
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">New Products Found</h2>
-                  <p className="text-sm text-amber-100">
+                <div className="min-w-0">
+                  <h2 className="text-white text-base font-bold leading-tight">
+                    Add New Products to Shop
+                  </h2>
+                  <p className="text-white/60 text-xs mt-0.5">
                     {currentIndex + 1} of {newProducts.length} products to review
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-amber-100 hover:text-white hover:bg-white/20 rounded-lg transition-colors"
+                className="p-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all shrink-0 ml-3"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            {/* Progress Bar */}
-            <div className="h-1 bg-amber-100">
-              <div 
-                className="h-full bg-amber-600 transition-all duration-500 ease-out"
+            {/* Progress bar */}
+            <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-400 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
 
-            {/* Content - Horizontal Layout */}
-            <div className="flex flex-col lg:flex-row">
-              
-              {/* Left Panel - Product List */}
-              <div className="lg:w-64 bg-slate-50 border-b lg:border-b-0 lg:border-r border-slate-200 p-4 overflow-x-auto lg:overflow-y-auto lg:max-h-96">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                  Products Queue
-                </h3>
-                <div className="flex lg:flex-col gap-2 lg:gap-1">
-                  {newProducts.map((product, index) => (
-                    <button
-                      key={index}
-                      onClick={() => index <= currentIndex && setCurrentIndex(index)}
-                      disabled={index > currentIndex}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap lg:whitespace-normal transition-all ${
-                        index === currentIndex
-                          ? 'bg-amber-100 text-amber-800 font-medium'
-                          : index < currentIndex
-                          ? processingStatus[index] === 'saved'
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-slate-100 text-slate-500 line-through'
-                          : 'text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {processingStatus[index] === 'saved' ? (
-                        <Check size={14} className="text-green-600 shrink-0" />
-                      ) : processingStatus[index] === 'skipped' ? (
-                        <SkipForward size={14} className="text-slate-400 shrink-0" />
-                      ) : index === currentIndex ? (
-                        <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0 animate-pulse" />
-                      ) : (
-                        <div className="w-2 h-2 bg-slate-300 rounded-full shrink-0" />
-                      )}
-                      <span className="truncate">{product.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Panel - Current Product Details */}
-              <div className="flex-1 p-6">
-                <div className="mb-6">
-                  <div className="flex items-start gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <div className="flex items-center justify-center w-12 h-12 bg-amber-100 rounded-xl shrink-0">
-                      <Package className="w-6 h-6 text-amber-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-slate-900 truncate">
-                        {currentProduct.name}
-                      </h3>
-                      <p className="text-sm text-slate-600 mt-1">
-                        This product was found in your import but doesn't exist in the system.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ✅ ENHANCED: Product Details Grid with ALL imported fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <Building2 className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">Manufacturer</p>
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {currentProduct.manufacturer || currentProduct.mfac || 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <Hash className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">HSN Code</p>
-                      <p className={`text-sm font-medium truncate ${
-                        currentProduct.hsnCode || currentProduct.hsn 
-                          ? 'text-green-700' 
-                          : 'text-slate-400'
-                      }`}>
-                        {currentProduct.hsnCode || currentProduct.hsn || 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <MapPin className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">Rack Location</p>
-                      <p className={`text-sm font-medium truncate ${
-                        currentProduct.rackNo || currentProduct.rack 
-                          ? 'text-green-700' 
-                          : 'text-slate-400'
-                      }`}>
-                        {currentProduct.rackNo || currentProduct.rack || 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <Package className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">Pack Size</p>
-                      <p className={`text-sm font-medium truncate ${
-                        currentProduct.packSize || currentProduct.pack 
-                          ? 'text-green-700' 
-                          : 'text-slate-400'
-                      }`}>
-                        {currentProduct.packSize || currentProduct.pack || 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <Percent className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">GST Rate</p>
-                      <p className={`text-sm font-medium truncate ${
-                        currentProduct.gst || currentProduct.cgstPercent 
-                          ? 'text-green-700' 
-                          : 'text-slate-400'
-                      }`}>
-                        {currentProduct.gst 
-                          ? `${currentProduct.gst}%` 
-                          : currentProduct.cgstPercent && currentProduct.sgstPercent
-                            ? `${parseFloat(currentProduct.cgstPercent) + parseFloat(currentProduct.sgstPercent)}%`
-                            : 'Default 12%'}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                    <Percent className="w-5 h-5 text-slate-400 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs text-slate-500">CGST / SGST</p>
-                      <p className={`text-sm font-medium truncate ${
-                        currentProduct.cgstPercent 
-                          ? 'text-green-700' 
-                          : 'text-slate-400'
-                      }`}>
-                        {currentProduct.cgstPercent && currentProduct.sgstPercent
-                          ? `${currentProduct.cgstPercent}% / ${currentProduct.sgstPercent}%`
-                          : '6% / 6%'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info Banner for Pre-filled Fields */}
-                {(currentProduct.hsnCode || currentProduct.hsn || 
-                  currentProduct.cgstPercent || currentProduct.rack || currentProduct.rackNo) && (
-                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Check className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-green-700">
-                        <span className="font-medium">Fields detected from import:</span> The product modal will be pre-filled with HSN, GST, Pack Size, and Rack information from your import file.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons - Horizontal */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => setShowProductModal(true)}
-                    className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-[#000060] text-white font-medium rounded-xl hover:bg-[#000080] transition-colors shadow-sm"
-                  >
-                    <Plus size={18} />
-                    <span>Add Product Details</span>
-                  </button>
-                  
-                  <button
-                    onClick={handleSkipProduct}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-white text-slate-700 font-medium border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-colors"
-                  >
-                    <SkipForward size={18} />
-                    <span>Skip</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200">
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-slate-500">
-                  <span className="font-medium text-green-600">{Object.values(processingStatus).filter(s => s === 'saved').length}</span> saved
+            {/* Mini stats */}
+            <div className="mt-1.5 flex items-center gap-4 text-[11px]">
+              {savedCount > 0 && (
+                <span className="flex items-center gap-1 text-emerald-300">
+                  <Check size={11} />
+                  {savedCount} added
                 </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-slate-500">
-                  <span className="font-medium text-slate-600">{Object.values(processingStatus).filter(s => s === 'skipped').length}</span> skipped
+              )}
+              {skippedCount > 0 && (
+                <span className="flex items-center gap-1 text-white/40">
+                  <SkipForward size={11} />
+                  {skippedCount} skipped
                 </span>
-              </div>
-              <button
-                onClick={handleSkipAll}
-                className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                Skip all remaining ({newProducts.length - currentIndex - Object.keys(processingStatus).length})
-              </button>
+              )}
+              {remainingCount > 0 && (
+                <span className="text-white/40">
+                  {remainingCount} remaining
+                </span>
+              )}
             </div>
           </div>
+
+          {/* ═══════════ CONTENT ═══════════ */}
+          <div className="flex flex-1 overflow-hidden min-h-0">
+
+            {/* Left Panel — Product Queue
+                Hidden on very small screens, visible from sm: up */}
+            <div className="hidden sm:flex w-44 lg:w-52 shrink-0 bg-gray-50 border-r border-gray-200 flex-col overflow-hidden">
+              <div className="p-2.5 overflow-y-auto flex-1">
+                <h3 className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                  Queue ({newProducts.length})
+                </h3>
+                <div className="space-y-0.5">
+                  {newProducts.map((product, index) => {
+                    const status = processingStatus[index];
+                    const isCurrent = index === currentIndex;
+                    const isPast = index < currentIndex || !!status;
+                    const isFuture = index > currentIndex && !status;
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => isPast && setCurrentIndex(index)}
+                        disabled={isFuture}
+                        className={`
+                          w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all
+                          ${isCurrent
+                            ? 'bg-indigo-50 text-indigo-800 font-medium border border-indigo-200'
+                            : status === 'saved'
+                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : status === 'skipped'
+                                ? 'bg-gray-100 text-gray-400 line-through'
+                                : 'text-gray-400 cursor-not-allowed'
+                          }
+                        `}
+                      >
+                        {/* Status dot */}
+                        {status === 'saved' ? (
+                          <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                            <Check size={9} className="text-emerald-600" />
+                          </span>
+                        ) : status === 'skipped' ? (
+                          <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                            <SkipForward size={9} className="text-gray-400" />
+                          </span>
+                        ) : isCurrent ? (
+                          <span className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center shrink-0">
+                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          </span>
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                            <span className="text-[8px] font-bold text-gray-400">{index + 1}</span>
+                          </span>
+                        )}
+                        <span className="truncate text-[11px]">{product.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Panel — Current Product Details */}
+            <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+
+              {/* Mobile: queue indicator (shown only on xs) */}
+              <div className="sm:hidden mb-3 flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <span className="text-xs text-indigo-700 font-medium">
+                  Product {currentIndex + 1} of {newProducts.length}
+                </span>
+                {savedCount > 0 && (
+                  <span className="ml-auto text-[10px] text-emerald-600 font-medium">
+                    {savedCount} added
+                  </span>
+                )}
+              </div>
+
+              {/* Product Name Card */}
+              <div className="flex items-start gap-3 p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl mb-4">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                  <Package size={20} className="text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-gray-900 truncate">
+                    {currentProduct.name}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Needs to be added to your shop's medicine list.
+                  </p>
+                  {currentProduct.catalogMatch && (
+                    <div className="mt-2">
+                      <CatalogBadge catalogMatch={currentProduct.catalogMatch} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Detected Fields Info */}
+              {detectedFieldCount > 0 && (
+                <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
+                  <CheckCircle size={14} className="text-emerald-600 mt-0.5 shrink-0" />
+                  <div className="text-xs text-emerald-700">
+                    <span className="font-semibold">{detectedFieldCount} fields detected</span>
+                    <span className="text-emerald-600"> — pre-filled in the product form.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Product Details Grid — responsive columns */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                <DetailField
+                  icon={Building2}
+                  label="Manufacturer"
+                  value={currentProduct.manufacturer || currentProduct.mfac}
+                  detected={hasManufacturer}
+                />
+                <DetailField
+                  icon={Hash}
+                  label="HSN Code"
+                  value={currentProduct.hsnCode || currentProduct.hsn}
+                  detected={hasHsn}
+                />
+                <DetailField
+                  icon={MapPin}
+                  label="Rack Location"
+                  value={currentProduct.rackNo || currentProduct.rack}
+                  detected={hasRack}
+                />
+                <DetailField
+                  icon={Package}
+                  label="Pack Size"
+                  value={currentProduct.packSize || currentProduct.pack}
+                  detected={hasPack}
+                />
+                <DetailField
+                  icon={Percent}
+                  label="GST Rate"
+                  value={gstDisplay || 'Default 12%'}
+                  detected={hasGst}
+                />
+                <DetailField
+                  icon={Percent}
+                  label="CGST / SGST"
+                  value={cgstSgstDisplay || '6% / 6%'}
+                  detected={!!currentProduct.cgstPercent}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  onClick={() => setShowProductModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#05015A] text-white font-semibold rounded-xl hover:bg-[#0a0280] transition-colors shadow-sm text-sm"
+                >
+                  <Plus size={16} />
+                  Add Product Details
+                </button>
+                <button
+                  onClick={handleSkipProduct}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-gray-700 font-medium border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
+                >
+                  <SkipForward size={16} />
+                  Skip
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════════ FOOTER ═══════════ */}
+          <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-t border-gray-200">
+            <div className="flex items-center gap-3 text-xs">
+              <span className="text-gray-500">
+                <span className="font-bold text-emerald-600">{savedCount}</span> added
+              </span>
+              <span className="text-gray-300">•</span>
+              <span className="text-gray-500">
+                <span className="font-bold text-gray-600">{skippedCount}</span> skipped
+              </span>
+            </div>
+            <button
+              onClick={handleSkipAll}
+              className="text-xs text-gray-500 hover:text-red-600 transition-colors font-medium"
+            >
+              Skip all ({remainingCount})
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Product Master Modal - ✅ FIXED: Pass all initial data */}
+      {/* Product Master Modal */}
       {showProductModal && (
         <ProductMasterModal
           open={showProductModal}

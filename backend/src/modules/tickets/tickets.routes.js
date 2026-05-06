@@ -18,9 +18,9 @@ import { getTicketsQuerySchema } from "./tickets.schema.js";
 
 const router = express.Router();
 
-// ✅ USE MEMORY STORAGE
+//  USE MEMORY STORAGE
 const upload = multer({
-  storage: multer.memoryStorage(), // ✅ CHANGED: Store in memory, not disk
+  storage: multer.memoryStorage(), //  CHANGED: Store in memory, not disk
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "image/jpeg",

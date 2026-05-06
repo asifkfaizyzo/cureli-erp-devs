@@ -36,27 +36,29 @@ const SetupGuard = ({ children }) => {
   // Only counts redirects issued BY THIS GUARD, not normal navigation
   const redirectHistory = useRef([]); // Array of { from, to, timestamp }
   const lastCheckedUserId = useRef(null);
-  
+
   // Cache setup status to avoid repeated API calls
   const setupCache = useRef({
     status: null,
     timestamp: 0,
     userId: null,
   });
-  
+
   const CACHE_TTL = 60000; // 1 minute cache
 
   // Detect if we're in a redirect loop
   const isRedirectLoop = useCallback(() => {
     const now = Date.now();
     const recentRedirects = redirectHistory.current.filter(
-      (r) => now - r.timestamp < 10000 // Last 10 seconds
+      (r) => now - r.timestamp < 10000, // Last 10 seconds
     );
-    
+
     // If more than 4 redirects in 10 seconds, it's a loop
     if (recentRedirects.length > 4) {
       // Check if it's actually ping-ponging between same routes
-      const uniqueRoutes = new Set(recentRedirects.map(r => `${r.from}->${r.to}`));
+      const uniqueRoutes = new Set(
+        recentRedirects.map((r) => `${r.from}->${r.to}`),
+      );
       // If we're repeating the same redirect pattern, it's definitely a loop
       if (uniqueRoutes.size <= 2) {
         return true;
@@ -69,13 +71,13 @@ const SetupGuard = ({ children }) => {
   const recordRedirect = useCallback((from, to) => {
     const now = Date.now();
     redirectHistory.current.push({ from, to, timestamp: now });
-    
+
     // Keep only last 10 redirects
     if (redirectHistory.current.length > 10) {
       redirectHistory.current = redirectHistory.current.slice(-10);
     }
-    
-    console.log(`↪️ SetupGuard redirect: ${from} → ${to}`);
+
+  
   }, []);
 
   // Main setup check function
@@ -90,7 +92,7 @@ const SetupGuard = ({ children }) => {
 
     // Reset everything if user changed
     if (lastCheckedUserId.current !== user.user_id) {
-      console.log("👤 User changed, resetting all caches");
+  
       setupCache.current = { status: null, timestamp: 0, userId: null };
       redirectHistory.current = [];
       lastCheckedUserId.current = user.user_id;
@@ -102,7 +104,7 @@ const SetupGuard = ({ children }) => {
       setupCache.current.status !== null &&
       now - setupCache.current.timestamp < CACHE_TTL
     ) {
-      console.log("📦 Using cached setup status:", setupCache.current.status);
+    
       setSetupStatus(setupCache.current.status);
       setIsChecking(false);
       return;
@@ -110,7 +112,11 @@ const SetupGuard = ({ children }) => {
 
     // Branch admin & staff always skip setup
     if (user.role === "staff" || user.role === "branch_admin") {
-      setupCache.current = { status: true, timestamp: now, userId: user.user_id };
+      setupCache.current = {
+        status: true,
+        timestamp: now,
+        userId: user.user_id,
+      };
       setSetupStatus(true);
       setIsChecking(false);
       return;
@@ -122,13 +128,13 @@ const SetupGuard = ({ children }) => {
         const response = await getSetupStatus();
         const { is_complete } = response.data?.data || {};
 
-        console.log("📋 SetupGuard: Backend says is_complete =", is_complete);
+      
 
         // Update cache
-        setupCache.current = { 
-          status: is_complete, 
-          timestamp: now, 
-          userId: user.user_id 
+        setupCache.current = {
+          status: is_complete,
+          timestamp: now,
+          userId: user.user_id,
         };
 
         // Sync store
@@ -149,8 +155,12 @@ const SetupGuard = ({ children }) => {
 
         // On other errors, trust store if it says complete
         if (storeIsComplete) {
-          console.log("⚠️ API failed, using store value: complete");
-          setupCache.current = { status: true, timestamp: now, userId: user.user_id };
+        
+          setupCache.current = {
+            status: true,
+            timestamp: now,
+            userId: user.user_id,
+          };
           setSetupStatus(true);
         } else {
           // Don't cache failures
@@ -171,10 +181,10 @@ const SetupGuard = ({ children }) => {
   // ============================================
   // ROUTE HANDLING
   // ============================================
-  
+
   const isSetupRoute = location.pathname.startsWith("/setup");
   const isAdmin = user?.role === "super_admin" || user?.role === "branch_admin";
-  
+
   // Admin accessing /setup/users should always work (from ERP settings)
   if (isAdmin && location.pathname === "/setup/users") {
     return children ? children : <Outlet />;
@@ -235,7 +245,11 @@ const SetupGuard = ({ children }) => {
             <button
               onClick={() => {
                 // Soft retry: just clear cache and error
-                setupCache.current = { status: null, timestamp: 0, userId: null };
+                setupCache.current = {
+                  status: null,
+                  timestamp: 0,
+                  userId: null,
+                };
                 redirectHistory.current = [];
                 setError(null);
                 setIsChecking(true);
@@ -262,9 +276,9 @@ const SetupGuard = ({ children }) => {
 
     // Check for redirect loop BEFORE redirecting
     if (isRedirectLoop()) {
-      console.error("❌ Redirect loop detected!");
+      console.error(" Redirect loop detected!");
       setError(
-        "Navigation loop detected. This usually happens when there's conflicting data between browser storage and server. Please clear your data and try again."
+        "Navigation loop detected. This usually happens when there's conflicting data between browser storage and server. Please clear your data and try again.",
       );
       // Return null to trigger re-render with error state
       return null;
@@ -273,17 +287,17 @@ const SetupGuard = ({ children }) => {
     // Record this redirect
     recordRedirect(location.pathname, "/setup");
 
-    console.log("🚫 SetupGuard: Redirecting to /setup");
+  
     return <Navigate to="/setup" state={{ from: location.pathname }} replace />;
   }
 
   // ============================================
   // SETUP COMPLETE → Allow access
   // ============================================
-  
+
   // Clear redirect history on successful access (no loop)
   redirectHistory.current = [];
-  
+
   return children ? children : <Outlet />;
 };
 

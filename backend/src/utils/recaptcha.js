@@ -12,7 +12,7 @@ const RECAPTCHA_THRESHOLD = parseFloat(process.env.RECAPTCHA_THRESHOLD) || 0.3;
 export async function verifyRecaptcha(token, expectedAction = null) {
   try {
     if (!RECAPTCHA_SECRET_KEY) {
-      console.error("❌ RECAPTCHA_SECRET_KEY not configured");
+      console.error(" RECAPTCHA_SECRET_KEY not configured");
       return {
         success: false,
         error: "reCAPTCHA not configured",
@@ -37,13 +37,13 @@ export async function verifyRecaptcha(token, expectedAction = null) {
           secret: RECAPTCHA_SECRET_KEY,
           response: token,
         }),
-      }
+      },
     );
 
     const data = await response.json();
 
     if (!data.success) {
-      console.error("❌ reCAPTCHA verification failed:", data["error-codes"]);
+      console.error(" reCAPTCHA verification failed:", data["error-codes"]);
       return {
         success: false,
         error: data["error-codes"]?.join(", ") || "Verification failed",
@@ -53,7 +53,7 @@ export async function verifyRecaptcha(token, expectedAction = null) {
     // Optionally verify action matches
     if (expectedAction && data.action !== expectedAction) {
       console.warn(
-        `⚠️ reCAPTCHA action mismatch: expected ${expectedAction}, got ${data.action}`
+        `⚠️ reCAPTCHA action mismatch: expected ${expectedAction}, got ${data.action}`,
       );
       return {
         success: false,
@@ -68,7 +68,7 @@ export async function verifyRecaptcha(token, expectedAction = null) {
       action: data.action,
     };
   } catch (error) {
-    console.error("❌ reCAPTCHA verification error:", error);
+    console.error(" reCAPTCHA verification error:", error);
     return {
       success: false,
       error: error.message,
@@ -89,9 +89,11 @@ export function isRecaptchaScoreValid(score, threshold = RECAPTCHA_THRESHOLD) {
   }
 
   const isValid = score >= threshold;
-  
+
   if (!isValid) {
-    console.warn(`⚠️ reCAPTCHA score too low: ${score} (threshold: ${threshold})`);
+    console.warn(
+      `⚠️ reCAPTCHA score too low: ${score} (threshold: ${threshold})`,
+    );
   }
 
   return isValid;
@@ -104,7 +106,7 @@ export function isRecaptchaScoreValid(score, threshold = RECAPTCHA_THRESHOLD) {
  */
 export async function validateRecaptcha(token) {
   const result = await verifyRecaptcha(token);
-  
+
   if (!result.success) {
     return false;
   }
@@ -196,8 +198,8 @@ export async function validateRecaptcha(token) {
 //       };
 //     }
 
-//     const isValid = typeof data.score === "number" 
-//       ? data.score >= RECAPTCHA_THRESHOLD 
+//     const isValid = typeof data.score === "number"
+//       ? data.score >= RECAPTCHA_THRESHOLD
 //       : true;
 
 //     return {

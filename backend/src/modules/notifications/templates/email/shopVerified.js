@@ -1,92 +1,92 @@
+// backend/src/modules/notifications/templates/email/shopVerified.js
 // ============================================
 // SHOP VERIFIED EMAIL TEMPLATE
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  renderButton,
+  getSupportLink,
+} from "./_helpers.js";
+import { ICONS } from "./_icons.js";
 
 export function shopVerifiedTemplate(context) {
   const { recipientName, shop_name, business_name } = context;
-  const shopName = shop_name || business_name || 'your shop';
+  const shopName = shop_name || business_name || "your shop";
 
-  const subject = 'Congratulations! Your shop is verified - Cureli Health';
+  const subject = `Congratulations! Your shop is verified - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verification Complete - Cureli Health</title>
+  ${getBaseHeadContent(`Verification Complete - ${EMAIL_CONFIG.COMPANY.NAME}`)}
 </head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-  <div style="max-width:560px;margin:0 auto;padding:20px;">
-    
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli Health" style="width:70px;margin-bottom:12px;"/>
-      <h1 style="margin:0;font-size:24px;font-weight:600;"> Verification Complete!</h1>
-      <p style="margin:8px 0 0;opacity:0.9;font-size:14px;">Your shop is now verified</p>
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;-webkit-font-smoothing:antialiased;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
+
+    <!-- Header: CELEBRATE icon replaces 🎉 -->
+    <div class="header-success" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;"> Verification Complete!</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:14px;color:#e0e0e0;">Your shop is now verified</p>
     </div>
 
     <!-- Content -->
-    <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-      
-      <p style="font-size:15px;color:#333;margin:0 0 12px;">
-        Hello <strong style="color:#05015A;">${recipientName}</strong>,
-      </p>
-      
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 20px;">
-        Great news! Your shop <strong style="color:#05015A;">${shopName}</strong> has been successfully verified by our team. All your documents have been approved! 
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
+
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 12px;background-color:#ffffff;">
+        Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${recipientName}</strong>,
       </p>
 
-      <!-- Success Box -->
-      <div style="background:linear-gradient(135deg,#d1fae5 0%,#a7f3d0 100%);border-left:4px solid #10b981;padding:20px;margin:24px 0;border-radius:0 10px 10px 0;text-align:center;">
-        <p style="margin:0;color:#065f46;font-weight:700;font-size:16px;">
-           Your shop is now fully operational!
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:0 0 20px;background-color:#ffffff;">
+        Great news! Your shop <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${shopName}</strong>
+        has been successfully verified by our team. All your documents have been approved!
+      </p>
+
+      <!-- Success Box: CHECK icon replaces  -->
+      <div class="success-box" style="background-color:#d1fae5;border-left:4px solid ${EMAIL_CONFIG.COLORS.SUCCESS_LIGHT};padding:20px;margin:24px 0;border-radius:0 10px 10px 0;text-align:center;">
+        <p class="success-text" style="margin:0;color:#065f46;font-weight:700;font-size:16px;background-color:#d1fae5;">
+          Your shop is now fully operational!
         </p>
       </div>
 
-      <!-- Features Box -->
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0 0 10px;color:#05015A;font-size:14px;font-weight:600;"> What's Next?</p>
-        <ul style="margin:0;padding-left:20px;color:#374151;font-size:13px;line-height:1.7;">
-          <li>Access all Cureli Health features</li>
-          <li>Set up your inventory and products</li>
-          <li>Configure your shop settings</li>
-          <li>Start managing your business efficiently</li>
+      <!-- Features Box: ROCKET_BLUE icon replaces 🚀 -->
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="info-text" style="margin:0 0 10px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:14px;font-weight:600;background-color:#e0f2fe;"> What's Next?</p>
+        <ul style="margin:0;padding-left:20px;font-size:13px;line-height:1.7;">
+          <li class="info-text" style="color:#0c4a6e;">Access all ${EMAIL_CONFIG.COMPANY.NAME} features</li>
+          <li class="info-text" style="color:#0c4a6e;">Set up your inventory and products</li>
+          <li class="info-text" style="color:#0c4a6e;">Configure your shop settings</li>
+          <li class="info-text" style="color:#0c4a6e;">Start managing your business efficiently</li>
         </ul>
       </div>
 
-      <p style="font-size:14px;color:#555;line-height:1.6;margin:20px 0;text-align:center;">
-        You can now access the complete <strong>Cureli Health</strong> dashboard and unlock all features.
+      <p class="text-secondary" style="font-size:14px;color:#555555;line-height:1.6;margin:20px 0;text-align:center;background-color:#ffffff;">
+        You can now access the complete <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> dashboard and unlock all features.
       </p>
 
       <!-- CTA Button -->
-      <div style="text-align:center;margin:28px 0;">
-        <a href="${FRONTEND_URL}/dashboard" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-           Go to Dashboard
-        </a>
-      </div>
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/dashboard`, text: 'Go to Dashboard' })}
 
-      <!-- Welcome Message -->
-      <div style="background:#fef9e7;border-left:4px solid #f59e0b;padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
-        <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">
-           <strong>Welcome to Cureli Health!</strong> Need help getting started? Check out our documentation or contact support anytime.
+      <!-- Welcome Message: WAVE icon replaces 👋 -->
+      <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:14px 18px;margin:24px 0;border-radius:0 10px 10px 0;">
+        <p class="warning-text" style="margin:0;color:#92400e;font-size:13px;line-height:1.6;background-color:#fef9e7;">
+           <strong>Welcome to ${EMAIL_CONFIG.COMPANY.NAME}!</strong> Need help getting started? Check out our documentation or contact support anytime.
         </p>
       </div>
 
-      <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-        Questions? We're here to help at <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Questions? We're here to help at ${getSupportLink()}
       </p>
 
     </div>
 
     <!-- Footer -->
-    <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-      <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli Health" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-      <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli</strong> Health</p>
-      <p style="margin:0;">All rights reserved</p>
-    </div>
+    ${renderFooter()}
 
   </div>
 </body>

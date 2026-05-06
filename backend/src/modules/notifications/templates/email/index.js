@@ -1,5 +1,6 @@
+// backend/src/modules/notifications/templates/email/index.js
 // ============================================
-// EMAIL TEMPLATES INDEX
+// EMAIL TEMPLATES INDEX - DARK MODE COMPATIBLE
 // ============================================
 
 import { shopVerifiedTemplate } from "./shopVerified.js";
@@ -12,10 +13,10 @@ import { subscriptionActivatedTemplate } from "./subscriptionActivated.js";
 import { subscriptionExpiringTemplate } from "./subscriptionExpiring.js";
 import { subscriptionGraceStartedTemplate } from "./subscriptionGraceStarted.js";
 import { subscriptionGraceEndingTemplate } from "./subscriptionGraceEnding.js";
-import { subscriptionGraceExtendedTemplate } from "./subscriptionGraceExtended.js"; // ✅ NEW
+import { subscriptionGraceExtendedTemplate } from "./subscriptionGraceExtended.js";
 import { subscriptionSuspendedTemplate } from "./subscriptionSuspended.js";
 import { subscriptionRenewedTemplate } from "./subscriptionRenewed.js";
-import { subscriptionPaymentReminderTemplate } from "./subscriptionPaymentReminder.js"; // ✅ NEW
+import { subscriptionPaymentReminderTemplate } from "./subscriptionPaymentReminder.js";
 import { paymentSuccessTemplate } from "./paymentSuccess.js";
 import { paymentFailedTemplate } from "./paymentFailed.js";
 import { systemBroadcastTemplate } from "./systemBroadcast.js";
@@ -57,10 +58,10 @@ export const EMAIL_TEMPLATES = {
   [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRED]: subscriptionExpiringTemplate,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED]: subscriptionGraceStartedTemplate,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING]: subscriptionGraceEndingTemplate,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: subscriptionGraceExtendedTemplate, // ✅ NEW
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: subscriptionGraceExtendedTemplate,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED]: subscriptionSuspendedTemplate,
   [NOTIFICATION_EVENTS.SUBSCRIPTION_RENEWED]: subscriptionRenewedTemplate,
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: subscriptionPaymentReminderTemplate, // ✅ NEW
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: subscriptionPaymentReminderTemplate,
   
   // Payments
   [NOTIFICATION_EVENTS.PAYMENT_SUCCESS]: paymentSuccessTemplate,

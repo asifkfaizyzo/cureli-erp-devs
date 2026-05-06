@@ -148,7 +148,7 @@ export async function processUnsubscribe(token, email, reason = null) {
     },
   });
   
-  console.log(`[Unsubscribe] ${normalizedEmail} unsubscribed from broadcast emails`);
+
   
   return {
     success: true,
@@ -239,9 +239,7 @@ export async function filterUnsubscribedRecipients(recipients) {
   );
   
   const excludedCount = recipients.length - filtered.length;
-  if (excludedCount > 0) {
-    console.log(`[Unsubscribe] Excluded ${excludedCount} unsubscribed recipient(s)`);
-  }
+  
   
   return filtered;
 }

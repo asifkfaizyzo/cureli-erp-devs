@@ -1,6 +1,6 @@
 // frontend/src/pages/purchase/invoice/components/PrintInvoiceModal.jsx
-// ✅ FIXED: All toggle options now work correctly
-// ✅ TWO TABS: Preview + Options to customize print content
+//  FIXED: All toggle options now work correctly
+//  TWO TABS: Preview + Options to customize print content
 
 import React, { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -37,14 +37,14 @@ const DEFAULT_PRINT_OPTIONS = {
   showCompanyAddress: true,
   showCompanyPhone: true,
   showCompanyGSTIN: true,
-  
+
   // Invoice details section
   showInvoiceDetails: true,
   showSupplierDetails: true,
   showDueDate: true,
   showPaymentMode: true,
   showPaymentStatus: true,
-  
+
   // Table columns
   showHSN: true,
   showBatch: true,
@@ -57,7 +57,7 @@ const DEFAULT_PRINT_OPTIONS = {
   showCGST: true,
   showSGST: true,
   showManufacturer: true,
-  
+
   // Summary section
   showAmountInWords: true,
   showSubtotal: true,
@@ -66,13 +66,13 @@ const DEFAULT_PRINT_OPTIONS = {
   showOtherCharges: true,
   showPaidAmount: true,
   showBalanceAmount: true,
-  
+
   // Footer section
   showRemarks: true,
   showSignatures: true,
   showTerms: true,
   showPrintTimestamp: true,
-  
+
   // Styling
   highlightFreeItems: true,
   showItemSummary: true,
@@ -83,18 +83,45 @@ const DEFAULT_PRINT_OPTIONS = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const ONES = [
-  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-  "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-  "Seventeen", "Eighteen", "Nineteen",
+  "",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+  "Thirteen",
+  "Fourteen",
+  "Fifteen",
+  "Sixteen",
+  "Seventeen",
+  "Eighteen",
+  "Nineteen",
 ];
 const TENS = [
-  "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
+  "",
+  "",
+  "Twenty",
+  "Thirty",
+  "Forty",
+  "Fifty",
+  "Sixty",
+  "Seventy",
+  "Eighty",
+  "Ninety",
 ];
 
 function convertChunk(n) {
   if (n === 0) return "";
   if (n < 20) return ONES[n];
-  if (n < 100) return TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "");
+  if (n < 100)
+    return TENS[Math.floor(n / 10)] + (n % 10 ? " " + ONES[n % 10] : "");
   return (
     ONES[Math.floor(n / 100)] +
     " Hundred" +
@@ -216,23 +243,45 @@ function computeItemAmounts(item) {
 
   if (isFree) {
     return {
-      qty, rate, mrp, free: freeQty,
-      tradeDsc: 0, schemeDsc: 0, cgstP: 0, sgstP: 0,
-      taxable: 0, cgstAmt: 0, sgstAmt: 0, total: 0,
+      qty,
+      rate,
+      mrp,
+      free: freeQty,
+      tradeDsc: 0,
+      schemeDsc: 0,
+      cgstP: 0,
+      sgstP: 0,
+      taxable: 0,
+      cgstAmt: 0,
+      sgstAmt: 0,
+      total: 0,
       isFree: true,
     };
   }
 
   const gross = qty * rate;
   const afterTrade = gross * (1 - tradeDsc / 100);
-  const taxable = safeParseAmount(item.taxable_amount) ?? afterTrade * (1 - schemeDsc / 100);
+  const taxable =
+    safeParseAmount(item.taxable_amount) ?? afterTrade * (1 - schemeDsc / 100);
   const cgstAmt = safeParseAmount(item.cgst_amount) ?? taxable * (cgstP / 100);
   const sgstAmt = safeParseAmount(item.sgst_amount) ?? taxable * (sgstP / 100);
-  const total = safeParseAmount(item.total_amount) ?? taxable + cgstAmt + sgstAmt;
+  const total =
+    safeParseAmount(item.total_amount) ?? taxable + cgstAmt + sgstAmt;
 
   return {
-    qty, rate, mrp, free: freeQty, tradeDsc, schemeDsc, cgstP, sgstP,
-    taxable, cgstAmt, sgstAmt, total, isFree: false,
+    qty,
+    rate,
+    mrp,
+    free: freeQty,
+    tradeDsc,
+    schemeDsc,
+    cgstP,
+    sgstP,
+    taxable,
+    cgstAmt,
+    sgstAmt,
+    total,
+    isFree: false,
   };
 }
 
@@ -261,10 +310,13 @@ function generatePrintHTML(invoice, company, totals, options) {
   const other = parseFloat(invoice?.other_charges) || 0;
 
   const statusClass =
-    invoice?.status === "CONFIRMED" ? "confirmed" :
-    invoice?.status === "CANCELLED" ? "cancelled" : "draft";
+    invoice?.status === "CONFIRMED"
+      ? "confirmed"
+      : invoice?.status === "CANCELLED"
+        ? "cancelled"
+        : "draft";
 
-  const freeCount = lineItems.filter(item => isFreeLine(item)).length;
+  const freeCount = lineItems.filter((item) => isFreeLine(item)).length;
 
   // Build dynamic table headers
   const headers = [];
@@ -285,29 +337,59 @@ function generatePrintHTML(invoice, company, totals, options) {
   headers.push('<th style="width:70px">Amount</th>');
 
   // Build rows
-  const rows = lineItems.map((item, i) => {
-    const a = computeItemAmounts(item);
-    const rowBg = (options.highlightFreeItems && a.isFree) ? 'style="background:#f0fdf4"' : '';
-    
-    const cells = [];
-    cells.push(`<td class="c">${i + 1}</td>`);
-    cells.push(`<td class="l"><strong>${item.medicine?.name || "—"}</strong>${options.showManufacturer && item.medicine?.manufacturer ? `<br/><span class="mfr">${item.medicine.manufacturer}</span>` : ""}</td>`);
-    if (options.showHSN) cells.push(`<td class="c sm">${item.medicine?.hsn_code || "—"}</td>`);
-    if (options.showBatch) cells.push(`<td class="c">${item.batch_number || "—"}</td>`);
-    if (options.showExpiry) cells.push(`<td class="c">${formatExpiry(item.expiry_date)}</td>`);
-    if (options.showPack) cells.push(`<td class="c">${item.pack_size || "—"}</td>`);
-    cells.push(`<td class="c b">${a.qty}</td>`);
-    if (options.showFreeQty) cells.push(`<td class="c" style="${a.free > 0 ? 'color:#16a34a;font-weight:600' : ''}">${a.free || "—"}</td>`);
-    if (options.showMRP) cells.push(`<td class="r">${a.mrp.toFixed(2)}</td>`);
-    cells.push(`<td class="r">${a.isFree ? `<s style="color:#94a3b8">${a.rate.toFixed(2)}</s>` : a.rate.toFixed(2)}</td>`);
-    if (options.showDiscount) cells.push(`<td class="c">${a.isFree ? "—" : a.tradeDsc > 0 ? a.tradeDsc.toFixed(1) + "%" : "—"}</td>`);
-    if (options.showTaxable) cells.push(`<td class="r">${a.isFree ? "—" : a.taxable.toFixed(2)}</td>`);
-    if (options.showCGST) cells.push(`<td class="c sm">${a.isFree ? "—" : `${a.cgstP}%<br/>₹${a.cgstAmt.toFixed(2)}`}</td>`);
-    if (options.showSGST) cells.push(`<td class="c sm">${a.isFree ? "—" : `${a.sgstP}%<br/>₹${a.sgstAmt.toFixed(2)}`}</td>`);
-    cells.push(`<td class="r b" style="${a.isFree ? 'color:#16a34a' : ''}">${a.isFree ? "FREE" : `₹${a.total.toFixed(2)}`}</td>`);
+  const rows = lineItems
+    .map((item, i) => {
+      const a = computeItemAmounts(item);
+      const rowBg =
+        options.highlightFreeItems && a.isFree
+          ? 'style="background:#f0fdf4"'
+          : "";
 
-    return `<tr ${rowBg}>${cells.join('')}</tr>`;
-  }).join("");
+      const cells = [];
+      cells.push(`<td class="c">${i + 1}</td>`);
+      cells.push(
+        `<td class="l"><strong>${item.medicine?.name || "—"}</strong>${options.showManufacturer && item.medicine?.manufacturer ? `<br/><span class="mfr">${item.medicine.manufacturer}</span>` : ""}</td>`,
+      );
+      if (options.showHSN)
+        cells.push(`<td class="c sm">${item.medicine?.hsn_code || "—"}</td>`);
+      if (options.showBatch)
+        cells.push(`<td class="c">${item.batch_number || "—"}</td>`);
+      if (options.showExpiry)
+        cells.push(`<td class="c">${formatExpiry(item.expiry_date)}</td>`);
+      if (options.showPack)
+        cells.push(`<td class="c">${item.pack_size || "—"}</td>`);
+      cells.push(`<td class="c b">${a.qty}</td>`);
+      if (options.showFreeQty)
+        cells.push(
+          `<td class="c" style="${a.free > 0 ? "color:#16a34a;font-weight:600" : ""}">${a.free || "—"}</td>`,
+        );
+      if (options.showMRP) cells.push(`<td class="r">${a.mrp.toFixed(2)}</td>`);
+      cells.push(
+        `<td class="r">${a.isFree ? `<s style="color:#94a3b8">${a.rate.toFixed(2)}</s>` : a.rate.toFixed(2)}</td>`,
+      );
+      if (options.showDiscount)
+        cells.push(
+          `<td class="c">${a.isFree ? "—" : a.tradeDsc > 0 ? a.tradeDsc.toFixed(1) + "%" : "—"}</td>`,
+        );
+      if (options.showTaxable)
+        cells.push(
+          `<td class="r">${a.isFree ? "—" : a.taxable.toFixed(2)}</td>`,
+        );
+      if (options.showCGST)
+        cells.push(
+          `<td class="c sm">${a.isFree ? "—" : `${a.cgstP}%<br/>₹${a.cgstAmt.toFixed(2)}`}</td>`,
+        );
+      if (options.showSGST)
+        cells.push(
+          `<td class="c sm">${a.isFree ? "—" : `${a.sgstP}%<br/>₹${a.sgstAmt.toFixed(2)}`}</td>`,
+        );
+      cells.push(
+        `<td class="r b" style="${a.isFree ? "color:#16a34a" : ""}">${a.isFree ? "FREE" : `₹${a.total.toFixed(2)}`}</td>`,
+      );
+
+      return `<tr ${rowBg}>${cells.join("")}</tr>`;
+    })
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -375,11 +457,11 @@ table.tots .bal td{color:${balance > 0 ? "#dc2626" : "#059669"}}
   <!-- HEADER -->
   <div class="hdr">
     <div class="co">
-      ${options.showCompanyName ? `<div class="co-name">${shopName}</div>` : ''}
+      ${options.showCompanyName ? `<div class="co-name">${shopName}</div>` : ""}
       ${options.showCompanyName && shopLegal && shopLegal !== shopName ? `<div class="co-legal">${shopLegal}</div>` : ""}
       ${options.showBranchName && branchName ? `<div class="co-branch">Branch: ${branchName}</div>` : ""}
-      ${options.showCompanyAddress ? `<div class="co-addr">${branchAddr}</div>` : ''}
-      ${options.showCompanyPhone ? `<div class="co-contact">${[branchPhone || shopPhone ? "Ph: " + (branchPhone || shopPhone) : "", shopEmail ? "Email: " + shopEmail : ""].filter(Boolean).join("  |  ")}</div>` : ''}
+      ${options.showCompanyAddress ? `<div class="co-addr">${branchAddr}</div>` : ""}
+      ${options.showCompanyPhone ? `<div class="co-contact">${[branchPhone || shopPhone ? "Ph: " + (branchPhone || shopPhone) : "", shopEmail ? "Email: " + shopEmail : ""].filter(Boolean).join("  |  ")}</div>` : ""}
       ${options.showCompanyGSTIN && shopGSTIN ? `<div class="co-gst">GSTIN: ${shopGSTIN}</div>` : ""}
     </div>
     <div class="inv-rt">
@@ -390,19 +472,27 @@ table.tots .bal td{color:${balance > 0 ? "#dc2626" : "#059669"}}
   </div>
 
   <!-- DETAILS GRID -->
-  ${options.showInvoiceDetails || options.showSupplierDetails ? `
+  ${
+    options.showInvoiceDetails || options.showSupplierDetails
+      ? `
   <div class="dgrid">
-    ${options.showInvoiceDetails ? `
+    ${
+      options.showInvoiceDetails
+        ? `
     <div class="dbox">
       <div class="dbox-t">Invoice Details</div>
       <div class="dr"><span class="dl">Invoice Date:</span><span class="dv">${formatPrintDate(invoice?.invoice_date)}</span></div>
       <div class="dr"><span class="dl">Supplier Inv #:</span><span class="dv">${invoice?.supplier_invoice_no || "—"}</span></div>
-      ${options.showDueDate ? `<div class="dr"><span class="dl">Due Date:</span><span class="dv">${formatPrintDate(invoice?.due_date)}</span></div>` : ''}
-      ${options.showPaymentMode ? `<div class="dr"><span class="dl">Payment Mode:</span><span class="dv">${invoice?.payment_mode || "—"}</span></div>` : ''}
-      ${options.showPaymentStatus ? `<div class="dr"><span class="dl">Payment Status:</span><span class="dv">${invoice?.payment_status || "—"}</span></div>` : ''}
+      ${options.showDueDate ? `<div class="dr"><span class="dl">Due Date:</span><span class="dv">${formatPrintDate(invoice?.due_date)}</span></div>` : ""}
+      ${options.showPaymentMode ? `<div class="dr"><span class="dl">Payment Mode:</span><span class="dv">${invoice?.payment_mode || "—"}</span></div>` : ""}
+      ${options.showPaymentStatus ? `<div class="dr"><span class="dl">Payment Status:</span><span class="dv">${invoice?.payment_status || "—"}</span></div>` : ""}
     </div>
-    ` : ''}
-    ${options.showSupplierDetails ? `
+    `
+        : ""
+    }
+    ${
+      options.showSupplierDetails
+        ? `
     <div class="dbox">
       <div class="dbox-t">Supplier Details</div>
       <div class="dr"><span class="dl">Name:</span><span class="dv">${supplier?.name || "—"}</span></div>
@@ -411,38 +501,54 @@ table.tots .bal td{color:${balance > 0 ? "#dc2626" : "#059669"}}
       ${supplier?.gstin ? `<div class="dr"><span class="dl">GSTIN:</span><span class="dv">${supplier.gstin}</span></div>` : ""}
       ${supplier?.dl_number ? `<div class="dr"><span class="dl">DL No:</span><span class="dv">${supplier.dl_number}</span></div>` : ""}
     </div>
-    ` : ''}
+    `
+        : ""
+    }
   </div>
-  ` : ''}
+  `
+      : ""
+  }
 
   <!-- ITEM SUMMARY -->
-  ${options.showItemSummary ? `
+  ${
+    options.showItemSummary
+      ? `
   <div class="item-summary">
     <span>Total Items: <strong>${lineItems.length}</strong></span>
-    ${freeCount > 0 ? `<span class="free-badge">🎁 ${freeCount} Free Item${freeCount > 1 ? 's' : ''}</span>` : ''}
+    ${freeCount > 0 ? `<span class="free-badge">🎁 ${freeCount} Free Item${freeCount > 1 ? "s" : ""}</span>` : ""}
   </div>
-  ` : ''}
+  `
+      : ""
+  }
 
   <!-- ITEMS TABLE -->
   <table class="items">
-    <thead><tr>${headers.join('')}</tr></thead>
+    <thead><tr>${headers.join("")}</tr></thead>
     <tbody>${rows}</tbody>
   </table>
 
   <!-- SUMMARY -->
   <div class="summ">
-    ${options.showAmountInWords ? `
+    ${
+      options.showAmountInWords
+        ? `
     <div class="words-box">
       <div class="words-lbl">Amount in Words</div>
       <div class="words-txt">${numberToWords(netAmount)}</div>
     </div>
-    ` : '<div style="flex:1"></div>'}
+    `
+        : '<div style="flex:1"></div>'
+    }
     <table class="tots">
-      ${options.showSubtotal ? `<tr><td class="tl">Subtotal:</td><td class="tv">₹${totals.subtotal.toFixed(2)}</td></tr>` : ''}
-      ${options.showGSTBreakdown ? `
+      ${options.showSubtotal ? `<tr><td class="tl">Subtotal:</td><td class="tv">₹${totals.subtotal.toFixed(2)}</td></tr>` : ""}
+      ${
+        options.showGSTBreakdown
+          ? `
         <tr><td class="tl">CGST:</td><td class="tv">₹${totals.cgst.toFixed(2)}</td></tr>
         <tr><td class="tl">SGST:</td><td class="tv">₹${totals.sgst.toFixed(2)}</td></tr>
-      ` : ''}
+      `
+          : ""
+      }
       ${options.showTransportCharges && transport > 0 ? `<tr><td class="tl">Transport:</td><td class="tv">₹${transport.toFixed(2)}</td></tr>` : ""}
       ${options.showOtherCharges && other > 0 ? `<tr><td class="tl">Other Charges:</td><td class="tv">₹${other.toFixed(2)}</td></tr>` : ""}
       <tr class="grand"><td class="tl">Net Amount:</td><td class="tv">₹${netAmount.toFixed(2)}</td></tr>
@@ -453,23 +559,35 @@ table.tots .bal td{color:${balance > 0 ? "#dc2626" : "#059669"}}
 
   ${options.showRemarks && invoice?.remarks ? `<div class="rem"><div class="rem-lbl">Remarks</div><div class="rem-txt">${invoice.remarks}</div></div>` : ""}
 
-  ${options.showTerms ? `
+  ${
+    options.showTerms
+      ? `
   <div class="terms">
     <strong>Terms & Conditions:</strong> 1. Goods once sold will not be taken back. 2. Subject to local jurisdiction. 3. E&OE (Errors & Omissions Excepted)
   </div>
-  ` : ''}
+  `
+      : ""
+  }
 
-  ${options.showSignatures ? `
+  ${
+    options.showSignatures
+      ? `
   <div class="ftr">
     <div class="sig"><div class="sig-line"><div class="sig-lbl">Received By</div></div></div>
     <div class="sig"><div class="sig-line"><div class="sig-lbl">Checked By</div></div></div>
     <div class="sig"><div class="sig-line"><div class="sig-lbl">Authorized Signatory</div></div></div>
   </div>
-  ` : ''}
+  `
+      : ""
+  }
 
-  ${options.showPrintTimestamp ? `
+  ${
+    options.showPrintTimestamp
+      ? `
   <div class="pnote">Computer-generated document &bull; Printed on ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-  ` : ''}
+  `
+      : ""
+  }
 </div>
 <script>window.onload=function(){window.print();window.onafterprint=function(){window.close()}};</script>
 </body>
@@ -484,15 +602,15 @@ const OptionGroup = ({ title, icon: Icon, children }) => (
   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div className="px-4 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex items-center gap-2">
       <Icon size={14} className="text-[#000060]" />
-      <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">{title}</span>
+      <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+        {title}
+      </span>
     </div>
-    <div className="p-3 space-y-1">
-      {children}
-    </div>
+    <div className="p-3 space-y-1">{children}</div>
   </div>
 );
 
-// ✅ FIXED: Changed from <label> to <button> with onClick handler
+//  FIXED: Changed from <label> to <button> with onClick handler
 const OptionToggle = ({ label, checked, onChange, description }) => (
   <button
     type="button"
@@ -511,7 +629,9 @@ const OptionToggle = ({ label, checked, onChange, description }) => (
       />
     </div>
     <div className="flex-1 min-w-0">
-      <span className={`text-sm font-medium transition-colors ${checked ? "text-gray-900" : "text-gray-600"}`}>
+      <span
+        className={`text-sm font-medium transition-colors ${checked ? "text-gray-900" : "text-gray-600"}`}
+      >
         {label}
       </span>
       {description && (
@@ -523,9 +643,12 @@ const OptionToggle = ({ label, checked, onChange, description }) => (
 );
 
 const OptionsTab = ({ options, setOptions, company }) => {
-  const handleToggle = useCallback((key) => {
-    setOptions(prev => ({ ...prev, [key]: !prev[key] }));
-  }, [setOptions]);
+  const handleToggle = useCallback(
+    (key) => {
+      setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+    },
+    [setOptions],
+  );
 
   const resetToDefaults = useCallback(() => {
     setOptions(DEFAULT_PRINT_OPTIONS);
@@ -533,7 +656,7 @@ const OptionsTab = ({ options, setOptions, company }) => {
 
   const selectAll = useCallback(() => {
     const allTrue = {};
-    Object.keys(DEFAULT_PRINT_OPTIONS).forEach(key => {
+    Object.keys(DEFAULT_PRINT_OPTIONS).forEach((key) => {
       allTrue[key] = true;
     });
     setOptions(allTrue);
@@ -570,7 +693,9 @@ const OptionsTab = ({ options, setOptions, company }) => {
       <div className="shrink-0 px-4 py-3 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-gray-900">Customize Print Layout</h3>
+            <h3 className="text-sm font-bold text-gray-900">
+              Customize Print Layout
+            </h3>
             <p className="text-[10px] text-gray-500 mt-0.5">
               {enabledCount}/{totalCount} options enabled
             </p>
@@ -600,16 +725,19 @@ const OptionsTab = ({ options, setOptions, company }) => {
 
       {/* Options Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        
         {/* Company Info Card */}
         {company && (
           <div className="bg-gradient-to-br from-[#000060]/5 to-indigo-50 rounded-xl border border-[#000060]/10 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Building2 size={16} className="text-[#000060]" />
-              <span className="text-xs font-bold text-[#000060] uppercase tracking-wide">Shop Info</span>
+              <span className="text-xs font-bold text-[#000060] uppercase tracking-wide">
+                Shop Info
+              </span>
             </div>
             <div className="space-y-1.5">
-              <div className="text-sm font-bold text-gray-900">{company.businessName}</div>
+              <div className="text-sm font-bold text-gray-900">
+                {company.businessName}
+              </div>
               {company.branchName && (
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
                   <MapPin size={10} className="text-gray-400" />
@@ -628,60 +756,200 @@ const OptionsTab = ({ options, setOptions, company }) => {
 
         {/* Header Options */}
         <OptionGroup title="Header Section" icon={Building2}>
-          <OptionToggle label="Company Name" checked={options.showCompanyName} onChange={() => handleToggle('showCompanyName')} />
-          <OptionToggle label="Branch Name" checked={options.showBranchName} onChange={() => handleToggle('showBranchName')} />
-          <OptionToggle label="Address" checked={options.showCompanyAddress} onChange={() => handleToggle('showCompanyAddress')} />
-          <OptionToggle label="Phone/Email" checked={options.showCompanyPhone} onChange={() => handleToggle('showCompanyPhone')} />
-          <OptionToggle label="GSTIN" checked={options.showCompanyGSTIN} onChange={() => handleToggle('showCompanyGSTIN')} />
+          <OptionToggle
+            label="Company Name"
+            checked={options.showCompanyName}
+            onChange={() => handleToggle("showCompanyName")}
+          />
+          <OptionToggle
+            label="Branch Name"
+            checked={options.showBranchName}
+            onChange={() => handleToggle("showBranchName")}
+          />
+          <OptionToggle
+            label="Address"
+            checked={options.showCompanyAddress}
+            onChange={() => handleToggle("showCompanyAddress")}
+          />
+          <OptionToggle
+            label="Phone/Email"
+            checked={options.showCompanyPhone}
+            onChange={() => handleToggle("showCompanyPhone")}
+          />
+          <OptionToggle
+            label="GSTIN"
+            checked={options.showCompanyGSTIN}
+            onChange={() => handleToggle("showCompanyGSTIN")}
+          />
         </OptionGroup>
 
         {/* Details Section */}
         <OptionGroup title="Invoice Details" icon={FileText}>
-          <OptionToggle label="Invoice Details Box" checked={options.showInvoiceDetails} onChange={() => handleToggle('showInvoiceDetails')} />
-          <OptionToggle label="Supplier Details Box" checked={options.showSupplierDetails} onChange={() => handleToggle('showSupplierDetails')} />
-          <OptionToggle label="Due Date" checked={options.showDueDate} onChange={() => handleToggle('showDueDate')} />
-          <OptionToggle label="Payment Mode" checked={options.showPaymentMode} onChange={() => handleToggle('showPaymentMode')} />
-          <OptionToggle label="Payment Status" checked={options.showPaymentStatus} onChange={() => handleToggle('showPaymentStatus')} />
+          <OptionToggle
+            label="Invoice Details Box"
+            checked={options.showInvoiceDetails}
+            onChange={() => handleToggle("showInvoiceDetails")}
+          />
+          <OptionToggle
+            label="Supplier Details Box"
+            checked={options.showSupplierDetails}
+            onChange={() => handleToggle("showSupplierDetails")}
+          />
+          <OptionToggle
+            label="Due Date"
+            checked={options.showDueDate}
+            onChange={() => handleToggle("showDueDate")}
+          />
+          <OptionToggle
+            label="Payment Mode"
+            checked={options.showPaymentMode}
+            onChange={() => handleToggle("showPaymentMode")}
+          />
+          <OptionToggle
+            label="Payment Status"
+            checked={options.showPaymentStatus}
+            onChange={() => handleToggle("showPaymentStatus")}
+          />
         </OptionGroup>
 
         {/* Table Columns */}
         <OptionGroup title="Table Columns" icon={Layers}>
-          <OptionToggle label="HSN Code" checked={options.showHSN} onChange={() => handleToggle('showHSN')} />
-          <OptionToggle label="Batch Number" checked={options.showBatch} onChange={() => handleToggle('showBatch')} />
-          <OptionToggle label="Expiry Date" checked={options.showExpiry} onChange={() => handleToggle('showExpiry')} />
-          <OptionToggle label="Pack Size" checked={options.showPack} onChange={() => handleToggle('showPack')} />
-          <OptionToggle label="Free Quantity" checked={options.showFreeQty} onChange={() => handleToggle('showFreeQty')} />
-          <OptionToggle label="MRP" checked={options.showMRP} onChange={() => handleToggle('showMRP')} />
-          <OptionToggle label="Discount %" checked={options.showDiscount} onChange={() => handleToggle('showDiscount')} />
-          <OptionToggle label="Taxable Amount" checked={options.showTaxable} onChange={() => handleToggle('showTaxable')} />
-          <OptionToggle label="CGST Column" checked={options.showCGST} onChange={() => handleToggle('showCGST')} />
-          <OptionToggle label="SGST Column" checked={options.showSGST} onChange={() => handleToggle('showSGST')} />
-          <OptionToggle label="Manufacturer" checked={options.showManufacturer} onChange={() => handleToggle('showManufacturer')} description="Below product name" />
+          <OptionToggle
+            label="HSN Code"
+            checked={options.showHSN}
+            onChange={() => handleToggle("showHSN")}
+          />
+          <OptionToggle
+            label="Batch Number"
+            checked={options.showBatch}
+            onChange={() => handleToggle("showBatch")}
+          />
+          <OptionToggle
+            label="Expiry Date"
+            checked={options.showExpiry}
+            onChange={() => handleToggle("showExpiry")}
+          />
+          <OptionToggle
+            label="Pack Size"
+            checked={options.showPack}
+            onChange={() => handleToggle("showPack")}
+          />
+          <OptionToggle
+            label="Free Quantity"
+            checked={options.showFreeQty}
+            onChange={() => handleToggle("showFreeQty")}
+          />
+          <OptionToggle
+            label="MRP"
+            checked={options.showMRP}
+            onChange={() => handleToggle("showMRP")}
+          />
+          <OptionToggle
+            label="Discount %"
+            checked={options.showDiscount}
+            onChange={() => handleToggle("showDiscount")}
+          />
+          <OptionToggle
+            label="Taxable Amount"
+            checked={options.showTaxable}
+            onChange={() => handleToggle("showTaxable")}
+          />
+          <OptionToggle
+            label="CGST Column"
+            checked={options.showCGST}
+            onChange={() => handleToggle("showCGST")}
+          />
+          <OptionToggle
+            label="SGST Column"
+            checked={options.showSGST}
+            onChange={() => handleToggle("showSGST")}
+          />
+          <OptionToggle
+            label="Manufacturer"
+            checked={options.showManufacturer}
+            onChange={() => handleToggle("showManufacturer")}
+            description="Below product name"
+          />
         </OptionGroup>
 
         {/* Summary Section */}
         <OptionGroup title="Summary Section" icon={Receipt}>
-          <OptionToggle label="Amount in Words" checked={options.showAmountInWords} onChange={() => handleToggle('showAmountInWords')} />
-          <OptionToggle label="Subtotal" checked={options.showSubtotal} onChange={() => handleToggle('showSubtotal')} />
-          <OptionToggle label="GST Breakdown" checked={options.showGSTBreakdown} onChange={() => handleToggle('showGSTBreakdown')} description="CGST & SGST totals" />
-          <OptionToggle label="Transport Charges" checked={options.showTransportCharges} onChange={() => handleToggle('showTransportCharges')} />
-          <OptionToggle label="Other Charges" checked={options.showOtherCharges} onChange={() => handleToggle('showOtherCharges')} />
-          <OptionToggle label="Paid Amount" checked={options.showPaidAmount} onChange={() => handleToggle('showPaidAmount')} />
-          <OptionToggle label="Balance Amount" checked={options.showBalanceAmount} onChange={() => handleToggle('showBalanceAmount')} />
+          <OptionToggle
+            label="Amount in Words"
+            checked={options.showAmountInWords}
+            onChange={() => handleToggle("showAmountInWords")}
+          />
+          <OptionToggle
+            label="Subtotal"
+            checked={options.showSubtotal}
+            onChange={() => handleToggle("showSubtotal")}
+          />
+          <OptionToggle
+            label="GST Breakdown"
+            checked={options.showGSTBreakdown}
+            onChange={() => handleToggle("showGSTBreakdown")}
+            description="CGST & SGST totals"
+          />
+          <OptionToggle
+            label="Transport Charges"
+            checked={options.showTransportCharges}
+            onChange={() => handleToggle("showTransportCharges")}
+          />
+          <OptionToggle
+            label="Other Charges"
+            checked={options.showOtherCharges}
+            onChange={() => handleToggle("showOtherCharges")}
+          />
+          <OptionToggle
+            label="Paid Amount"
+            checked={options.showPaidAmount}
+            onChange={() => handleToggle("showPaidAmount")}
+          />
+          <OptionToggle
+            label="Balance Amount"
+            checked={options.showBalanceAmount}
+            onChange={() => handleToggle("showBalanceAmount")}
+          />
         </OptionGroup>
 
         {/* Footer Section */}
         <OptionGroup title="Footer Section" icon={FileSignature}>
-          <OptionToggle label="Remarks" checked={options.showRemarks} onChange={() => handleToggle('showRemarks')} />
-          <OptionToggle label="Signature Lines" checked={options.showSignatures} onChange={() => handleToggle('showSignatures')} />
-          <OptionToggle label="Terms & Conditions" checked={options.showTerms} onChange={() => handleToggle('showTerms')} />
-          <OptionToggle label="Print Timestamp" checked={options.showPrintTimestamp} onChange={() => handleToggle('showPrintTimestamp')} />
+          <OptionToggle
+            label="Remarks"
+            checked={options.showRemarks}
+            onChange={() => handleToggle("showRemarks")}
+          />
+          <OptionToggle
+            label="Signature Lines"
+            checked={options.showSignatures}
+            onChange={() => handleToggle("showSignatures")}
+          />
+          <OptionToggle
+            label="Terms & Conditions"
+            checked={options.showTerms}
+            onChange={() => handleToggle("showTerms")}
+          />
+          <OptionToggle
+            label="Print Timestamp"
+            checked={options.showPrintTimestamp}
+            onChange={() => handleToggle("showPrintTimestamp")}
+          />
         </OptionGroup>
 
         {/* Styling Options */}
         <OptionGroup title="Styling" icon={Gift}>
-          <OptionToggle label="Highlight Free Items" checked={options.highlightFreeItems} onChange={() => handleToggle('highlightFreeItems')} description="Green background for free items" />
-          <OptionToggle label="Item Summary Bar" checked={options.showItemSummary} onChange={() => handleToggle('showItemSummary')} description="Shows total items & free count" />
+          <OptionToggle
+            label="Highlight Free Items"
+            checked={options.highlightFreeItems}
+            onChange={() => handleToggle("highlightFreeItems")}
+            description="Green background for free items"
+          />
+          <OptionToggle
+            label="Item Summary Bar"
+            checked={options.showItemSummary}
+            onChange={() => handleToggle("showItemSummary")}
+            description="Shows total items & free count"
+          />
         </OptionGroup>
       </div>
     </div>
@@ -709,7 +977,7 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
   const transport = parseFloat(invoice?.transport_charges) || 0;
   const other = parseFloat(invoice?.other_charges) || 0;
 
-  const freeCount = lineItems.filter(item => isFreeLine(item)).length;
+  const freeCount = lineItems.filter((item) => isFreeLine(item)).length;
 
   const statusStyles = {
     CONFIRMED: "bg-green-100 text-green-700 border-green-300",
@@ -754,25 +1022,39 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
               {company?.businessName || "Your Business"}
             </h1>
           )}
-          {options.showCompanyName && company?.legalName && company.legalName !== company.businessName && (
-            <p className="text-[10px] text-gray-500 mt-0.5">{company.legalName}</p>
-          )}
+          {options.showCompanyName &&
+            company?.legalName &&
+            company.legalName !== company.businessName && (
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                {company.legalName}
+              </p>
+            )}
           {options.showBranchName && branchName && (
-            <p className="text-[11px] font-bold text-[#000060] mt-1">Branch: {branchName}</p>
+            <p className="text-[11px] font-bold text-[#000060] mt-1">
+              Branch: {branchName}
+            </p>
           )}
           {options.showCompanyAddress && (
-            <p className="text-[10px] text-gray-600 mt-1 max-w-[380px]">{branchAddr}</p>
+            <p className="text-[10px] text-gray-600 mt-1 max-w-[380px]">
+              {branchAddr}
+            </p>
           )}
           {options.showCompanyPhone && (
             <p className="text-[10px] text-gray-600 mt-0.5">
               {[
-                branchPhone || shopPhone ? `Ph: ${branchPhone || shopPhone}` : "",
+                branchPhone || shopPhone
+                  ? `Ph: ${branchPhone || shopPhone}`
+                  : "",
                 shopEmail ? `Email: ${shopEmail}` : "",
-              ].filter(Boolean).join("  |  ")}
+              ]
+                .filter(Boolean)
+                .join("  |  ")}
             </p>
           )}
           {options.showCompanyGSTIN && company?.gstin && (
-            <p className="text-[10px] font-bold text-[#000060] mt-1">GSTIN: {company.gstin}</p>
+            <p className="text-[10px] font-bold text-[#000060] mt-1">
+              GSTIN: {company.gstin}
+            </p>
           )}
         </div>
         <div className="text-right">
@@ -802,28 +1084,44 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
               </p>
               <div className="flex justify-between py-[1.5px]">
                 <span className="text-[10px] text-gray-500">Invoice Date:</span>
-                <span className="text-[10px] font-semibold">{formatPrintDate(invoice?.invoice_date)}</span>
+                <span className="text-[10px] font-semibold">
+                  {formatPrintDate(invoice?.invoice_date)}
+                </span>
               </div>
               <div className="flex justify-between py-[1.5px]">
-                <span className="text-[10px] text-gray-500">Supplier Inv #:</span>
-                <span className="text-[10px] font-semibold">{invoice?.supplier_invoice_no || "—"}</span>
+                <span className="text-[10px] text-gray-500">
+                  Supplier Inv #:
+                </span>
+                <span className="text-[10px] font-semibold">
+                  {invoice?.supplier_invoice_no || "—"}
+                </span>
               </div>
               {options.showDueDate && (
                 <div className="flex justify-between py-[1.5px]">
                   <span className="text-[10px] text-gray-500">Due Date:</span>
-                  <span className="text-[10px] font-semibold">{formatPrintDate(invoice?.due_date)}</span>
+                  <span className="text-[10px] font-semibold">
+                    {formatPrintDate(invoice?.due_date)}
+                  </span>
                 </div>
               )}
               {options.showPaymentMode && (
                 <div className="flex justify-between py-[1.5px]">
-                  <span className="text-[10px] text-gray-500">Payment Mode:</span>
-                  <span className="text-[10px] font-semibold">{invoice?.payment_mode || "—"}</span>
+                  <span className="text-[10px] text-gray-500">
+                    Payment Mode:
+                  </span>
+                  <span className="text-[10px] font-semibold">
+                    {invoice?.payment_mode || "—"}
+                  </span>
                 </div>
               )}
               {options.showPaymentStatus && (
                 <div className="flex justify-between py-[1.5px]">
-                  <span className="text-[10px] text-gray-500">Payment Status:</span>
-                  <span className="text-[10px] font-semibold">{invoice?.payment_status || "—"}</span>
+                  <span className="text-[10px] text-gray-500">
+                    Payment Status:
+                  </span>
+                  <span className="text-[10px] font-semibold">
+                    {invoice?.payment_status || "—"}
+                  </span>
                 </div>
               )}
             </div>
@@ -836,18 +1134,24 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
               </p>
               <div className="flex justify-between py-[1.5px]">
                 <span className="text-[10px] text-gray-500">Name:</span>
-                <span className="text-[10px] font-semibold">{supplier?.name || "—"}</span>
+                <span className="text-[10px] font-semibold">
+                  {supplier?.name || "—"}
+                </span>
               </div>
               {supplier?.phone && (
                 <div className="flex justify-between py-[1.5px]">
                   <span className="text-[10px] text-gray-500">Phone:</span>
-                  <span className="text-[10px] font-semibold">{supplier.phone}</span>
+                  <span className="text-[10px] font-semibold">
+                    {supplier.phone}
+                  </span>
                 </div>
               )}
               {supplier?.gstin && (
                 <div className="flex justify-between py-[1.5px]">
                   <span className="text-[10px] text-gray-500">GSTIN:</span>
-                  <span className="text-[10px] font-semibold">{supplier.gstin}</span>
+                  <span className="text-[10px] font-semibold">
+                    {supplier.gstin}
+                  </span>
                 </div>
               )}
             </div>
@@ -859,11 +1163,12 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
       {options.showItemSummary && (
         <div className="flex justify-between items-center px-2 py-1.5 bg-gray-50 rounded mb-2 text-[10px]">
           <span className="text-gray-600">
-            Total Items: <strong className="text-gray-900">{lineItems.length}</strong>
+            Total Items:{" "}
+            <strong className="text-gray-900">{lineItems.length}</strong>
           </span>
           {freeCount > 0 && (
             <span className="text-green-600 font-semibold flex items-center gap-1">
-         {freeCount} Free Item{freeCount > 1 ? 's' : ''}
+              {freeCount} Free Item{freeCount > 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -889,15 +1194,27 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
           {lineItems.map((item, i) => {
             const a = computeItemAmounts(item);
             return (
-              <tr 
-                key={i} 
-                className={options.highlightFreeItems && a.isFree ? "bg-green-50" : i % 2 === 1 ? "bg-gray-50" : ""}
+              <tr
+                key={i}
+                className={
+                  options.highlightFreeItems && a.isFree
+                    ? "bg-green-50"
+                    : i % 2 === 1
+                      ? "bg-gray-50"
+                      : ""
+                }
               >
-                <td className="text-center py-1 px-1 border-b border-gray-200">{i + 1}</td>
+                <td className="text-center py-1 px-1 border-b border-gray-200">
+                  {i + 1}
+                </td>
                 <td className="text-left py-1 px-1 border-b border-gray-200">
-                  <span className="font-semibold">{item.medicine?.name || "—"}</span>
+                  <span className="font-semibold">
+                    {item.medicine?.name || "—"}
+                  </span>
                   {options.showManufacturer && item.medicine?.manufacturer && (
-                    <span className="block text-[9px] text-gray-500">{item.medicine.manufacturer}</span>
+                    <span className="block text-[9px] text-gray-500">
+                      {item.medicine.manufacturer}
+                    </span>
                   )}
                 </td>
                 {options.showHSN && (
@@ -906,33 +1223,51 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
                   </td>
                 )}
                 {options.showBatch && (
-                  <td className="text-center py-1 px-1 border-b border-gray-200">{item.batch_number || "—"}</td>
+                  <td className="text-center py-1 px-1 border-b border-gray-200">
+                    {item.batch_number || "—"}
+                  </td>
                 )}
                 {options.showExpiry && (
-                  <td className="text-center py-1 px-1 border-b border-gray-200">{formatExpiry(item.expiry_date)}</td>
+                  <td className="text-center py-1 px-1 border-b border-gray-200">
+                    {formatExpiry(item.expiry_date)}
+                  </td>
                 )}
                 {options.showPack && (
-                  <td className="text-center py-1 px-1 border-b border-gray-200">{item.pack_size || "—"}</td>
+                  <td className="text-center py-1 px-1 border-b border-gray-200">
+                    {item.pack_size || "—"}
+                  </td>
                 )}
-                <td className="text-center py-1 px-1 border-b border-gray-200 font-bold">{a.qty}</td>
+                <td className="text-center py-1 px-1 border-b border-gray-200 font-bold">
+                  {a.qty}
+                </td>
                 {options.showFreeQty && (
-                  <td className={`text-center py-1 px-1 border-b border-gray-200 ${a.free > 0 ? "text-green-600 font-semibold" : ""}`}>
+                  <td
+                    className={`text-center py-1 px-1 border-b border-gray-200 ${a.free > 0 ? "text-green-600 font-semibold" : ""}`}
+                  >
                     {a.free || "—"}
                   </td>
                 )}
                 {options.showMRP && (
-                  <td className="text-right py-1 px-1 border-b border-gray-200">{a.mrp.toFixed(2)}</td>
+                  <td className="text-right py-1 px-1 border-b border-gray-200">
+                    {a.mrp.toFixed(2)}
+                  </td>
                 )}
                 <td className="text-right py-1 px-1 border-b border-gray-200">
                   {a.isFree ? (
-                    <span className="text-gray-400 line-through">{a.rate.toFixed(2)}</span>
+                    <span className="text-gray-400 line-through">
+                      {a.rate.toFixed(2)}
+                    </span>
                   ) : (
                     a.rate.toFixed(2)
                   )}
                 </td>
                 {options.showDiscount && (
                   <td className="text-center py-1 px-1 border-b border-gray-200">
-                    {a.isFree ? "—" : a.tradeDsc > 0 ? a.tradeDsc.toFixed(1) + "%" : "—"}
+                    {a.isFree
+                      ? "—"
+                      : a.tradeDsc > 0
+                        ? a.tradeDsc.toFixed(1) + "%"
+                        : "—"}
                   </td>
                 )}
                 {options.showTaxable && (
@@ -942,15 +1277,29 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
                 )}
                 {options.showCGST && (
                   <td className="text-center py-1 px-1 border-b border-gray-200 text-[9px]">
-                    {a.isFree ? "—" : <>{a.cgstP}%<br />₹{a.cgstAmt.toFixed(2)}</>}
+                    {a.isFree ? (
+                      "—"
+                    ) : (
+                      <>
+                        {a.cgstP}%<br />₹{a.cgstAmt.toFixed(2)}
+                      </>
+                    )}
                   </td>
                 )}
                 {options.showSGST && (
                   <td className="text-center py-1 px-1 border-b border-gray-200 text-[9px]">
-                    {a.isFree ? "—" : <>{a.sgstP}%<br />₹{a.sgstAmt.toFixed(2)}</>}
+                    {a.isFree ? (
+                      "—"
+                    ) : (
+                      <>
+                        {a.sgstP}%<br />₹{a.sgstAmt.toFixed(2)}
+                      </>
+                    )}
                   </td>
                 )}
-                <td className={`text-right py-1 px-1 border-b border-gray-200 font-bold ${a.isFree ? "text-green-600" : ""}`}>
+                <td
+                  className={`text-right py-1 px-1 border-b border-gray-200 font-bold ${a.isFree ? "text-green-600" : ""}`}
+                >
                   {a.isFree ? "FREE" : `₹${a.total.toFixed(2)}`}
                 </td>
               </tr>
@@ -958,7 +1307,10 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
           })}
           {lineItems.length === 0 && (
             <tr>
-              <td colSpan={visibleHeaders.length} className="text-center py-6 text-gray-400 italic">
+              <td
+                colSpan={visibleHeaders.length}
+                className="text-center py-6 text-gray-400 italic"
+              >
                 No line items
               </td>
             </tr>
@@ -970,44 +1322,70 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
       <div className="flex justify-between gap-4 mb-3">
         {options.showAmountInWords && (
           <div className="flex-1 p-3 bg-indigo-50 border border-indigo-200 rounded-md">
-            <p className="text-[9px] font-bold text-[#000060] uppercase tracking-wider">Amount in Words</p>
+            <p className="text-[9px] font-bold text-[#000060] uppercase tracking-wider">
+              Amount in Words
+            </p>
             <p className="text-[11px] font-semibold text-gray-900 mt-1 italic">
               {numberToWords(netAmount)}
             </p>
           </div>
         )}
 
-        <div className={options.showAmountInWords ? "w-[260px] shrink-0" : "flex-1"}>
+        <div
+          className={
+            options.showAmountInWords ? "w-[260px] shrink-0" : "flex-1"
+          }
+        >
           <table className="w-full border-collapse text-[10px]">
             <tbody>
               {options.showSubtotal && (
                 <tr>
-                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">Subtotal:</td>
-                  <td className="text-right font-semibold py-[3px] px-2 min-w-[90px]">₹{totals.subtotal.toFixed(2)}</td>
+                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                    Subtotal:
+                  </td>
+                  <td className="text-right font-semibold py-[3px] px-2 min-w-[90px]">
+                    ₹{totals.subtotal.toFixed(2)}
+                  </td>
                 </tr>
               )}
               {options.showGSTBreakdown && (
                 <>
                   <tr>
-                    <td className="text-right text-gray-500 font-medium py-[3px] px-2">CGST:</td>
-                    <td className="text-right font-semibold py-[3px] px-2">₹{totals.cgst.toFixed(2)}</td>
+                    <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                      CGST:
+                    </td>
+                    <td className="text-right font-semibold py-[3px] px-2">
+                      ₹{totals.cgst.toFixed(2)}
+                    </td>
                   </tr>
                   <tr>
-                    <td className="text-right text-gray-500 font-medium py-[3px] px-2">SGST:</td>
-                    <td className="text-right font-semibold py-[3px] px-2">₹{totals.sgst.toFixed(2)}</td>
+                    <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                      SGST:
+                    </td>
+                    <td className="text-right font-semibold py-[3px] px-2">
+                      ₹{totals.sgst.toFixed(2)}
+                    </td>
                   </tr>
                 </>
               )}
               {options.showTransportCharges && transport > 0 && (
                 <tr>
-                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">Transport:</td>
-                  <td className="text-right font-semibold py-[3px] px-2">₹{transport.toFixed(2)}</td>
+                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                    Transport:
+                  </td>
+                  <td className="text-right font-semibold py-[3px] px-2">
+                    ₹{transport.toFixed(2)}
+                  </td>
                 </tr>
               )}
               {options.showOtherCharges && other > 0 && (
                 <tr>
-                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">Other:</td>
-                  <td className="text-right font-semibold py-[3px] px-2">₹{other.toFixed(2)}</td>
+                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                    Other:
+                  </td>
+                  <td className="text-right font-semibold py-[3px] px-2">
+                    ₹{other.toFixed(2)}
+                  </td>
                 </tr>
               )}
               <tr>
@@ -1020,14 +1398,22 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
               </tr>
               {options.showPaidAmount && paidAmount > 0 && (
                 <tr>
-                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">Paid:</td>
-                  <td className="text-right font-semibold py-[3px] px-2 text-emerald-600">₹{paidAmount.toFixed(2)}</td>
+                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                    Paid:
+                  </td>
+                  <td className="text-right font-semibold py-[3px] px-2 text-emerald-600">
+                    ₹{paidAmount.toFixed(2)}
+                  </td>
                 </tr>
               )}
               {options.showBalanceAmount && paidAmount > 0 && (
                 <tr>
-                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">Balance:</td>
-                  <td className={`text-right font-bold py-[3px] px-2 ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  <td className="text-right text-gray-500 font-medium py-[3px] px-2">
+                    Balance:
+                  </td>
+                  <td
+                    className={`text-right font-bold py-[3px] px-2 ${balance > 0 ? "text-red-600" : "text-emerald-600"}`}
+                  >
                     ₹{balance.toFixed(2)}
                   </td>
                 </tr>
@@ -1040,7 +1426,9 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
       {/* Remarks */}
       {options.showRemarks && invoice?.remarks && (
         <div className="p-2 px-3 bg-amber-50 border border-amber-200 rounded-md mb-3">
-          <p className="text-[9px] font-bold text-amber-800 uppercase">Remarks</p>
+          <p className="text-[9px] font-bold text-amber-800 uppercase">
+            Remarks
+          </p>
           <p className="text-[10px] text-amber-900 mt-0.5">{invoice.remarks}</p>
         </div>
       )}
@@ -1049,7 +1437,8 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
       {options.showTerms && (
         <div className="p-2 px-3 bg-gray-50 border border-gray-200 rounded-md mb-3">
           <p className="text-[9px] text-gray-600">
-            <strong>Terms & Conditions:</strong> 1. Goods once sold will not be taken back. 2. Subject to local jurisdiction. 3. E&OE
+            <strong>Terms & Conditions:</strong> 1. Goods once sold will not be
+            taken back. 2. Subject to local jurisdiction. 3. E&OE
           </p>
         </div>
       )}
@@ -1057,13 +1446,17 @@ const PreviewTab = ({ invoice, company, totals, options, shopLoading }) => {
       {/* Signatures */}
       {options.showSignatures && (
         <div className="flex justify-between mt-8 pt-3 border-t border-gray-200">
-          {["Received By", "Checked By", "Authorized Signatory"].map((label) => (
-            <div key={label} className="text-center min-w-[150px]">
-              <div className="border-t border-gray-800 mt-12 pt-1">
-                <p className="text-[10px] text-gray-500 font-semibold">{label}</p>
+          {["Received By", "Checked By", "Authorized Signatory"].map(
+            (label) => (
+              <div key={label} className="text-center min-w-[150px]">
+                <div className="border-t border-gray-800 mt-12 pt-1">
+                  <p className="text-[10px] text-gray-500 font-semibold">
+                    {label}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
 
@@ -1174,7 +1567,8 @@ const PrintInvoiceModal = ({ open, onClose, invoice, companyInfo }) => {
           <motion.div
             className="relative w-full max-w-6xl h-[92vh] bg-gray-100 rounded-2xl overflow-hidden flex flex-col"
             style={{
-              boxShadow: "0 25px 80px rgba(0,0,96,0.25), 0 0 0 1px rgba(0,0,96,0.1)",
+              boxShadow:
+                "0 25px 80px rgba(0,0,96,0.25), 0 0 0 1px rgba(0,0,96,0.1)",
             }}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1191,11 +1585,15 @@ const PrintInvoiceModal = ({ open, onClose, invoice, companyInfo }) => {
                   <FileText size={20} className="text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Print Invoice</h2>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Print Invoice
+                  </h2>
                   <p className="text-xs text-gray-500">
                     {invoice.invoice_number}
                     {invoice.supplier?.name && (
-                      <span className="ml-2 text-gray-400">• {invoice.supplier.name}</span>
+                      <span className="ml-2 text-gray-400">
+                        • {invoice.supplier.name}
+                      </span>
                     )}
                   </p>
                 </div>
@@ -1263,7 +1661,8 @@ const PrintInvoiceModal = ({ open, onClose, invoice, companyInfo }) => {
                   <div
                     className="max-w-4xl mx-auto bg-white rounded-lg p-6 sm:p-8 min-h-[800px]"
                     style={{
-                      boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                      boxShadow:
+                        "0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
                     }}
                   >
                     <PreviewTab
@@ -1297,7 +1696,8 @@ const PrintInvoiceModal = ({ open, onClose, invoice, companyInfo }) => {
                     <div
                       className="max-w-3xl mx-auto bg-white rounded-lg p-4 sm:p-6 min-h-[600px] transform scale-[0.85] origin-top"
                       style={{
-                        boxShadow: "0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
+                        boxShadow:
+                          "0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)",
                       }}
                     >
                       <PreviewTab
@@ -1316,7 +1716,7 @@ const PrintInvoiceModal = ({ open, onClose, invoice, companyInfo }) => {
         </div>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 };
 

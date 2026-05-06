@@ -8,13 +8,9 @@ export const useMenuStore = create(
     (set) => ({
       activeMenu: "dashboard",
       sidebarExpanded: true,
-
       setActiveMenu: (menu) => set({ activeMenu: menu }),
-
       toggleSidebar: () =>
         set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
-
-      // Breadcrumbs
       breadcrumbs: ["Dashboard"],
       setBreadcrumbs: (crumbs) => set({ breadcrumbs: crumbs }),
     }),
@@ -22,8 +18,7 @@ export const useMenuStore = create(
       name: "menu-storage",
       partialize: (state) => ({
         activeMenu: state.activeMenu,
-        // Note: breadcrumbs are NOT persisted (they reset on refresh based on URL)
       }),
-    }
-  )
+    },
+  ),
 );

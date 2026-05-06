@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export const pendingSignupSchema = z.object({
@@ -10,9 +9,9 @@ export const pendingSignupSchema = z.object({
     .min(8, "Password must be at least 8 characters")
     .regex(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      "Password must include uppercase, lowercase, number, and special character"
+      "Password must include uppercase, lowercase, number, and special character",
     ),
-  recaptchaToken: z.string().min(1, "reCAPTCHA token is required"), // ✅ ADD THIS
+  recaptchaToken: z.string().min(1, "reCAPTCHA token is required"), //  ADD THIS
 });
 
 export const checkUsernameSchema = z.object({
@@ -22,7 +21,7 @@ export const checkUsernameSchema = z.object({
     .max(30, "Username cannot exceed 30 characters")
     .regex(
       /^[a-z0-9_]+$/,
-      "Username can only contain lowercase letters, numbers, and underscores"
+      "Username can only contain lowercase letters, numbers, and underscores",
     ),
 });
 
@@ -32,7 +31,10 @@ export const usernameSchema = z.object({
     .string()
     .min(4, "Username must be at least 4 characters")
     .max(20, "Username cannot exceed 20 characters")
-    .regex(/^[a-zA-Z0-9_.]+$/, "Only letters, numbers, underscore, dot allowed"),
+    .regex(
+      /^[a-zA-Z0-9_.]+$/,
+      "Only letters, numbers, underscore, dot allowed",
+    ),
 });
 
 // import { z } from "zod";
@@ -48,7 +50,7 @@ export const usernameSchema = z.object({
 //       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
 //       "Password must include uppercase, lowercase, number, and symbol"
 //     ),
-  
+
 // });
 
 // export const checkUsernameSchema = z.object({
@@ -61,7 +63,6 @@ export const usernameSchema = z.object({
 //       "Username can only contain lowercase letters, numbers, and underscores"
 //     ),
 // });
-
 
 // export const usernameSchema = z.object({
 //   pending_id: z.string().uuid(),

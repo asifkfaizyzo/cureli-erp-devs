@@ -88,10 +88,10 @@ export async function getUsersService(query = {}) {
     const d = new Date(query.last_login);
     if (!isNaN(d)) {
       const start = new Date(
-        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0),
       );
       const end = new Date(
-        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999),
       );
       where.last_login_at = { gte: start, lte: end };
     }
@@ -336,7 +336,12 @@ export async function getUserByIdService(id) {
 // UPDATE USER
 // ============================================
 
-export async function updateUserService(id, payload = {}, cadmin_id, auditContext = {}) {
+export async function updateUserService(
+  id,
+  payload = {},
+  cadmin_id,
+  auditContext = {},
+) {
   const allowed = {};
   if (payload.first_name != null) allowed.first_name = payload.first_name;
   if (payload.last_name != null) allowed.last_name = payload.last_name;
@@ -345,10 +350,13 @@ export async function updateUserService(id, payload = {}, cadmin_id, auditContex
   if (payload.role != null) allowed.role = mapRoleToDb(payload.role);
 
   if (Object.keys(allowed).length === 0) {
-    throw createError("No valid fields provided for update", "VALIDATION_ERROR");
+    throw createError(
+      "No valid fields provided for update",
+      "VALIDATION_ERROR",
+    );
   }
 
-  const existing = await prisma.user.findUnique({ 
+  const existing = await prisma.user.findUnique({
     where: { user_id: id },
     select: {
       user_id: true,
@@ -429,7 +437,7 @@ export async function updateUserService(id, payload = {}, cadmin_id, auditContex
       },
     });
 
-    // ✅ AUDIT: Determine action based on changes
+    //  AUDIT: Determine action based on changes
     let auditAction;
     if (isRoleChange) {
       auditAction = audit.AuditAction.USER_ROLE_CHANGED_BY_ADMIN;
@@ -437,28 +445,31 @@ export async function updateUserService(id, payload = {}, cadmin_id, auditContex
       auditAction = audit.AuditAction.USER_PROFILE_UPDATED_BY_ADMIN;
     }
 
-    await audit.log({
-      action: auditAction,
-      entity_type: audit.EntityType.USER,
-      entity_id: id,
-      shop_id: updated.shop_id || null,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        changed_fields: changedFields,
-        before: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.old])
-        ),
-        after: Object.fromEntries(
-          Object.entries(changes).map(([k, v]) => [k, v.new])
-        ),
-        updated_by_cadmin_id: cadmin_id,
-        ...(isRoleChange && {
-          previous_role: changes.role.old,
-          new_role: changes.role.new,
-        }),
+    await audit.log(
+      {
+        action: auditAction,
+        entity_type: audit.EntityType.USER,
+        entity_id: id,
+        shop_id: updated.shop_id || null,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          changed_fields: changedFields,
+          before: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.old]),
+          ),
+          after: Object.fromEntries(
+            Object.entries(changes).map(([k, v]) => [k, v.new]),
+          ),
+          updated_by_cadmin_id: cadmin_id,
+          ...(isRoleChange && {
+            previous_role: changes.role.old,
+            new_role: changes.role.new,
+          }),
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
@@ -470,8 +481,13 @@ export async function updateUserService(id, payload = {}, cadmin_id, auditContex
 // TOGGLE USER ACCESS
 // ============================================
 
-export async function toggleUserAccessService(id, is_active, cadmin_id, auditContext = {}) {
-  const existing = await prisma.user.findUnique({ 
+export async function toggleUserAccessService(
+  id,
+  is_active,
+  cadmin_id,
+  auditContext = {},
+) {
+  const existing = await prisma.user.findUnique({
     where: { user_id: id },
     select: {
       user_id: true,
@@ -520,24 +536,27 @@ export async function toggleUserAccessService(id, is_active, cadmin_id, auditCon
       },
     });
 
-    // ✅ AUDIT: User activated or suspended by admin
+    //  AUDIT: User activated or suspended by admin
     const auditAction = is_active
       ? audit.AuditAction.USER_ACTIVATED_BY_ADMIN
       : audit.AuditAction.USER_SUSPENDED_BY_ADMIN;
 
-    await audit.log({
-      action: auditAction,
-      entity_type: audit.EntityType.USER,
-      entity_id: id,
-      shop_id: updated.shop_id || null,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        activated_by_cadmin_id: is_active ? cadmin_id : undefined,
-        reason: is_active ? "Activated by admin" : "Suspended by admin",
-        suspended_by_cadmin_id: !is_active ? cadmin_id : undefined,
+    await audit.log(
+      {
+        action: auditAction,
+        entity_type: audit.EntityType.USER,
+        entity_id: id,
+        shop_id: updated.shop_id || null,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          activated_by_cadmin_id: is_active ? cadmin_id : undefined,
+          reason: is_active ? "Activated by admin" : "Suspended by admin",
+          suspended_by_cadmin_id: !is_active ? cadmin_id : undefined,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
@@ -554,8 +573,12 @@ export async function toggleUserAccessService(id, is_active, cadmin_id, auditCon
 // RESET USER PASSWORD
 // ============================================
 
-export async function resetUserPasswordService(userId, cadmin_id, auditContext = {}) {
-  const user = await prisma.user.findUnique({ 
+export async function resetUserPasswordService(
+  userId,
+  cadmin_id,
+  auditContext = {},
+) {
+  const user = await prisma.user.findUnique({
     where: { user_id: userId },
     select: {
       user_id: true,
@@ -598,20 +621,23 @@ export async function resetUserPasswordService(userId, cadmin_id, auditContext =
       },
     });
 
-    // ✅ AUDIT: Password reset by admin
-    await audit.log({
-      action: audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
-      entity_type: audit.EntityType.USER,
-      entity_id: userId,
-      shop_id: user.shop_id || null,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
-      metadata: {
-        reset_by_cadmin_id: cadmin_id,
-        method: 'email_link',
-        expires_in_minutes: 15,
+    //  AUDIT: Password reset by admin
+    await audit.log(
+      {
+        action: audit.AuditAction.USER_PASSWORD_RESET_BY_ADMIN,
+        entity_type: audit.EntityType.USER,
+        entity_id: userId,
+        shop_id: user.shop_id || null,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+        metadata: {
+          reset_by_cadmin_id: cadmin_id,
+          method: "email_link",
+          expires_in_minutes: 15,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   const resetUrl = `${
@@ -646,9 +672,7 @@ function formatUserResponse(u) {
     email: u.email,
     role: formatRole(u.role),
     is_active: u.is_active,
-    lastLogin: u.last_login_at
-      ? formatDateDDMMYYYY(u.last_login_at)
-      : "Never",
+    lastLogin: u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
     created_at: u.created_at,
     updated_at: u.updated_at,
   };

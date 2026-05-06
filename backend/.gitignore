@@ -6,3 +6,6 @@ node_modules
 uploads/
 /static
 package-lock.json
+
+# Logs
+logs/

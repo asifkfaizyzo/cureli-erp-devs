@@ -3,7 +3,11 @@
 // ============================================
 
 import prisma from "../../../config/prisma.js";
-import { notify, notifyAsync, NOTIFICATION_EVENTS } from "../../notifications/index.js";
+import {
+  notify,
+  notifyAsync,
+  NOTIFICATION_EVENTS,
+} from "../../notifications/index.js";
 import * as audit from "../../audit/index.js";
 
 // ============================================
@@ -157,13 +161,13 @@ export async function getAtRiskSubscriptions(rangeDays = 30) {
   ]);
 
   const formattedExpiring = expiring.map((s) =>
-    formatSubscriptionForList(s, "expiring")
+    formatSubscriptionForList(s, "expiring"),
   );
   const formattedGrace = gracePeriod.map((s) =>
-    formatSubscriptionForList(s, "gracePeriod")
+    formatSubscriptionForList(s, "gracePeriod"),
   );
   const formattedSuspended = suspended.map((s) =>
-    formatSubscriptionForList(s, "suspended")
+    formatSubscriptionForList(s, "suspended"),
   );
 
   return {
@@ -234,6 +238,10 @@ export async function getSubscriptionById(subscriptionId) {
           max_branches: true,
           billing_cycle_months: true,
           bonus_months: true,
+          intro_price: true,
+          intro_trigger_type: true,
+          intro_duration_years: true,
+          intro_end_date: true,
         },
       },
       paymentTransactions: {
@@ -292,6 +300,9 @@ export async function getSubscriptionById(subscriptionId) {
       compare_at_price: subscription.plan.compare_at_price
         ? Number(subscription.plan.compare_at_price)
         : null,
+      intro_price: subscription.plan.intro_price
+        ? Number(subscription.plan.intro_price)
+        : null,
     },
     payment_history: subscription.paymentTransactions.map((tx) => ({
       ...tx,
@@ -304,7 +315,12 @@ export async function getSubscriptionById(subscriptionId) {
 // SEND PAYMENT REMINDER
 // ============================================
 
-export async function sendPaymentReminder(subscriptionId, method, cadminId, auditContext = {}) {
+export async function sendPaymentReminder(
+  subscriptionId,
+  method,
+  cadminId,
+  auditContext = {},
+) {
   const subscription = await prisma.shopSubscription.findUnique({
     where: { subscription_id: subscriptionId },
     include: {
@@ -336,7 +352,7 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId, audi
   if (!subscription.is_active) {
     throw createError(
       "Cannot send reminder for suspended subscription",
-      "ALREADY_SUSPENDED"
+      "ALREADY_SUSPENDED",
     );
   }
 
@@ -353,12 +369,18 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId, audi
     throw createError("Owner phone not available", "NO_PHONE");
   }
   if (method === "both" && (!owner.email || !owner.phone_number)) {
-    throw createError("Both email and phone are required for this method", "MISSING_CONTACT");
+    throw createError(
+      "Both email and phone are required for this method",
+      "MISSING_CONTACT",
+    );
   }
 
   const now = new Date();
-  const isInGrace = subscription.end_date < now && subscription.grace_period_until > now;
-  const deadlineDate = isInGrace ? subscription.grace_period_until : subscription.end_date;
+  const isInGrace =
+    subscription.end_date < now && subscription.grace_period_until > now;
+  const deadlineDate = isInGrace
+    ? subscription.grace_period_until
+    : subscription.end_date;
   const daysRemaining = getDaysRemaining(deadlineDate);
 
   const channels = [];
@@ -392,37 +414,36 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId, audi
     ],
   });
 
-  // ✅ AUDIT: Payment reminder sent (non-critical, async logging)
-  audit.log({
-    action: audit.AuditAction.SYSTEM_BROADCAST_SENT,
-    entity_type: audit.EntityType.SUBSCRIPTION,
-    entity_id: subscriptionId,
-    shop_id: subscription.shop.shop_id,
-    ...auditContext,
-    reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-    metadata: {
-      broadcast_type: "payment_reminder",
-      method: method,
-      channels: channels,
-      sent_to: method === "email"
-        ? owner.email
-        : method === "sms"
-        ? owner.phone_number
-        : { email: owner.email, phone: owner.phone_number },
-      days_remaining: daysRemaining,
-      is_in_grace: isInGrace,
-      notification_success: notificationResult.success,
-    },
-  }).catch(err => {
-    // Non-blocking: log error but don't fail the operation
-    console.error("[AUDIT] Failed to log payment reminder:", err);
-  });
+  //  AUDIT: Payment reminder sent (non-critical, async logging)
+  audit
+    .log({
+      action: audit.AuditAction.SYSTEM_BROADCAST_SENT,
+      entity_type: audit.EntityType.SUBSCRIPTION,
+      entity_id: subscriptionId,
+      shop_id: subscription.shop.shop_id,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+      metadata: {
+        broadcast_type: "payment_reminder",
+        method: method,
+        channels: channels,
+        sent_to:
+          method === "email"
+            ? owner.email
+            : method === "sms"
+              ? owner.phone_number
+              : { email: owner.email, phone: owner.phone_number },
+        days_remaining: daysRemaining,
+        is_in_grace: isInGrace,
+        notification_success: notificationResult.success,
+      },
+    })
+    .catch((err) => {
+      // Non-blocking: log error but don't fail the operation
+      console.error("[AUDIT] Failed to log payment reminder:", err);
+    });
 
-  console.log(`[REMINDER] Sent via ${method}:`, {
-    subscription_id: subscriptionId,
-    shop_name: subscription.shop.business_name,
-    result: notificationResult,
-  });
+  
 
   return {
     success: notificationResult.success,
@@ -431,8 +452,8 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId, audi
       method === "email"
         ? owner.email
         : method === "sms"
-        ? owner.phone_number
-        : { email: owner.email, phone: owner.phone_number },
+          ? owner.phone_number
+          : { email: owner.email, phone: owner.phone_number },
     shop_name: subscription.shop.business_name,
     sent_at: new Date().toISOString(),
     sent_by: cadminId,
@@ -444,13 +465,25 @@ export async function sendPaymentReminder(subscriptionId, method, cadminId, audi
 // EXTEND GRACE PERIOD
 // ============================================
 
-export async function extendGracePeriod(subscriptionId, days, reason, cadminId, auditContext = {}) {
+export async function extendGracePeriod(
+  subscriptionId,
+  days,
+  reason,
+  cadminId,
+  auditContext = {},
+) {
   if (!days || days < 1 || days > 30) {
-    throw createError("Extension must be between 1 and 30 days", "VALIDATION_ERROR");
+    throw createError(
+      "Extension must be between 1 and 30 days",
+      "VALIDATION_ERROR",
+    );
   }
 
   if (!reason || reason.trim().length < 10) {
-    throw createError("Reason must be at least 10 characters", "VALIDATION_ERROR");
+    throw createError(
+      "Reason must be at least 10 characters",
+      "VALIDATION_ERROR",
+    );
   }
 
   const subscription = await prisma.shopSubscription.findUnique({
@@ -485,7 +518,7 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId, 
   if (!subscription.is_active) {
     throw createError(
       "Cannot extend grace for suspended subscription. Reactivate first.",
-      "ALREADY_SUSPENDED"
+      "ALREADY_SUSPENDED",
     );
   }
 
@@ -502,23 +535,26 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId, 
       },
     });
 
-    // ✅ AUDIT: Grace period extended
-    await audit.log({
-      action: audit.AuditAction.SUBSCRIPTION_ENTERED_GRACE,
-      entity_type: audit.EntityType.SUBSCRIPTION,
-      entity_id: subscriptionId,
-      shop_id: subscription.shop.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        grace_period_until: newGraceEnd,
-        reason: reason.trim(),
-        days_extended: days,
-        previous_grace_end: previousGraceEnd,
-        new_grace_end: newGraceEnd,
-        extended_by_cadmin_id: cadminId,
+    //  AUDIT: Grace period extended
+    await audit.log(
+      {
+        action: audit.AuditAction.SUBSCRIPTION_ENTERED_GRACE,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: subscriptionId,
+        shop_id: subscription.shop.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          grace_period_until: newGraceEnd,
+          reason: reason.trim(),
+          days_extended: days,
+          previous_grace_end: previousGraceEnd,
+          new_grace_end: newGraceEnd,
+          extended_by_cadmin_id: cadminId,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   // Send notification to shop owner
@@ -564,9 +600,17 @@ export async function extendGracePeriod(subscriptionId, days, reason, cadminId, 
 // FORCE SUSPEND SUBSCRIPTION
 // ============================================
 
-export async function forceSuspendSubscription(subscriptionId, reason, cadminId, auditContext = {}) {
+export async function forceSuspendSubscription(
+  subscriptionId,
+  reason,
+  cadminId,
+  auditContext = {},
+) {
   if (!reason || reason.trim().length < 10) {
-    throw createError("Reason must be at least 10 characters", "VALIDATION_ERROR");
+    throw createError(
+      "Reason must be at least 10 characters",
+      "VALIDATION_ERROR",
+    );
   }
 
   const subscription = await prisma.shopSubscription.findUnique({
@@ -623,22 +667,29 @@ export async function forceSuspendSubscription(subscriptionId, reason, cadminId,
       },
     });
 
-    // ✅ AUDIT: Shop suspended due to non-payment
-    await audit.log({
-      action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,
-      entity_type: audit.EntityType.SHOP,
-      entity_id: subscription.shop.shop_id,
-      shop_id: subscription.shop.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.PAYMENT_ISSUE,
-      metadata: {
-        overdue_amount: Number(subscription.plan.price),
-        days_overdue: Math.abs(getDaysRemaining(subscription.grace_period_until || subscription.end_date)),
-        subscription_id: subscriptionId,
-        reason: reason.trim(),
-        suspended_by_cadmin_id: cadminId,
+    //  AUDIT: Shop suspended due to non-payment
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_SUSPENDED_DUE_TO_NON_PAYMENT,
+        entity_type: audit.EntityType.SHOP,
+        entity_id: subscription.shop.shop_id,
+        shop_id: subscription.shop.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.PAYMENT_ISSUE,
+        metadata: {
+          overdue_amount: Number(subscription.plan.price),
+          days_overdue: Math.abs(
+            getDaysRemaining(
+              subscription.grace_period_until || subscription.end_date,
+            ),
+          ),
+          subscription_id: subscriptionId,
+          reason: reason.trim(),
+          suspended_by_cadmin_id: cadminId,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   // Send suspension notification
@@ -652,7 +703,9 @@ export async function forceSuspendSubscription(subscriptionId, reason, cadminId,
         email: owner.email,
         shop_name: subscription.shop.business_name,
         plan_name: subscription.plan?.name,
-        plan_price: subscription.plan?.price ? Number(subscription.plan.price) : null,
+        plan_price: subscription.plan?.price
+          ? Number(subscription.plan.price)
+          : null,
         suspension_reason: reason.trim(),
         suspended_at: new Date().toISOString(),
         support_email: process.env.SUPPORT_EMAIL || "support@cureli.in",
@@ -688,14 +741,20 @@ export async function reactivateSubscription(
   reason,
   extendDays = 30,
   cadminId,
-  auditContext = {}
+  auditContext = {},
 ) {
   if (!reason || reason.trim().length < 10) {
-    throw createError("Reason must be at least 10 characters", "VALIDATION_ERROR");
+    throw createError(
+      "Reason must be at least 10 characters",
+      "VALIDATION_ERROR",
+    );
   }
 
   if (extendDays < 1 || extendDays > 365) {
-    throw createError("Extension days must be between 1 and 365", "VALIDATION_ERROR");
+    throw createError(
+      "Extension days must be between 1 and 365",
+      "VALIDATION_ERROR",
+    );
   }
 
   const subscription = await prisma.shopSubscription.findUnique({
@@ -758,24 +817,27 @@ export async function reactivateSubscription(
       },
     });
 
-    // ✅ AUDIT: Subscription renewed (reactivated)
-    await audit.log({
-      action: audit.AuditAction.SUBSCRIPTION_RENEWED,
-      entity_type: audit.EntityType.SUBSCRIPTION,
-      entity_id: subscriptionId,
-      shop_id: subscription.shop.shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.ADMIN_ACTION,
-      metadata: {
-        subscription_id: subscriptionId,
-        previous_end_date: subscription.end_date,
-        new_end_date: newEndDate,
-        payment_id: null, // Admin reactivation, no payment
-        reactivation_reason: reason.trim(),
-        extend_days: extendDays,
-        reactivated_by_cadmin_id: cadminId,
+    //  AUDIT: Subscription renewed (reactivated)
+    await audit.log(
+      {
+        action: audit.AuditAction.SUBSCRIPTION_RENEWED,
+        entity_type: audit.EntityType.SUBSCRIPTION,
+        entity_id: subscriptionId,
+        shop_id: subscription.shop.shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.ADMIN_ACTION,
+        metadata: {
+          subscription_id: subscriptionId,
+          previous_end_date: subscription.end_date,
+          new_end_date: newEndDate,
+          payment_id: null, // Admin reactivation, no payment
+          reactivation_reason: reason.trim(),
+          extend_days: extendDays,
+          reactivated_by_cadmin_id: cadminId,
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   // Send reactivation notification

@@ -38,9 +38,9 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
     try {
       const response = await emailBroadcastAPI.getScheduled(page, rowsPerPage);
 
-      console.log("[EmailScheduledList] API Response:", response);
+      
 
-      // ✅ FIXED: Handle both response formats
+      //  FIXED: Handle both response formats
       let scheduledData = [];
       let pagination = { page: 1, limit: 10, total: 0, total_pages: 1 };
 
@@ -58,7 +58,9 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
       onCountChange?.(pagination.total || 0);
     } catch (err) {
       console.error("[EmailScheduledList] Load error:", err);
-      setError(err.response?.data?.message || "Failed to load scheduled campaigns");
+      setError(
+        err.response?.data?.message || "Failed to load scheduled campaigns",
+      );
     } finally {
       setLoading(false);
     }
@@ -167,7 +169,9 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Subject</th>
               <th className={`${styles.header.cell} text-center`}>Status</th>
-              <th className={`${styles.header.cell} text-center`}>Recipients</th>
+              <th className={`${styles.header.cell} text-center`}>
+                Recipients
+              </th>
               <th className={styles.header.cell}>Scheduled For</th>
               <th className={styles.header.cell}>Time Until</th>
               <th className={styles.header.cell}>Created By</th>
@@ -226,7 +230,9 @@ function EmailScheduledList({ refreshTrigger, onCountChange, onCancelled }) {
                 </td>
 
                 <td className={styles.cell.base}>
-                  <span className={styles.cell.primary}>{campaign.cadmin_name}</span>
+                  <span className={styles.cell.primary}>
+                    {campaign.cadmin_name}
+                  </span>
                 </td>
 
                 <td className={styles.cell.base}>

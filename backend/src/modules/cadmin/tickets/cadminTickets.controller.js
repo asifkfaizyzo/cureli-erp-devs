@@ -1,118 +1,120 @@
-// ============================================
-// backend\src\modules\cadmin\tickets\cadminTickets.controller.js
-// ============================================
-
 import { success, fail } from "../../../utils/response.js";
-import * as svc from "./cadminTickets.service.js";
+import * as svc from "../../tickets/tickets.service.js";
+// ↑ CADMIN imports the SAME service as user side
 import * as audit from "../../audit/index.js";
 
-/**
- * GET /cadmin/tickets
- * List all tickets with filters
- */
 export async function getAllTicketsController(req, res) {
   try {
     const result = await svc.getAllTickets(req.validated);
     return success(res, result);
   } catch (err) {
-    console.error("getAllTicketsController error:", err);
     return fail(res, "Failed to fetch tickets", 500);
   }
 }
 
-/**
- * GET /cadmin/tickets/stats
- * Get ticket statistics
- */
 export async function getTicketStatsController(req, res) {
   try {
-    const stats = await svc.getTicketStats();
+    const stats = await svc.getCAdminTicketStats();
     return success(res, stats);
   } catch (err) {
-    console.error("getTicketStatsController error:", err);
-    return fail(res, "Failed to fetch ticket stats", 500);
+    return fail(res, "Failed to fetch stats", 500);
   }
 }
 
-/**
- * GET /cadmin/tickets/:ticket_id
- * Get single ticket details
- */
 export async function getTicketByIdController(req, res) {
   try {
-    const { ticket_id } = req.params;
-    const ticket = await svc.getTicketById(ticket_id);
-
-    if (!ticket) {
-      return fail(res, "Ticket not found", 404);
-    }
-
+    const ticket = await svc.getTicketById(
+      req.params.ticket_id,
+      null, // no shop scope — cadmin sees all
+      "CADMIN",
+    );
+    if (!ticket) return fail(res, "Ticket not found", 404);
     return success(res, { ticket });
   } catch (err) {
-    console.error("getTicketByIdController error:", err);
     return fail(res, "Failed to fetch ticket", 500);
   }
 }
 
-/**
- * GET /cadmin/tickets/:ticket_id/history
- * Get ticket status change history
- */
-export async function getTicketHistoryController(req, res) {
+export async function getTicketActivitiesController(req, res) {
   try {
-    const { ticket_id } = req.params;
-    const history = await svc.getTicketStatusHistory(ticket_id);
-    return success(res, { history });
+    const activities = await svc.getTicketActivities(
+      req.params.ticket_id,
+      "CADMIN",
+    );
+    return success(res, { activities });
   } catch (err) {
-    console.error("getTicketHistoryController error:", err);
-
-    if (err.code === "TICKET_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
-
-    return fail(res, "Failed to fetch ticket history", 500);
+    if (err.code === "TICKET_NOT_FOUND") return fail(res, err.message, 404);
+    return fail(res, "Failed to fetch activities", 500);
   }
 }
 
-/**
- * PATCH /cadmin/tickets/:ticket_id/status
- * Update ticket status (by admin)
- */
 export async function updateTicketStatusController(req, res) {
   try {
     const { ticket_id } = req.params;
-    const { status, note } = req.validated;
-    const cadmin_id = req.cadmin.cadmin_id;
+    const { status, note, is_internal } = req.validated;
+    const { cadmin_id } = req.cadmin;
 
-    if (!status) {
-      return fail(res, "Status is required", 400);
-    }
+    // ── Fetch cadmin name from DB to guarantee actor_name is never undefined ──
+    const prisma = (await import("../../../config/prisma.js")).default;
+    const cadmin = await prisma.cAdmin.findUnique({
+      where: { cadmin_id },
+      select: { name: true },
+    });
+    const actor_name = cadmin?.name || "Admin";
 
-    const auditContext = audit.extractRequestContext(req);
-    const ticket = await svc.updateTicketStatus(
+    const ticket = await svc.applyTicketTransition({
       ticket_id,
-      status,
+      shop_id: null,
+      to_status: status,
+      actor_type: "CADMIN",
+      actor_id: cadmin_id,
+      actor_name, // ← guaranteed string
+      actor_role: "CADMIN",
       note,
-      cadmin_id,
-      auditContext
-    );
+      is_internal: is_internal || false,
+      auditContext: audit.extractRequestContext(req),
+    });
 
     return success(res, { ticket }, "Ticket updated successfully");
   } catch (err) {
-    console.error("updateTicketStatusController error:", err);
+    const MAP = {
+      TICKET_NOT_FOUND: 404,
+      INVALID_TRANSITION: 400,
+      REOPEN_LIMIT_EXCEEDED: 400,
+      NOTE_REQUIRED: 400,
+      CANNOT_UPDATE_CANCELLED: 400,
+    };
+    return fail(res, err.message, MAP[err.code] || 500);
+  }
+}
 
-    if (err.code === "TICKET_NOT_FOUND") {
-      return fail(res, err.message, 404);
-    }
+export async function addCommentController(req, res) {
+  try {
+    const { ticket_id } = req.params;
+    const { note, is_internal } = req.validated;
+    const { cadmin_id } = req.cadmin;
 
-    if (
-      err.code === "INVALID_STATUS" ||
-      err.code === "CANNOT_UPDATE_CANCELLED" ||
-      err.code === "SAME_STATUS"
-    ) {
-      return fail(res, err.message, 400);
-    }
+    const prisma = (await import("../../../config/prisma.js")).default;
+    const cadmin = await prisma.cAdmin.findUnique({
+      where: { cadmin_id },
+      select: { name: true },
+    });
+    const actor_name = cadmin?.name || "Admin";
 
-    return fail(res, err.message || "Failed to update ticket", 500);
+    await svc.addTicketComment({
+      ticket_id,
+      shop_id: null,
+      actor_type: "CADMIN",
+      actor_id: cadmin_id,
+      actor_name, // ← guaranteed string
+      actor_role: "CADMIN",
+      note,
+      is_internal: is_internal || false,
+    });
+
+    return success(res, {}, "Comment added");
+  } catch (err) {
+    if (err.code === "TICKET_NOT_FOUND") return fail(res, err.message, 404);
+    return fail(res, err.message, 400);
   }
 }

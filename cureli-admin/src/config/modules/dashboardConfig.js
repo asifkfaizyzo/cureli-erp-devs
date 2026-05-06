@@ -27,42 +27,46 @@ export const CADMIN_ROLES = {
 // ============================================
 export const normalizeRole = (role) => {
   if (!role) return CADMIN_ROLES.SUPER_ADMIN;
-  
+
   // Convert to uppercase and replace spaces/hyphens with underscores
-  const normalized = role.toUpperCase().trim().replace(/[\s-]+/g, '_');
-  
-  // ✅ FIXED: Map all possible role variations
+  const normalized = role
+    .toUpperCase()
+    .trim()
+    .replace(/[\s-]+/g, "_");
+
+  //  FIXED: Map all possible role variations
   const roleMap = {
     // Super Admin variations
-    'SUPER_ADMIN': CADMIN_ROLES.SUPER_ADMIN,
-    'SUPERADMIN': CADMIN_ROLES.SUPER_ADMIN,
-    'SUPER_CADMIN': CADMIN_ROLES.SUPER_ADMIN,    // ✅ Added
-    'SUPERCADMIN': CADMIN_ROLES.SUPER_ADMIN,     // ✅ Added
-    'ADMIN': CADMIN_ROLES.SUPER_ADMIN,
-    'CADMIN': CADMIN_ROLES.SUPER_ADMIN,          // ✅ Added
-    
+    SUPER_ADMIN: CADMIN_ROLES.SUPER_ADMIN,
+    SUPERADMIN: CADMIN_ROLES.SUPER_ADMIN,
+    SUPER_CADMIN: CADMIN_ROLES.SUPER_ADMIN, //  Added
+    SUPERCADMIN: CADMIN_ROLES.SUPER_ADMIN, //  Added
+    ADMIN: CADMIN_ROLES.SUPER_ADMIN,
+    CADMIN: CADMIN_ROLES.SUPER_ADMIN, //  Added
+
     // Analyst variations
-    'ANALYST': CADMIN_ROLES.ANALYST,
-    
+    ANALYST: CADMIN_ROLES.ANALYST,
+
     // Accounting variations
-    'ACCOUNTING': CADMIN_ROLES.ACCOUNTING,
-    'ACCOUNTANT': CADMIN_ROLES.ACCOUNTING,
+    ACCOUNTING: CADMIN_ROLES.ACCOUNTING,
+    ACCOUNTANT: CADMIN_ROLES.ACCOUNTING,
   };
-  
+
   // Check if normalized role exists in map
   if (roleMap[normalized]) {
     return roleMap[normalized];
   }
-  
-  // ✅ Additional check: if role contains "SUPER" or "ADMIN", treat as SUPER_ADMIN
-  if (normalized.includes('SUPER') || normalized.includes('CADMIN')) {
-    console.log(`🔧 Role "${role}" mapped to SUPER_ADMIN (contains SUPER/CADMIN)`);
+
+  //  Additional check: if role contains "SUPER" or "ADMIN", treat as SUPER_ADMIN
+  if (normalized.includes("SUPER") || normalized.includes("CADMIN")) {
     return CADMIN_ROLES.SUPER_ADMIN;
   }
-  
+
   // Default fallback - log warning
-  console.warn(`⚠️ Unknown role: "${role}" (normalized: "${normalized}") - defaulting to SUPER_ADMIN`);
-  return CADMIN_ROLES.SUPER_ADMIN; // ✅ Changed default from ANALYST to SUPER_ADMIN
+  console.warn(
+    `⚠️ Unknown role: "${role}" (normalized: "${normalized}") - defaulting to SUPER_ADMIN`,
+  );
+  return CADMIN_ROLES.SUPER_ADMIN; //  Changed default from ANALYST to SUPER_ADMIN
 };
 
 // ============================================
@@ -72,10 +76,18 @@ export const DASHBOARD_PERMISSIONS = {
   totalUsers: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ANALYST],
   totalShops: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ANALYST],
   totalRevenue: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ACCOUNTING],
-  activeSubscriptions: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ACCOUNTING, CADMIN_ROLES.ANALYST],
+  activeSubscriptions: [
+    CADMIN_ROLES.SUPER_ADMIN,
+    CADMIN_ROLES.ACCOUNTING,
+    CADMIN_ROLES.ANALYST,
+  ],
   revenueChart: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ACCOUNTING],
   userGrowthChart: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ANALYST],
-  subscriptionChart: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ACCOUNTING, CADMIN_ROLES.ANALYST],
+  subscriptionChart: [
+    CADMIN_ROLES.SUPER_ADMIN,
+    CADMIN_ROLES.ACCOUNTING,
+    CADMIN_ROLES.ANALYST,
+  ],
   topShops: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ACCOUNTING],
   recentOnboardings: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ANALYST],
   recentActivities: [CADMIN_ROLES.SUPER_ADMIN, CADMIN_ROLES.ANALYST],
@@ -113,12 +125,54 @@ export const TIME_PERIODS = [
 // QUICK ACTIONS
 // ============================================
 export const QUICK_ACTIONS = [
-  { key: "verifyShops", label: "Verify Shops", icon: ShieldCheck, path: "/verifications", color: "bg-orange-500", permission: "verifyShops" },
-  { key: "manageUsers", label: "Manage Users", icon: Users, path: "/users", color: "bg-blue-500", permission: "manageUsers" },
-  { key: "manageShops", label: "Manage Shops", icon: Store, path: "/shops", color: "bg-emerald-500", permission: "manageShops" },
-  { key: "manageSubscriptions", label: "Subscriptions", icon: CreditCard, path: "/subscriptions/manage", color: "bg-violet-500", permission: "manageSubscriptions" },
-  { key: "viewTickets", label: "View Tickets", icon: Ticket, path: "/communications/tickets", color: "bg-amber-500", permission: "pendingTickets" },
-  { key: "broadcast", label: "Broadcast", icon: Bell, path: "/communications/broadcast", color: "bg-pink-500", permission: "broadcast" },
+  {
+    key: "verifyShops",
+    label: "Verify Shops",
+    icon: ShieldCheck,
+    path: "/verifications",
+    color: "bg-orange-500",
+    permission: "verifyShops",
+  },
+  {
+    key: "manageUsers",
+    label: "Manage Users",
+    icon: Users,
+    path: "/users",
+    color: "bg-blue-500",
+    permission: "manageUsers",
+  },
+  {
+    key: "manageShops",
+    label: "Manage Shops",
+    icon: Store,
+    path: "/shops",
+    color: "bg-emerald-500",
+    permission: "manageShops",
+  },
+  {
+    key: "manageSubscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+    path: "/subscriptions/manage",
+    color: "bg-violet-500",
+    permission: "manageSubscriptions",
+  },
+  {
+    key: "viewTickets",
+    label: "View Tickets",
+    icon: Ticket,
+    path: "/communications/tickets",
+    color: "bg-amber-500",
+    permission: "pendingTickets",
+  },
+  {
+    key: "broadcast",
+    label: "Broadcast",
+    icon: Bell,
+    path: "/communications/broadcast",
+    color: "bg-pink-500",
+    permission: "broadcast",
+  },
 ];
 
 // ============================================
@@ -142,13 +196,16 @@ export const getRoleDisplayName = (role) => {
 export const ROLE_BADGE_STYLES = {
   [CADMIN_ROLES.SUPER_ADMIN]: "bg-purple-100 text-purple-700 border-purple-200",
   [CADMIN_ROLES.ANALYST]: "bg-blue-100 text-blue-700 border-blue-200",
-  [CADMIN_ROLES.ACCOUNTING]: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  [CADMIN_ROLES.ACCOUNTING]:
+    "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
 
 // Get badge style with normalization
 export const getRoleBadgeStyle = (role) => {
   const normalized = normalizeRole(role);
-  return ROLE_BADGE_STYLES[normalized] || "bg-gray-100 text-gray-700 border-gray-200";
+  return (
+    ROLE_BADGE_STYLES[normalized] || "bg-gray-100 text-gray-700 border-gray-200"
+  );
 };
 
 // ============================================
@@ -162,5 +219,14 @@ export const CHART_COLORS = {
   danger: "#EF4444",
   info: "#3B82F6",
   muted: "#6B7280",
-  pie: ["#05015A", "#7C3AED", "#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6"],
+  pie: [
+    "#05015A",
+    "#7C3AED",
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#EC4899",
+    "#8B5CF6",
+  ],
 };

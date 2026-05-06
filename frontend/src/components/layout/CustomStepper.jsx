@@ -2,18 +2,18 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const CustomStepper = ({ currentStep = 1 }) => {
-  // ✅ UPDATED: Only show onboarding steps (1-12)
+  //  UPDATED: Only show onboarding steps (1-12)
   // Steps 12+ are handled by VerificationStepper
   const stepsConfig = [
     { id: 1, type: "main", label: "Basic Details" },
-    { id: 2, type: "sub" },  // Phone Details
-    { id: 3, type: "sub" },  // Phone OTP
-    { id: 4, type: "sub" },  // Identity Form
+    { id: 2, type: "sub" }, // Phone Details
+    { id: 3, type: "sub" }, // Phone OTP
+    { id: 4, type: "sub" }, // Identity Form
     { id: 5, type: "main", label: "Business Details" },
-    { id: 6, type: "sub" },  // BusinessTypeAndGST
-    { id: 7, type: "sub" },  // UploadDrugLicense
-    { id: 8, type: "sub" },  // UploadRegistration
-    { id: 9, type: "sub" },  // UploadProof
+    { id: 6, type: "sub" }, // BusinessTypeAndGST
+    { id: 7, type: "sub" }, // UploadDrugLicense
+    { id: 8, type: "sub" }, // UploadRegistration
+    { id: 9, type: "sub" }, // UploadProof
     { id: 10, type: "sub" }, // UploadEALisence
     { id: 11, type: "sub" }, // UploadBPan
     { id: 12, type: "main", label: "Submit" }, // UploadAddressProof (final step)
@@ -47,12 +47,12 @@ const CustomStepper = ({ currentStep = 1 }) => {
             <React.Fragment key={step.id}>
               {/* NODE */}
               <div className="relative flex flex-col items-center justify-center">
-                
                 {/* SMALL DOT */}
                 {step.type === "sub" && (
                   <motion.div
                     animate={{
-                      backgroundColor: isCompleted || isCurrent ? COLOR_NAVY : COLOR_GRAY,
+                      backgroundColor:
+                        isCompleted || isCurrent ? COLOR_NAVY : COLOR_GRAY,
                     }}
                     transition={{ duration: 0.3 }}
                     className="w-1.5 h-1.5 rounded-full z-10"
@@ -64,7 +64,8 @@ const CustomStepper = ({ currentStep = 1 }) => {
                   <motion.div
                     animate={{
                       backgroundColor: isCompleted ? COLOR_NAVY : "#fff",
-                      borderColor: isCompleted || isCurrent ? COLOR_NAVY : "#d1d5db",
+                      borderColor:
+                        isCompleted || isCurrent ? COLOR_NAVY : "#d1d5db",
                       scale: isCurrent ? 1.1 : 1,
                     }}
                     transition={{ duration: 0.3 }}
@@ -85,7 +86,11 @@ const CustomStepper = ({ currentStep = 1 }) => {
                           stroke="currentColor"
                           strokeWidth="4"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 13l4 4L19 7"
+                          />
                         </motion.svg>
                       )}
 
@@ -106,7 +111,7 @@ const CustomStepper = ({ currentStep = 1 }) => {
                 {step.type === "main" && (
                   <motion.div
                     animate={{
-                      color: isCurrent || isCompleted ? COLOR_NAVY : "#9ca3af"
+                      color: isCurrent || isCompleted ? COLOR_NAVY : "#9ca3af",
                     }}
                     className="absolute top-7 text-[10px] font-bold whitespace-nowrap"
                   >

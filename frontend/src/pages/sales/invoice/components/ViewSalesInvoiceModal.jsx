@@ -1,7 +1,13 @@
 // frontend/src/pages/sales/invoice/components/ViewSalesInvoiceModal.jsx
 // Main Modal Container - Orchestrates View and Edit modes for Sales Invoices
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -131,7 +137,9 @@ const StatusDropdownPortal = ({
             className="fixed z-[9999] w-72"
             style={{
               top: position.showAbove ? "auto" : position.top,
-              bottom: position.showAbove ? `${window.innerHeight - position.top + 8}px` : "auto",
+              bottom: position.showAbove
+                ? `${window.innerHeight - position.top + 8}px`
+                : "auto",
               left: position.left,
             }}
             variants={ANIMATION_VARIANTS.dropdown}
@@ -152,8 +160,12 @@ const StatusDropdownPortal = ({
                     <Shield size={12} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-white">Change Status</p>
-                    <p className="text-[10px] text-white/60">Super Admin Action</p>
+                    <p className="text-xs font-bold text-white">
+                      Change Status
+                    </p>
+                    <p className="text-[10px] text-white/60">
+                      Super Admin Action
+                    </p>
                   </div>
                 </div>
               </div>
@@ -170,10 +182,10 @@ const StatusDropdownPortal = ({
                       currentStatus === "CONFIRMED"
                         ? "bg-green-100 text-green-700"
                         : currentStatus === "DRAFT"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : currentStatus === "PARKED"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-red-100 text-red-700"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : currentStatus === "PARKED"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-red-100 text-red-700"
                     }
                   `}
                   >
@@ -213,8 +225,8 @@ const StatusDropdownPortal = ({
                           option.value === "CONFIRMED"
                             ? "bg-green-100"
                             : option.value === "DRAFT"
-                            ? "bg-amber-100"
-                            : "bg-red-100"
+                              ? "bg-amber-100"
+                              : "bg-red-100"
                         }
                       `}
                       >
@@ -224,8 +236,8 @@ const StatusDropdownPortal = ({
                             option.value === "CONFIRMED"
                               ? "text-green-600"
                               : option.value === "DRAFT"
-                              ? "text-amber-600"
-                              : "text-red-600"
+                                ? "text-amber-600"
+                                : "text-red-600"
                           }
                         />
                       </div>
@@ -237,16 +249,21 @@ const StatusDropdownPortal = ({
                             option.value === "CONFIRMED"
                               ? "text-green-700"
                               : option.value === "DRAFT"
-                              ? "text-amber-700"
-                              : "text-red-700"
+                                ? "text-amber-700"
+                                : "text-red-700"
                           }
                         `}
                         >
                           {option.label}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">{option.description}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {option.description}
+                        </p>
                       </div>
-                      <ChevronDown size={14} className="text-gray-400 rotate-[-90deg] mt-2" />
+                      <ChevronDown
+                        size={14}
+                        className="text-gray-400 rotate-[-90deg] mt-2"
+                      />
                     </button>
                   ))
                 ) : (
@@ -259,9 +276,13 @@ const StatusDropdownPortal = ({
 
               <div className="px-4 py-3 bg-amber-50 border-t border-amber-100">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                  <AlertTriangle
+                    size={14}
+                    className="text-amber-600 shrink-0 mt-0.5"
+                  />
                   <p className="text-[10px] text-amber-700 leading-relaxed">
-                    Status changes may affect inventory levels and are logged in the audit trail.
+                    Status changes may affect inventory levels and are logged in
+                    the audit trail.
                   </p>
                 </div>
               </div>
@@ -270,7 +291,7 @@ const StatusDropdownPortal = ({
         </>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 };
 
@@ -350,7 +371,9 @@ const PaymentStatusDropdownPortal = ({
             className="fixed z-[9999] w-80"
             style={{
               top: position.showAbove ? "auto" : position.top,
-              bottom: position.showAbove ? `${window.innerHeight - position.top + 8}px` : "auto",
+              bottom: position.showAbove
+                ? `${window.innerHeight - position.top + 8}px`
+                : "auto",
               left: position.left,
             }}
             variants={ANIMATION_VARIANTS.dropdown}
@@ -372,8 +395,12 @@ const PaymentStatusDropdownPortal = ({
                     <IndianRupee size={12} className="text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-white">Payment Status</p>
-                    <p className="text-[10px] text-white/60">Super Admin Action</p>
+                    <p className="text-xs font-bold text-white">
+                      Payment Status
+                    </p>
+                    <p className="text-[10px] text-white/60">
+                      Super Admin Action
+                    </p>
                   </div>
                 </div>
               </div>
@@ -390,10 +417,17 @@ const PaymentStatusDropdownPortal = ({
                     ${paymentDisplay.config.bg} ${paymentDisplay.config.text}
                   `}
                   >
-                    {paymentDisplay.effectiveStatus === "PAID" && <CheckCircle2 size={12} />}
-                    {paymentDisplay.effectiveStatus === "PARTIALLY_PAID" && <Wallet size={12} />}
-                    {paymentDisplay.effectiveStatus === "UNPAID" && <AlertCircle size={12} />}
-                    {paymentDisplay.config.label || paymentDisplay.effectiveStatus}
+                    {paymentDisplay.effectiveStatus === "PAID" && (
+                      <CheckCircle2 size={12} />
+                    )}
+                    {paymentDisplay.effectiveStatus === "PARTIALLY_PAID" && (
+                      <Wallet size={12} />
+                    )}
+                    {paymentDisplay.effectiveStatus === "UNPAID" && (
+                      <AlertCircle size={12} />
+                    )}
+                    {paymentDisplay.config.label ||
+                      paymentDisplay.effectiveStatus}
                   </span>
                 </div>
 
@@ -401,8 +435,8 @@ const PaymentStatusDropdownPortal = ({
                   <div className="flex items-center gap-1.5 mb-2 px-2 py-1 bg-blue-50 rounded border border-blue-200">
                     <Info size={12} className="text-blue-600" />
                     <span className="text-[10px] text-blue-700">
-                      Balance ₹{rawBalance.toFixed(2)} ≤ ₹{PAYMENT_BALANCE_THRESHOLD} threshold
-                      (treated as paid)
+                      Balance ₹{rawBalance.toFixed(2)} ≤ ₹
+                      {PAYMENT_BALANCE_THRESHOLD} threshold (treated as paid)
                     </span>
                   </div>
                 )}
@@ -410,19 +444,25 @@ const PaymentStatusDropdownPortal = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-white p-2 rounded border">
                     <p className="text-gray-500">Paid</p>
-                    <p className="font-bold text-emerald-600">{formatCurrency(paidAmount)}</p>
+                    <p className="font-bold text-emerald-600">
+                      {formatCurrency(paidAmount)}
+                    </p>
                   </div>
                   <div className="bg-white p-2 rounded border">
                     <p className="text-gray-500">Balance</p>
                     <p
                       className={`font-bold ${
-                        paymentDisplay.showBalance ? "text-red-600" : "text-gray-400"
+                        paymentDisplay.showBalance
+                          ? "text-red-600"
+                          : "text-gray-400"
                       }`}
                     >
                       {paymentDisplay.showBalance ? (
                         formatCurrency(rawBalance)
                       ) : paymentDisplay.thresholdApplied ? (
-                        <span className="line-through">{formatCurrency(rawBalance)}</span>
+                        <span className="line-through">
+                          {formatCurrency(rawBalance)}
+                        </span>
                       ) : (
                         formatCurrency(0)
                       )}
@@ -434,7 +474,8 @@ const PaymentStatusDropdownPortal = ({
               {/* Options */}
               <div className="py-2">
                 {options.map((option, index) => {
-                  const isCurrentStatus = option.value === paymentDisplay.effectiveStatus;
+                  const isCurrentStatus =
+                    option.value === paymentDisplay.effectiveStatus;
 
                   return (
                     <button
@@ -463,8 +504,8 @@ const PaymentStatusDropdownPortal = ({
                           option.value === "PAID"
                             ? "bg-emerald-100"
                             : option.value === "PARTIALLY_PAID"
-                            ? "bg-amber-100"
-                            : "bg-red-100"
+                              ? "bg-amber-100"
+                              : "bg-red-100"
                         }
                       `}
                       >
@@ -474,8 +515,8 @@ const PaymentStatusDropdownPortal = ({
                             option.value === "PAID"
                               ? "text-emerald-600"
                               : option.value === "PARTIALLY_PAID"
-                              ? "text-amber-600"
-                              : "text-red-600"
+                                ? "text-amber-600"
+                                : "text-red-600"
                           }
                         />
                       </div>
@@ -487,17 +528,21 @@ const PaymentStatusDropdownPortal = ({
                             option.value === "PAID"
                               ? "text-emerald-700"
                               : option.value === "PARTIALLY_PAID"
-                              ? "text-amber-700"
-                              : "text-red-700"
+                                ? "text-amber-700"
+                                : "text-red-700"
                           }
                         `}
                         >
                           {option.label}
                         </p>
-                        <p className="text-xs text-gray-500 mt-0.5">{option.description}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {option.description}
+                        </p>
                       </div>
                       {isCurrentStatus && (
-                        <span className="text-xs text-gray-400 mt-1">Current</span>
+                        <span className="text-xs text-gray-400 mt-1">
+                          Current
+                        </span>
                       )}
                     </button>
                   );
@@ -510,8 +555,8 @@ const PaymentStatusDropdownPortal = ({
                   <Info size={14} className="text-blue-600 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[10px] text-blue-700 leading-relaxed">
-                      Balance ≤ ₹{PAYMENT_BALANCE_THRESHOLD} is treated as fully paid (handles
-                      rounding).
+                      Balance ≤ ₹{PAYMENT_BALANCE_THRESHOLD} is treated as fully
+                      paid (handles rounding).
                     </p>
                   </div>
                 </div>
@@ -521,7 +566,7 @@ const PaymentStatusDropdownPortal = ({
         </>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 };
 
@@ -568,7 +613,7 @@ const ViewSalesInvoiceModal = ({
   const [linkedReturns, setLinkedReturns] = useState([]);
   const [loadingReturns, setLoadingReturns] = useState(false);
 
-  // ✅ Print Modal State
+  //  Print Modal State
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState({
@@ -640,10 +685,12 @@ const ViewSalesInvoiceModal = ({
 
         if (response.success && response.data?.returns) {
           const filteredReturns = response.data.returns.filter(
-            (ret) => ret.parent_invoice_id === invoice.invoice_id
+            (ret) => ret.parent_invoice_id === invoice.invoice_id,
           );
           const approvedReturns = filteredReturns.filter(
-            (ret) => ret.status === "CONFIRMED" || ret.return_approval_status === "APPROVED"
+            (ret) =>
+              ret.status === "CONFIRMED" ||
+              ret.return_approval_status === "APPROVED",
           );
           setLinkedReturns(approvedReturns);
         } else {
@@ -690,7 +737,14 @@ const ViewSalesInvoiceModal = ({
       document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = "unset";
     };
-  }, [open, onClose, mode, showStatusMenu, showPaymentStatusMenu, showPrintModal]);
+  }, [
+    open,
+    onClose,
+    mode,
+    showStatusMenu,
+    showPaymentStatusMenu,
+    showPrintModal,
+  ]);
 
   useEffect(() => {
     if (mode === "edit" && medicines.length === 0) loadMedicines();
@@ -703,7 +757,10 @@ const ViewSalesInvoiceModal = ({
   const loadMedicines = async () => {
     try {
       setMedicinesLoading(true);
-      const response = await medicinesAPI.getAll({ isActive: true, limit: 1000 });
+      const response = await medicinesAPI.getAll({
+        isActive: true,
+        limit: 1000,
+      });
 
       const formattedMedicines = response.data.medicines.map((med) => ({
         id: med.medicine_id,
@@ -763,7 +820,10 @@ const ViewSalesInvoiceModal = ({
       let confirmType = "warning";
       let confirmButtonText = "";
 
-      if (newStatus === "CONFIRMED" && (currentStatus === "DRAFT" || currentStatus === "PARKED")) {
+      if (
+        newStatus === "CONFIRMED" &&
+        (currentStatus === "DRAFT" || currentStatus === "PARKED")
+      ) {
         confirmTitle = "Confirm Invoice";
         confirmButtonText = "Confirm Invoice";
         confirmMessage = (
@@ -772,9 +832,12 @@ const ViewSalesInvoiceModal = ({
               You are about to <strong>confirm</strong> this invoice.
             </p>
             <div className="bg-blue-50 p-3 rounded border border-blue-200 text-sm">
-              <p className="font-semibold text-gray-900">Invoice: {invoiceNumber}</p>
+              <p className="font-semibold text-gray-900">
+                Invoice: {invoiceNumber}
+              </p>
               <p className="text-gray-600">
-                Amount: ₹{parseFloat(invoice.net_amount || 0).toLocaleString("en-IN")}
+                Amount: ₹
+                {parseFloat(invoice.net_amount || 0).toLocaleString("en-IN")}
               </p>
             </div>
             <div className="bg-green-50 p-3 rounded border border-green-200">
@@ -813,7 +876,8 @@ const ViewSalesInvoiceModal = ({
               </p>
               <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
                 <li>
-                  All stock deducted by this invoice will be <strong>restored</strong>
+                  All stock deducted by this invoice will be{" "}
+                  <strong>restored</strong>
                 </li>
                 <li>This may cause stock inconsistencies</li>
                 <li>Action is logged in audit trail</li>
@@ -838,7 +902,8 @@ const ViewSalesInvoiceModal = ({
                 </p>
                 <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
                   <li>
-                    All stock from this invoice will be <strong>restored</strong>
+                    All stock from this invoice will be{" "}
+                    <strong>restored</strong>
                   </li>
                   <li>
                     This action <strong>cannot be undone</strong>
@@ -864,7 +929,7 @@ const ViewSalesInvoiceModal = ({
         });
       }
     },
-    [invoice, isSuperAdmin, mode]
+    [invoice, isSuperAdmin, mode],
   );
 
   const performStatusChange = useCallback(
@@ -887,19 +952,22 @@ const ViewSalesInvoiceModal = ({
         };
         toast.success(
           "Status Updated",
-          `Invoice ${invoice.invoice_number} has been ${statusLabels[newStatus]}.`
+          `Invoice ${invoice.invoice_number} has been ${statusLabels[newStatus]}.`,
         );
 
         onRefresh?.();
         onClose();
       } catch (error) {
         console.error("Status change error:", error);
-        toast.error("Status Change Failed", error.response?.data?.message || error.message);
+        toast.error(
+          "Status Change Failed",
+          error.response?.data?.message || error.message,
+        );
       } finally {
         setIsChangingStatus(false);
       }
     },
-    [invoice, toast, onRefresh, onClose]
+    [invoice, toast, onRefresh, onClose],
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -944,10 +1012,13 @@ const ViewSalesInvoiceModal = ({
         message: (
           <div className="space-y-3">
             <p>
-              You are marking this invoice as <strong>{newStatus.replace("_", " ").toLowerCase()}</strong>.
+              You are marking this invoice as{" "}
+              <strong>{newStatus.replace("_", " ").toLowerCase()}</strong>.
             </p>
             <div className="bg-gray-50 p-3 rounded border border-gray-200 text-sm">
-              <p className="font-semibold text-gray-900">Invoice: {invoice.invoice_number}</p>
+              <p className="font-semibold text-gray-900">
+                Invoice: {invoice.invoice_number}
+              </p>
               <div className="flex justify-between mt-2">
                 <span className="text-gray-600">Total Amount:</span>
                 <span className="font-bold">{formatCurrency(netAmount)}</span>
@@ -962,7 +1033,7 @@ const ViewSalesInvoiceModal = ({
         },
       });
     },
-    [invoice, isSuperAdmin, mode]
+    [invoice, isSuperAdmin, mode],
   );
 
   const performPaymentStatusChange = useCallback(
@@ -985,18 +1056,24 @@ const ViewSalesInvoiceModal = ({
 
         await salesAPI.updatePaymentStatus(invoice.invoice_id, payload);
 
-        toast.success("Payment Status Updated", `Invoice has been marked as ${newStatus.replace("_", " ").toLowerCase()}.`);
+        toast.success(
+          "Payment Status Updated",
+          `Invoice has been marked as ${newStatus.replace("_", " ").toLowerCase()}.`,
+        );
 
         onRefresh?.();
         onClose();
       } catch (error) {
         console.error("Payment status change error:", error);
-        toast.error("Update Failed", error.response?.data?.message || error.message);
+        toast.error(
+          "Update Failed",
+          error.response?.data?.message || error.message,
+        );
       } finally {
         setIsChangingPaymentStatus(false);
       }
     },
-    [invoice, toast, onRefresh, onClose]
+    [invoice, toast, onRefresh, onClose],
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1008,7 +1085,9 @@ const ViewSalesInvoiceModal = ({
       try {
         if (!returnInvoice.lineItems) {
           setIsLoadingDetails(true);
-          const response = await salesAPI.getReturnById(returnInvoice.invoice_id);
+          const response = await salesAPI.getReturnById(
+            returnInvoice.invoice_id,
+          );
           if (response.success && response.data) {
             setSelectedReturn(response.data);
           } else {
@@ -1025,7 +1104,7 @@ const ViewSalesInvoiceModal = ({
         setIsLoadingDetails(false);
       }
     },
-    [toast]
+    [toast],
   );
 
   const handleCloseReturnModal = useCallback(() => {
@@ -1048,7 +1127,8 @@ const ViewSalesInvoiceModal = ({
 
   const handleCancelEdit = useCallback(() => {
     const hasChanges =
-      JSON.stringify(editRows) !== JSON.stringify(transformInvoiceToRows(originalData));
+      JSON.stringify(editRows) !==
+      JSON.stringify(transformInvoiceToRows(originalData));
 
     if (hasChanges) {
       setConfirmDialog({
@@ -1057,8 +1137,12 @@ const ViewSalesInvoiceModal = ({
         title: "Discard Changes?",
         message: (
           <div className="space-y-2">
-            <p>You have unsaved changes. Are you sure you want to discard them?</p>
-            <p className="text-sm text-amber-600 font-medium">All changes will be lost.</p>
+            <p>
+              You have unsaved changes. Are you sure you want to discard them?
+            </p>
+            <p className="text-sm text-amber-600 font-medium">
+              All changes will be lost.
+            </p>
           </div>
         ),
         confirmText: "Discard",
@@ -1147,7 +1231,7 @@ const ViewSalesInvoiceModal = ({
       if (editRows.length <= 1) return;
       setEditRows((prev) => prev.filter((_, i) => i !== index));
     },
-    [editRows.length]
+    [editRows.length],
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1155,7 +1239,9 @@ const ViewSalesInvoiceModal = ({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSave = useCallback(async () => {
-    const filledRows = editRows.filter((r) => r.name && r.qty && parseFloat(r.qty) > 0);
+    const filledRows = editRows.filter(
+      (r) => r.name && r.qty && parseFloat(r.qty) > 0,
+    );
 
     if (filledRows.length === 0) {
       toast.warning("Missing Items", "Please add at least one item.");
@@ -1166,18 +1252,18 @@ const ViewSalesInvoiceModal = ({
     if (missingBatches.length > 0) {
       toast.warning(
         "Missing Batches",
-        `${missingBatches.length} item(s) need batch selection.`
+        `${missingBatches.length} item(s) need batch selection.`,
       );
       return;
     }
 
     const overStock = filledRows.filter(
-      (r) => r.availableQty > 0 && parseFloat(r.qty) > r.availableQty
+      (r) => r.availableQty > 0 && parseFloat(r.qty) > r.availableQty,
     );
     if (overStock.length > 0) {
       toast.warning(
         "Insufficient Stock",
-        `${overStock.length} item(s) exceed available stock.`
+        `${overStock.length} item(s) exceed available stock.`,
       );
       return;
     }
@@ -1194,7 +1280,9 @@ const ViewSalesInvoiceModal = ({
             <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
               <Shield className="text-amber-600 shrink-0 mt-0.5" size={20} />
               <div>
-                <p className="font-semibold text-amber-800">Super Admin Action</p>
+                <p className="font-semibold text-amber-800">
+                  Super Admin Action
+                </p>
                 <p className="text-sm text-amber-700 mt-1">
                   You are updating a confirmed invoice.
                 </p>
@@ -1206,9 +1294,16 @@ const ViewSalesInvoiceModal = ({
                 Stock Adjustment Warning
               </p>
               <ul className="text-xs text-red-700 mt-2 list-disc list-inside space-y-1">
-                <li>Current deducted stock will be <strong>restored</strong></li>
-                <li>New stock based on updated quantities will be <strong>deducted</strong></li>
-                <li>Action is <strong>logged in audit trail</strong></li>
+                <li>
+                  Current deducted stock will be <strong>restored</strong>
+                </li>
+                <li>
+                  New stock based on updated quantities will be{" "}
+                  <strong>deducted</strong>
+                </li>
+                <li>
+                  Action is <strong>logged in audit trail</strong>
+                </li>
               </ul>
             </div>
           </div>
@@ -1246,7 +1341,7 @@ const ViewSalesInvoiceModal = ({
           })),
         };
 
-        console.log("📤 Sending update payload:", JSON.stringify(payload, null, 2));
+        
 
         await salesAPI.update(invoice.invoice_id, payload);
 
@@ -1254,7 +1349,7 @@ const ViewSalesInvoiceModal = ({
           "Invoice Updated",
           invoice.status === "CONFIRMED"
             ? `Confirmed invoice ${invoice.invoice_number} updated. Stock levels adjusted.`
-            : `Invoice ${invoice.invoice_number} updated successfully.`
+            : `Invoice ${invoice.invoice_number} updated successfully.`,
         );
 
         setMode("view");
@@ -1268,17 +1363,20 @@ const ViewSalesInvoiceModal = ({
         if (error.response?.data?.code === "APPROVED_RETURNS_EXIST") {
           toast.error(
             "Cannot Edit",
-            "This invoice has approved returns. Cancel the returns first."
+            "This invoice has approved returns. Cancel the returns first.",
           );
           return;
         }
 
-        toast.error("Update Failed", error.response?.data?.message || "Failed to update invoice");
+        toast.error(
+          "Update Failed",
+          error.response?.data?.message || "Failed to update invoice",
+        );
       } finally {
         setIsSaving(false);
       }
     },
-    [invoice, toast, onRefresh, onClose]
+    [invoice, toast, onRefresh, onClose],
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1286,7 +1384,10 @@ const ViewSalesInvoiceModal = ({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const editSummary = useMemo(() => {
-    const taxable = editRows.reduce((s, r) => s + (Number(r.taxableValue) || 0), 0);
+    const taxable = editRows.reduce(
+      (s, r) => s + (Number(r.taxableValue) || 0),
+      0,
+    );
     const cgst = editRows.reduce((s, r) => s + (Number(r.cgstAmount) || 0), 0);
     const sgst = editRows.reduce((s, r) => s + (Number(r.sgstAmount) || 0), 0);
     const totalItems = editRows.filter((r) => r.name).length;
@@ -1349,7 +1450,8 @@ const ViewSalesInvoiceModal = ({
   const canDelete = !isConfirmed && !isCancelled;
 
   const canChangeStatus = isSuperAdmin && !isCancelled && mode === "edit";
-  const canChangePaymentStatus = isSuperAdmin && !isCancelled && mode === "edit";
+  const canChangePaymentStatus =
+    isSuperAdmin && !isCancelled && mode === "edit";
 
   const showCreateReturnButton = isConfirmed && linkedReturns.length === 0;
 
@@ -1360,7 +1462,10 @@ const ViewSalesInvoiceModal = ({
   const PaymentIcon = currentPayment.icon;
 
   const totalQty =
-    invoice.lineItems?.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0) || 0;
+    invoice.lineItems?.reduce(
+      (sum, item) => sum + (parseFloat(item.quantity) || 0),
+      0,
+    ) || 0;
   const itemCount = invoice.lineItems?.length || 0;
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1379,7 +1484,10 @@ const ViewSalesInvoiceModal = ({
             exit="hidden"
             variants={ANIMATION_VARIANTS.backdrop}
             onClick={
-              mode === "view" && !showStatusMenu && !showPaymentStatusMenu && !showPrintModal
+              mode === "view" &&
+              !showStatusMenu &&
+              !showPaymentStatusMenu &&
+              !showPrintModal
                 ? onClose
                 : undefined
             }
@@ -1391,7 +1499,8 @@ const ViewSalesInvoiceModal = ({
               mode === "edit" && isConfirmed ? "ring-2 ring-amber-400" : ""
             }`}
             style={{
-              boxShadow: "0 25px 80px rgba(0, 0, 96, 0.25), 0 0 0 1px rgba(0, 0, 96, 0.1)",
+              boxShadow:
+                "0 25px 80px rgba(0, 0, 96, 0.25), 0 0 0 1px rgba(0, 0, 96, 0.1)",
             }}
             variants={ANIMATION_VARIANTS.panel}
             initial="hidden"
@@ -1401,7 +1510,9 @@ const ViewSalesInvoiceModal = ({
             {/* Decorative element */}
             <div
               className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-3xl pointer-events-none opacity-[0.03]"
-              style={{ background: `radial-gradient(circle, ${NAVY} 0%, transparent 70%)` }}
+              style={{
+                background: `radial-gradient(circle, ${NAVY} 0%, transparent 70%)`,
+              }}
             />
 
             {/* Status Loading Overlay */}
@@ -1410,7 +1521,9 @@ const ViewSalesInvoiceModal = ({
                 <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
                   <Loader2 size={32} className="text-[#000060] animate-spin" />
                   <p className="text-sm font-medium text-gray-700">
-                    {isChangingPaymentStatus ? "Updating payment status..." : "Updating status..."}
+                    {isChangingPaymentStatus
+                      ? "Updating payment status..."
+                      : "Updating status..."}
                   </p>
                 </div>
               </div>
@@ -1434,7 +1547,10 @@ const ViewSalesInvoiceModal = ({
                       }`}
                       style={
                         mode === "view"
-                          ? { background: NAVY, boxShadow: "0 8px 24px rgba(0, 0, 96, 0.3)" }
+                          ? {
+                              background: NAVY,
+                              boxShadow: "0 8px 24px rgba(0, 0, 96, 0.3)",
+                            }
                           : {}
                       }
                     >
@@ -1449,7 +1565,9 @@ const ViewSalesInvoiceModal = ({
                         {mode === "edit" ? (
                           <>
                             <Shield size={12} className="text-amber-600" />
-                            <span className="text-amber-600">Editing Invoice</span>
+                            <span className="text-amber-600">
+                              Editing Invoice
+                            </span>
                           </>
                         ) : (
                           <>
@@ -1469,7 +1587,9 @@ const ViewSalesInvoiceModal = ({
                     {/* Invoice Status Badge */}
                     <button
                       ref={statusButtonRef}
-                      onClick={() => canChangeStatus && setShowStatusMenu(!showStatusMenu)}
+                      onClick={() =>
+                        canChangeStatus && setShowStatusMenu(!showStatusMenu)
+                      }
                       disabled={!canChangeStatus}
                       className={`
                         flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200
@@ -1506,14 +1626,15 @@ const ViewSalesInvoiceModal = ({
                     <button
                       ref={paymentStatusButtonRef}
                       onClick={() =>
-                        canChangePaymentStatus && setShowPaymentStatusMenu(!showPaymentStatusMenu)
+                        canChangePaymentStatus &&
+                        setShowPaymentStatusMenu(!showPaymentStatusMenu)
                       }
                       disabled={!canChangePaymentStatus}
                       className={`
                         flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200
                         ${currentPayment.bg} ${currentPayment.text} ${
-                        currentPayment.border || "border-current/30"
-                      }
+                          currentPayment.border || "border-current/30"
+                        }
                         ${
                           canChangePaymentStatus
                             ? `cursor-pointer ${currentPayment.hoverBg} hover:shadow-md active:scale-95`
@@ -1560,7 +1681,8 @@ const ViewSalesInvoiceModal = ({
                     {!loadingReturns && linkedReturns.length > 0 && (
                       <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200 animate-pulse">
                         <Package size={10} />
-                        {linkedReturns.length} Return{linkedReturns.length > 1 ? "s" : ""} Linked
+                        {linkedReturns.length} Return
+                        {linkedReturns.length > 1 ? "s" : ""} Linked
                       </span>
                     )}
 
@@ -1587,7 +1709,9 @@ const ViewSalesInvoiceModal = ({
                       <div className="text-xl font-bold text-[#000060]">
                         {mode === "edit" ? editSummary.totalItems : itemCount}
                       </div>
-                      <div className="text-[10px] text-[#000060]/50 uppercase">Items</div>
+                      <div className="text-[10px] text-[#000060]/50 uppercase">
+                        Items
+                      </div>
                     </div>
                     <div className="w-px h-8 bg-[#000060]/10" />
                     <div className="text-center">
@@ -1596,7 +1720,9 @@ const ViewSalesInvoiceModal = ({
                           ? formatCurrency(editSummary.total)
                           : formatCurrency(invoice.net_amount)}
                       </div>
-                      <div className="text-[10px] text-[#000060]/50 uppercase">Total</div>
+                      <div className="text-[10px] text-[#000060]/50 uppercase">
+                        Total
+                      </div>
                     </div>
                   </div>
 
@@ -1625,7 +1751,11 @@ const ViewSalesInvoiceModal = ({
                                 : "bg-[#000060]/10 hover:bg-[#000060]/20 text-[#000060] border-[#000060]/20"
                             }`}
                           >
-                            {isConfirmed ? <Shield size={16} /> : <Pencil size={16} />}
+                            {isConfirmed ? (
+                              <Shield size={16} />
+                            ) : (
+                              <Pencil size={16} />
+                            )}
                             <span className="text-sm font-medium">
                               {isConfirmed ? "Admin Edit" : "Edit"}
                             </span>
@@ -1693,7 +1823,11 @@ const ViewSalesInvoiceModal = ({
                     <span className="text-[#000060]/20">•</span>
                     <div className="flex items-center gap-2">
                       <User size={14} className="text-[#000060]/40" />
-                      <span>{invoice.customer.name || invoice.customer_name || "Walk-in"}</span>
+                      <span>
+                        {invoice.customer.name ||
+                          invoice.customer_name ||
+                          "Walk-in"}
+                      </span>
                     </div>
                   </>
                 )}
@@ -1776,7 +1910,10 @@ const ViewSalesInvoiceModal = ({
               onApprove={() => {
                 handleCloseReturnModal();
                 onRefresh?.();
-                toast.success("Return Approved", "Stock has been restored and credit note generated.");
+                toast.success(
+                  "Return Approved",
+                  "Stock has been restored and credit note generated.",
+                );
               }}
               onReject={() => {
                 handleCloseReturnModal();
@@ -1792,7 +1929,9 @@ const ViewSalesInvoiceModal = ({
             <div className="fixed inset-0 bg-white/70 z-[60] flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 size={32} className="text-[#000060] animate-spin" />
-                <span className="text-sm text-gray-600">Loading return details...</span>
+                <span className="text-sm text-gray-600">
+                  Loading return details...
+                </span>
               </div>
             </div>
           )}
@@ -1810,7 +1949,9 @@ const ViewSalesInvoiceModal = ({
 
           <ConfirmDialog
             isOpen={confirmDialog.isOpen}
-            onClose={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+            onClose={() =>
+              setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+            }
             onConfirm={confirmDialog.onConfirm}
             title={confirmDialog.title}
             message={confirmDialog.message}
@@ -1819,7 +1960,7 @@ const ViewSalesInvoiceModal = ({
             type={confirmDialog.type}
           />
 
-          {/* ✅ Print Modal */}
+          {/*  Print Modal */}
           <PrintSalesInvoiceModal
             open={showPrintModal}
             onClose={() => setShowPrintModal(false)}

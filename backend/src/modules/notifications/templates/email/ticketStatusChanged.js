@@ -1,15 +1,24 @@
+// backend/src/modules/notifications/templates/email/ticketStatusChanged.js
 // ============================================
 // TICKET STATUS CHANGED EMAIL TEMPLATE
 // ============================================
 
-const FRONTEND_URL = process.env.USER_FRONTEND_URL || 'http://localhost:5173';
+import {
+  EMAIL_CONFIG,
+  getBaseHeadContent,
+  renderLogo,
+  renderFooter,
+  renderButton,
+  getSupportLink,
+} from './_helpers.js';
+import { ICONS } from './_icons.js';
 
 const STATUS_DISPLAY = {
-  PENDING: { label: 'Pending', color: '#f59e0b', bgColor: '#fef3c7', message: 'Your ticket is awaiting review by our support team.' },
-  IN_PROGRESS: { label: 'In Progress', color: '#3b82f6', bgColor: '#dbeafe', message: 'Our support team is actively working on your ticket.' },
-  RESOLVED: { label: 'Resolved', color: '#10b981', bgColor: '#d1fae5', message: "Your issue has been resolved. If you're still experiencing problems, you can reopen this ticket." },
-  CLOSED: { label: 'Closed', color: '#6b7280', bgColor: '#f3f4f6', message: 'This ticket has been closed. Thank you for contacting support.' },
-  CANCELLED: { label: 'Cancelled', color: '#ef4444', bgColor: '#fee2e2', message: 'This ticket has been cancelled.' },
+  PENDING:     { label: 'Pending',     color: EMAIL_CONFIG.COLORS.WARNING,       bgColor: '#fef3c7', message: 'Your ticket is awaiting review by our support team.' },
+  IN_PROGRESS: { label: 'In Progress', color: '#3b82f6',                          bgColor: '#dbeafe', message: 'Our support team is actively working on your ticket.' },
+  RESOLVED:    { label: 'Resolved',    color: EMAIL_CONFIG.COLORS.SUCCESS_LIGHT,  bgColor: '#d1fae5', message: "Your issue has been resolved. If you're still experiencing problems, you can reopen this ticket." },
+  CLOSED:      { label: 'Closed',      color: EMAIL_CONFIG.COLORS.GRAY,           bgColor: '#f3f4f6', message: 'This ticket has been closed. Thank you for contacting support.' },
+  CANCELLED:   { label: 'Cancelled',   color: EMAIL_CONFIG.COLORS.ERROR,          bgColor: '#fee2e2', message: 'This ticket has been cancelled.' },
 };
 
 export function ticketStatusChangedTemplate(context) {
@@ -23,126 +32,139 @@ export function ticketStatusChangedTemplate(context) {
     admin_note,
   } = context;
 
-  const displayName = recipientName || name || 'Customer';
-  const toConfig = STATUS_DISPLAY[to_status] || STATUS_DISPLAY.PENDING;
-  const fromConfig = from_status ? STATUS_DISPLAY[from_status] : null;
+  const displayName  = recipientName || name || 'Customer';
+  const toConfig     = STATUS_DISPLAY[to_status]   || STATUS_DISPLAY.PENDING;
+  const fromConfig   = from_status ? STATUS_DISPLAY[from_status] : null;
 
   const statusChangeHtml = fromConfig
     ? `
       <div style="text-align:center;margin:24px 0;">
-        <span style="display:inline-block;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;background:${fromConfig.bgColor};color:${fromConfig.color};">${fromConfig.label}</span>
+        <span style="display:inline-block;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;background-color:${fromConfig.bgColor};color:${fromConfig.color};">
+          ${fromConfig.label}
+        </span>
         <span style="color:#9ca3af;font-size:24px;margin:0 12px;font-weight:300;">→</span>
-        <span style="display:inline-block;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;background:${toConfig.bgColor};color:${toConfig.color};">${toConfig.label}</span>
+        <span style="display:inline-block;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;background-color:${toConfig.bgColor};color:${toConfig.color};">
+          ${toConfig.label}
+        </span>
       </div>
     `
     : `
       <div style="text-align:center;margin:24px 0;">
-        <span style="display:inline-block;padding:10px 24px;border-radius:20px;font-size:15px;font-weight:700;background:${toConfig.bgColor};color:${toConfig.color};">${toConfig.label}</span>
+        <span style="display:inline-block;padding:10px 24px;border-radius:20px;font-size:15px;font-weight:700;background-color:${toConfig.bgColor};color:${toConfig.color};">
+          ${toConfig.label}
+        </span>
       </div>
     `;
 
+  // Admin note: NOTE_DARK icon replaces 📝
   const adminNoteHtml = admin_note
     ? `
-      <div style="background:#f0f9ff;border-left:4px solid #05015A;padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;">
-        <p style="margin:0 0 8px;font-weight:600;color:#05015A;font-size:13px;"> Note from Cureli Health Support:</p>
-        <p style="margin:0;color:#374151;white-space:pre-wrap;line-height:1.6;font-size:14px;">${admin_note}</p>
+      <div class="info-box" style="background-color:#e0f2fe;border-left:4px solid ${EMAIL_CONFIG.COLORS.PRIMARY};padding:16px 20px;border-radius:0 10px 10px 0;margin:24px 0;">
+        <p class="info-text" style="margin:0 0 8px;font-weight:600;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-size:13px;background-color:#e0f2fe;"> Note from ${EMAIL_CONFIG.COMPANY.NAME} Support:</p>
+        <p class="info-text" style="margin:0;color:#374151;white-space:pre-wrap;line-height:1.6;font-size:14px;background-color:#e0f2fe;">${admin_note}</p>
       </div>
     `
     : '';
 
+  // Reopen hint: LIGHTBULB icon replaces 💡
   const reopenHintHtml = to_status === 'RESOLVED'
     ? `
-      <div style="background:#fef9e7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
-        <p style="margin:0;font-size:13px;color:#92400e;line-height:1.6;">
-           <strong>Not fully resolved?</strong> You can reopen this ticket from your dashboard if you're still experiencing issues.
+      <div class="warning-box" style="background-color:#fef9e7;border-left:4px solid ${EMAIL_CONFIG.COLORS.WARNING};padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;">
+        <p class="warning-text" style="margin:0;font-size:13px;color:#92400e;line-height:1.6;background-color:#fef9e7;">
+          ${ICONS.LIGHTBULB_AMBER}
+          <strong style="vertical-align:middle;">Not fully resolved?</strong>
+          <span style="vertical-align:middle;">
+            You can reopen this ticket from your dashboard if you're still experiencing issues.
+          </span>
         </p>
       </div>
     `
     : '';
 
   const emailSubjects = {
-    PENDING: `[${ticket_number}] Your ticket is being reviewed - Cureli Heath`,
-    IN_PROGRESS: `[${ticket_number}] Support is working on your ticket - Cureli Heath`,
-    RESOLVED: `[${ticket_number}] Your ticket has been resolved ✓ - Cureli Heath`,
-    CLOSED: `[${ticket_number}] Your ticket has been closed - Cureli Heath`,
-    CANCELLED: `[${ticket_number}] Your ticket has been cancelled - Cureli Heath`,
+    PENDING:     `[${ticket_number}] Your ticket is being reviewed - ${EMAIL_CONFIG.COMPANY.NAME}`,
+    IN_PROGRESS: `[${ticket_number}] Support is working on your ticket - ${EMAIL_CONFIG.COMPANY.NAME}`,
+    RESOLVED:    `[${ticket_number}] Your ticket has been resolved - ${EMAIL_CONFIG.COMPANY.NAME}`,
+    CLOSED:      `[${ticket_number}] Your ticket has been closed - ${EMAIL_CONFIG.COMPANY.NAME}`,
+    CANCELLED:   `[${ticket_number}] Your ticket has been cancelled - ${EMAIL_CONFIG.COMPANY.NAME}`,
   };
 
-  const subject = emailSubjects[to_status] || `[${ticket_number}] Ticket Status Update - Cureli Heath`;
+  const subject = emailSubjects[to_status] || `[${ticket_number}] Ticket Status Update - ${EMAIL_CONFIG.COMPANY.NAME}`;
 
   const html = `
     <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Ticket Update - Cureli Heath</title>
-    </head>
-    <body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f4f6fb;">
-      <div style="max-width:560px;margin:0 auto;padding:20px;">
-        
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,#05015A 0%,#0a0280 100%);color:white;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
-          <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:70px;margin-bottom:12px;"/>
-          <h1 style="margin:0;font-size:22px;font-weight:600;"> Ticket Update</h1>
-          <p style="margin:8px 0 0;opacity:0.9;font-size:13px;">Your support ticket has been updated</p>
-        </div>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  ${getBaseHeadContent(`Ticket Update - ${EMAIL_CONFIG.COMPANY.NAME}`)}
+</head>
+<body class="email-bg" style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background-color:#f4f6fb;-webkit-font-smoothing:antialiased;">
+  <div class="container" style="max-width:560px;margin:0 auto;padding:20px;">
 
-        <!-- Content -->
-        <div style="background:white;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-          
-          <p style="font-size:15px;color:#333;margin:0 0 16px;">
-            Hello <strong style="color:#05015A;">${displayName}</strong>,
-          </p>
+    <!-- Header: UPDATE icon replaces 🔄 -->
+    <div class="header-primary" style="background:linear-gradient(135deg,${EMAIL_CONFIG.COLORS.PRIMARY} 0%,${EMAIL_CONFIG.COLORS.PRIMARY_LIGHT} 100%);color:#ffffff;padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+      ${renderLogo('WHITE', 'header')}
+      <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;"> Ticket Update</h1>
+      <p style="margin:8px 0 0;opacity:0.9;font-size:13px;color:#e0e0e0;">Your support ticket has been updated</p>
+    </div>
 
-          <!-- Ticket Info Box -->
-          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin-bottom:24px;">
-            <table style="width:100%;border-collapse:collapse;">
-              <tr>
-                <td style="padding:6px 0;color:#6b7280;font-size:13px;width:100px;">Ticket #</td>
-                <td style="padding:6px 0;font-weight:700;font-size:14px;color:#05015A;font-family:'Courier New',monospace;">${ticket_number}</td>
-              </tr>
-              <tr>
-                <td style="padding:6px 0;color:#6b7280;font-size:13px;">Subject</td>
-                <td style="padding:6px 0;color:#1f2937;font-weight:600;font-size:14px;">${ticketSubject || 'N/A'}</td>
-              </tr>
-            </table>
-          </div>
+    <!-- Content -->
+    <div class="content-bg content" style="background-color:#ffffff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
 
-          <!-- Status Change -->
-          <div style="background:#f9fafb;border-radius:10px;padding:20px;margin:24px 0;">
-            <p style="margin:0 0 12px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;text-align:center;font-weight:600;">Status Update</p>
-            ${statusChangeHtml}
-            <p style="margin:16px 0 0;color:#4b5563;font-size:14px;text-align:center;line-height:1.6;">${toConfig.message}</p>
-          </div>
+      <p class="text-primary" style="font-size:15px;color:#333333;margin:0 0 16px;background-color:#ffffff;">
+        Hello <strong class="brand-text" style="color:${EMAIL_CONFIG.COLORS.PRIMARY};">${displayName}</strong>,
+      </p>
 
-          ${adminNoteHtml}
-          ${reopenHintHtml}
-
-          <!-- CTA Button -->
-          <div style="text-align:center;margin:28px 0;">
-            <a href="${FRONTEND_URL}/tickets" style="display:inline-block;background:linear-gradient(135deg,#05015A,#0a0280);color:white;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;box-shadow:0 3px 10px rgba(5,1,90,0.2);">
-               View Ticket Details
-            </a>
-          </div>
-
-          <!-- Support Info -->
-          <p style="font-size:13px;color:#888;text-align:center;margin:20px 0 0;line-height:1.5;">
-            Questions? Contact <a href="mailto:support@curelihealth.com" style="color:#05015A;text-decoration:none;font-weight:500;">support@curelihealth.com</a>
-          </p>
-
-        </div>
-
-        <!-- Footer -->
-        <div style="background:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
-          <img src="https://i.ibb.co/M5GxgMSr/cureli-white.png" alt="Cureli" style="width:40px;opacity:0.5;margin-bottom:10px;"/>
-          <p style="margin:0 0 6px;color:#d1d5db;">© ${new Date().getFullYear()} <strong>Cureli Health</strong> Support</p>
-          <p style="margin:0;color:#6b7280;font-size:11px;">This is an automated notification regarding your support ticket.</p>
-        </div>
-
+      <!-- Ticket Info Box -->
+      <div class="card-bg" style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px 20px;margin-bottom:24px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td class="table-label" style="padding:6px 0;color:#6b7280;font-size:13px;width:100px;background-color:#f9fafb;">Ticket #</td>
+            <td class="ticket-code" style="padding:6px 0;font-weight:700;font-size:14px;color:${EMAIL_CONFIG.COLORS.PRIMARY};font-family:'Courier New',monospace;background-color:#f9fafb;">
+              ${ticket_number}
+            </td>
+          </tr>
+          <tr>
+            <td class="table-label" style="padding:6px 0;color:#6b7280;font-size:13px;background-color:#f9fafb;">Subject</td>
+            <td class="table-value" style="padding:6px 0;color:#1f2937;font-weight:600;font-size:14px;background-color:#f9fafb;">
+              ${ticketSubject || 'N/A'}
+            </td>
+          </tr>
+        </table>
       </div>
-    </body>
-    </html>
+
+      <!-- Status Change -->
+      <div class="status-box" style="background-color:#f9fafb;border-radius:10px;padding:20px;margin:24px 0;">
+        <p class="table-label" style="margin:0 0 12px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;text-align:center;font-weight:600;background-color:#f9fafb;">
+          Status Update
+        </p>
+        ${statusChangeHtml}
+        <p class="text-secondary" style="margin:16px 0 0;color:#4b5563;font-size:14px;text-align:center;line-height:1.6;background-color:#f9fafb;">
+          ${toConfig.message}
+        </p>
+      </div>
+
+      ${adminNoteHtml}
+      ${reopenHintHtml}
+
+      <!-- CTA Button -->
+      ${renderButton({ href: `${EMAIL_CONFIG.FRONTEND_URL}/tickets`, text: 'View Ticket Details' })}
+
+      <p class="text-muted" style="font-size:13px;color:#888888;text-align:center;margin:20px 0 0;line-height:1.5;background-color:#ffffff;">
+        Questions? Contact ${getSupportLink()}
+      </p>
+
+    </div>
+
+    <!-- Custom Footer -->
+    <div class="footer-bg" style="background-color:#1f2937;color:#9ca3af;padding:24px;text-align:center;font-size:12px;border-radius:0 0 12px 12px;">
+      ${renderLogo('WHITE', 'footer')}
+      <p style="margin:0 0 6px;color:#d1d5db;">© ${EMAIL_CONFIG.CURRENT_YEAR} <strong>${EMAIL_CONFIG.COMPANY.NAME}</strong> Support</p>
+      <p style="margin:0;color:#6b7280;font-size:11px;">This is an automated notification regarding your support ticket.</p>
+    </div>
+
+  </div>
+</body>
+</html>
   `;
 
   return { subject, html };

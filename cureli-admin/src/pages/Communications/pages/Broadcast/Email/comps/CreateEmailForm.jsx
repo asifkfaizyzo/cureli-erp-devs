@@ -86,17 +86,17 @@ function CreateEmailForm({
     }
   }, [debouncedFilters, formData.target_users, formData.target_cadmins]);
 
-  // ✅ FIXED: Proper response parsing
+  //  FIXED: Proper response parsing
   const fetchRecipientCount = async () => {
     setIsPreviewLoading(true);
     try {
       const response = await emailBroadcastAPI.previewRecipients(
         formData.target_filters,
         formData.target_users,
-        formData.target_cadmins
+        formData.target_cadmins,
       );
 
-      console.log("[CreateEmailForm] Preview Recipients Response:", response);
+
 
       // API returns response.data, so response is already the data object
       if (response && response.success) {
@@ -173,7 +173,7 @@ function CreateEmailForm({
   // ACTIONS
   // ============================================
 
-  // ✅ FIXED: Proper response parsing
+  //  FIXED: Proper response parsing
   const handleSendTestEmail = async () => {
     if (!validateForm()) return;
 
@@ -192,7 +192,7 @@ function CreateEmailForm({
 
       const res = await emailBroadcastAPI.sendTestEmail(testData);
 
-      console.log("[CreateEmailForm] Send Test Email Response:", res);
+    
 
       // API returns response.data, so res is already the data object
       if (res && res.success) {
@@ -203,13 +203,17 @@ function CreateEmailForm({
         throw new Error(res?.message || "Failed to send test email");
       }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to send test email");
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to send test email",
+      );
     } finally {
       setTestLoading(false);
     }
   };
 
-  // ✅ FIXED: Proper response parsing
+  //  FIXED: Proper response parsing
   const handleSaveDraft = async () => {
     if (!validateForm()) return;
     setLoading(true);
@@ -220,14 +224,17 @@ function CreateEmailForm({
 
       let res;
       if (editDraft?.campaign_id) {
-        res = await emailBroadcastAPI.updateDraft(editDraft.campaign_id, submissionData);
-        console.log("[CreateEmailForm] Update Draft Response:", res);
+        res = await emailBroadcastAPI.updateDraft(
+          editDraft.campaign_id,
+          submissionData,
+        );
+      
         if (res && (res.success || res.campaign_id)) {
           setSuccess("Draft updated");
         }
       } else {
         res = await emailBroadcastAPI.createDraft(submissionData);
-        console.log("[CreateEmailForm] Create Draft Response:", res);
+       
         if (res && (res.success || res.campaign_id)) {
           setSuccess("Draft saved");
         }
@@ -246,7 +253,7 @@ function CreateEmailForm({
     setShowConfirmModal(true);
   };
 
-  // ✅ FIXED: Proper response parsing
+  //  FIXED: Proper response parsing
   const confirmSendNow = async () => {
     setShowConfirmModal(false);
     setLoading(true);
@@ -255,11 +262,12 @@ function CreateEmailForm({
       const submissionData = prepareSubmissionData();
       const res = await emailBroadcastAPI.sendEmailNow(submissionData);
 
-      console.log("[CreateEmailForm] Send Now Response:", res);
+    
 
       // API returns response.data, so res is already the data object
       if (res && (res.success || res.campaign_id)) {
-        const recipientCount = res.data?.recipient_count || res.recipient_count || 0;
+        const recipientCount =
+          res.data?.recipient_count || res.recipient_count || 0;
         setSuccess(`Sending to ${recipientCount} recipients`);
         setTimeout(() => onSuccess?.(), 1500);
       } else {
@@ -277,7 +285,7 @@ function CreateEmailForm({
     setShowScheduleModal(true);
   };
 
-  // ✅ FIXED: Proper response parsing
+  //  FIXED: Proper response parsing
   const confirmSchedule = async (scheduledFor) => {
     setShowScheduleModal(false);
     setLoading(true);
@@ -288,14 +296,17 @@ function CreateEmailForm({
 
       if (!campaignId) {
         const draftRes = await emailBroadcastAPI.createDraft(submissionData);
-        console.log("[CreateEmailForm] Create Draft for Schedule Response:", draftRes);
+        
         campaignId = draftRes.data?.campaign_id || draftRes.campaign_id;
       } else {
         await emailBroadcastAPI.updateDraft(campaignId, submissionData);
       }
 
-      const scheduleRes = await emailBroadcastAPI.scheduleCampaign(campaignId, scheduledFor);
-      console.log("[CreateEmailForm] Schedule Campaign Response:", scheduleRes);
+      const scheduleRes = await emailBroadcastAPI.scheduleCampaign(
+        campaignId,
+        scheduledFor,
+      );
+      
 
       setSuccess(`Scheduled for ${new Date(scheduledFor).toLocaleString()}`);
       setTimeout(() => onScheduled?.(), 1500);
@@ -477,7 +488,9 @@ URLs will be automatically converted to clickable links."
                             0
                           ).toLocaleString()}
                         </span>
-                        <span className="text-xs text-white/80">recipients</span>
+                        <span className="text-xs text-white/80">
+                          recipients
+                        </span>
                       </div>
                     </div>
                   ) : (

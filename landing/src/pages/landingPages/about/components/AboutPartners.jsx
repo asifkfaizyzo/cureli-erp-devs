@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
 
-import Netmeds from "../../../../assets/images/Netmeds.png";
-import Apollo from "../../../../assets/images/Apollo.png";
-import CureliLogo from "../../../../assets/images/Cureli.png";
-import MedicalCross from "../../../../assets/images/Medical-cross.png";
-import SastaSundar from "../../../../assets/images/Sasta-sundar.png";
-import HealthcareIllustration from "../../../../assets/images/About-layout.png";
+import Netmeds from "../../../../assets/images/Netmeds_result.webp";
+import Apollo from "../../../../assets/images/Apollo_result.webp";
+import CureliLogo from "../../../../assets/images/Cureli_result.webp";
+import MedicalCross from "../../../../assets/images/Medical-cross_result.webp";
+import SastaSundar from "../../../../assets/images/Sasta-sundar_result.webp";
+import HealthcareIllustration from "../../../../assets/images/About-layout_result.webp";
 
 const AboutPartners = () => {
   const trackRef = useRef(null);

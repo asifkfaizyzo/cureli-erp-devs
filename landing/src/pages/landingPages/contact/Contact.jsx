@@ -8,8 +8,11 @@ import Footer from "../../../components/common/Footer";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 
 const Contact = () => {
-  // ✅ Memoize reCAPTCHA key to prevent unnecessary re-renders
-  const recaptchaKey = useMemo(() => import.meta.env.VITE_GOOGLE_CAPTCHA_ID, []);
+  //  Memoize reCAPTCHA key to prevent unnecessary re-renders
+  const recaptchaKey = useMemo(
+    () => import.meta.env.VITE_GOOGLE_CAPTCHA_ID,
+    [],
+  );
 
   return (
     <div className="w-full overflow-hidden">
@@ -20,7 +23,7 @@ const Contact = () => {
         {/* Hero Section */}
         <ContactHero />
 
-        {/* ✅ FIXED: Wrap only the form component with reCAPTCHA provider */}
+        {/*  FIXED: Wrap only the form component with reCAPTCHA provider */}
         <GoogleReCaptchaProvider
           reCaptchaKey={recaptchaKey}
           scriptProps={{
@@ -47,4 +50,3 @@ const Contact = () => {
 };
 
 export default Contact;
-

@@ -30,7 +30,6 @@ const VerificationPage = () => {
 
   const initializeVerification = async () => {
     if (initialStep && [12, 14, 15].includes(initialStep)) {
-      console.log("✅ Using navigation step:", initialStep);
       setCurrentStep(initialStep);
 
       // Still fetch status to get isFirstVerification flag for success page
@@ -64,7 +63,6 @@ const VerificationPage = () => {
       const resp = await getVerificationStatus();
       const data = resp.data?.data;
 
-      console.log("📡 Verification Status Response:", data);
 
       const shopStatus = data?.verification_status;
       const userStatus = data?.user_status;
@@ -79,39 +77,34 @@ const VerificationPage = () => {
         localStorage.setItem("user_name", data.user_name);
       }
 
-      console.log("🔍 Status check:", {
-        shopStatus,
-        userStatus,
-        firstLogin,
-        isFirstVerification: data?.is_first_verification,
-      });
+      
 
       let step = 12;
 
       if (shopStatus === "verified") {
         if (userStatus === "verified" && firstLogin) {
-          console.log("→ Verified + seen success, going to dashboard");
+        
           navigate("/dashboard");
           return;
         } else {
-          console.log("→ Verified, showing success");
+        
           step = 15;
         }
       } else if (
         shopStatus === "rejected" ||
         shopStatus === "partially_rejected"
       ) {
-        console.log("→ Has rejections, showing resubmission");
+      
         step = 14;
       } else if (shopStatus === "pending_review" || shopStatus === "pending") {
-        console.log("→ Pending review, showing pending page");
+      
         step = 12;
       } else {
-        console.log("→ Unknown status, defaulting to pending");
+      
         step = 12;
       }
 
-      console.log("📍 Final step:", step);
+    
       setCurrentStep(step);
     } catch (e) {
       console.error("Failed to fetch verification status:", e);
@@ -132,7 +125,6 @@ const VerificationPage = () => {
   };
 
   const handleStatusRefresh = async () => {
-    console.log("🔄 Refreshing status...");
     setLoading(true);
     await fetchStatus();
   };

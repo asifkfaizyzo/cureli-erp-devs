@@ -3,6 +3,8 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { validate } from "../../middleware/validate.js";
 import { requireCAdmin } from "../../middleware/requireCAdmin.js";
+import { requireCAdminPermission } from "../../middleware/requireCAdminPermission.js";
+import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions.js";
 import {
   createEnquirySchema,
   replyEnquirySchema,
@@ -47,55 +49,67 @@ const strictEnquiryLimiter = rateLimit({
   skip: (req) => req.path.startsWith("/admin"),
 });
 
-// ✅ PUBLIC ROUTES - Remove /enquiries prefix
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC ROUTES
+// No auth required — anyone can submit an enquiry
+// ─────────────────────────────────────────────────────────────────────────────
 router.post(
-  "/",  // Changed from "/enquiries"
+  "/",
   strictEnquiryLimiter,
   enquirySubmitLimiter,
   validate(createEnquirySchema, "body"),
   submitEnquiry
 );
 
-// ✅ ADMIN ROUTES - Remove /enquiries prefix
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN ROUTES
+// All require: authenticated CAdmin + specific permission
+// ─────────────────────────────────────────────────────────────────────────────
 router.get(
-  "/admin/list",  // Changed from "/enquiries/admin/list"
+  "/admin/list",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
   validate(listEnquiriesSchema, "query"),
   listEnquiries
 );
 
 router.get(
-  "/admin/stats",  // Changed from "/enquiries/admin/stats"
+  "/admin/stats",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_STATS),
   getEnquiryStats
 );
 
 router.get(
-  "/admin/:enquiryId",  // Changed from "/enquiries/admin/:enquiryId"
+  "/admin/:enquiryId",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_DETAIL),
   validate(enquiryIdParamSchema, "params"),
   getEnquiryDetails
 );
 
 router.post(
-  "/admin/:enquiryId/reply",  // Changed from "/enquiries/admin/:enquiryId/reply"
+  "/admin/:enquiryId/reply",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_REPLY),
   validate(enquiryIdParamSchema, "params"),
   validate(replyEnquirySchema, "body"),
   replyToEnquiry
 );
 
 router.patch(
-  "/admin/:enquiryId/status",  // Changed from "/enquiries/admin/:enquiryId/status"
+  "/admin/:enquiryId/status",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_UPDATE_STATUS),
   validate(enquiryIdParamSchema, "params"),
   validate(updateEnquiryStatusSchema, "body"),
   updateEnquiryStatus
 );
 
 router.delete(
-  "/admin/:enquiryId",  // Changed from "/enquiries/admin/:enquiryId"
+  "/admin/:enquiryId",
   requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_DELETE),
   validate(enquiryIdParamSchema, "params"),
   deleteEnquiry
 );

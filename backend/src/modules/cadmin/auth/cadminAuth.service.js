@@ -17,7 +17,11 @@ import * as audit from "../../audit/index.js";
  * loginCAdminService
  * Initiates OTP-based login
  */
-export async function loginCAdminService({ username, password, auditContext = {} }) {
+export async function loginCAdminService({
+  username,
+  password,
+  auditContext = {},
+}) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
 
   if (!cadmin) {
@@ -41,14 +45,16 @@ export async function loginCAdminService({ username, password, auditContext = {}
 
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
+    process.env.MC_PASSWORD,
   );
 
   const mcResp = await mcSendOtp({
     authToken,
     customerId: process.env.MC_CUSTOMER,
     mobileNumber: cadmin.phone_number,
-    otpLength: process.env.SMS_OTP_LENGTH ? Number(process.env.SMS_OTP_LENGTH) : 4,
+    otpLength: process.env.SMS_OTP_LENGTH
+      ? Number(process.env.SMS_OTP_LENGTH)
+      : 4,
     countryCode: process.env.MC_COUNTRY || "91",
   });
 
@@ -71,7 +77,7 @@ export async function loginCAdminService({ username, password, auditContext = {}
       if (!mid) return "••••";
       const visible = last || mid.slice(-2);
       return `•••• ${visible}`;
-    }
+    },
   );
 
   return { phone_hint };
@@ -81,12 +87,12 @@ export async function loginCAdminService({ username, password, auditContext = {}
  * loginCAdminDirectService
  * Direct login without OTP (for development/special cases)
  */
-export async function loginCAdminDirectService({ 
-  username, 
-  password, 
-  req, 
-  res, 
-  auditContext = {} 
+export async function loginCAdminDirectService({
+  username,
+  password,
+  req,
+  res,
+  auditContext = {},
 }) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
 
@@ -115,22 +121,25 @@ export async function loginCAdminDirectService({
       data: { last_login_at: new Date() },
     });
 
-    // ✅ AUDIT LOG: Direct login success (SECURITY ACTION)
-    await audit.log({
-      action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: cadmin.cadmin_id,
-      actor_type: audit.ActorType.CADMIN,
-      actor_id: cadmin.cadmin_id,
-      actor_role: cadmin.role,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
-      metadata: {
-        username: cadmin.username,
-        login_method: 'direct',
-        session_type: 'direct_password',
+    //  AUDIT LOG: Direct login success (SECURITY ACTION)
+    await audit.log(
+      {
+        action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id: cadmin.cadmin_id,
+        actor_type: audit.ActorType.CADMIN,
+        actor_id: cadmin.cadmin_id,
+        actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+        metadata: {
+          username: cadmin.username,
+          login_method: "direct",
+          session_type: "direct_password",
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   const accessPayload = {
@@ -162,12 +171,12 @@ export async function loginCAdminDirectService({
  * verifyCAdminOtpService
  * Verifies OTP and completes login
  */
-export async function verifyCAdminOtpService({ 
-  username, 
-  otp, 
-  req, 
-  res, 
-  auditContext = {} 
+export async function verifyCAdminOtpService({
+  username,
+  otp,
+  req,
+  res,
+  auditContext = {},
 }) {
   const cadmin = await prisma.cAdmin.findUnique({ where: { username } });
   if (!cadmin) {
@@ -190,7 +199,7 @@ export async function verifyCAdminOtpService({
 
   const authToken = await getMCAuthToken(
     process.env.MC_CUSTOMER,
-    process.env.MC_PASSWORD
+    process.env.MC_PASSWORD,
   );
 
   const mcValidation = await mcValidateOtp({
@@ -220,22 +229,25 @@ export async function verifyCAdminOtpService({
       },
     });
 
-    // ✅ AUDIT LOG: OTP login success (SECURITY ACTION)
-    await audit.log({
-      action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
-      entity_type: audit.EntityType.CADMIN,
-      entity_id: cadmin.cadmin_id,
-      actor_type: audit.ActorType.CADMIN,
-      actor_id: cadmin.cadmin_id,
-      actor_role: cadmin.role,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.SECURITY_ACTION,
-      metadata: {
-        username: cadmin.username,
-        login_method: 'otp',
-        session_type: 'otp_verified',
+    //  AUDIT LOG: OTP login success (SECURITY ACTION)
+    await audit.log(
+      {
+        action: audit.AuditAction.CADMIN_LOGIN_SUCCESS,
+        entity_type: audit.EntityType.CADMIN,
+        entity_id: cadmin.cadmin_id,
+        actor_type: audit.ActorType.CADMIN,
+        actor_id: cadmin.cadmin_id,
+        actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.SECURITY_ACTION,
+        metadata: {
+          username: cadmin.username,
+          login_method: "otp",
+          session_type: "otp_verified",
+        },
       },
-    }, { tx });
+      { tx },
+    );
   });
 
   const accessPayload = {
@@ -335,7 +347,7 @@ export async function logoutCAdminService({ req, res, auditContext = {} }) {
   const cadmin_id = req.cadmin?.cadmin_id;
 
   if (cadmin_id) {
-    // ✅ AUDIT LOG: Logout (SECURITY ACTION)
+    //  AUDIT LOG: Logout (SECURITY ACTION)
     await audit.log({
       action: audit.AuditAction.CADMIN_LOGOUT,
       entity_type: audit.EntityType.CADMIN,
@@ -347,7 +359,7 @@ export async function logoutCAdminService({ req, res, auditContext = {} }) {
       reason_code: audit.AuditReasonCode.SECURITY_ACTION,
       metadata: {
         username: req.cadmin?.username,
-        logout_type: 'manual',
+        logout_type: "manual",
       },
     });
   }

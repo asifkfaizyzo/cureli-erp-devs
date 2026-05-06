@@ -1,6 +1,12 @@
 // frontend/src/pages/purchase/returns/PurchaseReturnsPage.jsx
 
-import React, { useState, useEffect, useMemo, useRef,useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   Package,
   Search,
@@ -22,7 +28,11 @@ import {
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 import purchaseAPI from "../../../api/purchase";
-import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../../store/useAuthStore";
+import {
+  useAuthStore,
+  selectBranchContext,
+  selectIsSuperAdmin,
+} from "../../../store/useAuthStore";
 import ViewReturnModal from "./components/ViewReturnModal";
 import ReturnsTable from "./components/ReturnsTable";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
@@ -84,7 +94,7 @@ const formatDate = (dateString) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
-// ✅ NEW: BRANCH CONTEXT BANNER
+//  NEW: BRANCH CONTEXT BANNER
 // ════════════════════════════════════════════════════════════════════════════
 
 const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
@@ -93,7 +103,9 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
       <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
         <div className="flex items-center gap-2 text-sm text-blue-700">
           <Layers size={16} className="text-blue-500" />
-          <span>Viewing returns from <strong>All Branches</strong></span>
+          <span>
+            Viewing returns from <strong>All Branches</strong>
+          </span>
           <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
             Combined View
           </span>
@@ -110,7 +122,9 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
     <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
       <div className="flex items-center gap-2 text-sm text-green-700">
         <Building2 size={16} className="text-green-500" />
-        <span>Viewing returns for <strong>{branchName || "Selected Branch"}</strong></span>
+        <span>
+          Viewing returns for <strong>{branchName || "Selected Branch"}</strong>
+        </span>
         {itemCount > 0 && (
           <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
             {itemCount} returns
@@ -127,7 +141,10 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
 
 const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
   const totalPendingAmount = useMemo(() => {
-    return pendingReturns.reduce((sum, ret) => sum + (parseFloat(ret.net_amount) || 0), 0);
+    return pendingReturns.reduce(
+      (sum, ret) => sum + (parseFloat(ret.net_amount) || 0),
+      0,
+    );
   }, [pendingReturns]);
 
   if (pendingReturns.length === 0) return null;
@@ -140,15 +157,22 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
             <Shield size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-amber-900">Pending Approvals</h3>
+            <h3 className="text-base font-bold text-amber-900">
+              Pending Approvals
+            </h3>
             <p className="text-xs text-amber-700">
-              {pendingReturns.length} return{pendingReturns.length !== 1 ? "s" : ""} awaiting approval
+              {pendingReturns.length} return
+              {pendingReturns.length !== 1 ? "s" : ""} awaiting approval
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-amber-600 uppercase tracking-wider mb-0.5">Total Amount</p>
-          <p className="text-lg font-bold text-amber-900">{formatCurrency(totalPendingAmount)}</p>
+          <p className="text-[10px] text-amber-600 uppercase tracking-wider mb-0.5">
+            Total Amount
+          </p>
+          <p className="text-lg font-bold text-amber-900">
+            {formatCurrency(totalPendingAmount)}
+          </p>
         </div>
       </div>
 
@@ -162,9 +186,12 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="font-mono font-bold text-sm text-[#000060]">{returnInvoice.invoice_number}</p>
+                  <p className="font-mono font-bold text-sm text-[#000060]">
+                    {returnInvoice.invoice_number}
+                  </p>
                   <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
-                    {RETURN_REASON_LABELS[returnInvoice.return_reason] || returnInvoice.return_reason}
+                    {RETURN_REASON_LABELS[returnInvoice.return_reason] ||
+                      returnInvoice.return_reason}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-600">
@@ -185,7 +212,9 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
               <div className="flex items-center gap-3 ml-3">
                 <div className="text-right">
                   <p className="text-[10px] text-gray-500">Amount</p>
-                  <p className="text-sm font-bold text-[#000060]">{formatCurrency(returnInvoice.net_amount)}</p>
+                  <p className="text-sm font-bold text-[#000060]">
+                    {formatCurrency(returnInvoice.net_amount)}
+                  </p>
                 </div>
                 <button className="p-1.5 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors">
                   <Eye size={14} />
@@ -211,7 +240,11 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
 const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
   const [showFilters, setShowFilters] = useState(false);
 
-  const hasActiveFilters = filters.startDate || filters.endDate || filters.approvalStatus || filters.search;
+  const hasActiveFilters =
+    filters.startDate ||
+    filters.endDate ||
+    filters.approvalStatus ||
+    filters.search;
 
   // Count active filters
   const activeFilterCount = [
@@ -288,13 +321,15 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
 
             {/* Search Input */}
             <div className="flex-1 min-w-[200px]">
-              <label className="text-xs text-gray-500 font-medium mb-1.5 block">Search</label>
+              <label className="text-xs text-gray-500 font-medium mb-1.5 block">
+                Search
+              </label>
               <div className="relative">
-                <Search 
-                  size={16} 
+                <Search
+                  size={16}
                   className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
                     filters.search ? "text-[#000060]" : "text-gray-400"
-                  }`} 
+                  }`}
                 />
                 <input
                   type="text"
@@ -304,9 +339,10 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
                   className={`w-full h-10 pl-10 pr-10 text-sm border rounded-lg shadow-sm
                     focus:outline-none focus:ring-2 focus:ring-[#000060]/20 focus:border-[#000060]
                     transition-all duration-200
-                    ${filters.search 
-                      ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" 
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    ${
+                      filters.search
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                     }`}
                 />
                 {filters.search && (
@@ -325,29 +361,35 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
           {hasActiveFilters && (
             <div className="mt-4 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-500 font-medium">Active Filters:</span>
-                
+                <span className="text-xs text-slate-500 font-medium">
+                  Active Filters:
+                </span>
+
                 {filters.startDate && (
                   <FilterTag
                     label={`From: ${formatDate(filters.startDate)}`}
                     onRemove={() => onFilterChange("startDate", "")}
                   />
                 )}
-                
+
                 {filters.endDate && (
                   <FilterTag
                     label={`To: ${formatDate(filters.endDate)}`}
                     onRemove={() => onFilterChange("endDate", "")}
                   />
                 )}
-                
+
                 {filters.approvalStatus && (
                   <FilterTag
-                    label={APPROVAL_STATUS_OPTIONS.find(o => o.value === filters.approvalStatus)?.label || filters.approvalStatus}
+                    label={
+                      APPROVAL_STATUS_OPTIONS.find(
+                        (o) => o.value === filters.approvalStatus,
+                      )?.label || filters.approvalStatus
+                    }
                     onRemove={() => onFilterChange("approvalStatus", "")}
                   />
                 )}
-                
+
                 {filters.search && (
                   <FilterTag
                     label={`"${filters.search}"`}
@@ -382,19 +424,69 @@ const FilterTag = ({ label, onRemove }) => (
 
 const StatsCards = ({ stats }) => {
   const cards = [
-    { label: "Total Returns", value: stats.total, icon: Package, color: "slate", bgColor: "bg-white" },
-    { label: "Pending", value: stats.pending, icon: Clock, color: "amber", bgColor: "bg-amber-50" },
-    { label: "Approved", value: stats.approved, icon: CheckCircle2, color: "green", bgColor: "bg-green-50" },
-    { label: "Rejected", value: stats.rejected, icon: XCircle, color: "red", bgColor: "bg-red-50" },
-    { label: "Cancelled", value: stats.cancelled, icon: Ban, color: "gray", bgColor: "bg-gray-50" },
+    {
+      label: "Total Returns",
+      value: stats.total,
+      icon: Package,
+      color: "slate",
+      bgColor: "bg-white",
+    },
+    {
+      label: "Pending",
+      value: stats.pending,
+      icon: Clock,
+      color: "amber",
+      bgColor: "bg-amber-50",
+    },
+    {
+      label: "Approved",
+      value: stats.approved,
+      icon: CheckCircle2,
+      color: "green",
+      bgColor: "bg-green-50",
+    },
+    {
+      label: "Rejected",
+      value: stats.rejected,
+      icon: XCircle,
+      color: "red",
+      bgColor: "bg-red-50",
+    },
+    {
+      label: "Cancelled",
+      value: stats.cancelled,
+      icon: Ban,
+      color: "gray",
+      bgColor: "bg-gray-50",
+    },
   ];
 
   const colorMap = {
-    slate: { text: "text-[#000060]", icon: "text-[#000060]", border: "border-slate-200" },
-    amber: { text: "text-amber-700", icon: "text-amber-600", border: "border-amber-200" },
-    green: { text: "text-green-700", icon: "text-green-600", border: "border-green-200" },
-    red: { text: "text-red-700", icon: "text-red-600", border: "border-red-200" },
-    gray: { text: "text-gray-700", icon: "text-gray-600", border: "border-gray-200" },
+    slate: {
+      text: "text-[#000060]",
+      icon: "text-[#000060]",
+      border: "border-slate-200",
+    },
+    amber: {
+      text: "text-amber-700",
+      icon: "text-amber-600",
+      border: "border-amber-200",
+    },
+    green: {
+      text: "text-green-700",
+      icon: "text-green-600",
+      border: "border-green-200",
+    },
+    red: {
+      text: "text-red-700",
+      icon: "text-red-600",
+      border: "border-red-200",
+    },
+    gray: {
+      text: "text-gray-700",
+      icon: "text-gray-600",
+      border: "border-gray-200",
+    },
   };
 
   return (
@@ -408,7 +500,9 @@ const StatsCards = ({ stats }) => {
             className={`${card.bgColor} rounded-xl border ${colors.border} p-3 shadow-sm hover:shadow-md transition-shadow`}
           >
             <div className="flex items-center justify-between mb-1">
-              <p className={`text-xs font-medium ${colors.text}`}>{card.label}</p>
+              <p className={`text-xs font-medium ${colors.text}`}>
+                {card.label}
+              </p>
               <Icon size={16} className={colors.icon} />
             </div>
             <p className={`text-xl font-bold ${colors.text}`}>{card.value}</p>
@@ -425,20 +519,20 @@ const StatsCards = ({ stats }) => {
 
 const PurchaseReturnsPage = () => {
   const toast = useToast();
-  
-  // ✅ NEW: Branch context from store
+
+  //  NEW: Branch context from store
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
-  const user = useAuthStore(state => state.user);
-  
+  const user = useAuthStore((state) => state.user);
+
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const currentBranchId = branchContext.branch_id;
   const currentBranchName = branchContext.branch_name;
 
-  // ✅ NEW: Track branch changes
+  //  NEW: Track branch changes
   const prevBranchRef = useRef({
     mode: branchContext.mode,
-    branch_id: branchContext.branch_id
+    branch_id: branchContext.branch_id,
   });
 
   // State
@@ -447,8 +541,8 @@ const PurchaseReturnsPage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  
-  // ✅ NEW: Branch switching loading state
+
+  //  NEW: Branch switching loading state
   const [isBranchSwitching, setIsBranchSwitching] = useState(false);
 
   // Filters
@@ -476,7 +570,9 @@ const PurchaseReturnsPage = () => {
 
   // Computed
   const pendingReturns = useMemo(() => {
-    return returns.filter((r) => r.return_approval_status === "PENDING_APPROVAL");
+    return returns.filter(
+      (r) => r.return_approval_status === "PENDING_APPROVAL",
+    );
   }, [returns]);
 
   const filteredReturns = useMemo(() => {
@@ -487,7 +583,7 @@ const PurchaseReturnsPage = () => {
       result = result.filter(
         (r) =>
           r.invoice_number?.toLowerCase().includes(query) ||
-          r.supplier?.name?.toLowerCase().includes(query)
+          r.supplier?.name?.toLowerCase().includes(query),
       );
     }
 
@@ -498,88 +594,104 @@ const PurchaseReturnsPage = () => {
   const stats = useMemo(() => {
     return {
       total: total,
-      pending: returns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length,
-      approved: returns.filter((r) => r.return_approval_status === "APPROVED").length,
-      rejected: returns.filter((r) => r.return_approval_status === "REJECTED").length,
-      cancelled: returns.filter((r) => r.return_approval_status === "CANCELLED").length,
+      pending: returns.filter(
+        (r) => r.return_approval_status === "PENDING_APPROVAL",
+      ).length,
+      approved: returns.filter((r) => r.return_approval_status === "APPROVED")
+        .length,
+      rejected: returns.filter((r) => r.return_approval_status === "REJECTED")
+        .length,
+      cancelled: returns.filter((r) => r.return_approval_status === "CANCELLED")
+        .length,
     };
   }, [returns, total]);
 
   // ══════════════════════════════════════════════════════════════════════
-  // ✅ UPDATED: LOAD RETURNS - with branch switching support
+  //  UPDATED: LOAD RETURNS - with branch switching support
   // ══════════════════════════════════════════════════════════════════════
 
-  const loadReturns = useCallback(async (showBranchSwitchingState = false) => {
-    try {
-      if (showBranchSwitchingState) {
-        setIsBranchSwitching(true);
-      } else {
-        setLoading(true);
-      }
-
-      const params = { ...filters };
-
-      // Remove empty filters
-      Object.keys(params).forEach((key) => {
-        if (params[key] === "" || params[key] === null || params[key] === undefined) {
-          delete params[key];
+  const loadReturns = useCallback(
+    async (showBranchSwitchingState = false) => {
+      try {
+        if (showBranchSwitchingState) {
+          setIsBranchSwitching(true);
+        } else {
+          setLoading(true);
         }
-      });
 
-      console.log("📦 Loading returns with branch context:", {
-        mode: branchContext.mode,
-        branch_id: branchContext.branch_id,
-        branch_name: branchContext.branch_name,
-        filters: params
-      });
+        const params = { ...filters };
 
-      const response = await purchaseAPI.getAllReturns(params);
-      setReturns(response.data?.returns || []);
-      setTotal(response.data?.total || 0);
-    } catch (error) {
-      console.error("Load returns error:", error);
-      toast.error("Failed to Load Returns", error.response?.data?.message || error.message);
-    } finally {
-      setLoading(false);
-      setIsBranchSwitching(false);
-    }
-  }, [filters, branchContext.mode, branchContext.branch_id, toast]);
+        // Remove empty filters
+        Object.keys(params).forEach((key) => {
+          if (
+            params[key] === "" ||
+            params[key] === null ||
+            params[key] === undefined
+          ) {
+            delete params[key];
+          }
+        });
 
-  // ✅ NEW: Watch for branch changes
+        
+
+        const response = await purchaseAPI.getAllReturns(params);
+        setReturns(response.data?.returns || []);
+        setTotal(response.data?.total || 0);
+      } catch (error) {
+        console.error("Load returns error:", error);
+        toast.error(
+          "Failed to Load Returns",
+          error.response?.data?.message || error.message,
+        );
+      } finally {
+        setLoading(false);
+        setIsBranchSwitching(false);
+      }
+    },
+    [filters, branchContext.mode, branchContext.branch_id, toast],
+  );
+
+  //  NEW: Watch for branch changes
   useEffect(() => {
     const prevBranch = prevBranchRef.current;
-    const branchChanged = 
-      prevBranch.mode !== branchContext.mode || 
+    const branchChanged =
+      prevBranch.mode !== branchContext.mode ||
       prevBranch.branch_id !== branchContext.branch_id;
-    
+
     if (branchChanged) {
-      console.log("🔄 Branch changed detected in Returns page:", {
-        from: prevBranch,
-        to: {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id
-        }
-      });
+      
 
       prevBranchRef.current = {
         mode: branchContext.mode,
-        branch_id: branchContext.branch_id
+        branch_id: branchContext.branch_id,
       };
-      
+
       // Clear current data
       setReturns([]);
-      
+
       // Show appropriate toast
       if (branchContext.mode === "GLOBAL") {
-        toast.info("Switched to All Branches", "Loading combined returns data...");
+        toast.info(
+          "Switched to All Branches",
+          "Loading combined returns data...",
+        );
       } else if (branchContext.branch_name) {
-        toast.info("Branch Changed", `Loading returns for ${branchContext.branch_name}...`);
+        toast.info(
+          "Branch Changed",
+          `Loading returns for ${branchContext.branch_name}...`,
+        );
       }
-      
+
       // Reload with branch switching indicator
       loadReturns(true);
     }
-  }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, toast, loadReturns]);
+  }, [
+    branchContext.mode,
+    branchContext.branch_id,
+    branchContext.branch_name,
+    toast,
+    loadReturns,
+  ]);
 
   // Initial load and filter changes
   useEffect(() => {
@@ -613,11 +725,16 @@ const PurchaseReturnsPage = () => {
 
   const handleViewReturn = async (returnInvoice) => {
     try {
-      const response = await purchaseAPI.getReturnById(returnInvoice.invoice_id);
+      const response = await purchaseAPI.getReturnById(
+        returnInvoice.invoice_id,
+      );
       setViewReturnModal({ open: true, returnInvoice: response.data });
     } catch (error) {
       console.error("Failed to get return details:", error);
-      toast.error("Failed to load return details", error.response?.data?.message || error.message);
+      toast.error(
+        "Failed to load return details",
+        error.response?.data?.message || error.message,
+      );
     }
   };
 
@@ -638,14 +755,21 @@ const PurchaseReturnsPage = () => {
         <div className="space-y-3">
           <p>You are about to approve this purchase return.</p>
           <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-            <p className="font-semibold text-gray-900">Return: {returnInvoice.invoice_number}</p>
-            <p className="text-sm text-gray-600 mt-1">Amount: {formatCurrency(returnInvoice.net_amount)}</p>
+            <p className="font-semibold text-gray-900">
+              Return: {returnInvoice.invoice_number}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Amount: {formatCurrency(returnInvoice.net_amount)}
+            </p>
           </div>
           <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
             <p className="text-sm text-blue-800 font-medium mb-2">This will:</p>
             <ul className="text-xs text-blue-700 list-disc list-inside space-y-1">
               <li>Deduct stock from inventory</li>
-              <li>Process payment adjustment ({ADJUSTMENT_TYPE_CONFIG[returnInvoice.adjustment_type]?.label})</li>
+              <li>
+                Process payment adjustment (
+                {ADJUSTMENT_TYPE_CONFIG[returnInvoice.adjustment_type]?.label})
+              </li>
               <li>Mark return as approved</li>
             </ul>
           </div>
@@ -664,12 +788,18 @@ const PurchaseReturnsPage = () => {
       setActionLoading(true);
       await purchaseAPI.approveReturn(returnId, { action: "APPROVE" });
 
-      toast.success("Return Approved", "Stock deducted and payment adjustment processed.");
+      toast.success(
+        "Return Approved",
+        "Stock deducted and payment adjustment processed.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Approve return error:", error);
-      toast.error("Approval Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Approval Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -688,8 +818,12 @@ const PurchaseReturnsPage = () => {
         <div className="space-y-3">
           <p>You are about to reject this purchase return.</p>
           <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-            <p className="font-semibold text-gray-900">Return: {returnInvoice.invoice_number}</p>
-            <p className="text-sm text-gray-600 mt-1">Amount: {formatCurrency(returnInvoice.net_amount)}</p>
+            <p className="font-semibold text-gray-900">
+              Return: {returnInvoice.invoice_number}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Amount: {formatCurrency(returnInvoice.net_amount)}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -702,14 +836,21 @@ const PurchaseReturnsPage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
             />
           </div>
-          <p className="text-sm text-red-600 font-medium">⚠️ This action cannot be undone.</p>
+          <p className="text-sm text-red-600 font-medium">
+            ⚠️ This action cannot be undone.
+          </p>
         </div>
       ),
       confirmText: "Reject Return",
       onConfirm: async () => {
-        const reason = document.getElementById("rejection-reason")?.value.trim();
+        const reason = document
+          .getElementById("rejection-reason")
+          ?.value.trim();
         if (!reason) {
-          toast.warning("Reason Required", "Please provide a rejection reason.");
+          toast.warning(
+            "Reason Required",
+            "Please provide a rejection reason.",
+          );
           return;
         }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
@@ -728,7 +869,10 @@ const PurchaseReturnsPage = () => {
       loadReturns(false);
     } catch (error) {
       console.error("Reject return error:", error);
-      toast.error("Rejection Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Rejection Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -743,12 +887,18 @@ const PurchaseReturnsPage = () => {
       setActionLoading(true);
       await purchaseAPI.cancelApprovedReturn(returnInvoice.invoice_id, data);
 
-      toast.success("Return Cancelled", "Stock has been restored and credit notes have been cancelled.");
+      toast.success(
+        "Return Cancelled",
+        "Stock has been restored and credit notes have been cancelled.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Cancel return error:", error);
-      toast.error("Cancellation Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Cancellation Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -761,14 +911,22 @@ const PurchaseReturnsPage = () => {
   const handleRevertReturn = async (returnInvoice, reason) => {
     try {
       setActionLoading(true);
-      await purchaseAPI.revertReturnToPending(returnInvoice.invoice_id, { revert_reason: reason });
+      await purchaseAPI.revertReturnToPending(returnInvoice.invoice_id, {
+        revert_reason: reason,
+      });
 
-      toast.success("Return Reverted", "Return has been reverted to pending approval.");
+      toast.success(
+        "Return Reverted",
+        "Return has been reverted to pending approval.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Revert return error:", error);
-      toast.error("Revert Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Revert Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -780,9 +938,9 @@ const PurchaseReturnsPage = () => {
 
   return (
     <div className="h-full flex flex-col p-4 max-w-[1800px] mx-auto">
-      {/* ✅ NEW: Branch Context Banner */}
+      {/*  NEW: Branch Context Banner */}
       {isSuperAdmin && (
-        <BranchContextBanner 
+        <BranchContextBanner
           isGlobalMode={isGlobalMode}
           branchName={currentBranchName}
           itemCount={total}
@@ -792,14 +950,20 @@ const PurchaseReturnsPage = () => {
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between mb-4 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#000060]">Purchase Returns</h1>
+          <h1 className="text-2xl font-bold text-[#000060]">
+            Purchase Returns
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Manage product returns and approval workflow
             {isSuperAdmin && (
-              <span className="ml-2 text-amber-600 font-medium">• Super Admin Mode</span>
+              <span className="ml-2 text-amber-600 font-medium">
+                • Super Admin Mode
+              </span>
             )}
             {isGlobalMode && (
-              <span className="ml-2 text-blue-600 font-medium">• Viewing All Branches</span>
+              <span className="ml-2 text-blue-600 font-medium">
+                • Viewing All Branches
+              </span>
             )}
           </p>
         </div>
@@ -809,7 +973,10 @@ const PurchaseReturnsPage = () => {
           disabled={refreshing || actionLoading || isBranchSwitching}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
         >
-          <RefreshCw size={16} className={refreshing || isBranchSwitching ? "animate-spin" : ""} />
+          <RefreshCw
+            size={16}
+            className={refreshing || isBranchSwitching ? "animate-spin" : ""}
+          />
           Refresh
         </button>
       </div>
@@ -822,7 +989,10 @@ const PurchaseReturnsPage = () => {
       {/* Approval Queue (Super Admin Only) */}
       {isSuperAdmin && pendingReturns.length > 0 && (
         <div className="shrink-0">
-          <ApprovalQueueCard pendingReturns={pendingReturns} onViewReturn={handleViewReturn} />
+          <ApprovalQueueCard
+            pendingReturns={pendingReturns}
+            onViewReturn={handleViewReturn}
+          />
         </div>
       )}
 
@@ -837,15 +1007,18 @@ const PurchaseReturnsPage = () => {
 
       {/* Table - Takes remaining space */}
       <div className="flex-1 min-h-0 relative">
-        {/* ✅ Branch switching overlay */}
+        {/*  Branch switching overlay */}
         {isBranchSwitching && (
           <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center rounded-lg">
             <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
               <div className="w-10 h-10 border-4 border-[#000060] border-t-transparent rounded-full animate-spin" />
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-700">Switching Branch</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Switching Branch
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Loading returns for {isGlobalMode ? "all branches" : currentBranchName}...
+                  Loading returns for{" "}
+                  {isGlobalMode ? "all branches" : currentBranchName}...
                 </p>
               </div>
             </div>

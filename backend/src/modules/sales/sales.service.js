@@ -41,16 +41,14 @@ class SalesService {
   // Returns batches with stock for dropdown selection
   // ============================================
 
-  async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
-  const { includeLowStock = false, includeExpiring = true } = options;
+  // backend/src/modules/sales/sales.service.js
+// ONLY change getAvailableBatches method - everything else stays identical
 
-  console.log(`🔍 Getting batches for:`, {
-    shopId,
-    branchId,
-    medicineId,
-    options,
-  });
+async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
+  const { includeExpiring = true } = options;
+  // ✅ Removed includeLowStock - no longer needed
 
+ 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -60,15 +58,13 @@ class SalesService {
     medicine_id: medicineId,
     is_active: true,
     is_expired: false,
-    // ✅ Include low stock if requested
-    ...(includeLowStock 
-      ? { available_stock: { gt: 0 } }  // Any stock > 0
-      : { available_stock: { gt: 5 } }  // Only stock > 5
-    ),
+    // ✅ FIX: Always gt: 0 — show any batch with at least 1 unit
+    // Old code used gt: 5 when includeLowStock=false, hiding valid stock
+    available_stock: { gt: 0 },
     expiry_date: { gte: today },
   };
 
-  console.log("📋 Query where clause:", where);
+
 
   const batches = await prisma.inventory.findMany({
     where,
@@ -94,51 +90,48 @@ class SalesService {
         },
       },
     },
-    orderBy: [
-      { expiry_date: "asc" },
-      { batch_number: "asc" },
-    ],
+    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
   });
 
-  console.log(`✅ Found ${batches.length} batches`);
 
-    const enrichedBatches = batches.map((batch) => {
-      const expiryDate = new Date(batch.expiry_date);
-      const daysUntilExpiry = Math.ceil(
-        (expiryDate - today) / (1000 * 60 * 60 * 24)
-      );
 
-      let status = "available";
-      if (daysUntilExpiry <= 30) status = "expiring_soon";
-      if (parseFloat(batch.available_stock) <= 10) status = "low_stock";
+  const enrichedBatches = batches.map((batch) => {
+    const expiryDate = new Date(batch.expiry_date);
+    const daysUntilExpiry = Math.ceil(
+      (expiryDate - today) / (1000 * 60 * 60 * 24),
+    );
 
-      return {
-        ...batch,
-        days_until_expiry: daysUntilExpiry,
-        status,
-        display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString("en-IN", {
+    // ✅ Status for UI display - low_stock warning but doesn't block
+    let status = "available";
+    if (daysUntilExpiry <= 30) status = "expiring_soon";
+    if (parseFloat(batch.available_stock) <= 5) status = "low_stock";
+
+    return {
+      ...batch,
+      days_until_expiry: daysUntilExpiry,
+      status,
+      display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString(
+        "en-IN",
+        {
           month: "short",
           year: "numeric",
-        })} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
-      };
-    });
+        },
+      )} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
+    };
+  });
 
-    let filteredBatches = enrichedBatches;
+  // ✅ REMOVED: The old post-query filter that was hiding low-stock batches
+  // if (!includeLowStock) {
+  //   filteredBatches = filteredBatches.filter((b) => b.days_until_expiry > 30);
+  // }
 
-    if (!includeLowStock) {
-      filteredBatches = filteredBatches.filter(
-        (b) => parseFloat(b.available_stock) > 5
-      );
-    }
-
-    if (!includeExpiring) {
-      filteredBatches = filteredBatches.filter(
-        (b) => b.days_until_expiry > 30
-      );
-    }
-
-    return filteredBatches;
+  // Only filter by expiry preference
+  if (!includeExpiring) {
+    return enrichedBatches.filter((b) => b.days_until_expiry > 30);
   }
+
+  return enrichedBatches;
+}
 
   // ============================================
   // CREATE DRAFT SALE
@@ -150,7 +143,7 @@ class SalesService {
       throw new ApiError(
         "Branch selection is required for sales",
         400,
-        "BRANCH_REQUIRED"
+        "BRANCH_REQUIRED",
       );
     }
 
@@ -176,22 +169,32 @@ class SalesService {
       });
 
       if (!customer) {
-        throw new ApiError("Customer not found or inactive", 404, "CUSTOMER_NOT_FOUND");
+        throw new ApiError(
+          "Customer not found or inactive",
+          404,
+          "CUSTOMER_NOT_FOUND",
+        );
       }
 
       customerDiscountPercent = parseFloat(customer.discount_percent) || 0;
     }
 
-    const stockCheck = await checkStockAvailability(shopId, branchId, data.lineItems);
+    const stockCheck = await checkStockAvailability(
+      shopId,
+      branchId,
+      data.lineItems,
+    );
     if (!stockCheck.isValid) {
       throw new ApiError(
         `Stock validation failed: ${stockCheck.errors.map((e) => e.error).join("; ")}`,
         400,
-        "INSUFFICIENT_STOCK"
+        "INSUFFICIENT_STOCK",
       );
     }
 
-    const medicineIds = [...new Set(data.lineItems.map((item) => item.medicine_id))];
+    const medicineIds = [
+      ...new Set(data.lineItems.map((item) => item.medicine_id)),
+    ];
     const medicines = await prisma.medicine.findMany({
       where: { medicine_id: { in: medicineIds } },
       select: {
@@ -208,15 +211,17 @@ class SalesService {
       const medicine = medicineMap.get(item.medicine_id);
       return {
         ...item,
-        cgst_percent: item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
-        sgst_percent: item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
+        cgst_percent:
+          item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
+        sgst_percent:
+          item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
       };
     });
 
     const calculations = calculateInvoiceTotals(
       enrichedLineItems,
       customerDiscountPercent,
-      parseFloat(data.bill_discount_percent) || 0
+      parseFloat(data.bill_discount_percent) || 0,
     );
 
     const invoiceNumber = await generateSalesInvoiceNumber(shopId, branchId);
@@ -260,65 +265,73 @@ class SalesService {
       });
 
       const lineItems = await Promise.all(
-  enrichedLineItems.map(async (item) => {
-    // ✅ Fetch inventory FIRST to get selling_rate
-    const inventory = await tx.inventory.findUnique({
-      where: { inventory_id: item.inventory_id },
-      select: {
-        batch_number: true,
-        expiry_date: true,
-        mrp: true,
-        selling_rate: true,
-        last_purchase_rate: true,
-      },
-    });
+        enrichedLineItems.map(async (item) => {
+          //  Fetch inventory FIRST to get selling_rate
+          const inventory = await tx.inventory.findUnique({
+            where: { inventory_id: item.inventory_id },
+            select: {
+              batch_number: true,
+              expiry_date: true,
+              mrp: true,
+              selling_rate: true,
+              last_purchase_rate: true,
+            },
+          });
 
-    if (!inventory) {
-      throw new Error(`Inventory record not found for inventory_id: ${item.inventory_id}`);
-    }
+          if (!inventory) {
+            throw new Error(
+              `Inventory record not found for inventory_id: ${item.inventory_id}`,
+            );
+          }
 
-    // ✅ Use selling_rate from inventory for calculations
-    const effectiveSellingRate = inventory.selling_rate || inventory.mrp;
-    const effectiveMRP = item.mrp || inventory.mrp;
+          //  Use selling_rate from inventory for calculations
+          const effectiveSellingRate = inventory.selling_rate || inventory.mrp;
+          const effectiveMRP = item.mrp || inventory.mrp;
 
-    // ✅ Calculate with correct selling rate
-    const itemCalc = calculateLineItem({
-      quantity: item.quantity,
-      mrp: effectiveSellingRate, // ← Use selling_rate for calculation
-      discount_percent: item.discount_percent || 0,
-      cgst_percent: item.cgst_percent,
-      sgst_percent: item.sgst_percent,
-    });
+          //  Calculate with correct selling rate
+          const itemCalc = calculateLineItem({
+            quantity: item.quantity,
+            mrp: effectiveSellingRate, // ← Use selling_rate for calculation
+            discount_percent: item.discount_percent || 0,
+            cgst_percent: item.cgst_percent,
+            sgst_percent: item.sgst_percent,
+          });
 
-    return tx.salesInvoiceItem.create({
-      data: {
-        invoice_id: invoice.invoice_id,
-        medicine_id: item.medicine_id,
-        inventory_id: item.inventory_id,
-        batch_number: inventory.batch_number,
-        expiry_date: inventory.expiry_date,
-        quantity: item.quantity,
-        unit_of_measure: item.unit_of_measure || "UNIT",
-        
-        // ✅ Store both selling_rate and MRP
-        selling_rate: effectiveSellingRate,
-        mrp: effectiveMRP,
-        
-        purchase_rate: inventory.last_purchase_rate || null,
-        discount_percent: item.discount_percent || 0,
-        discount_amount: itemCalc.discount_amount,
-        taxable_amount: itemCalc.taxable_amount,
-        cgst_percent: item.cgst_percent,
-        cgst_amount: itemCalc.cgst_amount,
-        sgst_percent: item.sgst_percent,
-        sgst_amount: itemCalc.sgst_amount,
-        line_total: itemCalc.line_total,
-      },
-    });
-  })
-);
+          return tx.salesInvoiceItem.create({
+            data: {
+              invoice_id: invoice.invoice_id,
+              medicine_id: item.medicine_id,
+              inventory_id: item.inventory_id,
+              batch_number: inventory.batch_number,
+              expiry_date: inventory.expiry_date,
+              quantity: item.quantity,
+              unit_of_measure: item.unit_of_measure || "UNIT",
 
-      await reserveStock(tx, shopId, branchId, enrichedLineItems, invoice.invoice_id);
+              //  Store both selling_rate and MRP
+              selling_rate: effectiveSellingRate,
+              mrp: effectiveMRP,
+
+              purchase_rate: inventory.last_purchase_rate || null,
+              discount_percent: item.discount_percent || 0,
+              discount_amount: itemCalc.discount_amount,
+              taxable_amount: itemCalc.taxable_amount,
+              cgst_percent: item.cgst_percent,
+              cgst_amount: itemCalc.cgst_amount,
+              sgst_percent: item.sgst_percent,
+              sgst_amount: itemCalc.sgst_amount,
+              line_total: itemCalc.line_total,
+            },
+          });
+        }),
+      );
+
+      await reserveStock(
+        tx,
+        shopId,
+        branchId,
+        enrichedLineItems,
+        invoice.invoice_id,
+      );
 
       return { ...invoice, lineItems };
     });
@@ -351,7 +364,14 @@ class SalesService {
   // ADD ITEMS TO EXISTING DRAFT
   // ============================================
 
-  async addItemsToDraft(userId, shopId, branchId, invoiceId, data, auditContext) {
+  async addItemsToDraft(
+    userId,
+    shopId,
+    branchId,
+    invoiceId,
+    data,
+    auditContext,
+  ) {
     const user = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { role: true },
@@ -378,20 +398,26 @@ class SalesService {
       throw new ApiError(
         "Invoice not found or not in draft/parked status",
         404,
-        "NOT_FOUND"
+        "NOT_FOUND",
       );
     }
 
-    const stockCheck = await checkStockAvailability(shopId, branchId, data.lineItems);
+    const stockCheck = await checkStockAvailability(
+      shopId,
+      branchId,
+      data.lineItems,
+    );
     if (!stockCheck.isValid) {
       throw new ApiError(
         `Stock validation failed: ${stockCheck.errors.map((e) => e.error).join("; ")}`,
         400,
-        "INSUFFICIENT_STOCK"
+        "INSUFFICIENT_STOCK",
       );
     }
 
-    const medicineIds = [...new Set(data.lineItems.map((item) => item.medicine_id))];
+    const medicineIds = [
+      ...new Set(data.lineItems.map((item) => item.medicine_id)),
+    ];
     const medicines = await prisma.medicine.findMany({
       where: { medicine_id: { in: medicineIds } },
       select: {
@@ -407,77 +433,85 @@ class SalesService {
       const medicine = medicineMap.get(item.medicine_id);
       return {
         ...item,
-        cgst_percent: item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
-        sgst_percent: item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
+        cgst_percent:
+          item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
+        sgst_percent:
+          item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
       };
     });
 
     const result = await prisma.$transaction(async (tx) => {
       const newItems = await Promise.all(
-  enrichedLineItems.map(async (item) => {
-    // ✅ Fetch inventory FIRST
-    const inventory = await tx.inventory.findUnique({
-      where: { inventory_id: item.inventory_id },
-      select: {
-        batch_number: true,
-        expiry_date: true,
-        mrp: true,
-        selling_rate: true,
-        last_purchase_rate: true,
-      },
-    });
+        enrichedLineItems.map(async (item) => {
+          //  Fetch inventory FIRST
+          const inventory = await tx.inventory.findUnique({
+            where: { inventory_id: item.inventory_id },
+            select: {
+              batch_number: true,
+              expiry_date: true,
+              mrp: true,
+              selling_rate: true,
+              last_purchase_rate: true,
+            },
+          });
 
-    if (!inventory) {
-      throw new Error(`Inventory record not found for inventory_id: ${item.inventory_id}`);
-    }
+          if (!inventory) {
+            throw new Error(
+              `Inventory record not found for inventory_id: ${item.inventory_id}`,
+            );
+          }
 
-    // ✅ Use selling_rate from inventory
-    const effectiveSellingRate = inventory.selling_rate || inventory.mrp;
-    const effectiveMRP = item.mrp || inventory.mrp;
+          //  Use selling_rate from inventory
+          const effectiveSellingRate = inventory.selling_rate || inventory.mrp;
+          const effectiveMRP = item.mrp || inventory.mrp;
 
-    const itemCalc = calculateLineItem({
-      quantity: item.quantity,
-      mrp: effectiveSellingRate, // ← Use selling_rate
-      discount_percent: item.discount_percent || 0,
-      cgst_percent: item.cgst_percent,
-      sgst_percent: item.sgst_percent,
-    });
+          const itemCalc = calculateLineItem({
+            quantity: item.quantity,
+            mrp: effectiveSellingRate, // ← Use selling_rate
+            discount_percent: item.discount_percent || 0,
+            cgst_percent: item.cgst_percent,
+            sgst_percent: item.sgst_percent,
+          });
 
-    return tx.salesInvoiceItem.create({
-      data: {
-        invoice_id: invoiceId,
-        medicine_id: item.medicine_id,
-        inventory_id: item.inventory_id,
-        batch_number: inventory.batch_number,
-        expiry_date: inventory.expiry_date,
-        quantity: item.quantity,
-        unit_of_measure: item.unit_of_measure || "UNIT",
-        
-        // ✅ Store both
-        selling_rate: effectiveSellingRate,
-        mrp: effectiveMRP,
-        
-        purchase_rate: inventory.last_purchase_rate || null,
-        discount_percent: item.discount_percent || 0,
-        discount_amount: itemCalc.discount_amount,
-        taxable_amount: itemCalc.taxable_amount,
-        cgst_percent: item.cgst_percent,
-        cgst_amount: itemCalc.cgst_amount,
-        sgst_percent: item.sgst_percent,
-        sgst_amount: itemCalc.sgst_amount,
-        line_total: itemCalc.line_total,
-      },
-    });
-  })
-);
+          return tx.salesInvoiceItem.create({
+            data: {
+              invoice_id: invoiceId,
+              medicine_id: item.medicine_id,
+              inventory_id: item.inventory_id,
+              batch_number: inventory.batch_number,
+              expiry_date: inventory.expiry_date,
+              quantity: item.quantity,
+              unit_of_measure: item.unit_of_measure || "UNIT",
+
+              //  Store both
+              selling_rate: effectiveSellingRate,
+              mrp: effectiveMRP,
+
+              purchase_rate: inventory.last_purchase_rate || null,
+              discount_percent: item.discount_percent || 0,
+              discount_amount: itemCalc.discount_amount,
+              taxable_amount: itemCalc.taxable_amount,
+              cgst_percent: item.cgst_percent,
+              cgst_amount: itemCalc.cgst_amount,
+              sgst_percent: item.sgst_percent,
+              sgst_amount: itemCalc.sgst_amount,
+              line_total: itemCalc.line_total,
+            },
+          });
+        }),
+      );
       await reserveStock(tx, shopId, branchId, enrichedLineItems, invoiceId);
 
       const allLineItems = await tx.salesInvoiceItem.findMany({
         where: { invoice_id: invoiceId },
       });
 
-      const customerDiscountPercent = parseFloat(invoice.customer?.discount_percent || 0);
-      const billDiscountPercent = parseFloat(invoice.bill_discount_percent || 0);
+      const customerDiscountPercent = parseFloat(
+        invoice.customer?.discount_percent || 0,
+      );
+      const billDiscountPercent = parseFloat(
+        invoice.bill_discount_percent || 0,
+      );
 
       const allItemsForCalc = allLineItems.map((item) => ({
         quantity: parseFloat(item.quantity),
@@ -490,7 +524,7 @@ class SalesService {
       const calculations = calculateInvoiceTotals(
         allItemsForCalc,
         customerDiscountPercent,
-        billDiscountPercent
+        billDiscountPercent,
       );
 
       const updatedInvoice = await tx.salesInvoice.update({
@@ -507,7 +541,8 @@ class SalesService {
           total_tax: calculations.total_tax,
           round_off: calculations.round_off,
           net_amount: calculations.net_amount,
-          balance_amount: calculations.net_amount - parseFloat(invoice.paid_amount || 0),
+          balance_amount:
+            calculations.net_amount - parseFloat(invoice.paid_amount || 0),
         },
       });
 
@@ -521,7 +556,14 @@ class SalesService {
   // REMOVE ITEM FROM DRAFT
   // ============================================
 
-  async removeItemFromDraft(userId, shopId, branchId, invoiceId, itemId, auditContext) {
+  async removeItemFromDraft(
+    userId,
+    shopId,
+    branchId,
+    invoiceId,
+    itemId,
+    auditContext,
+  ) {
     const invoice = await prisma.salesInvoice.findFirst({
       where: {
         invoice_id: invoiceId,
@@ -539,20 +581,26 @@ class SalesService {
       throw new ApiError(
         "Invoice not found or not in draft/parked status",
         404,
-        "NOT_FOUND"
+        "NOT_FOUND",
       );
     }
 
-    const itemToRemove = invoice.lineItems.find((item) => item.item_id === itemId);
+    const itemToRemove = invoice.lineItems.find(
+      (item) => item.item_id === itemId,
+    );
     if (!itemToRemove) {
-      throw new ApiError("Item not found in this invoice", 404, "ITEM_NOT_FOUND");
+      throw new ApiError(
+        "Item not found in this invoice",
+        404,
+        "ITEM_NOT_FOUND",
+      );
     }
 
     if (invoice.lineItems.length === 1) {
       throw new ApiError(
         "Cannot remove the last item. Cancel the invoice instead.",
         400,
-        "LAST_ITEM"
+        "LAST_ITEM",
       );
     }
 
@@ -567,8 +615,12 @@ class SalesService {
         where: { invoice_id: invoiceId },
       });
 
-      const customerDiscountPercent = parseFloat(invoice.customer?.discount_percent || 0);
-      const billDiscountPercent = parseFloat(invoice.bill_discount_percent || 0);
+      const customerDiscountPercent = parseFloat(
+        invoice.customer?.discount_percent || 0,
+      );
+      const billDiscountPercent = parseFloat(
+        invoice.bill_discount_percent || 0,
+      );
 
       const itemsForCalc = remainingItems.map((item) => ({
         quantity: parseFloat(item.quantity),
@@ -581,7 +633,7 @@ class SalesService {
       const calculations = calculateInvoiceTotals(
         itemsForCalc,
         customerDiscountPercent,
-        billDiscountPercent
+        billDiscountPercent,
       );
 
       const updatedInvoice = await tx.salesInvoice.update({
@@ -598,7 +650,8 @@ class SalesService {
           total_tax: calculations.total_tax,
           round_off: calculations.round_off,
           net_amount: calculations.net_amount,
-          balance_amount: calculations.net_amount - parseFloat(invoice.paid_amount || 0),
+          balance_amount:
+            calculations.net_amount - parseFloat(invoice.paid_amount || 0),
         },
       });
 
@@ -775,12 +828,16 @@ class SalesService {
       throw new ApiError(
         "Invoice not found or already confirmed/cancelled",
         404,
-        "NOT_FOUND"
+        "NOT_FOUND",
       );
     }
 
     if (invoice.lineItems.length === 0) {
-      throw new ApiError("Cannot confirm invoice with no items", 400, "NO_ITEMS");
+      throw new ApiError(
+        "Cannot confirm invoice with no items",
+        400,
+        "NO_ITEMS",
+      );
     }
 
     const payments = data?.payments || [];
@@ -801,7 +858,7 @@ class SalesService {
     if (creditAmount > 0 && invoice.customer_id) {
       const creditCheck = await customerService.checkCreditAvailability(
         invoice.customer_id,
-        creditAmount
+        creditAmount,
       );
 
       if (!creditCheck.allowed) {
@@ -813,7 +870,7 @@ class SalesService {
       throw new ApiError(
         "Credit sales require a registered customer",
         400,
-        "CREDIT_REQUIRES_CUSTOMER"
+        "CREDIT_REQUIRES_CUSTOMER",
       );
     }
 
@@ -821,7 +878,7 @@ class SalesService {
       throw new ApiError(
         `Total payment (₹${totalPayment}) exceeds invoice amount (₹${netAmount})`,
         400,
-        "OVERPAYMENT"
+        "OVERPAYMENT",
       );
     }
 
@@ -913,7 +970,8 @@ class SalesService {
       reason_code: audit.AuditReasonCode.USER_REQUEST,
       metadata: {
         invoice_number: invoice.invoice_number,
-        customer_name: invoice.customer?.name || invoice.walkin_name || "Walk-in",
+        customer_name:
+          invoice.customer?.name || invoice.walkin_name || "Walk-in",
         net_amount: netAmount,
         paid_amount: totalPaid,
         credit_amount: creditAmount,
@@ -929,7 +987,14 @@ class SalesService {
   // CANCEL INVOICE
   // ============================================
 
-  async cancelInvoice(userId, shopId, branchId, invoiceId, reason, auditContext) {
+  async cancelInvoice(
+    userId,
+    shopId,
+    branchId,
+    invoiceId,
+    reason,
+    auditContext,
+  ) {
     const user = await prisma.user.findUnique({
       where: { user_id: userId },
       select: { role: true },
@@ -962,7 +1027,7 @@ class SalesService {
       throw new ApiError(
         "Cannot cancel confirmed invoice. Use Sales Return instead.",
         400,
-        "CANNOT_CANCEL_CONFIRMED"
+        "CANNOT_CANCEL_CONFIRMED",
       );
     }
 
@@ -1045,7 +1110,7 @@ class SalesService {
       throw new ApiError(
         `Payment of ₹${paymentAmount} would exceed balance of ₹${invoice.balance_amount}`,
         400,
-        "OVERPAYMENT"
+        "OVERPAYMENT",
       );
     }
 
@@ -1058,7 +1123,9 @@ class SalesService {
           shop_id: shopId,
           branch_id: branchId,
           customer_id: invoice.customer_id,
-          payment_date: data.payment_date ? new Date(data.payment_date) : new Date(),
+          payment_date: data.payment_date
+            ? new Date(data.payment_date)
+            : new Date(),
           amount: paymentAmount,
           payment_mode: data.payment_mode,
           reference_number: data.reference_number || null,
@@ -1076,7 +1143,7 @@ class SalesService {
           balance_amount: paymentCalc.balanceAmount,
           credit_amount: Math.max(
             0,
-            parseFloat(invoice.credit_amount) - paymentAmount
+            parseFloat(invoice.credit_amount) - paymentAmount,
           ),
         },
       });
@@ -1204,54 +1271,55 @@ class SalesService {
   // ============================================
 
   async getInvoiceDetails(invoiceId, shopId, branchId, role, branchMode) {
-  const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
 
-  const invoice = await prisma.salesInvoice.findFirst({
-    where: {
-      invoice_id: invoiceId,
-      ...baseFilter,
-    },
-    include: {
-      customer: true,
-      branch: {
-        select: {
-          branch_id: true,
-          branch_name: true,
-          address_line_1: true,
-          city: true,
-          state: true,
-          pincode: true,
-          contact_number: true,
-        },
+    const invoice = await prisma.salesInvoice.findFirst({
+      where: {
+        invoice_id: invoiceId,
+        ...baseFilter,
       },
-      lineItems: {
-        include: {
-          medicine: {
-            select: {
-              medicine_id: true,
-              name: true,
-              generic_name: true,
-              manufacturer: true,
-              pack_size: true,
-              hsn_code: true,
-              schedule: true,
-            },
-          },
-          inventory: {
-            select: {
-              inventory_id: true,
-              batch_number: true,        // ✅ Make sure this is included
-              expiry_date: true,          // ✅ Make sure this is included
-              current_stock: true,
-              available_stock: true,
-              mrp: true,                  // ✅ Make sure this is included
-              selling_rate: true,         // ✅ Make sure this is included
-              rack_no: true,
-            },
+      include: {
+        customer: true,
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
+            address_line_1: true,
+            city: true,
+            state: true,
+            pincode: true,
+            contact_number: true,
           },
         },
-        orderBy: { created_at: "asc" },
-      },   payments: {
+        lineItems: {
+          include: {
+            medicine: {
+              select: {
+                medicine_id: true,
+                name: true,
+                generic_name: true,
+                manufacturer: true,
+                pack_size: true,
+                hsn_code: true,
+                schedule: true,
+              },
+            },
+            inventory: {
+              select: {
+                inventory_id: true,
+                batch_number: true, //  Make sure this is included
+                expiry_date: true, //  Make sure this is included
+                current_stock: true,
+                available_stock: true,
+                mrp: true, //  Make sure this is included
+                selling_rate: true, //  Make sure this is included
+                rack_no: true,
+              },
+            },
+          },
+          orderBy: { created_at: "asc" },
+        },
+        payments: {
           orderBy: { payment_date: "desc" },
           include: {
             creator: {
@@ -1373,384 +1441,278 @@ class SalesService {
   }
 
   // ============================================
-// UPDATE SALES INVOICE (DRAFT/PARKED only)
-// Completely replaces line items
-// ============================================
+  // UPDATE SALES INVOICE (DRAFT/PARKED only)
+  // Completely replaces line items
+  // ============================================
 
-// ============================================
-// UPDATE SALES INVOICE (DRAFT/PARKED/CONFIRMED for Super Admin)
-// Completely replaces line items
-// For CONFIRMED invoices: restores stock first, then deducts new stock
-// ============================================
+  // ============================================
+  // UPDATE SALES INVOICE (DRAFT/PARKED/CONFIRMED for Super Admin)
+  // Completely replaces line items
+  // For CONFIRMED invoices: restores stock first, then deducts new stock
+  // ============================================
 
-async updateSalesInvoice(userId, shopId, branchId, invoiceId, data, auditContext) {
-  const user = await prisma.user.findUnique({
-    where: { user_id: userId },
-    select: { role: true, full_name: true },
-  });
+  async updateSalesInvoice(
+    userId,
+    shopId,
+    branchId,
+    invoiceId,
+    data,
+    auditContext,
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      select: { role: true, full_name: true },
+    });
 
-  if (!user) {
-    throw new ApiError("User not found", 404, "NOT_FOUND");
-  }
+    if (!user) {
+      throw new ApiError("User not found", 404, "NOT_FOUND");
+    }
 
-  // ✅ FIX: For Super Admin, also allow CONFIRMED status
-  const allowedStatuses = user.role === "super_admin"
-    ? [INVOICE_STATUS.DRAFT, INVOICE_STATUS.PARKED, INVOICE_STATUS.CONFIRMED]
-    : [INVOICE_STATUS.DRAFT, INVOICE_STATUS.PARKED];
+    //  FIX: For Super Admin, also allow CONFIRMED status
+    const allowedStatuses =
+      user.role === "super_admin"
+        ? [
+            INVOICE_STATUS.DRAFT,
+            INVOICE_STATUS.PARKED,
+            INVOICE_STATUS.CONFIRMED,
+          ]
+        : [INVOICE_STATUS.DRAFT, INVOICE_STATUS.PARKED];
 
-  // Fetch existing invoice
-  const existingInvoice = await prisma.salesInvoice.findFirst({
-    where: {
-      invoice_id: invoiceId,
-      shop_id: shopId,
-      branch_id: branchId,
-      status: { in: allowedStatuses },
-    },
-    include: {
-      lineItems: {
-        include: {
-          inventory: true,
-        },
-      },
-      customer: true,
-      // ✅ Check for approved returns - these block editing
-      returnInvoices: {
-        where: {
-          return_approval_status: "APPROVED",
-          status: { not: INVOICE_STATUS.CANCELLED },
-        },
-        select: {
-          invoice_id: true,
-          invoice_number: true,
-          return_approval_status: true,
-        },
-      },
-    },
-  });
-
-  if (!existingInvoice) {
-    // Check if invoice exists but has wrong status
-    const invoiceExists = await prisma.salesInvoice.findFirst({
+    // Fetch existing invoice
+    const existingInvoice = await prisma.salesInvoice.findFirst({
       where: {
         invoice_id: invoiceId,
         shop_id: shopId,
+        branch_id: branchId,
+        status: { in: allowedStatuses },
       },
-      select: { status: true, invoice_number: true },
+      include: {
+        lineItems: {
+          include: {
+            inventory: true,
+          },
+        },
+        customer: true,
+        //  Check for approved returns - these block editing
+        returnInvoices: {
+          where: {
+            return_approval_status: "APPROVED",
+            status: { not: INVOICE_STATUS.CANCELLED },
+          },
+          select: {
+            invoice_id: true,
+            invoice_number: true,
+            return_approval_status: true,
+          },
+        },
+      },
     });
 
-    if (invoiceExists) {
-      if (invoiceExists.status === INVOICE_STATUS.CANCELLED) {
-        throw new ApiError(
-          `Invoice ${invoiceExists.invoice_number} is cancelled and cannot be edited`,
-          400,
-          "INVOICE_CANCELLED"
-        );
-      }
-      if (invoiceExists.status === INVOICE_STATUS.CONFIRMED && user.role !== "super_admin") {
-        throw new ApiError(
-          "Only Super Admin can edit confirmed invoices",
-          403,
-          "PERMISSION_DENIED"
-        );
-      }
-    }
-
-    throw new ApiError(
-      "Invoice not found or not in editable status",
-      404,
-      "NOT_FOUND"
-    );
-  }
-
-  const isConfirmed = existingInvoice.status === INVOICE_STATUS.CONFIRMED;
-
-  // ✅ Block editing if there are approved returns
-  if (existingInvoice.returnInvoices && existingInvoice.returnInvoices.length > 0) {
-    const returnNumbers = existingInvoice.returnInvoices
-      .map((r) => r.invoice_number)
-      .join(", ");
-    throw new ApiError(
-      `Cannot edit invoice with approved returns (${returnNumbers}). Cancel the returns first.`,
-      400,
-      "APPROVED_RETURNS_EXIST"
-    );
-  }
-
-  // ✅ For confirmed invoices, require super_admin
-  if (isConfirmed && user.role !== "super_admin") {
-    throw new ApiError(
-      "Only Super Admin can edit confirmed invoices",
-      403,
-      "PERMISSION_DENIED"
-    );
-  }
-
-  // Validate stock availability for new line items (skip for items we're restoring)
-  if (data.lineItems && data.lineItems.length > 0) {
-    // For confirmed invoices, we need to account for stock that will be restored
-    const stockToRestore = new Map();
-    
-    if (isConfirmed) {
-      for (const item of existingInvoice.lineItems) {
-        const key = item.inventory_id;
-        const current = stockToRestore.get(key) || 0;
-        stockToRestore.set(key, current + parseFloat(item.quantity));
-      }
-    }
-
-    // Check stock with restoration taken into account
-    for (const item of data.lineItems) {
-      const inventory = await prisma.inventory.findFirst({
+    if (!existingInvoice) {
+      // Check if invoice exists but has wrong status
+      const invoiceExists = await prisma.salesInvoice.findFirst({
         where: {
-          inventory_id: item.inventory_id,
+          invoice_id: invoiceId,
           shop_id: shopId,
-          branch_id: branchId,
-          is_active: true,
         },
-        include: {
-          medicine: { select: { name: true } },
-        },
+        select: { status: true, invoice_number: true },
       });
 
-      if (!inventory) {
-        throw new ApiError(
-          `Inventory batch not found: ${item.inventory_id}`,
-          400,
-          "INVENTORY_NOT_FOUND"
-        );
+      if (invoiceExists) {
+        if (invoiceExists.status === INVOICE_STATUS.CANCELLED) {
+          throw new ApiError(
+            `Invoice ${invoiceExists.invoice_number} is cancelled and cannot be edited`,
+            400,
+            "INVOICE_CANCELLED",
+          );
+        }
+        if (
+          invoiceExists.status === INVOICE_STATUS.CONFIRMED &&
+          user.role !== "super_admin"
+        ) {
+          throw new ApiError(
+            "Only Super Admin can edit confirmed invoices",
+            403,
+            "PERMISSION_DENIED",
+          );
+        }
       }
 
-      let availableStock = parseFloat(inventory.available_stock);
-      
-      // If confirmed, add back the stock that will be restored for this batch
-      if (isConfirmed && stockToRestore.has(item.inventory_id)) {
-        availableStock += stockToRestore.get(item.inventory_id);
-      }
-
-      const requestedQty = parseFloat(item.quantity);
-
-      if (availableStock < requestedQty) {
-        throw new ApiError(
-          `Insufficient stock for ${inventory.medicine.name} (Batch: ${inventory.batch_number}). ` +
-          `Available: ${availableStock}, Requested: ${requestedQty}`,
-          400,
-          "INSUFFICIENT_STOCK"
-        );
-      }
-
-      // Check expiry
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const expiryDate = new Date(inventory.expiry_date);
-
-      if (expiryDate < today) {
-        throw new ApiError(
-          `Batch ${inventory.batch_number} has expired on ${expiryDate.toISOString().split("T")[0]}`,
-          400,
-          "BATCH_EXPIRED"
-        );
-      }
+      throw new ApiError(
+        "Invoice not found or not in editable status",
+        404,
+        "NOT_FOUND",
+      );
     }
-  }
 
-  // Get medicine data for GST defaults
-  const medicineIds = data.lineItems 
-    ? [...new Set(data.lineItems.map((item) => item.medicine_id))]
-    : [];
-  
-  const medicines = await prisma.medicine.findMany({
-    where: { medicine_id: { in: medicineIds } },
-    select: {
-      medicine_id: true,
-      name: true,
-      cgst_percentage: true,
-      sgst_percentage: true,
-    },
-  });
+    const isConfirmed = existingInvoice.status === INVOICE_STATUS.CONFIRMED;
 
-  const medicineMap = new Map(medicines.map((m) => [m.medicine_id, m]));
-
-  // Enrich line items with tax defaults
-  const enrichedLineItems = data.lineItems 
-    ? data.lineItems.map((item) => {
-        const medicine = medicineMap.get(item.medicine_id);
-        return {
-          ...item,
-          cgst_percent: item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
-          sgst_percent: item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
-        };
-      })
-    : [];
-
-  // Calculate new totals
-  let calculations;
-  let customerDiscountPercent = parseFloat(existingInvoice.customer_discount_percent || 0);
-  
-  if (data.customer_id && data.customer_id !== existingInvoice.customer_id) {
-    const newCustomer = await prisma.customer.findFirst({
-      where: {
-        customer_id: data.customer_id,
-        shop_id: shopId,
-        is_active: true,
-      },
-    });
-    if (newCustomer) {
-      customerDiscountPercent = parseFloat(newCustomer.discount_percent) || 0;
+    //  Block editing if there are approved returns
+    if (
+      existingInvoice.returnInvoices &&
+      existingInvoice.returnInvoices.length > 0
+    ) {
+      const returnNumbers = existingInvoice.returnInvoices
+        .map((r) => r.invoice_number)
+        .join(", ");
+      throw new ApiError(
+        `Cannot edit invoice with approved returns (${returnNumbers}). Cancel the returns first.`,
+        400,
+        "APPROVED_RETURNS_EXIST",
+      );
     }
-  }
 
-  if (enrichedLineItems.length > 0) {
-    calculations = calculateInvoiceTotals(
-      enrichedLineItems.map(item => ({
-        quantity: item.quantity,
-        mrp: item.selling_rate || item.mrp,
-        discount_percent: item.discount_percent || 0,
-        cgst_percent: item.cgst_percent,
-        sgst_percent: item.sgst_percent,
-      })),
-      customerDiscountPercent,
-      parseFloat(data.bill_discount_percent) || parseFloat(existingInvoice.bill_discount_percent) || 0
-    );
-  }
+    //  For confirmed invoices, require super_admin
+    if (isConfirmed && user.role !== "super_admin") {
+      throw new ApiError(
+        "Only Super Admin can edit confirmed invoices",
+        403,
+        "PERMISSION_DENIED",
+      );
+    }
 
-  const result = await prisma.$transaction(async (tx) => {
-    // ═══════════════════════════════════════════════════════════════════
-    // STEP 1: For CONFIRMED invoices, restore the original stock first
-    // ═══════════════════════════════════════════════════════════════════
-    
-    if (isConfirmed && existingInvoice.lineItems.length > 0) {
-      console.log(`🔄 [Super Admin Edit] Restoring stock for confirmed invoice ${existingInvoice.invoice_number}`);
-      
-      for (const item of existingInvoice.lineItems) {
-        const inventory = await tx.inventory.findUnique({
-          where: { inventory_id: item.inventory_id },
+    // Validate stock availability for new line items (skip for items we're restoring)
+    if (data.lineItems && data.lineItems.length > 0) {
+      // For confirmed invoices, we need to account for stock that will be restored
+      const stockToRestore = new Map();
+
+      if (isConfirmed) {
+        for (const item of existingInvoice.lineItems) {
+          const key = item.inventory_id;
+          const current = stockToRestore.get(key) || 0;
+          stockToRestore.set(key, current + parseFloat(item.quantity));
+        }
+      }
+
+      // Check stock with restoration taken into account
+      for (const item of data.lineItems) {
+        const inventory = await prisma.inventory.findFirst({
+          where: {
+            inventory_id: item.inventory_id,
+            shop_id: shopId,
+            branch_id: branchId,
+            is_active: true,
+          },
+          include: {
+            medicine: { select: { name: true } },
+          },
         });
 
-        if (inventory) {
-          const qty = parseFloat(item.quantity);
-          const currentStock = parseFloat(inventory.current_stock);
-          const currentAvailable = parseFloat(inventory.available_stock);
+        if (!inventory) {
+          throw new ApiError(
+            `Inventory batch not found: ${item.inventory_id}`,
+            400,
+            "INVENTORY_NOT_FOUND",
+          );
+        }
 
-          // Restore stock (reverse the sale deduction)
-          await tx.inventory.update({
-            where: { inventory_id: item.inventory_id },
-            data: {
-              current_stock: currentStock + qty,
-              available_stock: currentAvailable + qty,
-            },
-          });
+        let availableStock = parseFloat(inventory.available_stock);
 
-          // Create stock ledger entry for restoration
-          await tx.stockLedger.create({
-            data: {
-              shop_id: shopId,
-              branch_id: branchId,
-              medicine_id: item.medicine_id,
-              inventory_id: item.inventory_id,
-              batch_number: item.batch_number,
-              expiry_date: new Date(item.expiry_date),
-              movement_type: "SALE_RETURN", // Using SALE_RETURN for stock restoration
-              reference_type: "INVOICE_EDIT_RESTORE",
-              reference_id: existingInvoice.invoice_id,
-              reference_number: `${existingInvoice.invoice_number}-EDIT-RESTORE`,
-              quantity_in: qty,
-              quantity_out: 0,
-              quantity_net: qty,
-              balance_after: currentStock + qty,
-              rate: item.mrp,
-              amount: parseFloat(item.line_total),
-              transaction_date: new Date(),
-              created_by: userId,
-              remarks: `Stock restored for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
-            },
-          });
+        // If confirmed, add back the stock that will be restored for this batch
+        if (isConfirmed && stockToRestore.has(item.inventory_id)) {
+          availableStock += stockToRestore.get(item.inventory_id);
+        }
 
-          console.log(`  ✅ Restored ${qty} units of batch ${item.batch_number}`);
+        const requestedQty = parseFloat(item.quantity);
+
+        if (availableStock < requestedQty) {
+          throw new ApiError(
+            `Insufficient stock for ${inventory.medicine.name} (Batch: ${inventory.batch_number}). ` +
+              `Available: ${availableStock}, Requested: ${requestedQty}`,
+            400,
+            "INSUFFICIENT_STOCK",
+          );
+        }
+
+        // Check expiry
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expiryDate = new Date(inventory.expiry_date);
+
+        if (expiryDate < today) {
+          throw new ApiError(
+            `Batch ${inventory.batch_number} has expired on ${expiryDate.toISOString().split("T")[0]}`,
+            400,
+            "BATCH_EXPIRED",
+          );
         }
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // STEP 2: If line items are provided, replace them all
-    // ═══════════════════════════════════════════════════════════════════
-    
-    if (data.lineItems && data.lineItems.length > 0) {
-      // For DRAFT/PARKED: Release reserved stock
-      if (!isConfirmed) {
-        await releaseReservedStock(tx, existingInvoice.lineItems);
-      }
+    // Get medicine data for GST defaults
+    const medicineIds = data.lineItems
+      ? [...new Set(data.lineItems.map((item) => item.medicine_id))]
+      : [];
 
-      // Delete old line items
-      await tx.salesInvoiceItem.deleteMany({
-        where: { invoice_id: invoiceId },
-      });
+    const medicines = await prisma.medicine.findMany({
+      where: { medicine_id: { in: medicineIds } },
+      select: {
+        medicine_id: true,
+        name: true,
+        cgst_percentage: true,
+        sgst_percentage: true,
+      },
+    });
 
-      // Create new line items
-      const newLineItems = await Promise.all(
-        enrichedLineItems.map(async (item) => {
-          // Fetch inventory data
-          const inventory = await tx.inventory.findUnique({
-            where: { inventory_id: item.inventory_id },
-            select: {
-              batch_number: true,
-              expiry_date: true,
-              mrp: true,
-              selling_rate: true,
-              last_purchase_rate: true,
-            },
-          });
+    const medicineMap = new Map(medicines.map((m) => [m.medicine_id, m]));
 
-          if (!inventory) {
-            throw new Error(`Inventory record not found for inventory_id: ${item.inventory_id}`);
-          }
-
-          // Use selling_rate from inventory or from request
-          const effectiveSellingRate = item.selling_rate || inventory.selling_rate || inventory.mrp;
-          const effectiveMRP = item.mrp || inventory.mrp;
-
-          // Calculate with correct selling rate
-          const itemCalc = calculateLineItem({
-            quantity: item.quantity,
-            mrp: effectiveSellingRate,
-            discount_percent: item.discount_percent || 0,
-            cgst_percent: item.cgst_percent,
-            sgst_percent: item.sgst_percent,
-          });
-
-          return tx.salesInvoiceItem.create({
-            data: {
-              invoice_id: invoiceId,
-              medicine_id: item.medicine_id,
-              inventory_id: item.inventory_id,
-              batch_number: inventory.batch_number,
-              expiry_date: inventory.expiry_date,
-              quantity: item.quantity,
-              unit_of_measure: item.unit_of_measure || "UNIT",
-              selling_rate: effectiveSellingRate,
-              mrp: effectiveMRP,
-              purchase_rate: inventory.last_purchase_rate || null,
-              discount_percent: item.discount_percent || 0,
-              discount_amount: itemCalc.discount_amount,
-              taxable_amount: itemCalc.taxable_amount,
-              cgst_percent: item.cgst_percent,
-              cgst_amount: itemCalc.cgst_amount,
-              sgst_percent: item.sgst_percent,
-              sgst_amount: itemCalc.sgst_amount,
-              line_total: itemCalc.line_total,
-            },
-          });
+    // Enrich line items with tax defaults
+    const enrichedLineItems = data.lineItems
+      ? data.lineItems.map((item) => {
+          const medicine = medicineMap.get(item.medicine_id);
+          return {
+            ...item,
+            cgst_percent:
+              item.cgst_percent ?? parseFloat(medicine?.cgst_percentage || 0),
+            sgst_percent:
+              item.sgst_percent ?? parseFloat(medicine?.sgst_percentage || 0),
+          };
         })
-      );
+      : [];
 
+    // Calculate new totals
+    let calculations;
+    let customerDiscountPercent = parseFloat(
+      existingInvoice.customer_discount_percent || 0,
+    );
+
+    if (data.customer_id && data.customer_id !== existingInvoice.customer_id) {
+      const newCustomer = await prisma.customer.findFirst({
+        where: {
+          customer_id: data.customer_id,
+          shop_id: shopId,
+          is_active: true,
+        },
+      });
+      if (newCustomer) {
+        customerDiscountPercent = parseFloat(newCustomer.discount_percent) || 0;
+      }
+    }
+
+    if (enrichedLineItems.length > 0) {
+      calculations = calculateInvoiceTotals(
+        enrichedLineItems.map((item) => ({
+          quantity: item.quantity,
+          mrp: item.selling_rate || item.mrp,
+          discount_percent: item.discount_percent || 0,
+          cgst_percent: item.cgst_percent,
+          sgst_percent: item.sgst_percent,
+        })),
+        customerDiscountPercent,
+        parseFloat(data.bill_discount_percent) ||
+          parseFloat(existingInvoice.bill_discount_percent) ||
+          0,
+      );
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
       // ═══════════════════════════════════════════════════════════════════
-      // STEP 3: Handle stock for new items
+      // STEP 1: For CONFIRMED invoices, restore the original stock first
       // ═══════════════════════════════════════════════════════════════════
-      
-      if (isConfirmed) {
-        // For CONFIRMED: Deduct stock immediately (like confirmStockDeduction)
-        console.log(`🔄 [Super Admin Edit] Deducting new stock for confirmed invoice`);
+
+      if (isConfirmed && existingInvoice.lineItems.length > 0) {
         
-        for (const item of newLineItems) {
+        for (const item of existingInvoice.lineItems) {
           const inventory = await tx.inventory.findUnique({
             where: { inventory_id: item.inventory_id },
           });
@@ -1760,16 +1722,16 @@ async updateSalesInvoice(userId, shopId, branchId, invoiceId, data, auditContext
             const currentStock = parseFloat(inventory.current_stock);
             const currentAvailable = parseFloat(inventory.available_stock);
 
-            // Deduct stock
+            // Restore stock (reverse the sale deduction)
             await tx.inventory.update({
               where: { inventory_id: item.inventory_id },
               data: {
-                current_stock: currentStock - qty,
-                available_stock: currentAvailable - qty,
+                current_stock: currentStock + qty,
+                available_stock: currentAvailable + qty,
               },
             });
 
-            // Create stock ledger entry for new deduction
+            // Create stock ledger entry for restoration
             await tx.stockLedger.create({
               data: {
                 shop_id: shopId,
@@ -1778,297 +1740,469 @@ async updateSalesInvoice(userId, shopId, branchId, invoiceId, data, auditContext
                 inventory_id: item.inventory_id,
                 batch_number: item.batch_number,
                 expiry_date: new Date(item.expiry_date),
-                movement_type: "SALE",
-                reference_type: "INVOICE_EDIT_DEDUCT",
+                movement_type: "SALE_RETURN", // Using SALE_RETURN for stock restoration
+                reference_type: "INVOICE_EDIT_RESTORE",
                 reference_id: existingInvoice.invoice_id,
-                reference_number: `${existingInvoice.invoice_number}-EDIT-DEDUCT`,
-                quantity_in: 0,
-                quantity_out: qty,
-                quantity_net: -qty,
-                balance_after: currentStock - qty,
+                reference_number: `${existingInvoice.invoice_number}-EDIT-RESTORE`,
+                quantity_in: qty,
+                quantity_out: 0,
+                quantity_net: qty,
+                balance_after: currentStock + qty,
                 rate: item.mrp,
                 amount: parseFloat(item.line_total),
                 transaction_date: new Date(),
                 created_by: userId,
-                remarks: `Stock deducted for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
+                remarks: `Stock restored for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
               },
             });
 
-            console.log(`  ✅ Deducted ${qty} units of batch ${item.batch_number}`);
+           
           }
         }
-      } else {
-        // For DRAFT/PARKED: Reserve new stock
-        await reserveStock(tx, shopId, branchId, enrichedLineItems, invoiceId);
       }
-    }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // STEP 4: Update invoice header
-    // ═══════════════════════════════════════════════════════════════════
-    
-    const updateData = {
-      ...(data.customer_id !== undefined && { customer_id: data.customer_id }),
-      ...(data.walkin_name !== undefined && { walkin_name: data.walkin_name }),
-      ...(data.walkin_phone !== undefined && { walkin_phone: data.walkin_phone }),
-      ...(data.invoice_date && { invoice_date: new Date(data.invoice_date) }),
-      ...(data.due_date && { due_date: new Date(data.due_date) }),
-      ...(data.bill_discount_percent !== undefined && { bill_discount_percent: data.bill_discount_percent }),
-      ...(data.prescription_number !== undefined && { prescription_number: data.prescription_number }),
-      ...(data.doctor_name !== undefined && { doctor_name: data.doctor_name }),
-      ...(data.remarks !== undefined && { remarks: data.remarks }),
-    };
+      // ═══════════════════════════════════════════════════════════════════
+      // STEP 2: If line items are provided, replace them all
+      // ═══════════════════════════════════════════════════════════════════
 
-    // If calculations exist (new line items), update totals
-    if (calculations) {
-      Object.assign(updateData, {
-        subtotal: calculations.subtotal,
-        item_discount_amount: calculations.item_discount_amount,
-        customer_discount_percent: customerDiscountPercent,
-        customer_discount_amount: calculations.customer_discount_amount,
-        bill_discount_percent: parseFloat(data.bill_discount_percent) || parseFloat(existingInvoice.bill_discount_percent) || 0,
-        bill_discount_amount: calculations.bill_discount_amount,
-        total_discount: calculations.total_discount,
-        taxable_amount: calculations.taxable_amount,
-        cgst_amount: calculations.cgst_amount,
-        sgst_amount: calculations.sgst_amount,
-        total_tax: calculations.total_tax,
-        round_off: calculations.round_off,
-        net_amount: calculations.net_amount,
-        balance_amount: calculations.net_amount - parseFloat(existingInvoice.paid_amount || 0),
-      });
-    }
+      if (data.lineItems && data.lineItems.length > 0) {
+        // For DRAFT/PARKED: Release reserved stock
+        if (!isConfirmed) {
+          await releaseReservedStock(tx, existingInvoice.lineItems);
+        }
 
-    const updatedInvoice = await tx.salesInvoice.update({
-      where: { invoice_id: invoiceId },
-      data: updateData,
-      include: {
-        lineItems: {
-          include: {
-            medicine: {
-              select: {
-                medicine_id: true,
-                name: true,
-                manufacturer: true,
-              },
-            },
-            inventory: {
+        // Delete old line items
+        await tx.salesInvoiceItem.deleteMany({
+          where: { invoice_id: invoiceId },
+        });
+
+        // Create new line items
+        const newLineItems = await Promise.all(
+          enrichedLineItems.map(async (item) => {
+            // Fetch inventory data
+            const inventory = await tx.inventory.findUnique({
+              where: { inventory_id: item.inventory_id },
               select: {
                 batch_number: true,
                 expiry_date: true,
-                available_stock: true,
                 mrp: true,
                 selling_rate: true,
+                last_purchase_rate: true,
+              },
+            });
+
+            if (!inventory) {
+              throw new Error(
+                `Inventory record not found for inventory_id: ${item.inventory_id}`,
+              );
+            }
+
+            // Use selling_rate from inventory or from request
+            const effectiveSellingRate =
+              item.selling_rate || inventory.selling_rate || inventory.mrp;
+            const effectiveMRP = item.mrp || inventory.mrp;
+
+            // Calculate with correct selling rate
+            const itemCalc = calculateLineItem({
+              quantity: item.quantity,
+              mrp: effectiveSellingRate,
+              discount_percent: item.discount_percent || 0,
+              cgst_percent: item.cgst_percent,
+              sgst_percent: item.sgst_percent,
+            });
+
+            return tx.salesInvoiceItem.create({
+              data: {
+                invoice_id: invoiceId,
+                medicine_id: item.medicine_id,
+                inventory_id: item.inventory_id,
+                batch_number: inventory.batch_number,
+                expiry_date: inventory.expiry_date,
+                quantity: item.quantity,
+                unit_of_measure: item.unit_of_measure || "UNIT",
+                selling_rate: effectiveSellingRate,
+                mrp: effectiveMRP,
+                purchase_rate: inventory.last_purchase_rate || null,
+                discount_percent: item.discount_percent || 0,
+                discount_amount: itemCalc.discount_amount,
+                taxable_amount: itemCalc.taxable_amount,
+                cgst_percent: item.cgst_percent,
+                cgst_amount: itemCalc.cgst_amount,
+                sgst_percent: item.sgst_percent,
+                sgst_amount: itemCalc.sgst_amount,
+                line_total: itemCalc.line_total,
+              },
+            });
+          }),
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // STEP 3: Handle stock for new items
+        // ═══════════════════════════════════════════════════════════════════
+
+        if (isConfirmed) {
+          // For CONFIRMED: Deduct stock immediately (like confirmStockDeduction)
+         
+
+          for (const item of newLineItems) {
+            const inventory = await tx.inventory.findUnique({
+              where: { inventory_id: item.inventory_id },
+            });
+
+            if (inventory) {
+              const qty = parseFloat(item.quantity);
+              const currentStock = parseFloat(inventory.current_stock);
+              const currentAvailable = parseFloat(inventory.available_stock);
+
+              // Deduct stock
+              await tx.inventory.update({
+                where: { inventory_id: item.inventory_id },
+                data: {
+                  current_stock: currentStock - qty,
+                  available_stock: currentAvailable - qty,
+                },
+              });
+
+              // Create stock ledger entry for new deduction
+              await tx.stockLedger.create({
+                data: {
+                  shop_id: shopId,
+                  branch_id: branchId,
+                  medicine_id: item.medicine_id,
+                  inventory_id: item.inventory_id,
+                  batch_number: item.batch_number,
+                  expiry_date: new Date(item.expiry_date),
+                  movement_type: "SALE",
+                  reference_type: "INVOICE_EDIT_DEDUCT",
+                  reference_id: existingInvoice.invoice_id,
+                  reference_number: `${existingInvoice.invoice_number}-EDIT-DEDUCT`,
+                  quantity_in: 0,
+                  quantity_out: qty,
+                  quantity_net: -qty,
+                  balance_after: currentStock - qty,
+                  rate: item.mrp,
+                  amount: parseFloat(item.line_total),
+                  transaction_date: new Date(),
+                  created_by: userId,
+                  remarks: `Stock deducted for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
+                },
+              });
+
+              
+            }
+          }
+        } else {
+          // For DRAFT/PARKED: Reserve new stock
+          await reserveStock(
+            tx,
+            shopId,
+            branchId,
+            enrichedLineItems,
+            invoiceId,
+          );
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // STEP 4: Update invoice header
+      // ═══════════════════════════════════════════════════════════════════
+
+      const updateData = {
+        ...(data.customer_id !== undefined && {
+          customer_id: data.customer_id,
+        }),
+        ...(data.walkin_name !== undefined && {
+          walkin_name: data.walkin_name,
+        }),
+        ...(data.walkin_phone !== undefined && {
+          walkin_phone: data.walkin_phone,
+        }),
+        ...(data.invoice_date && { invoice_date: new Date(data.invoice_date) }),
+        ...(data.due_date && { due_date: new Date(data.due_date) }),
+        ...(data.bill_discount_percent !== undefined && {
+          bill_discount_percent: data.bill_discount_percent,
+        }),
+        ...(data.prescription_number !== undefined && {
+          prescription_number: data.prescription_number,
+        }),
+        ...(data.doctor_name !== undefined && {
+          doctor_name: data.doctor_name,
+        }),
+        ...(data.remarks !== undefined && { remarks: data.remarks }),
+      };
+
+      // If calculations exist (new line items), update totals
+      if (calculations) {
+        Object.assign(updateData, {
+          subtotal: calculations.subtotal,
+          item_discount_amount: calculations.item_discount_amount,
+          customer_discount_percent: customerDiscountPercent,
+          customer_discount_amount: calculations.customer_discount_amount,
+          bill_discount_percent:
+            parseFloat(data.bill_discount_percent) ||
+            parseFloat(existingInvoice.bill_discount_percent) ||
+            0,
+          bill_discount_amount: calculations.bill_discount_amount,
+          total_discount: calculations.total_discount,
+          taxable_amount: calculations.taxable_amount,
+          cgst_amount: calculations.cgst_amount,
+          sgst_amount: calculations.sgst_amount,
+          total_tax: calculations.total_tax,
+          round_off: calculations.round_off,
+          net_amount: calculations.net_amount,
+          balance_amount:
+            calculations.net_amount -
+            parseFloat(existingInvoice.paid_amount || 0),
+        });
+      }
+
+      const updatedInvoice = await tx.salesInvoice.update({
+        where: { invoice_id: invoiceId },
+        data: updateData,
+        include: {
+          lineItems: {
+            include: {
+              medicine: {
+                select: {
+                  medicine_id: true,
+                  name: true,
+                  manufacturer: true,
+                },
+              },
+              inventory: {
+                select: {
+                  batch_number: true,
+                  expiry_date: true,
+                  available_stock: true,
+                  mrp: true,
+                  selling_rate: true,
+                },
               },
             },
           },
+          customer: true,
         },
+      });
+
+      return updatedInvoice;
+    });
+
+    // Audit log
+    await audit.log({
+      action: isConfirmed
+        ? audit.AuditAction.SALES_INVOICE_EDITED_SUPER_ADMIN
+        : audit.AuditAction.SALES_INVOICE_UPDATED,
+      entity_type: audit.EntityType.SALES_INVOICE,
+      entity_id: invoiceId,
+      shop_id: shopId,
+      branch_id: branchId,
+      actor_type: audit.ActorType.ERP_USER,
+      actor_id: userId,
+      actor_role: user.role,
+      ...auditContext,
+      reason_code: isConfirmed
+        ? audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE
+        : audit.AuditReasonCode.USER_REQUEST,
+      metadata: {
+        invoice_number: result.invoice_number,
+        customer_name: result.customer?.name || result.walkin_name || "Walk-in",
+        was_status: existingInvoice.status,
+        is_confirmed_edit: isConfirmed,
+        new_item_count: result.lineItems?.length || 0,
+        old_item_count: existingInvoice.lineItems?.length || 0,
+        old_net_amount: existingInvoice.net_amount,
+        new_net_amount: calculations?.net_amount || existingInvoice.net_amount,
+      },
+    });
+
+    return result;
+  }
+
+  // ============================================
+  // UPDATE PAYMENT STATUS (Super Admin only)
+  // Direct override of payment status without creating payment record
+  // ============================================
+
+  async updatePaymentStatus(
+    userId,
+    shopId,
+    branchId,
+    invoiceId,
+    data,
+    auditContext,
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      select: { role: true, full_name: true },
+    });
+
+    if (!user) {
+      throw new ApiError("User not found", 404, "NOT_FOUND");
+    }
+
+    // Only super_admin can directly update payment status
+    if (user.role !== "super_admin") {
+      throw new ApiError(
+        "Only Super Admin can directly update payment status",
+        403,
+        "PERMISSION_DENIED",
+      );
+    }
+
+    const invoice = await prisma.salesInvoice.findFirst({
+      where: {
+        invoice_id: invoiceId,
+        shop_id: shopId,
+        status: INVOICE_STATUS.CONFIRMED,
+      },
+      include: {
         customer: true,
       },
     });
 
-    return updatedInvoice;
-  });
-
-  // Audit log
-  await audit.log({
-    action: isConfirmed 
-      ? audit.AuditAction.SALES_INVOICE_EDITED_SUPER_ADMIN 
-      : audit.AuditAction.SALES_INVOICE_UPDATED,
-    entity_type: audit.EntityType.SALES_INVOICE,
-    entity_id: invoiceId,
-    shop_id: shopId,
-    branch_id: branchId,
-    actor_type: audit.ActorType.ERP_USER,
-    actor_id: userId,
-    actor_role: user.role,
-    ...auditContext,
-    reason_code: isConfirmed 
-      ? audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE 
-      : audit.AuditReasonCode.USER_REQUEST,
-    metadata: {
-      invoice_number: result.invoice_number,
-      customer_name: result.customer?.name || result.walkin_name || "Walk-in",
-      was_status: existingInvoice.status,
-      is_confirmed_edit: isConfirmed,
-      new_item_count: result.lineItems?.length || 0,
-      old_item_count: existingInvoice.lineItems?.length || 0,
-      old_net_amount: existingInvoice.net_amount,
-      new_net_amount: calculations?.net_amount || existingInvoice.net_amount,
-    },
-  });
-
-  return result;
-}
-
-// ============================================
-// UPDATE PAYMENT STATUS (Super Admin only)
-// Direct override of payment status without creating payment record
-// ============================================
-
-async updatePaymentStatus(userId, shopId, branchId, invoiceId, data, auditContext) {
-  const user = await prisma.user.findUnique({
-    where: { user_id: userId },
-    select: { role: true, full_name: true },
-  });
-
-  if (!user) {
-    throw new ApiError("User not found", 404, "NOT_FOUND");
-  }
-
-  // Only super_admin can directly update payment status
-  if (user.role !== "super_admin") {
-    throw new ApiError(
-      "Only Super Admin can directly update payment status",
-      403,
-      "PERMISSION_DENIED"
-    );
-  }
-
-  const invoice = await prisma.salesInvoice.findFirst({
-    where: {
-      invoice_id: invoiceId,
-      shop_id: shopId,
-      status: INVOICE_STATUS.CONFIRMED,
-    },
-    include: {
-      customer: true,
-    },
-  });
-
-  if (!invoice) {
-    throw new ApiError(
-      "Confirmed invoice not found",
-      404,
-      "NOT_FOUND"
-    );
-  }
-
-  const netAmount = parseFloat(invoice.net_amount);
-  const currentPaidAmount = parseFloat(invoice.paid_amount) || 0;
-  
-  let newPaidAmount = currentPaidAmount;
-  let newBalanceAmount = parseFloat(invoice.balance_amount);
-  let newPaymentStatus = data.payment_status;
-
-  // Calculate amounts based on new status
-  if (data.payment_status === PAYMENT_STATUS.PAID) {
-    // Mark as fully paid
-    newPaidAmount = data.paid_amount !== undefined ? data.paid_amount : netAmount;
-    newBalanceAmount = 0;
-  } else if (data.payment_status === PAYMENT_STATUS.UNPAID) {
-    // Reset to unpaid
-    newPaidAmount = 0;
-    newBalanceAmount = netAmount;
-  } else if (data.payment_status === PAYMENT_STATUS.PARTIALLY_PAID) {
-    // Use provided paid_amount or keep current
-    if (data.paid_amount !== undefined) {
-      newPaidAmount = data.paid_amount;
-      newBalanceAmount = netAmount - newPaidAmount;
+    if (!invoice) {
+      throw new ApiError("Confirmed invoice not found", 404, "NOT_FOUND");
     }
-    // Validate partial payment
-    if (newPaidAmount <= 0 || newPaidAmount >= netAmount) {
-      throw new ApiError(
-        `For PARTIALLY_PAID status, paid amount must be between ₹1 and ₹${netAmount - 1}`,
-        400,
-        "INVALID_AMOUNT"
-      );
-    }
-  }
 
-  const result = await prisma.$transaction(async (tx) => {
-    // Update invoice payment status
-    const updatedInvoice = await tx.salesInvoice.update({
-      where: { invoice_id: invoiceId },
-      data: {
-        payment_status: newPaymentStatus,
-        paid_amount: newPaidAmount,
-        balance_amount: newBalanceAmount,
-        // Update credit amount if marking as paid
-        ...(data.payment_status === PAYMENT_STATUS.PAID && {
-          credit_amount: 0,
-          is_credit_sale: false,
-        }),
-      },
-    });
+    const netAmount = parseFloat(invoice.net_amount);
+    const currentPaidAmount = parseFloat(invoice.paid_amount) || 0;
 
-    // If customer exists and was credit sale, update customer balance
-    if (invoice.customer_id && invoice.is_credit_sale) {
-      const customer = await tx.customer.findUnique({
-        where: { customer_id: invoice.customer_id },
-      });
+    let newPaidAmount = currentPaidAmount;
+    let newBalanceAmount = parseFloat(invoice.balance_amount);
+    let newPaymentStatus = data.payment_status;
 
-      if (customer) {
-        const currentOutstanding = parseFloat(customer.outstanding_balance) || 0;
-        const originalCreditAmount = parseFloat(invoice.credit_amount) || 0;
-        
-        let newOutstanding = currentOutstanding;
-
-        if (data.payment_status === PAYMENT_STATUS.PAID) {
-          // Reduce outstanding by the credit amount that was on this invoice
-          newOutstanding = Math.max(0, currentOutstanding - originalCreditAmount);
-        } else if (data.payment_status === PAYMENT_STATUS.UNPAID && currentPaidAmount > 0) {
-          // If reverting to unpaid, add back to outstanding
-          newOutstanding = currentOutstanding + currentPaidAmount;
-        }
-
-        if (newOutstanding !== currentOutstanding) {
-          await tx.customer.update({
-            where: { customer_id: invoice.customer_id },
-            data: { outstanding_balance: newOutstanding },
-          });
-
-          // Create customer ledger entry
-          await tx.customerLedger.create({
-            data: {
-              customer_id: invoice.customer_id,
-              shop_id: shopId,
-              branch_id: branchId,
-              transaction_type: "ADJUSTMENT",
-              reference_type: "PAYMENT_STATUS_OVERRIDE",
-              reference_id: invoiceId,
-              reference_number: invoice.invoice_number,
-              debit_amount: newOutstanding > currentOutstanding ? newOutstanding - currentOutstanding : 0,
-              credit_amount: newOutstanding < currentOutstanding ? currentOutstanding - newOutstanding : 0,
-              balance_after: newOutstanding,
-              transaction_date: new Date(),
-              remarks: `Payment status override by Super Admin: ${invoice.payment_status} → ${data.payment_status}`,
-              created_by: userId,
-            },
-          });
-        }
+    // Calculate amounts based on new status
+    if (data.payment_status === PAYMENT_STATUS.PAID) {
+      // Mark as fully paid
+      newPaidAmount =
+        data.paid_amount !== undefined ? data.paid_amount : netAmount;
+      newBalanceAmount = 0;
+    } else if (data.payment_status === PAYMENT_STATUS.UNPAID) {
+      // Reset to unpaid
+      newPaidAmount = 0;
+      newBalanceAmount = netAmount;
+    } else if (data.payment_status === PAYMENT_STATUS.PARTIALLY_PAID) {
+      // Use provided paid_amount or keep current
+      if (data.paid_amount !== undefined) {
+        newPaidAmount = data.paid_amount;
+        newBalanceAmount = netAmount - newPaidAmount;
+      }
+      // Validate partial payment
+      if (newPaidAmount <= 0 || newPaidAmount >= netAmount) {
+        throw new ApiError(
+          `For PARTIALLY_PAID status, paid amount must be between ₹1 and ₹${netAmount - 1}`,
+          400,
+          "INVALID_AMOUNT",
+        );
       }
     }
 
-    return updatedInvoice;
-  });
+    const result = await prisma.$transaction(async (tx) => {
+      // Update invoice payment status
+      const updatedInvoice = await tx.salesInvoice.update({
+        where: { invoice_id: invoiceId },
+        data: {
+          payment_status: newPaymentStatus,
+          paid_amount: newPaidAmount,
+          balance_amount: newBalanceAmount,
+          // Update credit amount if marking as paid
+          ...(data.payment_status === PAYMENT_STATUS.PAID && {
+            credit_amount: 0,
+            is_credit_sale: false,
+          }),
+        },
+      });
 
-  // Audit log
-  await audit.log({
-    action: audit.AuditAction.SALES_PAYMENT_STATUS_UPDATED,
-    entity_type: audit.EntityType.SALES_INVOICE,
-    entity_id: invoiceId,
-    shop_id: shopId,
-    branch_id: branchId,
-    actor_type: audit.ActorType.ERP_USER,
-    actor_id: userId,
-    actor_role: user.role,
-    ...auditContext,
-    reason_code: audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE,
-    metadata: {
-      invoice_number: invoice.invoice_number,
-      customer_name: invoice.customer?.name || invoice.walkin_name || "Walk-in",
-      old_payment_status: invoice.payment_status,
-      new_payment_status: data.payment_status,
-      old_paid_amount: currentPaidAmount,
-      new_paid_amount: newPaidAmount,
-      net_amount: netAmount,
-    },
-  });
+      // If customer exists and was credit sale, update customer balance
+      if (invoice.customer_id && invoice.is_credit_sale) {
+        const customer = await tx.customer.findUnique({
+          where: { customer_id: invoice.customer_id },
+        });
 
-  return result;
-}
+        if (customer) {
+          const currentOutstanding =
+            parseFloat(customer.outstanding_balance) || 0;
+          const originalCreditAmount = parseFloat(invoice.credit_amount) || 0;
 
+          let newOutstanding = currentOutstanding;
+
+          if (data.payment_status === PAYMENT_STATUS.PAID) {
+            // Reduce outstanding by the credit amount that was on this invoice
+            newOutstanding = Math.max(
+              0,
+              currentOutstanding - originalCreditAmount,
+            );
+          } else if (
+            data.payment_status === PAYMENT_STATUS.UNPAID &&
+            currentPaidAmount > 0
+          ) {
+            // If reverting to unpaid, add back to outstanding
+            newOutstanding = currentOutstanding + currentPaidAmount;
+          }
+
+          if (newOutstanding !== currentOutstanding) {
+            await tx.customer.update({
+              where: { customer_id: invoice.customer_id },
+              data: { outstanding_balance: newOutstanding },
+            });
+
+            // Create customer ledger entry
+            await tx.customerLedger.create({
+              data: {
+                customer_id: invoice.customer_id,
+                shop_id: shopId,
+                branch_id: branchId,
+                transaction_type: "ADJUSTMENT",
+                reference_type: "PAYMENT_STATUS_OVERRIDE",
+                reference_id: invoiceId,
+                reference_number: invoice.invoice_number,
+                debit_amount:
+                  newOutstanding > currentOutstanding
+                    ? newOutstanding - currentOutstanding
+                    : 0,
+                credit_amount:
+                  newOutstanding < currentOutstanding
+                    ? currentOutstanding - newOutstanding
+                    : 0,
+                balance_after: newOutstanding,
+                transaction_date: new Date(),
+                remarks: `Payment status override by Super Admin: ${invoice.payment_status} → ${data.payment_status}`,
+                created_by: userId,
+              },
+            });
+          }
+        }
+      }
+
+      return updatedInvoice;
+    });
+
+    // Audit log
+    await audit.log({
+      action: audit.AuditAction.SALES_PAYMENT_STATUS_UPDATED,
+      entity_type: audit.EntityType.SALES_INVOICE,
+      entity_id: invoiceId,
+      shop_id: shopId,
+      branch_id: branchId,
+      actor_type: audit.ActorType.ERP_USER,
+      actor_id: userId,
+      actor_role: user.role,
+      ...auditContext,
+      reason_code: audit.AuditReasonCode.SUPER_ADMIN_OVERRIDE,
+      metadata: {
+        invoice_number: invoice.invoice_number,
+        customer_name:
+          invoice.customer?.name || invoice.walkin_name || "Walk-in",
+        old_payment_status: invoice.payment_status,
+        new_payment_status: data.payment_status,
+        old_paid_amount: currentPaidAmount,
+        new_paid_amount: newPaidAmount,
+        net_amount: netAmount,
+      },
+    });
+
+    return result;
+  }
 }
 
 export default new SalesService();

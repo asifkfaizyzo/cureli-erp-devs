@@ -7,10 +7,10 @@ import * as audit from "../audit/index.js";
  * UPLOAD SHOP FILE (Initial upload during onboarding)
  */
 export async function uploadShopFile(fileData) {
-  const shop = await prisma.shop.findUnique({ 
-    where: { shop_id: fileData.shop_id } 
+  const shop = await prisma.shop.findUnique({
+    where: { shop_id: fileData.shop_id },
   });
-  
+
   if (!shop) {
     const err = new Error("Shop not found");
     err.code = "NO_SHOP";
@@ -33,24 +33,27 @@ export async function uploadShopFile(fileData) {
 
     await tx.shop.update({
       where: { shop_id: fileData.shop_id },
-      data: { verification_status: "pending_review" }
+      data: { verification_status: "pending_review" },
     });
 
-    // ✅ AUDIT: Document uploaded by owner
-    await audit.log({
-      action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED,
-      entity_type: audit.EntityType.DOCUMENT,
-      entity_id: file.file_id,
-      shop_id: fileData.shop_id,
-      ...fileData.auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        file_type: file.file_type,
-        original_name: file.original_name,
-        mime_type: file.mime_type,
-        file_size: file.file_size,
+    //  AUDIT: Document uploaded by owner
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED,
+        entity_type: audit.EntityType.DOCUMENT,
+        entity_id: file.file_id,
+        shop_id: fileData.shop_id,
+        ...fileData.auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          file_type: file.file_type,
+          original_name: file.original_name,
+          mime_type: file.mime_type,
+          file_size: file.file_size,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return file;
   });
@@ -68,8 +71,8 @@ export async function uploadShopFile(fileData) {
   const targetStep = mapping[fileData.file_type];
 
   if (targetStep) {
-    const user = await prisma.user.findUnique({ 
-      where: { user_id: fileData.user_id } 
+    const user = await prisma.user.findUnique({
+      where: { user_id: fileData.user_id },
     });
     if (user && (user.onboarding_step || 4) < targetStep) {
       await prisma.user.update({
@@ -117,13 +120,13 @@ export async function resubmitFile({
   auditContext = {},
 }) {
   const old = await prisma.shopFile.findUnique({ where: { file_id } });
-  
+
   if (!old) {
     const err = new Error("File not found");
     err.code = "FILE_NOT_FOUND";
     throw err;
   }
-  
+
   if (old.shop_id !== shop_id) {
     const err = new Error("Forbidden");
     err.code = "FORBIDDEN";
@@ -150,23 +153,23 @@ export async function resubmitFile({
 
     await tx.shop.update({
       where: { shop_id },
-      data: { verification_status: "pending_review" }
+      data: { verification_status: "pending_review" },
     });
 
     const shop = await tx.shop.findUnique({
       where: { shop_id },
-      select: { owner_user_id: true }
+      select: { owner_user_id: true },
     });
 
     if (shop?.owner_user_id) {
       await tx.user.update({
         where: { user_id: shop.owner_user_id },
-        data: { 
+        data: {
           status: "pending_verification",
-          first_login_after_verification: false
-        }
+          first_login_after_verification: false,
+        },
       });
-      console.log("✅ Reset user status to pending_verification");
+     
     }
 
     // Legacy log (for backward compatibility with UI that reads this table)
@@ -180,22 +183,25 @@ export async function resubmitFile({
       },
     });
 
-    // ✅ AUDIT: Document resubmitted
-    await audit.log({
-      action: audit.AuditAction.SHOP_DOCUMENT_RESUBMITTED,
-      entity_type: audit.EntityType.DOCUMENT,
-      entity_id: file_id,
-      shop_id: shop_id,
-      ...auditContext,
-      reason_code: audit.AuditReasonCode.USER_REQUEST,
-      metadata: {
-        file_type: old.file_type,
-        resubmission_count: updated.resubmission_count,
-        owner_message: owner_message,
-        previous_status: old.status,
-        new_status: updated.status,
+    //  AUDIT: Document resubmitted
+    await audit.log(
+      {
+        action: audit.AuditAction.SHOP_DOCUMENT_RESUBMITTED,
+        entity_type: audit.EntityType.DOCUMENT,
+        entity_id: file_id,
+        shop_id: shop_id,
+        ...auditContext,
+        reason_code: audit.AuditReasonCode.USER_REQUEST,
+        metadata: {
+          file_type: old.file_type,
+          resubmission_count: updated.resubmission_count,
+          owner_message: owner_message,
+          previous_status: old.status,
+          new_status: updated.status,
+        },
       },
-    }, { tx });
+      { tx },
+    );
 
     return updated;
   });
@@ -209,7 +215,7 @@ export async function resubmitFile({
  */
 export async function ownerMessage({ file_id, shop_id, message }) {
   const file = await prisma.shopFile.findUnique({ where: { file_id } });
-  
+
   if (!file || file.shop_id !== shop_id) {
     const err = new Error("Forbidden");
     err.code = "FORBIDDEN";

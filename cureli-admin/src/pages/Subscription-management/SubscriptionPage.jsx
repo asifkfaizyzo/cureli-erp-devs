@@ -30,10 +30,16 @@ import CreatePlanModal from "./comps/plans/CreatePlanModal";
 import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
 
 // Config
-import { generateCloneName, PLAN_STATUS } from "../../config/modules/subscriptionConfig";
+import {
+  generateCloneName,
+  PLAN_STATUS,
+} from "../../config/modules/subscriptionConfig";
 
 // Utils
-import { normalizePlans, countPlansNeedingReview } from "../../utils/normalizePlan";
+import {
+  normalizePlans,
+  countPlansNeedingReview,
+} from "../../utils/normalizePlan";
 
 // API
 import {
@@ -131,15 +137,17 @@ export default function SubscriptionPage() {
 
       if (plansResponse.success) {
         const rawPlans = plansResponse.data.plans || [];
-        const normalizedPlans = normalizePlans(rawPlans, { flagForReview: true });
-        
+        const normalizedPlans = normalizePlans(rawPlans, {
+          flagForReview: true,
+        });
+
         setPlans(normalizedPlans);
-        
+
         const reviewCount = countPlansNeedingReview(normalizedPlans);
         if (reviewCount > 0) {
           toast.warning(
             "Expired Promos Detected",
-            `${reviewCount} plan(s) have expired promos that need attention.`
+            `${reviewCount} plan(s) have expired promos that need attention.`,
           );
         }
       }
@@ -199,15 +207,27 @@ export default function SubscriptionPage() {
     return filteredPlans.slice(startIndex, startIndex + PLANS_PER_PAGE);
   }, [filteredPlans, currentPage]);
 
-  const planCounts = useMemo(() => ({
-    all: plans.length,
-    [PLAN_STATUS.ACTIVE]: stats.active || plans.filter((p) => p.status === PLAN_STATUS.ACTIVE).length,
-    [PLAN_STATUS.DRAFT]: stats.draft || plans.filter((p) => p.status === PLAN_STATUS.DRAFT).length,
-    [PLAN_STATUS.DEPRECATED]: stats.deprecated || plans.filter((p) => p.status === PLAN_STATUS.DEPRECATED).length,
-    [PLAN_STATUS.SUSPENDED]: stats.suspended || plans.filter((p) => p.status === PLAN_STATUS.SUSPENDED).length,
-  }), [plans, stats]);
+  const planCounts = useMemo(
+    () => ({
+      all: plans.length,
+      [PLAN_STATUS.ACTIVE]:
+        stats.active ||
+        plans.filter((p) => p.status === PLAN_STATUS.ACTIVE).length,
+      [PLAN_STATUS.DRAFT]:
+        stats.draft ||
+        plans.filter((p) => p.status === PLAN_STATUS.DRAFT).length,
+      [PLAN_STATUS.DEPRECATED]:
+        stats.deprecated ||
+        plans.filter((p) => p.status === PLAN_STATUS.DEPRECATED).length,
+      [PLAN_STATUS.SUSPENDED]:
+        stats.suspended ||
+        plans.filter((p) => p.status === PLAN_STATUS.SUSPENDED).length,
+    }),
+    [plans, stats],
+  );
 
-  const hasActiveFilters = searchQuery.trim().length > 0 || statusFilter !== "all";
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || statusFilter !== "all";
 
   // ============================================
   // PLAN ACTIONS
@@ -215,13 +235,19 @@ export default function SubscriptionPage() {
 
   const handlePlanAction = (actionType, plan) => {
     // Check permissions for edit/delete actions
-    if ((actionType === 'edit' || actionType === 'clone') && !canEdit) {
-      toast.warning("Permission Denied", "You don't have permission to edit plans");
+    if ((actionType === "edit" || actionType === "clone") && !canEdit) {
+      toast.warning(
+        "Permission Denied",
+        "You don't have permission to edit plans",
+      );
       return;
     }
 
-    if (actionType === 'delete' && !canDelete) {
-      toast.warning("Permission Denied", "You don't have permission to delete plans");
+    if (actionType === "delete" && !canDelete) {
+      toast.warning(
+        "Permission Denied",
+        "You don't have permission to delete plans",
+      );
       return;
     }
 
@@ -305,7 +331,7 @@ export default function SubscriptionPage() {
 
         toast.success(
           action.charAt(0).toUpperCase() + action.slice(1) + " Successful",
-          actionMessages[action]
+          actionMessages[action],
         );
 
         if (action === "clone" && planTypeFilter === "CUSTOM") {
@@ -314,10 +340,11 @@ export default function SubscriptionPage() {
       }
     } catch (err) {
       console.error(`Failed to ${action} plan:`, err);
-      const errorMsg = err.response?.data?.message || `Failed to ${action} plan`;
+      const errorMsg =
+        err.response?.data?.message || `Failed to ${action} plan`;
       toast.error(
         `${action.charAt(0).toUpperCase() + action.slice(1)} Failed`,
-        errorMsg
+        errorMsg,
       );
     } finally {
       setActionLoading(false);
@@ -327,7 +354,7 @@ export default function SubscriptionPage() {
 
   const handleCreatePlan = async (formData) => {
     setActionLoading(true);
-
+ console.log("🚀 API Payload:", JSON.stringify(formData, null, 2));
     try {
       const apiData = {
         name: formData.name,
@@ -350,6 +377,30 @@ export default function SubscriptionPage() {
         apiData.promo_free_until = formData.promo_free_until;
       }
 
+      // ── Intro pricing fields ──────────────────────────────────────────
+      if (
+        formData.intro_price !== undefined &&
+        formData.intro_price !== null &&
+        formData.intro_price !== "" &&
+        formData.intro_trigger_type
+      ) {
+        apiData.intro_price = Number(formData.intro_price);
+        apiData.intro_trigger_type = formData.intro_trigger_type;
+
+        if (
+          formData.intro_trigger_type === "duration" &&
+          formData.intro_duration_years
+        ) {
+          apiData.intro_duration_years = Number(
+            formData.intro_duration_years,
+          );
+        }
+        if (formData.intro_trigger_type === "date" && formData.intro_end_date) {
+          apiData.intro_end_date = formData.intro_end_date;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       const response = await createPlan(apiData);
 
       if (response?.success) {
@@ -359,8 +410,10 @@ export default function SubscriptionPage() {
         await fetchPlans();
         setCreateModalOpen(false);
         setCurrentPage(1);
-
-        toast.success("Plan Created", `${formData.name} has been created successfully.`);
+        toast.success(
+          "Plan Created",
+          `${formData.name} has been created successfully.`,
+        );
       }
     } catch (err) {
       console.error("Failed to create plan:", err);
@@ -390,6 +443,20 @@ export default function SubscriptionPage() {
           ? Number(updatedPlan.bonus_months)
           : 0,
         promo_free_until: updatedPlan.promo_free_until || null,
+
+        // ── Intro pricing fields ────────────────────────────────────────
+        intro_price:
+          updatedPlan.intro_price !== null &&
+          updatedPlan.intro_price !== undefined &&
+          updatedPlan.intro_price !== ""
+            ? Number(updatedPlan.intro_price)
+            : null,
+        intro_trigger_type: updatedPlan.intro_trigger_type || null,
+        intro_duration_years: updatedPlan.intro_duration_years
+          ? Number(updatedPlan.intro_duration_years)
+          : null,
+        intro_end_date: updatedPlan.intro_end_date || null,
+        // ─────────────────────────────────────────────────────────────────
       };
 
       const response = await updatePlan(updatedPlan.plan_id, updateData);
@@ -398,8 +465,10 @@ export default function SubscriptionPage() {
         await fetchPlans();
         setPlanModalOpen(false);
         setSelectedPlan(null);
-
-        toast.success("Plan Updated", `${updatedPlan.name} has been updated successfully.`);
+        toast.success(
+          "Plan Updated",
+          `${updatedPlan.name} has been updated successfully.`,
+        );
       }
     } catch (err) {
       console.error("Failed to update plan:", err);
@@ -439,7 +508,9 @@ export default function SubscriptionPage() {
           <div className="p-4 bg-red-100 rounded-full">
             <AlertCircle size={40} className="text-red-500" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Failed to Load Plans</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Failed to Load Plans
+          </h3>
           <p className="text-gray-500 text-sm">{error}</p>
           <button
             onClick={handleRefresh}
@@ -465,7 +536,10 @@ export default function SubscriptionPage() {
             <AlertCircle size={18} />
             <span className="text-sm">{error}</span>
           </div>
-          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">
+          <button
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-700"
+          >
             <X size={16} />
           </button>
         </div>
@@ -477,7 +551,8 @@ export default function SubscriptionPage() {
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-amber-600" />
             <span className="text-sm font-medium">
-              {plansNeedingReview} plan{plansNeedingReview !== 1 ? 's' : ''} with expired promos need attention
+              {plansNeedingReview} plan{plansNeedingReview !== 1 ? "s" : ""}{" "}
+              with expired promos need attention
             </span>
             <span className="text-xs text-amber-600">
               (Look for plans with warning indicators)
@@ -498,7 +573,8 @@ export default function SubscriptionPage() {
                 Subscription Plans
               </h1>
               <p className="text-sm text-gray-500">
-                {stats.total} total plan{stats.total !== 1 ? "s" : ""} • {stats.active} active
+                {stats.total} total plan{stats.total !== 1 ? "s" : ""} •{" "}
+                {stats.active} active
                 {plansNeedingReview > 0 && (
                   <span className="text-amber-600 ml-2">
                     • {plansNeedingReview} need review
@@ -566,7 +642,10 @@ export default function SubscriptionPage() {
 
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
                 placeholder="Search plans..."
@@ -598,7 +677,8 @@ export default function SubscriptionPage() {
                   const isActive = statusFilter === filterOption.key;
 
                   if (
-                    (filterOption.key === PLAN_STATUS.DEPRECATED || filterOption.key === PLAN_STATUS.SUSPENDED) &&
+                    (filterOption.key === PLAN_STATUS.DEPRECATED ||
+                      filterOption.key === PLAN_STATUS.SUSPENDED) &&
                     count === 0
                   ) {
                     return null;
@@ -609,16 +689,21 @@ export default function SubscriptionPage() {
                       key={filterOption.key}
                       onClick={() => setStatusFilter(filterOption.key)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                        ${isActive
-                          ? "bg-[#000060] text-white shadow-sm"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        ${
+                          isActive
+                            ? "bg-[#000060] text-white shadow-sm"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                     >
                       <Icon size={14} />
                       {filterOption.label}
-                      <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                        isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-600"
-                      }`}>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-xs ${
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
                         {count}
                       </span>
                     </button>
@@ -668,20 +753,21 @@ export default function SubscriptionPage() {
 
           {planTypeFilter === "CUSTOM" && (
             <div className="text-sm text-gray-500 italic">
-              Custom plans are created specifically for individual shops when assigning subscriptions.
+              Custom plans are created specifically for individual shops when
+              assigning subscriptions.
             </div>
           )}
         </div>
       </div>
 
       {/* Plans Grid */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 pt-1 overflow-auto">
         {paginatedPlans.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
             {paginatedPlans.map((plan) => (
-              <PlanCard 
-                key={plan.plan_id} 
-                plan={plan} 
+              <PlanCard
+                key={plan.plan_id}
+                plan={plan}
                 onAction={handlePlanAction}
                 needsReview={plan._needs_review}
                 canEdit={canEdit}
@@ -695,14 +781,16 @@ export default function SubscriptionPage() {
               <BadgeIndianRupee size={40} className="text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">
-              {planTypeFilter === "CUSTOM" ? "No Custom Plans" : "No Plans Found"}
+              {planTypeFilter === "CUSTOM"
+                ? "No Custom Plans"
+                : "No Plans Found"}
             </h3>
             <p className="text-gray-500 mb-5 text-center max-w-md text-sm">
               {planTypeFilter === "CUSTOM"
                 ? "Custom plans are created when assigning subscriptions to individual shops."
                 : hasActiveFilters
-                ? "No plans match your current filters. Try adjusting your search or filter criteria."
-                : "Get started by creating your first subscription plan."}
+                  ? "No plans match your current filters. Try adjusting your search or filter criteria."
+                  : "Get started by creating your first subscription plan."}
             </p>
             {planTypeFilter === "PRE_MADE" && hasActiveFilters ? (
               <button
@@ -770,7 +858,12 @@ export default function SubscriptionPage() {
       <ConfirmActionModal
         isOpen={confirmModal.open}
         onClose={() =>
-          setConfirmModal({ open: false, action: null, plan: null, newName: null })
+          setConfirmModal({
+            open: false,
+            action: null,
+            plan: null,
+            newName: null,
+          })
         }
         onConfirm={handleConfirmAction}
         action={confirmModal.action}

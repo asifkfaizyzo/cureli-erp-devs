@@ -2,12 +2,18 @@
 
 import prisma from "../../config/prisma.js";
 import { hashPassword } from "../../utils/hash.js";
-import { msg91SendSms, formatPhoneNumber } from "../../providers/msg91/sendSms.js";
+import {
+  msg91SendSms,
+  formatPhoneNumber,
+} from "../../providers/msg91/sendSms.js";
 import { generateOtp, hashOtp, verifyOtp } from "../../utils/otp.js";
 import { notify } from "../notifications/index.js";
 import { NOTIFICATION_EVENTS } from "../notifications/notification.events.js";
 import * as audit from "../audit/index.js";
-import { checkSmsOtpLimit, checkEmailOtpLimit } from "../../utils/otpLimiter.js";
+import {
+  checkSmsOtpLimit,
+  checkEmailOtpLimit,
+} from "../../utils/otpLimiter.js";
 
 // ============================================
 // CONSTANTS
@@ -93,7 +99,7 @@ export async function createPendingUserFromGoogle({
 
     if (existingGoogleUser) {
       const err = new Error(
-        "This Google account is already registered. Please login instead."
+        "This Google account is already registered. Please login instead.",
       );
       err.code = "GOOGLE_ID_EXISTS";
       throw err;
@@ -189,15 +195,19 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     const expiresAt = new Date(pending.email_otp_expires);
     const now = new Date();
 
-    const otpSentAt = new Date(expiresAt.getTime() - EMAIL_OTP_VALIDITY_SECONDS * 1000);
+    const otpSentAt = new Date(
+      expiresAt.getTime() - EMAIL_OTP_VALIDITY_SECONDS * 1000,
+    );
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    const cooldownSeconds = isResend ? RESEND_COOLDOWN_SECONDS : INITIAL_COOLDOWN_SECONDS;
+    const cooldownSeconds = isResend
+      ? RESEND_COOLDOWN_SECONDS
+      : INITIAL_COOLDOWN_SECONDS;
 
     if (secondsSinceSent < cooldownSeconds) {
       const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
       const err = new Error(
-        `Please wait ${waitTime} seconds before requesting a new OTP.`
+        `Please wait ${waitTime} seconds before requesting a new OTP.`,
       );
       err.code = "OTP_COOLDOWN";
       err.waitTime = waitTime;
@@ -208,7 +218,9 @@ export async function sendEmailOtp(pending_id, isResend = false) {
   // Check daily email OTP limit
   const limitCheck = await checkEmailOtpLimit(pending.email);
   if (!limitCheck.allowed) {
-    const err = new Error("Daily OTP limit reached for this email. Please try again tomorrow.");
+    const err = new Error(
+      "Daily OTP limit reached for this email. Please try again tomorrow.",
+    );
     err.code = "OTP_DAILY_LIMIT";
     throw err;
   }
@@ -222,7 +234,9 @@ export async function sendEmailOtp(pending_id, isResend = false) {
     where: { pending_id },
     data: {
       email_otp_hash: hash,
-      email_otp_expires: new Date(Date.now() + EMAIL_OTP_VALIDITY_SECONDS * 1000),
+      email_otp_expires: new Date(
+        Date.now() + EMAIL_OTP_VALIDITY_SECONDS * 1000,
+      ),
       email_otp_attempts: 0,
     },
   });
@@ -267,7 +281,9 @@ export async function verifyEmailOtp(pending_id, otp) {
   // Check attempt limit
   const attempts = pending.email_otp_attempts || 0;
   if (attempts >= MAX_OTP_ATTEMPTS) {
-    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    const err = new Error(
+      "Too many failed attempts. Please request a new OTP.",
+    );
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
@@ -306,7 +322,7 @@ export async function verifyEmailOtp(pending_id, otp) {
 // ============================================
 
 export async function sendSmsOtp(pending_id, phone, isResend = false) {
-  console.log("📱 sendSmsOtp called with:", { pending_id, phone });
+  
 
   const pending = await prisma.pendingUser.findUnique({
     where: { pending_id },
@@ -325,7 +341,9 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
   });
 
   if (existingUser) {
-    const err = new Error("This phone number is already registered. Please login or use a different number.");
+    const err = new Error(
+      "This phone number is already registered. Please login or use a different number.",
+    );
     err.code = "PHONE_EXISTS";
     throw err;
   }
@@ -341,7 +359,9 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
   });
 
   if (existingPending) {
-    const err = new Error("This phone number is already in use by another signup.");
+    const err = new Error(
+      "This phone number is already in use by another signup.",
+    );
     err.code = "PHONE_PENDING_EXISTS";
     throw err;
   }
@@ -351,15 +371,19 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     const expiresAt = new Date(pending.sms_otp_expires);
     const now = new Date();
 
-    const otpSentAt = new Date(expiresAt.getTime() - OTP_VALIDITY_SECONDS * 1000);
+    const otpSentAt = new Date(
+      expiresAt.getTime() - OTP_VALIDITY_SECONDS * 1000,
+    );
     const secondsSinceSent = (now - otpSentAt) / 1000;
 
-    const cooldownSeconds = isResend ? RESEND_COOLDOWN_SECONDS : INITIAL_COOLDOWN_SECONDS;
+    const cooldownSeconds = isResend
+      ? RESEND_COOLDOWN_SECONDS
+      : INITIAL_COOLDOWN_SECONDS;
 
     if (secondsSinceSent < cooldownSeconds) {
       const waitTime = Math.ceil(cooldownSeconds - secondsSinceSent);
       const err = new Error(
-        `Please wait ${waitTime} seconds before requesting a new OTP.`
+        `Please wait ${waitTime} seconds before requesting a new OTP.`,
       );
       err.code = "OTP_COOLDOWN";
       err.waitTime = waitTime;
@@ -370,12 +394,14 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
   // Check daily SMS limit
   const limitCheck = await checkSmsOtpLimit(phone);
   if (!limitCheck.allowed) {
-    const err = new Error("Daily OTP limit reached for this phone number. Please try again tomorrow.");
+    const err = new Error(
+      "Daily OTP limit reached for this phone number. Please try again tomorrow.",
+    );
     err.code = "OTP_DAILY_LIMIT";
     throw err;
   }
 
-  console.log("🔑 Generating OTP...");
+  
 
   // Generate OTP
   const otpLength = Number(process.env.SMS_OTP_LENGTH || 4);
@@ -392,7 +418,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     },
   });
 
-  console.log("✅ SMS sent successfully");
+
 
   // Store OTP hash
   await prisma.pendingUser.update({
@@ -405,7 +431,7 @@ export async function sendSmsOtp(pending_id, phone, isResend = false) {
     },
   });
 
-  console.log("✅ Database updated successfully");
+ 
 
   return { success: true, timeout: OTP_VALIDITY_SECONDS };
 }
@@ -442,7 +468,9 @@ export async function verifySmsOtp(pending_id, code) {
   // Check attempt limit
   const attempts = pending.sms_otp_attempts || 0;
   if (attempts >= MAX_OTP_ATTEMPTS) {
-    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    const err = new Error(
+      "Too many failed attempts. Please request a new OTP.",
+    );
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
@@ -606,7 +634,11 @@ async function generateAvailableUsernames(baseUsername, count = 4) {
       select: { pending_id: true },
     });
 
-    if (!existsInUsers && !existsInPending && !suggestions.includes(variation)) {
+    if (
+      !existsInUsers &&
+      !existsInPending &&
+      !suggestions.includes(variation)
+    ) {
       suggestions.push(variation);
     }
   }

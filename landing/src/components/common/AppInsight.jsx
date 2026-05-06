@@ -2,7 +2,7 @@
 
 import phones from "../../assets/images/appinsight.svg";
 import appleLogo from "../../assets/icons/APPLE.svg";
-import googlePlayLogo from "../../assets/icons/PLAYSTORE.png";
+import googlePlayLogo from "../../assets/icons/PLAYSTORE_result.webp";
 
 const AppInsight = () => {
   return (

@@ -9,13 +9,14 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  Info,
 } from "lucide-react";
-import { formatPrice, BILLING } from "../../../../config/planConfig";
+import {
+  formatPrice,
+  BILLING,
+  isIntroPriceActive,
+} from "../../../../config/planConfig";
 
-/**
- * RenewalConfirmModal
- * Confirmation dialog for renewing the same plan
- */
 const RenewalConfirmModal = ({
   plan,
   currentSubscription,
@@ -26,7 +27,10 @@ const RenewalConfirmModal = ({
 }) => {
   if (!plan || !currentSubscription) return null;
 
-  // ⚠️ FIX: Calculate days remaining properly (same as CurrentPlanBanner)
+  // Intro note: if the plan has intro active, inform user renewal
+  // charges regular price (intro is first-time only)
+  const introActive = isIntroPriceActive(plan);
+
   const endDate = new Date(currentSubscription.end_date);
   const today = new Date();
   const daysRemaining = Math.max(
@@ -34,25 +38,23 @@ const RenewalConfirmModal = ({
     Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
   );
 
-  // ⚠️ FIX: Determine grace period status from calculated days
-  // Grace period = subscription expired (daysRemaining = 0) but still active
   const isExpired = daysRemaining === 0;
-  const isInGrace = currentSubscription.is_in_grace_period || 
-                    (isExpired && currentSubscription.status === "active");
+  const isInGrace =
+    currentSubscription.is_in_grace_period ||
+    (isExpired && currentSubscription.status === "active");
 
-  // Calculate new end date (approx)
   const billingMonths = plan.billing_cycle_months || 12;
   const bonusMonths = plan.bonus_months || 0;
   const totalMonths = billingMonths + bonusMonths;
 
-  // New end date starts from current end date (or today if expired)
   const renewalStartDate = isExpired ? today : endDate;
   const newEndDate = new Date(renewalStartDate);
   newEndDate.setMonth(newEndDate.getMonth() + totalMonths);
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center
+                      p-4 bg-black/50 backdrop-blur-sm">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -60,9 +62,11 @@ const RenewalConfirmModal = ({
           className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
         >
           {/* Header */}
-          <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-green-50">
+          <div className="px-6 py-5 border-b border-gray-100 flex items-center
+                          justify-between bg-gradient-to-r from-emerald-50 to-green-50">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center
+                              justify-center">
                 <RefreshCw size={24} className="text-emerald-600" />
               </div>
               <div>
@@ -75,22 +79,23 @@ const RenewalConfirmModal = ({
             <button
               onClick={onClose}
               disabled={loading}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors
+                         disabled:opacity-50"
             >
               <X size={20} className="text-gray-400" />
             </button>
           </div>
 
-          {/* Content */}
           <div className="px-6 py-6 space-y-6">
-            {/* Grace Period Warning */}
+            {/* Grace period warning */}
             {isInGrace && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl
+                              flex items-start gap-3">
                 <AlertCircle
                   size={20}
                   className="text-red-600 flex-shrink-0 mt-0.5"
                 />
-                <div className="flex-1">
+                <div>
                   <p className="text-sm font-semibold text-red-900">
                     Grace Period Active
                   </p>
@@ -102,49 +107,44 @@ const RenewalConfirmModal = ({
               </div>
             )}
 
-            {/* Expiry Warning (not grace, but expiring soon) */}
+            {/* Expiry warning */}
             {!isInGrace && daysRemaining > 0 && daysRemaining <= 30 && (
-              <div
-                className={`p-4 border rounded-xl flex items-start gap-3 ${
-                  daysRemaining <= 7
-                    ? "bg-red-50 border-red-200"
-                    : "bg-amber-50 border-amber-200"
-                }`}
-              >
+              <div className={`p-4 border rounded-xl flex items-start gap-3
+                ${daysRemaining <= 7
+                  ? "bg-red-50 border-red-200"
+                  : "bg-amber-50 border-amber-200"
+                }`}>
                 <AlertCircle
                   size={20}
                   className={`flex-shrink-0 mt-0.5 ${
                     daysRemaining <= 7 ? "text-red-600" : "text-amber-600"
                   }`}
                 />
-                <div className="flex-1">
-                  <p
-                    className={`text-sm font-semibold ${
-                      daysRemaining <= 7 ? "text-red-900" : "text-amber-900"
-                    }`}
-                  >
+                <div>
+                  <p className={`text-sm font-semibold ${
+                    daysRemaining <= 7 ? "text-red-900" : "text-amber-900"
+                  }`}>
                     Plan Expiring in {daysRemaining} Day
                     {daysRemaining !== 1 ? "s" : ""}
                   </p>
-                  <p
-                    className={`text-xs mt-1 ${
-                      daysRemaining <= 7 ? "text-red-700" : "text-amber-700"
-                    }`}
-                  >
+                  <p className={`text-xs mt-1 ${
+                    daysRemaining <= 7 ? "text-red-700" : "text-amber-700"
+                  }`}>
                     Renew now to avoid service interruption.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Plan has plenty of time left - just informational */}
+            {/* Plenty of time */}
             {!isInGrace && daysRemaining > 30 && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl
+                              flex items-start gap-3">
                 <Calendar
                   size={20}
                   className="text-blue-600 flex-shrink-0 mt-0.5"
                 />
-                <div className="flex-1">
+                <div>
                   <p className="text-sm font-semibold text-blue-900">
                     {daysRemaining} Days Remaining
                   </p>
@@ -156,11 +156,27 @@ const RenewalConfirmModal = ({
               </div>
             )}
 
-            {/* Plan Details */}
+            {/* Intro pricing note (renewal always charges regular price) */}
+            {introActive && (
+              <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl
+                              flex items-start gap-2">
+                <Info size={16} className="text-sky-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-sky-800">
+                  <strong>Note:</strong> This plan has intro pricing (
+                  {formatPrice(plan.intro_price)}) for new subscribers.
+                  Renewal is charged at the regular rate of{" "}
+                  <strong>{formatPrice(plan.price)}{BILLING.displayText}</strong>.
+                </p>
+              </div>
+            )}
+
+            {/* Plan details */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between p-4 bg-gray-50
+                              rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#000060]/10 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[#000060]/10 rounded-lg flex
+                                  items-center justify-center">
                     <CreditCard size={18} className="text-[#000060]" />
                   </div>
                   <div>
@@ -178,6 +194,7 @@ const RenewalConfirmModal = ({
                   </div>
                 </div>
                 <div className="text-right">
+                  {/* Always show regular price for renewal */}
                   <p className="text-lg font-bold text-gray-900">
                     {formatPrice(plan.price)}
                   </p>
@@ -185,10 +202,11 @@ const RenewalConfirmModal = ({
                 </div>
               </div>
 
-              {/* Renewal Timeline */}
+              {/* Timeline */}
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center
+                                  justify-center flex-shrink-0 mt-0.5">
                     <Check size={14} className="text-gray-600" />
                   </div>
                   <div className="flex-1">
@@ -203,8 +221,8 @@ const RenewalConfirmModal = ({
                       })}
                       {!isExpired && daysRemaining > 0 && (
                         <span className="ml-1 text-gray-400">
-                          ({daysRemaining} day{daysRemaining !== 1 ? "s" : ""}{" "}
-                          left)
+                          ({daysRemaining} day
+                          {daysRemaining !== 1 ? "s" : ""} left)
                         </span>
                       )}
                     </p>
@@ -212,7 +230,8 @@ const RenewalConfirmModal = ({
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center
+                                  justify-center flex-shrink-0 mt-0.5">
                     <Calendar size={14} className="text-emerald-600" />
                   </div>
                   <div className="flex-1">
@@ -237,7 +256,7 @@ const RenewalConfirmModal = ({
               </div>
             </div>
 
-            {/* Error Message */}
+            {/* Error */}
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
                 <p className="text-sm text-red-700">{error}</p>
@@ -246,18 +265,22 @@ const RenewalConfirmModal = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex
+                          items-center justify-between">
             <button
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium
+                         disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600
+                         text-white rounded-lg font-semibold hover:bg-emerald-700
+                         transition-colors disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -267,7 +290,7 @@ const RenewalConfirmModal = ({
               ) : (
                 <>
                   <RefreshCw size={18} />
-                  Proceed to Payment
+                  Pay {formatPrice(plan.price)} & Renew
                 </>
               )}
             </button>

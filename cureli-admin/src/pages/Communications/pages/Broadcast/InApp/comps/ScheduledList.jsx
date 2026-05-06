@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, X, Loader2, Clock } from "lucide-react";
 import * as broadcastAPI from "../../../../../../api/cadminBroadcast";
-import Pagination from '../../../../../../components/common/Pagination';
+import Pagination from "../../../../../../components/common/Pagination";
 import { TABLE_CONFIG } from "../../../../../../config/tableConfig";
 import useDynamicRowCount from "../../../../../../hooks/useDynamicRowCount";
 
@@ -14,7 +14,7 @@ function ScheduledList({ refreshTrigger, onCountChange }) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // ✅ Dynamic row count
+  //  Dynamic row count
   const rowsPerPage = useDynamicRowCount();
 
   useEffect(() => {
@@ -129,9 +129,13 @@ function ScheduledList({ refreshTrigger, onCountChange }) {
             <tr className={styles.header.row}>
               <th className={styles.header.cell}>Title</th>
               <th className={styles.header.cell}>Message Preview</th>
-              <th className={`${styles.header.cell} text-center`}>Recipients</th>
+              <th className={`${styles.header.cell} text-center`}>
+                Recipients
+              </th>
               <th className={styles.header.cell}>Scheduled For</th>
-              <th className={`${styles.header.cell} text-center`}>Time Until</th>
+              <th className={`${styles.header.cell} text-center`}>
+                Time Until
+              </th>
               <th className={styles.header.cell}>Created By</th>
               <th className={`${styles.header.cell} text-center`}>Actions</th>
             </tr>
@@ -189,7 +193,9 @@ function ScheduledList({ refreshTrigger, onCountChange }) {
 
                 {/* Created By */}
                 <td className={styles.cell.base}>
-                  <span className={styles.cell.primary}>{item.cadmin_name}</span>
+                  <span className={styles.cell.primary}>
+                    {item.cadmin_name}
+                  </span>
                 </td>
 
                 {/* Actions */}

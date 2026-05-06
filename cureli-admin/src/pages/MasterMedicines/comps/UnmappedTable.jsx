@@ -1,25 +1,26 @@
 // cadmin/src/pages/MasterMedicines/comps/UnmappedTable.jsx
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   X,
   Link2,
   Plus,
   Ban,
-  Eye,
   ChevronDown,
   ChevronUp,
   CheckSquare,
   Square,
   Trash2,
-  Store,
-  Hash,
-  Image,
-  ImageOff,
+  ChevronsUpDown,
 } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
+import TableSkeleton from "../../../components/common/TableSkeleton";
+import StyledSelect from "../../../components/common/StyledSelect";
+import { TABLE_CONFIG, getRowBgClass } from "../../../config/tableConfig";
+
+const { styles, heights } = TABLE_CONFIG;
 
 const UnmappedTable = ({
   data = [],
@@ -30,44 +31,94 @@ const UnmappedTable = ({
   onIgnore,
   onViewDetail,
   onBulkIgnore,
+  loading = false,
 }) => {
   const [searchText, setSearchText] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: "occurrenceCount", order: "desc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "occurrenceCount",
+    order: "desc",
+  });
+
+  const defaultWidths = {
+    checkbox: 48,
+    name: 210,
+    sampleNames: 200,
+    manufacturer: 180,
+    type: 80,
+    count: 80,
+    shops: 80,
+    actions: 130,
+  };
+  const [columnWidths, setColumnWidths] = useState(defaultWidths);
+  const [resizing, setResizing] = useState(null);
+
+  const handleMouseDown = (col, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!resizing) return;
+    setColumnWidths((p) => ({
+      ...p,
+      [resizing.col]: Math.max(
+        50,
+        resizing.startWidth + (e.clientX - resizing.startX),
+      ),
+    }));
+  };
+
+  const handleMouseUp = () => setResizing(null);
+
+  useEffect(() => {
+    if (!resizing) return;
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing]);
+
   const rowsPerPage = 10;
 
-  // Filter & Sort
   const filteredData = useMemo(() => {
     let result = [...data];
 
-    // Search
     if (searchText.trim()) {
-      const search = searchText.toLowerCase();
+      const s = searchText.toLowerCase();
       result = result.filter(
         (item) =>
-          item.normalizedName.toLowerCase().includes(search) ||
-          item.sampleNames.some((name) => name.toLowerCase().includes(search))
+          item.normalizedName.toLowerCase().includes(s) ||
+          item.sampleNames?.some((n) => n.toLowerCase().includes(s)) ||
+          item.manufacturers?.some((m) => m.toLowerCase().includes(s)),
       );
     }
 
-    // Type filter
     if (typeFilter) {
       result = result.filter((item) => item.type === typeFilter);
     }
 
-    // Sort
     result.sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
-      if (sortConfig.order === "asc") return aVal > bVal ? 1 : -1;
-      return aVal < bVal ? 1 : -1;
+      const av = a[sortConfig.key];
+      const bv = b[sortConfig.key];
+
+      if (typeof av === "number" && typeof bv === "number") {
+        return sortConfig.order === "asc" ? av - bv : bv - av;
+      }
+
+      const as = String(av ?? "").toLowerCase();
+      const bs = String(bv ?? "").toLowerCase();
+      if (sortConfig.order === "asc") return as < bs ? -1 : as > bs ? 1 : 0;
+      return as > bs ? -1 : as < bs ? 1 : 0;
     });
 
     return result;
   }, [data, searchText, typeFilter, sortConfig]);
 
-  // Pagination
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage;
     return filteredData.slice(start, start + rowsPerPage);
@@ -75,16 +126,22 @@ const UnmappedTable = ({
 
   const totalItems = filteredData.length;
 
-  // Selection
-  const allSelected = paginatedData.length > 0 && paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) => selectedIds.includes(item.id));
+  const allSelected =
+    paginatedData.length > 0 &&
+    paginatedData.every((item) => selectedIds.includes(item.id));
+  const someSelected = paginatedData.some((item) =>
+    selectedIds.includes(item.id),
+  );
 
   const toggleSelectAll = () => {
     if (allSelected) {
-      onSelectionChange(selectedIds.filter((id) => !paginatedData.some((item) => item.id === id)));
+      onSelectionChange(
+        selectedIds.filter((id) => !paginatedData.find((i) => i.id === id)),
+      );
     } else {
-      const newIds = [...new Set([...selectedIds, ...paginatedData.map((item) => item.id)])];
-      onSelectionChange(newIds);
+      onSelectionChange([
+        ...new Set([...selectedIds, ...paginatedData.map((i) => i.id)]),
+      ]);
     }
   };
 
@@ -96,257 +153,390 @@ const UnmappedTable = ({
     }
   };
 
-  // Sort handler
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
       order: prev.key === key && prev.order === "desc" ? "asc" : "desc",
     }));
+    setCurrentPage(1);
   };
 
-  const SortIcon = ({ column }) => {
-    if (sortConfig.key !== column) return <ChevronDown size={14} className="text-gray-300" />;
-    return sortConfig.order === "asc" ? (
-      <ChevronUp size={14} className="text-indigo-600" />
-    ) : (
-      <ChevronDown size={14} className="text-indigo-600" />
+  //  Uses config sortIcon colors
+  const SortIcon = ({ sortKey }) => {
+    if (!sortKey) return null;
+    const isActive = sortConfig.key === sortKey;
+
+    if (isActive) {
+      return sortConfig.order === "asc" ? (
+        <ChevronUp
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
+      ) : (
+        <ChevronDown
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
+      );
+    }
+
+    return (
+      <ChevronsUpDown
+        size={14}
+        className={`${styles.header.sortIcon.inactive} flex-shrink-0`}
+      />
     );
   };
 
-  return (
-    <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="flex-shrink-0 p-4 border-b border-gray-200 space-y-3">
-        {/* Search & Filters */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
-                         focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-            />
-            {searchText && (
-              <button
-                onClick={() => setSearchText("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+  //  Uses config heights.headerRow + config header.cell styles
+  const ResizableTh = ({ col, children, align = "left", sortKey }) => (
+    <th
+      style={{
+        width: columnWidths[col],
+        minWidth: 50,
+        height: `${heights.headerRow}px`,
+      }}
+      className="relative group"
+    >
+      <div
+        className={`flex items-center gap-1 h-full
+                    ${styles.header.cell}
+                    ${align === "center" ? "justify-center" : "justify-start"}
+                    ${sortKey ? "cursor-pointer select-none" : ""}`}
+        onClick={() => sortKey && handleSort(sortKey)}
+      >
+        <span className="text-sm font-semibold text-white whitespace-nowrap">
+          {children}
+        </span>
+        <SortIcon sortKey={sortKey} />
+      </div>
+      <div
+        onMouseDown={(e) => handleMouseDown(col, e)}
+        className={styles.header.resizeHandle}
+      />
+    </th>
+  );
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-9 px-3 border border-gray-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">All Types</option>
-            <option value="DRUG">Drug</option>
-            <option value="OTC">OTC</option>
-          </select>
-
-          {selectedIds.length > 0 && (
+  const tableHeader = (
+    <thead className="sticky top-0 z-10">
+      <tr className={styles.header.row}>
+        {/* Checkbox */}
+        <th
+          style={{
+            width: columnWidths.checkbox,
+            minWidth: 48,
+            height: `${heights.headerRow}px`,
+          }}
+          className="relative group"
+        >
+          <div className={`flex items-center h-full ${styles.header.cell}`}>
             <button
-              onClick={onBulkIgnore}
-              className="h-9 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium
-                         flex items-center gap-2 hover:bg-red-100 transition-colors"
+              onClick={toggleSelectAll}
+              className="text-white/70 hover:text-white transition-colors"
             >
-              <Trash2 size={14} />
-              Ignore Selected ({selectedIds.length})
+              {allSelected ? (
+                <CheckSquare size={17} className="text-white" />
+              ) : someSelected ? (
+                <CheckSquare size={17} className="text-white/50" />
+              ) : (
+                <Square size={17} />
+              )}
+            </button>
+          </div>
+          <div
+            onMouseDown={(e) => handleMouseDown("checkbox", e)}
+            className={styles.header.resizeHandle}
+          />
+        </th>
+
+        <ResizableTh col="name" sortKey="normalizedName">
+          Normalized Name
+        </ResizableTh>
+        <ResizableTh col="sampleNames">Sample Names</ResizableTh>
+        <ResizableTh col="manufacturer">Manufacturer</ResizableTh>
+        <ResizableTh col="type" align="center">
+          Type
+        </ResizableTh>
+        <ResizableTh col="count" align="center" sortKey="occurrenceCount">
+          Count
+        </ResizableTh>
+        <ResizableTh col="shops" align="center" sortKey="shopCount">
+          Shops
+        </ResizableTh>
+        <ResizableTh col="actions" align="center">
+          Actions
+        </ResizableTh>
+      </tr>
+    </thead>
+  );
+
+  return (
+    <div className="flex flex-col h-full gap-0">
+      {/* ── Filter Section ── */}
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            type="text"
+            placeholder="Search name, manufacturer..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
+                       focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={13} />
             </button>
           )}
         </div>
-      </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto">
-        {paginatedData.length === 0 ? (
-          <TableEmptyState
-            icon={Link2}
-            title="No unmapped medicines"
-            subtitle="All medicines have been mapped to the master catalog"
+        <div className="w-36">
+          <StyledSelect
+            value={typeFilter}
+            onChange={(v) => {
+              setTypeFilter(v);
+              setCurrentPage(1);
+            }}
+            options={[
+              { value: "", label: "All Types" },
+              { value: "DRUG", label: "Drug" },
+              { value: "OTC", label: "OTC" },
+            ]}
+            placeholder="All Types"
           />
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="w-12 px-4 py-3">
-                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-gray-600">
-                    {allSelected ? (
-                      <CheckSquare size={18} className="text-indigo-600" />
-                    ) : someSelected ? (
-                      <CheckSquare size={18} className="text-indigo-300" />
-                    ) : (
-                      <Square size={18} />
-                    )}
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                  <button
-                    onClick={() => handleSort("normalizedName")}
-                    className="flex items-center gap-1 hover:text-gray-900"
-                  >
-                    Normalized Name
-                    <SortIcon column="normalizedName" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">Sample Names</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">Type</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">
-                  <button
-                    onClick={() => handleSort("occurrenceCount")}
-                    className="flex items-center gap-1 justify-center hover:text-gray-900"
-                  >
-                    <Hash size={14} />
-                    Count
-                    <SortIcon column="occurrenceCount" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">
-                  <button
-                    onClick={() => handleSort("shopCount")}
-                    className="flex items-center gap-1 justify-center hover:text-gray-900"
-                  >
-                    <Store size={14} />
-                    Shops
-                    <SortIcon column="shopCount" />
-                  </button>
-                </th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-600">Image</th>
-                <th className="px-4 py-3 text-right font-semibold text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {paginatedData.map((item, index) => (
-                <tr
-                  key={item.id}
-                  className={`hover:bg-gray-50 transition-colors ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => toggleSelect(item.id)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      {selectedIds.includes(item.id) ? (
-                        <CheckSquare size={18} className="text-indigo-600" />
-                      ) : (
-                        <Square size={18} />
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => onViewDetail(item)}
-                      className="text-gray-900 font-medium hover:text-indigo-600 transition-colors text-left"
-                    >
-                      {item.normalizedName}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <SampleNamesCell names={item.sampleNames} onClick={() => onViewDetail(item)} />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        item.type === "DRUG"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {item.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center font-medium text-gray-700">
-                    {item.occurrenceCount}
-                  </td>
-                  <td className="px-4 py-3 text-center font-medium text-gray-700">
-                    {item.shopCount}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {item.hasImageSuggestion ? (
-                      <div className="w-8 h-8 mx-auto rounded-lg bg-green-100 flex items-center justify-center">
-                        <Image size={16} className="text-green-600" />
-                      </div>
-                    ) : (
-                      <div className="w-8 h-8 mx-auto rounded-lg bg-red-100 flex items-center justify-center">
-                        <ImageOff size={16} className="text-red-500" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => onViewDetail(item)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
-                        title="View Details"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => onMatch(item)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                        title="Match to Existing"
-                      >
-                        <Link2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => onCreate(item)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50"
-                        title="Create New"
-                      >
-                        <Plus size={16} />
-                      </button>
-                      <button
-                        onClick={() => onIgnore(item)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
-                        title="Ignore"
-                      >
-                        <Ban size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        </div>
+
+        <div className="flex-1" />
+
+        <span className="text-xs text-gray-400">
+          {totalItems} item{totalItems !== 1 ? "s" : ""}
+        </span>
+
+        {selectedIds.length > 0 && (
+          <button
+            onClick={onBulkIgnore}
+            className="h-9 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium
+                       flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-200"
+          >
+            <Trash2 size={14} />
+            Ignore ({selectedIds.length})
+          </button>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalItems > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-200">
-          <Pagination
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalItems={totalItems}
-            rowsPerPage={rowsPerPage}
-          />
+      {/* ── Table Card — uses config container ── */}
+      <div className={styles.container.wrapper}>
+        <div className="flex-1 min-h-0 overflow-auto">
+          {loading ? (
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
+              {tableHeader}
+              <tbody>
+                <TableSkeleton rows={rowsPerPage} columns={8} />
+              </tbody>
+            </table>
+          ) : paginatedData.length === 0 ? (
+            <TableEmptyState
+              icon={Link2}
+              title="No unmapped medicines"
+              subtitle={
+                searchText
+                  ? "No results match your search"
+                  : "All medicines have been mapped to the master catalog"
+              }
+            />
+          ) : (
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
+              {tableHeader}
+              <tbody>
+                {paginatedData.map((item, index) => {
+                  const isSelected = selectedIds.includes(item.id);
+                  const topManufacturer = item.manufacturers?.[0];
+                  const extraManufacturers =
+                    (item.manufacturers?.length || 0) - 1;
+
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => onViewDetail(item)}
+                      className={`${
+                        isSelected ? "bg-indigo-50/80" : getRowBgClass(index)
+                      } ${styles.row.clickable}`}
+                      style={{ height: `${heights.bodyRow}px` }}
+                    >
+                      {/* Checkbox */}
+                      <td
+                        className={styles.cell.base}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => toggleSelect(item.id)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          {isSelected ? (
+                            <CheckSquare
+                              size={17}
+                              className="text-indigo-600"
+                            />
+                          ) : (
+                            <Square size={17} />
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Normalized name */}
+                      <td className={styles.cell.base}>
+                        <span
+                          className={`${styles.cell.primary} truncate block max-w-[200px]`}
+                        >
+                          {item.normalizedName}
+                        </span>
+                      </td>
+
+                      {/* Sample names */}
+                      <td className={styles.cell.base}>
+                        <SampleNamesCell names={item.sampleNames} />
+                      </td>
+
+                      {/* Manufacturer */}
+                      <td className={styles.cell.base}>
+                        {topManufacturer ? (
+                          <div>
+                            <span
+                              className={`${styles.cell.secondary} truncate block max-w-[170px]`}
+                            >
+                              {topManufacturer}
+                            </span>
+                            {extraManufacturers > 0 && (
+                              <span
+                                className={`text-[10px] ${styles.cell.muted}`}
+                              >
+                                +{extraManufacturers} more
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span
+                            className={`text-xs italic ${styles.cell.muted}`}
+                          >
+                            Unknown
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Type */}
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center}`}
+                      >
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            item.type === "DRUG"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {item.type}
+                        </span>
+                      </td>
+
+                      {/* Count */}
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center} ${styles.cell.primary}`}
+                      >
+                        {item.occurrenceCount}
+                      </td>
+
+                      {/* Shops */}
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center} ${styles.cell.primary}`}
+                      >
+                        {item.shopCount}
+                      </td>
+
+                      {/* Actions */}
+                      <td
+                        className={styles.cell.base}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className={styles.actions.container}>
+                          <button
+                            onClick={() => onMatch(item)}
+                            className={`${styles.actions.button.base} ${styles.actions.button.edit}`}
+                            title="Match to Existing"
+                          >
+                            <Link2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => onCreate(item)}
+                            className={`${styles.actions.button.base} ${styles.actions.button.activate}`}
+                            title="Create New Master"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          <button
+                            onClick={() => onIgnore(item)}
+                            className={`${styles.actions.button.base} ${styles.actions.button.suspend}`}
+                            title="Ignore"
+                          >
+                            <Ban size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
-      )}
+
+        {/*  Uses config pagination wrapper */}
+        {totalItems > 0 && !loading && (
+          <div className={styles.pagination.wrapper}>
+            <Pagination
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              totalItems={totalItems}
+              rowsPerPage={rowsPerPage}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-// Sample Names Cell Component
-const SampleNamesCell = ({ names, onClick }) => {
-  const displayName = names[0];
-  const remaining = names.length - 1;
-
+const SampleNamesCell = ({ names }) => {
+  const displayName = names?.[0] ?? "—";
+  const remaining = (names?.length ?? 0) - 1;
   return (
-    <button onClick={onClick} className="flex items-center gap-2 text-left hover:text-indigo-600">
-      <span className="text-gray-700 truncate max-w-[200px]">{displayName}</span>
+    <div className="flex items-center gap-1.5">
+      <span
+        className={`${styles.cell.secondary} truncate max-w-[170px] text-sm`}
+      >
+        {displayName}
+      </span>
       {remaining > 0 && (
-        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full flex-shrink-0">
-          +{remaining} more
+        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[10px] rounded-full flex-shrink-0">
+          +{remaining}
         </span>
       )}
-    </button>
+    </div>
   );
 };
 

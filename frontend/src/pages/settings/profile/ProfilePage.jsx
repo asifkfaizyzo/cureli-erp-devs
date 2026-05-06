@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, AlertCircle, RefreshCw, User, Building2, CreditCard, Shield } from "lucide-react";
+import {
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  User,
+  Building2,
+  CreditCard,
+  Shield,
+} from "lucide-react";
 
 import PersonalInfoCard from "./comps/PersonalInfoCard";
 import BusinessInfoCard from "./comps/BusinessInfoCard";
@@ -10,15 +18,18 @@ import SubscriptionCard from "./comps/SubscriptionCard";
 import SessionsCard from "./comps/SessionsCard";
 
 import { getProfile } from "../../../api/profile";
-import { useToast } from "../../../components/common/Toast"; // ✅ ADDED
+import { useToast } from "../../../components/common/Toast"; //  ADDED
 
 // Import subscription store
-import { useSubscriptionStore, selectNeedsRenewal } from "../../../store/useSubscriptionStore";
+import {
+  useSubscriptionStore,
+  selectNeedsRenewal,
+} from "../../../store/useSubscriptionStore";
 import { useAuthStore, selectIsSuperAdmin } from "../../../store/useAuthStore";
 
 /* ───────────────── Renewal Badge Component ───────────────── */
 const RenewalBadge = ({ className = "" }) => (
-  <span 
+  <span
     className={`
       inline-flex items-center justify-center 
       w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full
@@ -34,13 +45,13 @@ const RenewalBadge = ({ className = "" }) => (
  * Super Admin profile settings page - Horizontal Layout
  */
 const ProfilePage = () => {
-  const toast = useToast(); // ✅ ADDED
-  
+  const toast = useToast(); //  ADDED
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState("personal");
-  const [refreshCount, setRefreshCount] = useState(0); // ✅ ADDED: Track refreshes
+  const [refreshCount, setRefreshCount] = useState(0); //  ADDED: Track refreshes
 
   // Subscription status for badge
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
@@ -54,16 +65,19 @@ const ProfilePage = () => {
     try {
       const response = await getProfile();
       setProfileData(response.data?.data || response.data);
-      
-      // ✅ ADDED: Success toast on manual refresh
+
+      //  ADDED: Success toast on manual refresh
       if (showToast && refreshCount > 0) {
-        toast.success("Profile Updated", "Your profile data has been refreshed.");
+        toast.success(
+          "Profile Updated",
+          "Your profile data has been refreshed.",
+        );
       }
     } catch (err) {
       console.error("Failed to fetch profile:", err);
       const errorMsg = err.response?.data?.message || "Failed to load profile";
       setError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Load Failed", errorMsg);
     } finally {
       setLoading(false);
@@ -74,13 +88,13 @@ const ProfilePage = () => {
     fetchProfile(false);
   }, []);
 
-  // ✅ ADDED: Enhanced refresh handler
+  //  ADDED: Enhanced refresh handler
   const handleRefresh = () => {
-    setRefreshCount(c => c + 1);
+    setRefreshCount((c) => c + 1);
     fetchProfile(true);
   };
 
-  // ✅ ADDED: Callback for child components to show success toasts
+  //  ADDED: Callback for child components to show success toasts
   const handleUpdateSuccess = (message) => {
     toast.success("Update Successful", message);
     fetchProfile(false); // Refresh without toast
@@ -115,7 +129,9 @@ const ProfilePage = () => {
             <AlertCircle size={32} className="text-red-500" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Failed to load profile</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Failed to load profile
+            </h3>
             <p className="text-gray-500 mt-1">{error}</p>
           </div>
           <button
@@ -140,7 +156,9 @@ const ProfilePage = () => {
           {/* Title & Tabs Container */}
           <div className="flex items-center gap-8">
             <div>
-              <h1 className="text-xl font-bold text-[#000060]">Profile Settings</h1>
+              <h1 className="text-xl font-bold text-[#000060]">
+                Profile Settings
+              </h1>
               <p className="text-xs text-gray-500">
                 Manage your account and business
               </p>
@@ -151,9 +169,10 @@ const ProfilePage = () => {
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
-                
+
                 // Show badge on "Plan & Usage" tab when renewal is needed
-                const showBadge = isSuperAdmin && needsRenewal && tab.id === "subscription";
+                const showBadge =
+                  isSuperAdmin && needsRenewal && tab.id === "subscription";
 
                 return (
                   <button
@@ -167,11 +186,9 @@ const ProfilePage = () => {
                   >
                     <Icon size={16} />
                     <span>{tab.label}</span>
-                    
+
                     {/* Red exclamation badge for Plan & Usage */}
-                    {showBadge && (
-                      <RenewalBadge />
-                    )}
+                    {showBadge && <RenewalBadge />}
                   </button>
                 );
               })}
@@ -202,24 +219,24 @@ const ProfilePage = () => {
           className="h-full"
         >
           {activeTab === "personal" && (
-            <PersonalInfoCard 
-              user={user} 
-              onUpdate={handleUpdateSuccess} // ✅ CHANGED: Pass success callback
+            <PersonalInfoCard
+              user={user}
+              onUpdate={handleUpdateSuccess} //  CHANGED: Pass success callback
             />
           )}
           {activeTab === "business" && (
-            <BusinessInfoCard 
-              shop={shop} 
-              onUpdate={handleUpdateSuccess} // ✅ CHANGED: Pass success callback
+            <BusinessInfoCard
+              shop={shop}
+              onUpdate={handleUpdateSuccess} //  CHANGED: Pass success callback
             />
           )}
           {activeTab === "subscription" && (
             <SubscriptionCard subscription={subscription} />
           )}
           {activeTab === "sessions" && (
-            <SessionsCard 
-              sessions={sessions} 
-              onUpdate={handleUpdateSuccess} // ✅ CHANGED: Pass success callback
+            <SessionsCard
+              sessions={sessions}
+              onUpdate={handleUpdateSuccess} //  CHANGED: Pass success callback
             />
           )}
         </motion.div>
@@ -229,6 +246,3 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-
-
-

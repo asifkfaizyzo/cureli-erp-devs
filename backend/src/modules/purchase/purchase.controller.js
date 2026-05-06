@@ -1,7 +1,7 @@
 // backend/src/modules/purchase/purchase.controller.js
 
 import { success, fail } from "../../utils/response.js";
-// ✅ UPDATED: Import from index.js which combines both service files
+//  UPDATED: Import from index.js which combines both service files
 import * as purchaseService from "./index.js";
 import * as audit from "../audit/index.js";
 
@@ -12,7 +12,7 @@ import * as audit from "../audit/index.js";
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";
   const headerBranchId = req.headers["x-branch-id"] || null;
-  
+
   // For super_admin: use header branch context
   // For others: use their assigned branch_id from JWT
   if (req.user.role === "super_admin") {
@@ -21,7 +21,7 @@ function extractBranchContext(req) {
       branchMode,
     };
   }
-  
+
   // branch_admin/staff: always use their assigned branch
   return {
     branchId: req.user.branch_id,
@@ -42,21 +42,21 @@ export async function createPurchaseInvoiceController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Purchase Invoice Create ===");
-    console.log("User ID:", userId);
-    console.log("Shop ID:", shopId);
-    console.log("Branch ID:", branchId);
-    console.log("Branch Mode:", branchMode);
-    console.log("User Role:", role);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
     }
 
     if (!branchId) {
-      return fail(res, "Please select a specific branch to create purchase invoices", 400, {
-        code: "BRANCH_REQUIRED"
-      });
+      return fail(
+        res,
+        "Please select a specific branch to create purchase invoices",
+        400,
+        {
+          code: "BRANCH_REQUIRED",
+        },
+      );
     }
 
     const invoice = await purchaseService.createPurchaseInvoice(
@@ -64,7 +64,7 @@ export async function createPurchaseInvoiceController(req, res) {
       shopId,
       branchId,
       data,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Purchase invoice created successfully", 201);
@@ -72,11 +72,20 @@ export async function createPurchaseInvoiceController(req, res) {
     console.error("purchase.createInvoice ERROR:", error);
     console.error("Error code:", error.code);
     console.error("Error message:", error.message);
-    
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "BRANCH_REQUIRED" ? 400 :
-                       error.code === "BRANCH_MISMATCH" ? 400 : 400;
-    return fail(res, error.message || "Failed to create purchase invoice", statusCode);
+
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "BRANCH_REQUIRED"
+          ? 400
+          : error.code === "BRANCH_MISMATCH"
+            ? 400
+            : 400;
+    return fail(
+      res,
+      error.message || "Failed to create purchase invoice",
+      statusCode,
+    );
   }
 }
 
@@ -97,17 +106,31 @@ export async function confirmPurchaseInvoiceController(req, res) {
       shopId,
       branchId,
       invoiceId,
-      auditContext
+      auditContext,
     );
 
-    return success(res, invoice, "Purchase invoice confirmed and stock updated successfully");
+    return success(
+      res,
+      invoice,
+      "Purchase invoice confirmed and stock updated successfully",
+    );
   } catch (error) {
     console.error("purchase.confirmInvoice ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "BRANCH_ACCESS_DENIED" ? 403 :
-                       error.code === "ALREADY_CONFIRMED" ? 400 :
-                       error.code === "INVOICE_CANCELLED" ? 400 : 400;
-    return fail(res, error.message || "Failed to confirm purchase invoice", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "BRANCH_ACCESS_DENIED"
+          ? 403
+          : error.code === "ALREADY_CONFIRMED"
+            ? 400
+            : error.code === "INVOICE_CANCELLED"
+              ? 400
+              : 400;
+    return fail(
+      res,
+      error.message || "Failed to confirm purchase invoice",
+      statusCode,
+    );
   }
 }
 
@@ -117,12 +140,7 @@ export async function getPurchaseInvoicesController(req, res) {
     const role = req.user.role;
     const { branchId, branchMode } = extractBranchContext(req);
 
-    console.log("=== GET PURCHASE INVOICES ===");
-    console.log("User Role:", role);
-    console.log("X-Branch-Mode header:", req.headers["x-branch-mode"]);
-    console.log("X-Branch-Id header:", req.headers["x-branch-id"]);
-    console.log("Extracted branchId:", branchId);
-    console.log("Extracted branchMode:", branchMode);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -139,17 +157,21 @@ export async function getPurchaseInvoicesController(req, res) {
     };
 
     const result = await purchaseService.getPurchaseInvoices(
-      shopId, 
+      shopId,
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
-    
+
     return success(res, result, "Purchase invoices retrieved successfully");
   } catch (error) {
     console.error("purchase.getInvoices ERROR:", error);
-    return fail(res, error.message || "Failed to retrieve purchase invoices", 500);
+    return fail(
+      res,
+      error.message || "Failed to retrieve purchase invoices",
+      500,
+    );
   }
 }
 
@@ -165,18 +187,22 @@ export async function getInvoiceDetailsController(req, res) {
     }
 
     const invoice = await purchaseService.getInvoiceDetails(
-      invoiceId, 
+      invoiceId,
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
-    
+
     return success(res, invoice, "Invoice details retrieved successfully");
   } catch (error) {
     console.error("purchase.getInvoiceDetails ERROR:", error);
     const statusCode = error.code === "NOT_FOUND" ? 404 : 500;
-    return fail(res, error.message || "Failed to retrieve invoice details", statusCode);
+    return fail(
+      res,
+      error.message || "Failed to retrieve invoice details",
+      statusCode,
+    );
   }
 }
 
@@ -190,11 +216,7 @@ export async function updatePurchaseInvoiceController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== UPDATE INVOICE REQUEST ===");
-    console.log("Invoice ID:", invoiceId);
-    console.log("User Role:", role);
-    console.log("Branch ID:", branchId);
-    console.log("Branch Mode:", branchMode);
+   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -208,17 +230,27 @@ export async function updatePurchaseInvoiceController(req, res) {
       branchMode,
       invoiceId,
       data,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Purchase invoice updated successfully");
   } catch (error) {
     console.error("purchase.updateInvoice ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "PERMISSION_DENIED" ? 403 :
-                       error.code === "INVOICE_CANCELLED" ? 400 :
-                       error.code === "NOT_DRAFT" ? 400 : 400;
-    return fail(res, error.message || "Failed to update purchase invoice", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : error.code === "INVOICE_CANCELLED"
+            ? 400
+            : error.code === "NOT_DRAFT"
+              ? 400
+              : 400;
+    return fail(
+      res,
+      error.message || "Failed to update purchase invoice",
+      statusCode,
+    );
   }
 }
 
@@ -244,16 +276,25 @@ export async function cancelPurchaseInvoiceController(req, res) {
       branchMode,
       invoiceId,
       reason,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Purchase invoice cancelled successfully");
   } catch (error) {
     console.error("purchase.cancelInvoice ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "ALREADY_CANCELLED" ? 400 :
-                       error.code === "INVOICE_CONFIRMED" ? 400 : 400;
-    return fail(res, error.message || "Failed to cancel purchase invoice", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "ALREADY_CANCELLED"
+          ? 400
+          : error.code === "INVOICE_CONFIRMED"
+            ? 400
+            : 400;
+    return fail(
+      res,
+      error.message || "Failed to cancel purchase invoice",
+      statusCode,
+    );
   }
 }
 
@@ -273,17 +314,21 @@ export async function getPurchaseStatsController(req, res) {
     };
 
     const stats = await purchaseService.getPurchaseStats(
-      shopId, 
+      shopId,
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
-    
+
     return success(res, stats, "Purchase statistics retrieved successfully");
   } catch (error) {
     console.error("purchase.getStats ERROR:", error);
-    return fail(res, error.message || "Failed to retrieve purchase statistics", 500);
+    return fail(
+      res,
+      error.message || "Failed to retrieve purchase statistics",
+      500,
+    );
   }
 }
 
@@ -306,7 +351,11 @@ export async function updatePaymentStatusController(req, res) {
     }
 
     if (role !== "super_admin") {
-      return fail(res, "Only super admin can change payment status directly", 403);
+      return fail(
+        res,
+        "Only super admin can change payment status directly",
+        403,
+      );
     }
 
     const invoice = await purchaseService.updatePaymentStatus(
@@ -317,17 +366,27 @@ export async function updatePaymentStatusController(req, res) {
       branchMode,
       invoiceId,
       data,
-      auditContext
+      auditContext,
     );
 
     return success(res, invoice, "Payment status updated successfully");
   } catch (error) {
     console.error("purchase.updatePaymentStatus ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "PERMISSION_DENIED" ? 403 :
-                       error.code === "INVOICE_CANCELLED" ? 400 :
-                       error.code === "INVALID_AMOUNT" ? 400 : 400;
-    return fail(res, error.message || "Failed to update payment status", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : error.code === "INVOICE_CANCELLED"
+            ? 400
+            : error.code === "INVALID_AMOUNT"
+              ? 400
+              : 400;
+    return fail(
+      res,
+      error.message || "Failed to update payment status",
+      statusCode,
+    );
   }
 }
 
@@ -353,16 +412,22 @@ export async function recordPaymentController(req, res) {
       branchMode,
       invoiceId,
       data,
-      auditContext
+      auditContext,
     );
 
     return success(res, result, "Payment recorded successfully");
   } catch (error) {
     console.error("purchase.recordPayment ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 : 
-                       error.code === "INVOICE_CANCELLED" ? 400 :
-                       error.code === "ALREADY_PAID" ? 400 :
-                       error.code === "OVERPAYMENT" ? 400 : 400;
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "INVOICE_CANCELLED"
+          ? 400
+          : error.code === "ALREADY_PAID"
+            ? 400
+            : error.code === "OVERPAYMENT"
+              ? 400
+              : 400;
     return fail(res, error.message || "Failed to record payment", statusCode);
   }
 }
@@ -379,19 +444,21 @@ export async function createPurchaseReturnController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Purchase Return Create ===");
-    console.log("User ID:", userId);
-    console.log("Shop ID:", shopId);
-    console.log("Branch ID:", branchId);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
     }
 
     if (!branchId) {
-      return fail(res, "Please select a specific branch to create purchase returns", 400, {
-        code: "BRANCH_REQUIRED"
-      });
+      return fail(
+        res,
+        "Please select a specific branch to create purchase returns",
+        400,
+        {
+          code: "BRANCH_REQUIRED",
+        },
+      );
     }
 
     const returnInvoice = await purchaseService.createPurchaseReturn(
@@ -399,22 +466,34 @@ export async function createPurchaseReturnController(req, res) {
       shopId,
       branchId,
       data,
-      auditContext
+      auditContext,
     );
 
-    const message = returnInvoice.return_approval_status === "APPROVED"
-      ? "Purchase return created and approved. Stock deducted and adjustment processed."
-      : "Purchase return created. Pending super admin approval.";
+    const message =
+      returnInvoice.return_approval_status === "APPROVED"
+        ? "Purchase return created and approved. Stock deducted and adjustment processed."
+        : "Purchase return created. Pending super admin approval.";
 
     return success(res, returnInvoice, message, 201);
   } catch (error) {
     console.error("purchase.createReturn ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 :
-                       error.code === "INVALID_PARENT" ? 400 :
-                       error.code === "BATCH_NOT_FOUND" ? 400 :
-                       error.code === "SUPPLIER_MISMATCH" ? 400 :
-                       error.code === "BRANCH_REQUIRED" ? 400 : 400;
-    return fail(res, error.message || "Failed to create purchase return", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "INVALID_PARENT"
+          ? 400
+          : error.code === "BATCH_NOT_FOUND"
+            ? 400
+            : error.code === "SUPPLIER_MISMATCH"
+              ? 400
+              : error.code === "BRANCH_REQUIRED"
+                ? 400
+                : 400;
+    return fail(
+      res,
+      error.message || "Failed to create purchase return",
+      statusCode,
+    );
   }
 }
 
@@ -437,19 +516,28 @@ export async function approveOrRejectReturnController(req, res) {
       branchId,
       returnId,
       data,
-      auditContext
+      auditContext,
     );
 
-    const message = data.action === "APPROVE"
-      ? "Return approved. Stock deducted and credit/refund processed."
-      : "Return rejected.";
+    const message =
+      data.action === "APPROVE"
+        ? "Return approved. Stock deducted and credit/refund processed."
+        : "Return rejected.";
 
     return success(res, result, message);
   } catch (error) {
     console.error("purchase.approveRejectReturn ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 :
-                       error.code === "PERMISSION_DENIED" ? 403 : 400;
-    return fail(res, error.message || "Failed to process return approval", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : 400;
+    return fail(
+      res,
+      error.message || "Failed to process return approval",
+      statusCode,
+    );
   }
 }
 
@@ -477,13 +565,17 @@ export async function getPurchaseReturnsController(req, res) {
       branchId,
       role,
       branchMode,
-      filters
+      filters,
     );
 
     return success(res, result, "Purchase returns retrieved successfully");
   } catch (error) {
     console.error("purchase.getReturns ERROR:", error);
-    return fail(res, error.message || "Failed to retrieve purchase returns", 500);
+    return fail(
+      res,
+      error.message || "Failed to retrieve purchase returns",
+      500,
+    );
   }
 }
 
@@ -503,14 +595,18 @@ export async function getReturnDetailsController(req, res) {
       shopId,
       branchId,
       role,
-      branchMode
+      branchMode,
     );
 
     return success(res, returnInvoice, "Return details retrieved successfully");
   } catch (error) {
     console.error("purchase.getReturnDetails ERROR:", error);
     const statusCode = error.code === "NOT_FOUND" ? 404 : 500;
-    return fail(res, error.message || "Failed to retrieve return details", statusCode);
+    return fail(
+      res,
+      error.message || "Failed to retrieve return details",
+      statusCode,
+    );
   }
 }
 
@@ -529,7 +625,7 @@ export async function getSupplierCreditsController(req, res) {
     const filters = {
       supplierId: req.query.supplierId,
       status: req.query.status,
-      includeExpired: req.query.includeExpired === 'true',
+      includeExpired: req.query.includeExpired === "true",
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -539,7 +635,11 @@ export async function getSupplierCreditsController(req, res) {
     return success(res, result, "Supplier credits retrieved successfully");
   } catch (error) {
     console.error("purchase.getSupplierCredits ERROR:", error);
-    return fail(res, error.message || "Failed to retrieve supplier credits", 500);
+    return fail(
+      res,
+      error.message || "Failed to retrieve supplier credits",
+      500,
+    );
   }
 }
 
@@ -558,20 +658,33 @@ export async function applyCreditNoteController(req, res) {
       userId,
       shopId,
       data,
-      auditContext
+      auditContext,
     );
 
     return success(res, result, "Credit note applied successfully");
   } catch (error) {
     console.error("purchase.applyCreditNote ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 :
-                       error.code === "PERMISSION_DENIED" ? 403 :
-                       error.code === "CREDIT_NOT_FOUND" ? 404 :
-                       error.code === "CREDIT_EXPIRED" ? 400 :
-                       error.code === "INSUFFICIENT_CREDIT" ? 400 :
-                       error.code === "INVALID_TARGET_INVOICE" ? 400 :
-                       error.code === "EXCEEDS_INVOICE_BALANCE" ? 400 : 400;
-    return fail(res, error.message || "Failed to apply credit note", statusCode);
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : error.code === "CREDIT_NOT_FOUND"
+            ? 404
+            : error.code === "CREDIT_EXPIRED"
+              ? 400
+              : error.code === "INSUFFICIENT_CREDIT"
+                ? 400
+                : error.code === "INVALID_TARGET_INVOICE"
+                  ? 400
+                  : error.code === "EXCEEDS_INVOICE_BALANCE"
+                    ? 400
+                    : 400;
+    return fail(
+      res,
+      error.message || "Failed to apply credit note",
+      statusCode,
+    );
   }
 }
 
@@ -592,10 +705,7 @@ export async function cancelApprovedReturnController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Cancel Approved Return ===");
-    console.log("Return ID:", returnId);
-    console.log("User Role:", role);
-    console.log("Cancellation Data:", data);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -611,15 +721,24 @@ export async function cancelApprovedReturnController(req, res) {
       branchId,
       returnId,
       data,
-      auditContext
+      auditContext,
     );
 
-    return success(res, result, "Return cancelled successfully. Stock has been restored.");
+    return success(
+      res,
+      result,
+      "Return cancelled successfully. Stock has been restored.",
+    );
   } catch (error) {
     console.error("purchase.cancelApprovedReturn ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 :
-                       error.code === "PERMISSION_DENIED" ? 403 :
-                       error.code === "INVALID_STATUS" ? 400 : 500;
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : error.code === "INVALID_STATUS"
+            ? 400
+            : 500;
     return fail(res, error.message || "Failed to cancel return", statusCode);
   }
 }
@@ -641,10 +760,7 @@ export async function revertReturnToPendingController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    console.log("=== Revert Return to Pending ===");
-    console.log("Return ID:", returnId);
-    console.log("User Role:", role);
-    console.log("Revert Data:", data);
+    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -660,15 +776,24 @@ export async function revertReturnToPendingController(req, res) {
       branchId,
       returnId,
       data,
-      auditContext
+      auditContext,
     );
 
-    return success(res, result, "Return reverted to pending. Stock has been restored temporarily.");
+    return success(
+      res,
+      result,
+      "Return reverted to pending. Stock has been restored temporarily.",
+    );
   } catch (error) {
     console.error("purchase.revertReturnToPending ERROR:", error);
-    const statusCode = error.code === "NOT_FOUND" ? 404 :
-                       error.code === "PERMISSION_DENIED" ? 403 :
-                       error.code === "INVALID_STATUS" ? 400 : 500;
+    const statusCode =
+      error.code === "NOT_FOUND"
+        ? 404
+        : error.code === "PERMISSION_DENIED"
+          ? 403
+          : error.code === "INVALID_STATUS"
+            ? 400
+            : 500;
     return fail(res, error.message || "Failed to revert return", statusCode);
   }
 }

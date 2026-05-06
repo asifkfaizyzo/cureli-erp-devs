@@ -25,19 +25,20 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
     if (!reason || reason.trim().length < 10) {
       setError("Please provide a reason (at least 10 characters)");
-      // ✅ REMOVED: toast.warning - inline error is enough
+      //  REMOVED: toast.warning - inline error is enough
       return;
     }
 
     setLoading(true);
     try {
       await cancelTicket(ticket.ticket_id, reason.trim());
-      onSuccess(); // ✅ Parent will show toast
+      onSuccess(); //  Parent will show toast
     } catch (err) {
       console.error("Failed to cancel ticket:", err);
-      const errorMessage = err.response?.data?.message || "Failed to cancel ticket";
+      const errorMessage =
+        err.response?.data?.message || "Failed to cancel ticket";
       setError(errorMessage);
-      // ✅ REMOVED: toast.error - inline error is shown instead
+      //  REMOVED: toast.error - inline error is shown instead
     } finally {
       setLoading(false);
     }
@@ -65,9 +66,13 @@ const CancelTicketModal = ({ isOpen, onClose, ticket, onSuccess }) => {
 
         <form onSubmit={handleSubmit} className="p-5">
           <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
-            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle
+              size={16}
+              className="text-amber-600 flex-shrink-0 mt-0.5"
+            />
             <p className="text-xs text-amber-800">
-              This action cannot be undone. The ticket will be marked as cancelled.
+              This action cannot be undone. The ticket will be marked as
+              cancelled.
             </p>
           </div>
 

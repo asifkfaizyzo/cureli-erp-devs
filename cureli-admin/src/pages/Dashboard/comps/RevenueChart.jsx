@@ -3,7 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { DollarSign, Loader2, AlertCircle, TrendingUp } from "lucide-react";
-import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from "recharts";
+import {
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ComposedChart,
+} from "recharts";
 import { getRevenueData } from "../../../api/cadminDashboard";
 
 const formatCurrency = (v) => {
@@ -21,9 +29,14 @@ const ChartTooltip = ({ active, payload, label }) => {
       <p className="text-[9px] font-semibold text-gray-300 mb-1">{label}</p>
       {payload.map((e, i) => (
         <div key={i} className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: e.color }} />
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: e.color }}
+          />
           <span className="text-[10px] text-gray-400">{e.name}:</span>
-          <span className="text-[10px] font-bold text-white ml-auto">{formatCurrency(e.value)}</span>
+          <span className="text-[10px] font-bold text-white ml-auto">
+            {formatCurrency(e.value)}
+          </span>
         </div>
       ))}
     </div>
@@ -54,14 +67,14 @@ const RevenueChart = ({ period }) => {
   const chartData = data?.data || [];
   const summary = data?.summary || {};
 
-  // ✅ FIX: Check against full chartData OR summary, not sampled displayData
+  //  FIX: Check against full chartData OR summary, not sampled displayData
   const hasData = useMemo(() => {
     if ((summary.total || 0) > 0) return true;
     if ((summary.transactionCount || 0) > 0) return true;
     return chartData.some((d) => d.value > 0);
   }, [chartData, summary]);
 
-  // ✅ FIX: Smart sampling that preserves non-zero data points
+  //  FIX: Smart sampling that preserves non-zero data points
   const displayData = useMemo(() => {
     if (chartData.length <= 30) return chartData;
 
@@ -109,12 +122,16 @@ const RevenueChart = ({ period }) => {
             <p className="text-[9px] text-gray-400">Period overview</p>
           </div>
         </div>
-        
+
         {!loading && !error && (
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-bold text-gray-900">{formatCurrency(summary.total || 0)}</p>
-              <p className="text-[9px] text-gray-400">{summary.transactionCount || 0} transactions</p>
+              <p className="text-sm font-bold text-gray-900">
+                {formatCurrency(summary.total || 0)}
+              </p>
+              <p className="text-[9px] text-gray-400">
+                {summary.transactionCount || 0} transactions
+              </p>
             </div>
             {(summary.total || 0) > 0 && (
               <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 rounded text-[9px] font-semibold text-emerald-600">
@@ -140,40 +157,49 @@ const RevenueChart = ({ period }) => {
           <div className="h-full flex flex-col items-center justify-center text-gray-300">
             <DollarSign size={28} className="mb-1 opacity-50" />
             <p className="text-[10px]">No revenue data for this period</p>
-            <p className="text-[9px] text-gray-400 mt-0.5">Transactions will appear here</p>
+            <p className="text-[9px] text-gray-400 mt-0.5">
+              Transactions will appear here
+            </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={displayData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <ComposedChart
+              data={displayData}
+              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+            >
               <defs>
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis 
-                dataKey="label" 
-                tick={{ fontSize: 9, fill: "#9CA3AF" }} 
-                tickLine={false} 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 9, fill: "#9CA3AF" }}
+                tickLine={false}
                 axisLine={{ stroke: "#E5E7EB" }}
                 interval="preserveStartEnd"
               />
-              <YAxis 
-                tick={{ fontSize: 9, fill: "#9CA3AF" }} 
-                tickLine={false} 
-                axisLine={false} 
-                tickFormatter={(v) => formatCurrency(v)} 
+              <YAxis
+                tick={{ fontSize: 9, fill: "#9CA3AF" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => formatCurrency(v)}
                 width={50}
               />
               <Tooltip content={<ChartTooltip />} />
-              <Area 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#10B981" 
-                fill="url(#revGrad)" 
-                strokeWidth={2} 
-                name="Revenue" 
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#10B981"
+                fill="url(#revGrad)"
+                strokeWidth={2}
+                name="Revenue"
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2 }}
               />

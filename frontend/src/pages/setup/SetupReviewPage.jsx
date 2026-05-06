@@ -25,7 +25,7 @@ import { submitSetup } from "../../api/setup";
 /**
  * SetupReviewPage
  * Step 3: Review all setup data and submit
- * 
+ *
  * Requirements:
  * - Show summary of branches and users
  * - Validate minimum requirements (≥1 branch)
@@ -74,7 +74,10 @@ const SetupReviewPage = () => {
       id: "users",
       label: "Login users available",
       passed: true, // SA always exists
-      note: users.length === 0 ? "Super Admin only" : `${users.length + 1} users (including you)`,
+      note:
+        users.length === 0
+          ? "Super Admin only"
+          : `${users.length + 1} users (including you)`,
     },
   ];
 
@@ -127,13 +130,13 @@ const SetupReviewPage = () => {
 
     try {
       const data = getSubmissionData();
-      
-      console.log("📤 Submitting setup data:", data);
+
+     
 
       // Submit to backend
       const response = await submitSetup(data);
+
       
-      console.log("✅ Setup response:", response.data);
 
       // Success!
       setShowSuccess(true);
@@ -145,19 +148,22 @@ const SetupReviewPage = () => {
         localStorage.removeItem("cureli-setup-storage");
         navigate("/dashboard", { replace: true });
       }, 2000);
-
     } catch (err) {
       console.error("Setup submission failed:", err);
       setSubmitError(
         err.response?.data?.message ||
-        "Failed to complete setup. Please try again."
+          "Failed to complete setup. Please try again.",
       );
       setIsSubmitting(false);
     }
   };
 
   const handleStartOver = () => {
-    if (window.confirm("Are you sure you want to start over? All your setup data will be lost.")) {
+    if (
+      window.confirm(
+        "Are you sure you want to start over? All your setup data will be lost.",
+      )
+    ) {
       resetSetup();
       localStorage.removeItem("cureli-setup-storage");
       navigate("/setup/branches", { replace: true });
@@ -236,8 +242,8 @@ const SetupReviewPage = () => {
           Review Your Setup
         </h1>
         <p className="text-gray-600">
-          Review your configuration before completing the setup. You can go back to
-          make changes if needed.
+          Review your configuration before completing the setup. You can go back
+          to make changes if needed.
         </p>
       </div>
 
@@ -279,7 +285,9 @@ const SetupReviewPage = () => {
                   {check.label}
                 </span>
                 {check.note && (
-                  <span className="text-xs text-gray-500 ml-2">({check.note})</span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({check.note})
+                  </span>
                 )}
               </div>
             </motion.div>
@@ -304,7 +312,11 @@ const SetupReviewPage = () => {
               <div>
                 <h3 className="font-semibold text-gray-800">Branches</h3>
                 <p className="text-xs text-gray-500">
-                  {branches.length} of {planLimits.max_branches === -1 ? "∞" : planLimits.max_branches} branches
+                  {branches.length} of{" "}
+                  {planLimits.max_branches === -1
+                    ? "∞"
+                    : planLimits.max_branches}{" "}
+                  branches
                 </p>
               </div>
             </div>
@@ -347,7 +359,8 @@ const SetupReviewPage = () => {
                     <div className="text-right flex-shrink-0">
                       {branchUsers.length > 0 && (
                         <p className="text-xs text-gray-400">
-                          {branchUsers.length} staff member{branchUsers.length > 1 ? "s" : ""}
+                          {branchUsers.length} staff member
+                          {branchUsers.length > 1 ? "s" : ""}
                         </p>
                       )}
                     </div>
@@ -373,7 +386,9 @@ const SetupReviewPage = () => {
               <div>
                 <h3 className="font-semibold text-gray-800">Users</h3>
                 <p className="text-xs text-gray-500">
-                  {users.length} of {planLimits.max_users === -1 ? "∞" : planLimits.max_users} additional users
+                  {users.length} of{" "}
+                  {planLimits.max_users === -1 ? "∞" : planLimits.max_users}{" "}
+                  additional users
                   <span className="text-gray-400 ml-1">(+ Super Admin)</span>
                 </p>
               </div>
@@ -390,7 +405,9 @@ const SetupReviewPage = () => {
                   {superAdmin.name || "You"}
                   <span className="text-gray-400 font-normal ml-1">(You)</span>
                 </p>
-                <p className="text-xs text-gray-500">Super Admin • All branches</p>
+                <p className="text-xs text-gray-500">
+                  Super Admin • All branches
+                </p>
               </div>
               <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
                 Owner
@@ -402,7 +419,7 @@ const SetupReviewPage = () => {
               <div className="divide-y divide-gray-100 mt-3">
                 {users.map((user) => {
                   const branch = branches.find(
-                    (b) => b.temp_id === user.branch_temp_id
+                    (b) => b.temp_id === user.branch_temp_id,
                   );
                   const RoleIcon = user.role === "branch_admin" ? Shield : User;
 
@@ -432,8 +449,10 @@ const SetupReviewPage = () => {
                           {user.full_name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {user.role === "branch_admin" ? "Branch Admin" : "Staff"} •{" "}
-                          {branch?.branch_name || "Unknown branch"}
+                          {user.role === "branch_admin"
+                            ? "Branch Admin"
+                            : "Staff"}{" "}
+                          • {branch?.branch_name || "Unknown branch"}
                         </p>
                       </div>
                       <div className="text-right text-xs text-gray-400">
@@ -466,10 +485,13 @@ const SetupReviewPage = () => {
             <div className="flex gap-3">
               <Lock size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-800">
-                <p className="font-medium mb-1">Remember to share login credentials</p>
+                <p className="font-medium mb-1">
+                  Remember to share login credentials
+                </p>
                 <p className="text-amber-700">
-                  You've created accounts for {users.length} user{users.length > 1 ? "s" : ""}. 
-                  Make sure to securely share their username and password so they can log in.
+                  You've created accounts for {users.length} user
+                  {users.length > 1 ? "s" : ""}. Make sure to securely share
+                  their username and password so they can log in.
                 </p>
               </div>
             </div>
@@ -485,7 +507,10 @@ const SetupReviewPage = () => {
           className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl"
         >
           <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <AlertCircle
+              size={20}
+              className="text-red-500 flex-shrink-0 mt-0.5"
+            />
             <div className="flex-1">
               <p className="font-medium text-red-800">Setup Failed</p>
               <p className="text-sm text-red-600 mt-1">{submitError}</p>

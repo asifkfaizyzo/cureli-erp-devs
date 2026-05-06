@@ -1,5 +1,5 @@
 // ============================================
-// AUDIT SERVICE
+// Q:\YourZeroesAndOnes\cureli\curely_erp\backend\src\modules\audit\audit.service.js
 // ============================================
 //
 // Centralized, append-only audit logging system.
@@ -244,7 +244,7 @@ export async function logMany(payloads, options = {}) {
  * const scopedAudit = audit.withContext({
  *   actor_type: ActorType.CADMIN,
  *   actor_id: cadmin.cadmin_id,
- *   actor_role: cadmin.role,
+ *   actor_role: cadmin.is_super_cadmin ? "SUPER_CADMIN" : "CUSTOM_ROLE",,
  *   ip_address: req.ip,
  *   user_agent: req.headers['user-agent'],
  * });

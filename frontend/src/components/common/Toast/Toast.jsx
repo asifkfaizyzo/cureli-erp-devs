@@ -1,19 +1,13 @@
 // src/components/common/Toast/Toast.jsx
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle, 
-  Info, 
-  X
-} from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
 
-const Toast = ({ 
+const Toast = ({
   id,
-  type = "info", 
-  title, 
-  message, 
+  type = "info",
+  title,
+  message,
   duration = 4000,
   onClose,
   showProgress = true,
@@ -91,7 +85,7 @@ const Toast = ({
   const circumference = radius * 2 * Math.PI;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  // ✅ Define handleClose with useCallback BEFORE the effects that use it
+  //  Define handleClose with useCallback BEFORE the effects that use it
   const handleClose = useCallback(() => {
     setIsLeaving(true);
     setTimeout(() => onClose?.(id), 300);
@@ -106,9 +100,9 @@ const Toast = ({
   // Progress timer
   useEffect(() => {
     if (duration <= 0) return;
-    
+
     let intervalId;
-    
+
     const tick = () => {
       if (!isPaused) {
         if (!startTimeRef.current) startTimeRef.current = Date.now();
@@ -120,7 +114,7 @@ const Toast = ({
         if (remaining <= 0) handleClose();
       }
     };
-    
+
     intervalId = setInterval(tick, 16);
     return () => clearInterval(intervalId);
   }, [duration, isPaused, handleClose]);
@@ -148,9 +142,10 @@ const Toast = ({
         shadow-lg ${config.shadowColor}
         transform transition-all duration-300 ease-out cursor-default
         hover:shadow-xl hover:scale-[1.01]
-        ${isVisible && !isLeaving 
-          ? "translate-x-0 opacity-100 scale-100" 
-          : "translate-x-4 opacity-0 scale-95"
+        ${
+          isVisible && !isLeaving
+            ? "translate-x-0 opacity-100 scale-100"
+            : "translate-x-4 opacity-0 scale-95"
         }
       `}
     >
@@ -158,9 +153,11 @@ const Toast = ({
         {/* Circular Progress Ring */}
         <div className="relative flex-shrink-0 self-start mt-0.5">
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className={`w-[30px] h-[30px] rounded-full ${config.iconBg}`} />
+            <div
+              className={`w-[30px] h-[30px] rounded-full ${config.iconBg}`}
+            />
           </div>
-          
+
           <svg width={size} height={size} className="-rotate-90 relative z-10">
             <circle
               cx={size / 2}
@@ -185,7 +182,7 @@ const Toast = ({
               />
             )}
           </svg>
-          
+
           <div className="absolute inset-0 flex items-center justify-center z-20">
             <Icon size={16} className={config.iconColor} strokeWidth={2.5} />
           </div>
@@ -194,12 +191,16 @@ const Toast = ({
         {/* Content */}
         <div className="flex-1 min-w-0 py-0.5">
           {title && (
-            <p className={`text-sm font-semibold ${config.titleColor} leading-tight break-words`}>
+            <p
+              className={`text-sm font-semibold ${config.titleColor} leading-tight break-words`}
+            >
               {title}
             </p>
           )}
           {message && (
-            <p className={`text-xs ${config.messageColor} ${title ? 'mt-1' : ''} leading-relaxed break-words`}>
+            <p
+              className={`text-xs ${config.messageColor} ${title ? "mt-1" : ""} leading-relaxed break-words`}
+            >
               {message}
             </p>
           )}
@@ -219,11 +220,13 @@ const Toast = ({
       {/* Paused Indicator */}
       {isPaused && (
         <div className="absolute bottom-1.5 right-2.5 flex items-center gap-1">
-          <div 
+          <div
             className="w-1 h-1 rounded-full animate-pulse"
             style={{ backgroundColor: config.ringColor }}
           />
-          <span className={`text-[9px] ${config.messageColor} font-medium opacity-60`}>
+          <span
+            className={`text-[9px] ${config.messageColor} font-medium opacity-60`}
+          >
             Paused
           </span>
         </div>

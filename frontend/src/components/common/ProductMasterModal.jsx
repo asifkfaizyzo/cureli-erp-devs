@@ -1,151 +1,531 @@
 // src/components/common/ProductMasterModal.jsx
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  X, Save, Package, Pill, MapPin, 
-  Loader2, AlertTriangle, Hash, Percent, 
-  Shield, Archive, Building2, Tag, Layers,
-  CheckCircle, Info
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  X,
+  Save,
+  Package,
+  Pill,
+  MapPin,
+  Loader2,
+  AlertTriangle,
+  Hash,
+  Percent,
+  Shield,
+  Archive,
+  Building2,
+  Tag,
+  Layers,
+  CheckCircle,
+  Info,
+  PenLine,
+  RefreshCw,
+  FlaskConical,
+  ArrowRight,
+  Boxes,
+  ChevronRight,
+} from "lucide-react";
+import StyledSelect from "./StyledSelect";
 
-const FormField = ({ label, required, error, children, className = '' }) => (
-  <div className={`space-y-1.5 ${className}`}>
-    <label className="flex items-center gap-1 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-      {label}
-      {required && <span className="text-red-500">*</span>}
-    </label>
+// ══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════════
+
+const SCHEDULE_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "Schedule H", label: "Schedule H" },
+  { value: "Schedule H1", label: "Schedule H1" },
+  { value: "Schedule X", label: "Schedule X" },
+  { value: "OTC", label: "OTC (Over The Counter)" },
+];
+
+const GST_OPTIONS = [
+  { value: "0", label: "0%" },
+  { value: "5", label: "5%" },
+  { value: "12", label: "12%" },
+  { value: "18", label: "18%" },
+  { value: "28", label: "28%" },
+];
+
+// ══════════════════════════════════════════════════════════════
+// SMALL COMPONENTS
+// ══════════════════════════════════════════════════════════════
+
+const FormField = ({ label, required, error, hint, children, className = "" }) => (
+  <div className={`flex flex-col gap-1 ${className}`}>
+    {label && (
+      <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+      </label>
+    )}
     {children}
+    {hint && !error && <p className="text-[10px] text-gray-400">{hint}</p>}
     {error && (
-      <p className="flex items-center gap-1 text-xs text-red-600">
+      <p className="flex items-center gap-1 text-[11px] text-red-500">
         <AlertTriangle size={10} className="shrink-0" />
-        <span>{error}</span>
+        {error}
       </p>
     )}
   </div>
 );
 
-const ProductMasterModal = ({ 
-  open, 
-  onClose, 
-  onSave, 
+const inputBase = (hasError) =>
+  `w-full px-3 py-2 text-sm bg-white border rounded-lg transition-all outline-none text-gray-800 placeholder:text-gray-400 ${
+    hasError
+      ? "border-red-400 bg-red-50 focus:ring-2 focus:ring-red-500/15 focus:border-red-400"
+      : "border-gray-200 hover:border-gray-300 focus:ring-2 focus:ring-indigo-500/15 focus:border-indigo-400"
+  }`;
+
+const InputWithIcon = ({ icon: Icon, error, className = "", ...props }) => (
+  <div className="relative">
+    <Icon
+      size={14}
+      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+    />
+    <input {...props} className={`${inputBase(error)} pl-9 ${className}`} />
+  </div>
+);
+
+const SectionDivider = ({ label }) => (
+  <div className="flex items-center gap-2 py-1">
+    <span className="h-px flex-1 bg-gray-100" />
+    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+      {label}
+    </span>
+    <span className="h-px flex-1 bg-gray-100" />
+  </div>
+);
+
+const ReadonlyPill = ({ value, color = "gray" }) => {
+  const colors = {
+    gray: "bg-gray-50 border-gray-200 text-gray-500",
+    violet: "bg-violet-50 border-violet-200 text-violet-700 font-bold",
+  };
+  return (
+    <div className={`flex items-center px-3 py-2 border rounded-lg text-sm ${colors[color]}`}>
+      {value}
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// TAB PANELS
+// ══════════════════════════════════════════════════════════════
+
+const BasicInfoPanel = ({ formData, errors, handleInputChange }) => (
+  <div className="space-y-4">
+    <FormField label="Product Name" required error={errors.name}>
+      <input
+        type="text"
+        value={formData.name}
+        onChange={(e) => handleInputChange("name", e.target.value)}
+        className={inputBase(errors.name)}
+        placeholder="e.g., Paracetamol 500mg Tablet"
+        autoFocus
+      />
+    </FormField>
+
+    <div className="grid grid-cols-2 gap-3">
+      <FormField label="Manufacturer" required error={errors.manufacturer}>
+        <InputWithIcon
+          icon={Building2}
+          type="text"
+          value={formData.manufacturer}
+          onChange={(e) => handleInputChange("manufacturer", e.target.value)}
+          error={errors.manufacturer}
+          placeholder="Manufacturer name"
+        />
+      </FormField>
+
+      <FormField label="Generic / Salt Name">
+        <InputWithIcon
+          icon={FlaskConical}
+          type="text"
+          value={formData.genericName}
+          onChange={(e) => handleInputChange("genericName", e.target.value)}
+          placeholder="Generic name"
+        />
+      </FormField>
+    </div>
+
+    <SectionDivider label="Classification" />
+
+    <div className="grid grid-cols-2 gap-3">
+      <FormField label="Category">
+        <input
+          type="text"
+          value={formData.category}
+          onChange={(e) => handleInputChange("category", e.target.value)}
+          className={inputBase(false)}
+          placeholder="e.g., Tablet"
+        />
+      </FormField>
+
+      <FormField label="Sub Category">
+        <input
+          type="text"
+          value={formData.subCategory}
+          onChange={(e) => handleInputChange("subCategory", e.target.value)}
+          className={inputBase(false)}
+          placeholder="e.g., Analgesic"
+        />
+      </FormField>
+
+      <FormField label="Pack Size">
+        <input
+          type="text"
+          value={formData.packSize}
+          onChange={(e) => handleInputChange("packSize", e.target.value)}
+          className={inputBase(false)}
+          placeholder="e.g., 10×10, 100ml"
+        />
+      </FormField>
+
+      <FormField label="Schedule">
+        <StyledSelect
+          value={formData.schedule}
+          onChange={(val) => handleInputChange("schedule", val)}
+          options={SCHEDULE_OPTIONS}
+          placeholder="Select schedule"
+        />
+      </FormField>
+    </div>
+  </div>
+);
+
+const StoragePanel = ({ formData, errors, handleInputChange }) => (
+  <div className="space-y-4">
+    <FormField
+      label="Rack Location"
+      hint="Where this product is physically stored"
+    >
+      <InputWithIcon
+        icon={MapPin}
+        type="text"
+        value={formData.rackNo}
+        onChange={(e) => handleInputChange("rackNo", e.target.value.toUpperCase())}
+        placeholder="e.g., A1, B2, C3"
+        className="uppercase"
+      />
+    </FormField>
+
+    <SectionDivider label="Stock Thresholds" />
+
+    <div className="grid grid-cols-3 gap-3">
+      <FormField label="Min Stock Level">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={formData.minLevel}
+          onChange={(e) => handleInputChange("minLevel", e.target.value)}
+          className={inputBase(false)}
+          placeholder="0"
+          min="0"
+        />
+      </FormField>
+
+      <FormField label="Reorder Point">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={formData.reorderPoint}
+          onChange={(e) => handleInputChange("reorderPoint", e.target.value)}
+          className={inputBase(false)}
+          placeholder="0"
+          min="0"
+        />
+      </FormField>
+
+      <FormField label="Max Stock Level" error={errors.maxLevel}>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={formData.maxLevel}
+          onChange={(e) => handleInputChange("maxLevel", e.target.value)}
+          className={inputBase(errors.maxLevel)}
+          placeholder="0"
+          min="0"
+        />
+      </FormField>
+    </div>
+
+    {/* Visual range indicator */}
+    {(formData.minLevel || formData.maxLevel || formData.reorderPoint) && (
+      <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100 text-[10px] text-gray-500">
+        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+        <span>Low ≤ {formData.minLevel || "—"}</span>
+        <ArrowRight size={9} className="text-gray-300" />
+        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+        <span>Reorder ≤ {formData.reorderPoint || "—"}</span>
+        <ArrowRight size={9} className="text-gray-300" />
+        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+        <span>Max = {formData.maxLevel || "—"}</span>
+      </div>
+    )}
+
+    <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
+      <Info size={13} className="text-amber-500 mt-0.5 shrink-0" />
+      <p className="text-[11px] text-amber-700 leading-relaxed">
+        These thresholds are optional during product creation. You can configure them after adding inventory batches.
+      </p>
+    </div>
+  </div>
+);
+
+const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstMode, handleGSTChange, handleTaxChange }) => (
+  <div className="space-y-4">
+    <FormField label="HSN Code" hint="Harmonised System of Nomenclature code">
+      <InputWithIcon
+        icon={Hash}
+        type="text"
+        value={formData.hsnCode}
+        onChange={(e) => handleInputChange("hsnCode", e.target.value)}
+        placeholder="e.g., 30049099"
+      />
+    </FormField>
+
+    <SectionDivider label="GST Configuration" />
+
+    {/* Mode toggle card */}
+    <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+      <div>
+        <p className="text-xs font-semibold text-gray-700">Tax Entry Mode</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          {gstMode === "auto"
+            ? "Total GST splits equally into CGST & SGST"
+            : "Enter CGST and SGST individually"}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={toggleGstMode}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
+          gstMode === "auto"
+            ? "bg-indigo-600 text-white hover:bg-indigo-700"
+            : "bg-violet-600 text-white hover:bg-violet-700"
+        }`}
+      >
+        {gstMode === "auto" ? (
+          <><RefreshCw size={11} /> Auto (GST → Split)</>
+        ) : (
+          <><PenLine size={11} /> Manual (CGST + SGST)</>
+        )}
+      </button>
+    </div>
+
+    {gstMode === "auto" ? (
+      <div className="grid grid-cols-3 gap-3">
+        <FormField label="GST Rate">
+          <StyledSelect
+            value={formData.gst}
+            onChange={handleGSTChange}
+            options={GST_OPTIONS}
+            placeholder="Select"
+          />
+        </FormField>
+        <FormField label="CGST % (Auto)">
+          <ReadonlyPill value={`${formData.cgstPercent}%`} />
+        </FormField>
+        <FormField label="SGST % (Auto)">
+          <ReadonlyPill value={`${formData.sgstPercent}%`} />
+        </FormField>
+      </div>
+    ) : (
+      <div className="grid grid-cols-3 gap-3">
+        <FormField label="CGST %" error={errors.cgstPercent}>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={formData.cgstPercent}
+            onChange={(e) => handleTaxChange("cgstPercent", e.target.value)}
+            className={inputBase(errors.cgstPercent)}
+            placeholder="0"
+            min="0"
+            max="14"
+            step="0.5"
+          />
+        </FormField>
+        <FormField label="SGST %">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={formData.sgstPercent}
+            onChange={(e) => handleTaxChange("sgstPercent", e.target.value)}
+            className={inputBase(false)}
+            placeholder="0"
+            min="0"
+            max="14"
+            step="0.5"
+          />
+        </FormField>
+        <FormField label="Total GST">
+          <ReadonlyPill value={`${formData.gst}%`} color="violet" />
+        </FormField>
+      </div>
+    )}
+
+    <FormField label="GST Sub Head" hint="Optional sub-classification">
+      <input
+        type="text"
+        value={formData.subHead}
+        onChange={(e) => handleInputChange("subHead", e.target.value)}
+        className={inputBase(false)}
+        placeholder="Optional"
+      />
+    </FormField>
+
+    <SectionDivider label="Price Control" />
+
+    {/* Price controlled toggle */}
+    <div
+      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none ${
+        formData.priceControlled
+          ? "bg-indigo-50 border-indigo-200"
+          : "bg-white border-gray-200 hover:border-gray-300"
+      }`}
+      onClick={() => handleInputChange("priceControlled", !formData.priceControlled)}
+    >
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+          formData.priceControlled ? "bg-indigo-100" : "bg-gray-100"
+        }`}>
+          <Shield
+            size={15}
+            className={formData.priceControlled ? "text-indigo-600" : "text-gray-400"}
+          />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Price Controlled</p>
+          <p className="text-[10px] text-gray-500">Government regulated product (DPCO)</p>
+        </div>
+      </div>
+      <div
+        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+          formData.priceControlled ? "bg-indigo-600" : "bg-gray-200"
+        }`}
+      >
+        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
+          formData.priceControlled ? "left-[18px]" : "left-0.5"
+        }`} />
+      </div>
+    </div>
+
+    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-2">
+      <Layers size={13} className="text-blue-500 mt-0.5 shrink-0" />
+      <p className="text-[11px] text-blue-700 leading-relaxed">
+        {gstMode === "auto"
+          ? "GST is automatically split equally into CGST & SGST for intra-state sales."
+          : "CGST and SGST are entered separately. Total GST is calculated automatically."}
+      </p>
+    </div>
+  </div>
+);
+
+// ══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════
+
+const ProductMasterModal = ({
+  open,
+  onClose,
+  onSave,
   initialData = {},
-  mode = 'create'
+  mode = "create",
 }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    manufacturer: '',
-    category: '',
-    subCategory: '',
-    genericName: '',
-    schedule: '',
-    rackNo: '',
-    minLevel: '',
-    maxLevel: '',
-    reorderPoint: '',
-    priceControlled: false,
-    hsnCode: '',
-    packSize: '',
-    gst: '12',
-    cgstPercent: '6',
-    sgstPercent: '6',
-    subHead: '',
+    name: "", manufacturer: "", category: "", subCategory: "",
+    genericName: "", schedule: "", rackNo: "", minLevel: "",
+    maxLevel: "", reorderPoint: "", priceControlled: false,
+    hsnCode: "", packSize: "", gst: "12", cgstPercent: "6",
+    sgstPercent: "6", subHead: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
-  const [gstMode, setGstMode] = useState('auto');
+  const [activeTab, setActiveTab] = useState("basic");
+  const [gstMode, setGstMode] = useState("auto");
 
-  // Tabs configuration
   const tabs = [
-    { id: 'basic', label: 'Basic Info', icon: Pill },
-    { id: 'storage', label: 'Storage & Inventory', icon: Archive },
-    { id: 'pricing', label: 'Pricing & Tax', icon: Percent },
+    {
+      id: "basic",
+      label: "Product Info",
+      icon: Pill,
+      description: "Name, manufacturer & classification",
+      errorKeys: ["name", "manufacturer"],
+    },
+    {
+      id: "storage",
+      label: "Storage",
+      icon: Boxes,
+      description: "Rack location & stock thresholds",
+      errorKeys: ["maxLevel"],
+    },
+    {
+      id: "pricing",
+      label: "Tax & GST",
+      icon: Percent,
+      description: "HSN code, GST rates & price control",
+      errorKeys: ["cgstPercent"],
+    },
   ];
 
-  // Reset form when modal opens
   useEffect(() => {
     if (open) {
       const hasManualGst = initialData.cgstPercent && initialData.sgstPercent;
-      const calculatedGst = hasManualGst 
+      const calculatedGst = hasManualGst
         ? String(parseFloat(initialData.cgstPercent) + parseFloat(initialData.sgstPercent))
-        : '12';
-      
+        : "12";
+
       setFormData({
-        name: initialData.name || '',
-        manufacturer: initialData.manufacturer || initialData.mfac || '',
-        category: initialData.category || '',
-        subCategory: initialData.subCategory || '',
-        genericName: initialData.genericName || '',
-        schedule: initialData.schedule || '',
-        rackNo: initialData.rackNo || initialData.rack || '',
-        minLevel: initialData.minLevel || '',
-        maxLevel: initialData.maxLevel || '',
-        reorderPoint: initialData.reorderPoint || '',
+        name: initialData.name || "",
+        manufacturer: initialData.manufacturer || initialData.mfac || "",
+        category: initialData.category || "",
+        subCategory: initialData.subCategory || "",
+        genericName: initialData.genericName || "",
+        schedule: initialData.schedule || "",
+        rackNo: initialData.rackNo || initialData.rack || "",
+        minLevel: initialData.minLevel || "",
+        maxLevel: initialData.maxLevel || "",
+        reorderPoint: initialData.reorderPoint || "",
         priceControlled: initialData.priceControlled || false,
-        hsnCode: initialData.hsnCode || initialData.hsn || '',
-        packSize: initialData.packSize || initialData.pack || '',
+        hsnCode: initialData.hsnCode || initialData.hsn || "",
+        packSize: initialData.packSize || initialData.pack || "",
         gst: initialData.gst || calculatedGst,
-        cgstPercent: initialData.cgstPercent || '6',
-        sgstPercent: initialData.sgstPercent || '6',
-        subHead: initialData.subHead || '',
+        cgstPercent: initialData.cgstPercent || "6",
+        sgstPercent: initialData.sgstPercent || "6",
+        subHead: initialData.subHead || "",
       });
-      
-      setGstMode(hasManualGst ? 'manual' : 'auto');
+      setGstMode(hasManualGst ? "manual" : "auto");
       setErrors({});
-      setActiveTab('basic');
-      document.body.style.overflow = 'hidden';
+      setActiveTab("basic");
+      document.body.style.overflow = "hidden";
     }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+    return () => { document.body.style.overflow = "unset"; };
   }, [open, initialData]);
 
-  // Handle escape key
   useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        handleClose();
-      }
-    };
-    if (open) {
-      document.addEventListener('keydown', handleEsc);
-    }
-    return () => document.removeEventListener('keydown', handleEsc);
+    const handleEsc = (e) => { if (e.key === "Escape") handleClose(); };
+    if (open) document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
   }, [open]);
 
-  // Validation stats
   const stats = useMemo(() => ({
-    hasName: !!formData.name.trim(),
-    hasManufacturer: !!formData.manufacturer.trim(),
     isValid: !!formData.name.trim() && !!formData.manufacturer.trim(),
-    errorCount: Object.keys(errors).length,
-  }), [formData.name, formData.manufacturer, errors]);
+  }), [formData.name, formData.manufacturer]);
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
-    }
-    
-    if (!formData.manufacturer.trim()) {
-      newErrors.manufacturer = 'Manufacturer is required';
-    }
-    
+    if (!formData.name.trim()) newErrors.name = "Product name is required";
+    if (!formData.manufacturer.trim()) newErrors.manufacturer = "Manufacturer is required";
     if (formData.minLevel && formData.maxLevel && Number(formData.minLevel) >= Number(formData.maxLevel)) {
-      newErrors.maxLevel = 'Max must be greater than min';
+      newErrors.maxLevel = "Max must be greater than min";
     }
-    
-    if (gstMode === 'manual') {
+    if (gstMode === "manual") {
       const cgst = parseFloat(formData.cgstPercent) || 0;
       const sgst = parseFloat(formData.sgstPercent) || 0;
-      if (cgst + sgst > 28) {
-        newErrors.cgstPercent = 'Total GST cannot exceed 28%';
-      }
+      if (cgst + sgst > 28) newErrors.cgstPercent = "Total GST cannot exceed 28%";
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -153,73 +533,47 @@ const ProductMasterModal = ({
   const handleGSTChange = (value) => {
     const gst = parseFloat(value) || 0;
     const half = (gst / 2).toFixed(2);
-    
-    setFormData(prev => ({
-      ...prev,
-      gst: value,
-      cgstPercent: half,
-      sgstPercent: half,
-    }));
-    
-    if (errors.gst) {
-      setErrors(prev => ({ ...prev, gst: '' }));
-    }
+    setFormData((prev) => ({ ...prev, gst: value, cgstPercent: half, sgstPercent: half }));
   };
 
   const handleTaxChange = (field, value) => {
     const numValue = parseFloat(value) || 0;
-    
-    setFormData(prev => {
+    setFormData((prev) => {
       const newData = { ...prev, [field]: value };
-      const cgst = field === 'cgstPercent' ? numValue : parseFloat(prev.cgstPercent) || 0;
-      const sgst = field === 'sgstPercent' ? numValue : parseFloat(prev.sgstPercent) || 0;
+      const cgst = field === "cgstPercent" ? numValue : parseFloat(prev.cgstPercent) || 0;
+      const sgst = field === "sgstPercent" ? numValue : parseFloat(prev.sgstPercent) || 0;
       newData.gst = String(cgst + sgst);
       return newData;
     });
-    
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
   const toggleGstMode = () => {
-    if (gstMode === 'auto') {
-      setGstMode('manual');
+    if (gstMode === "auto") {
+      setGstMode("manual");
     } else {
       const gst = parseFloat(formData.gst) || 12;
       const half = (gst / 2).toFixed(2);
-      setFormData(prev => ({
-        ...prev,
-        cgstPercent: half,
-        sgstPercent: half,
-      }));
-      setGstMode('auto');
+      setFormData((prev) => ({ ...prev, cgstPercent: half, sgstPercent: half }));
+      setGstMode("auto");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
-      // Switch to tab with first error
-      if (errors.name || errors.manufacturer) {
-        setActiveTab('basic');
-      } else if (errors.maxLevel) {
-        setActiveTab('storage');
-      }
+      if (errors.name || errors.manufacturer) setActiveTab("basic");
+      else if (errors.maxLevel) setActiveTab("storage");
       return;
     }
-    
     setIsSubmitting(true);
-    
     try {
-      const toNumberOrNull = (val) => {
-        if (val === null || val === undefined || val === '') return null;
+      const toNum = (val) => {
+        if (val === null || val === undefined || val === "") return null;
         const num = Number(val);
         return isNaN(num) ? null : num;
       };
-
-      const productData = {
+      await onSave({
         name: formData.name.trim(),
         manufacturer: formData.manufacturer.trim(),
         genericName: formData.genericName?.trim() || null,
@@ -228,555 +582,217 @@ const ProductMasterModal = ({
         schedule: formData.schedule || null,
         hsnCode: formData.hsnCode?.trim() || null,
         packSize: formData.packSize?.trim() || null,
-        gst: toNumberOrNull(formData.gst) ?? 12,
-        cgstPercent: toNumberOrNull(formData.cgstPercent) ?? 6,
-        sgstPercent: toNumberOrNull(formData.sgstPercent) ?? 6,
+        gst: toNum(formData.gst) ?? 12,
+        cgstPercent: toNum(formData.cgstPercent) ?? 6,
+        sgstPercent: toNum(formData.sgstPercent) ?? 6,
         rackNo: formData.rackNo?.trim()?.toUpperCase() || null,
-        min_stock_level: toNumberOrNull(formData.minLevel),
-        max_stock_level: toNumberOrNull(formData.maxLevel),
-        reorder_point: toNumberOrNull(formData.reorderPoint),
+        min_stock_level: toNum(formData.minLevel),
+        max_stock_level: toNum(formData.maxLevel),
+        reorder_point: toNum(formData.reorderPoint),
         priceControlled: formData.priceControlled || false,
         subHead: formData.subHead?.trim() || null,
-      };
-      
-      await onSave(productData);
+      });
       onClose();
     } catch (error) {
-      console.error('Error saving product:', error);
-      setErrors(prev => ({
-        ...prev,
-        submit: error.message || 'Failed to save product'
-      }));
+      setErrors((prev) => ({ ...prev, submit: error.message || "Failed to save product" }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  const handleClose = () => {
-    onClose();
-  };
-
-  const inputClass = (hasError) => `
-    w-full px-3 py-2.5 text-sm bg-white border rounded-lg transition-all duration-150 outline-none
-    ${hasError 
-      ? 'border-red-300 bg-red-50/50 focus:ring-2 focus:ring-red-500/20 focus:border-red-500' 
-      : 'border-slate-200 hover:border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
-    }
-  `;
-
-  const selectClass = `
-    w-full px-3 py-2.5 text-sm bg-white border border-slate-200 rounded-lg transition-all duration-150 outline-none
-    hover:border-slate-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer
-  `;
+  const handleClose = () => onClose();
 
   if (!open) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 font-poppins"
       onClick={handleClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
 
-      {/* Modal */}
+      {/* Modal — fixed size, always same height */}
       <div
-        className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ height: "min(680px, calc(100vh - 2rem))" }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
-        <div className="bg-gradient-to-r from-[#000060] to-indigo-800 px-4 sm:px-6 py-4">
+
+        {/* ═══════════ HEADER ═══════════ */}
+        <div className="shrink-0 bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Product Info */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <Package size={20} className="text-white" />
               </div>
-              <div className="min-w-0">
-                <h2 className="text-white text-base sm:text-lg font-semibold truncate">
-                  {mode === 'create' ? 'Add New Product' : 'Edit Product'}
+              <div>
+                <h2 className="text-white font-bold text-base leading-tight">
+                  {mode === "create" ? "Add New Product" : "Edit Product"}
                 </h2>
-                <p className="text-white/70 text-xs sm:text-sm">
-                  Product Master Entry
-                </p>
+                <p className="text-white/50 text-[11px] mt-0.5">Medicine Master Entry</p>
               </div>
             </div>
 
-            {/* Header Actions */}
             <div className="flex items-center gap-2">
-              {/* Status Badge */}
-              <div className="hidden sm:flex items-center gap-2">
-                {stats.isValid ? (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300">
-                    <CheckCircle size={12} />
-                    Ready
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-300">
-                    <AlertTriangle size={12} />
-                    Incomplete
-                  </span>
-                )}
-              </div>
-
+              {stats.isValid ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">
+                  <CheckCircle size={10} /> Ready
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/20">
+                  <AlertTriangle size={10} /> Incomplete
+                </span>
+              )}
               <button
                 onClick={handleClose}
-                className="p-2 rounded-lg bg-white/20 text-white hover:bg-red-500/30 transition-all"
+                className="p-1.5 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* TABS */}
-        <div className="flex gap-1 px-4 sm:px-6 bg-white border-b border-gray-200 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            const hasError = (tab.id === 'basic' && (errors.name || errors.manufacturer)) ||
-                            (tab.id === 'storage' && errors.maxLevel) ||
-                            (tab.id === 'pricing' && errors.cgstPercent);
-            
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  flex items-center gap-2 px-3 sm:px-4 py-2.5 text-sm font-medium rounded-t-md transition-all whitespace-nowrap
-                  ${isActive
-                    ? 'text-[#000060] border-b-2 border-[#000060] bg-white'
-                    : 'text-gray-500 hover:text-gray-700'
-                  }
-                `}
-              >
-                <Icon size={16} />
-                <span className="hidden xs:inline">{tab.label}</span>
-                <span className="xs:hidden">{tab.label.split(' ')[0]}</span>
-                {hasError && (
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* ═══════════ BODY (sidebar + content) ═══════════ */}
+        <form onSubmit={handleSubmit} className="flex flex-1 overflow-hidden">
 
-        {/* CONTENT */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-4 sm:p-6 h-[55vh] sm:h-[60vh] overflow-auto bg-gray-50">
-            
-            {/* Basic Info Tab */}
-            {activeTab === 'basic' && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-                  <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-100">
-                    <div className="p-1.5 bg-blue-100 rounded-lg">
-                      <Pill className="w-4 h-4 text-blue-600" />
+          {/* ── LEFT SIDEBAR TABS ── */}
+          <div className="shrink-0 w-48 bg-gray-50 border-r border-gray-100 flex flex-col py-3 gap-0.5 px-2">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              const hasError = tab.errorKeys.some((k) => errors[k]);
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`
+                    w-full text-left px-3 py-3 rounded-xl transition-all group
+                    ${isActive
+                      ? "bg-white shadow-sm border border-gray-200"
+                      : "hover:bg-white/60"
+                    }
+                  `}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                      isActive
+                        ? "bg-indigo-600"
+                        : "bg-gray-200 group-hover:bg-gray-300"
+                    }`}>
+                      <Icon size={14} className={isActive ? "text-white" : "text-gray-500"} />
                     </div>
-                    <h3 className="font-semibold text-gray-800">Basic Information</h3>
-                    {(errors.name || errors.manufacturer) && (
-                      <span className="ml-auto flex items-center gap-1 text-xs text-red-500">
-                        <AlertTriangle size={12} />
-                        Required fields missing
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="Product Name" required error={errors.name} className="sm:col-span-2">
-                      <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => handleInputChange('name', e.target.value)}
-                        className={inputClass(errors.name)}
-                        placeholder="Enter product name"
-                        autoFocus
-                      />
-                    </FormField>
-
-                    <FormField label="Manufacturer" required error={errors.manufacturer}>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <input
-                          type="text"
-                          value={formData.manufacturer}
-                          onChange={(e) => handleInputChange('manufacturer', e.target.value)}
-                          className={`${inputClass(errors.manufacturer)} pl-9`}
-                          placeholder="Manufacturer name"
-                        />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs font-semibold leading-tight truncate ${
+                          isActive ? "text-gray-900" : "text-gray-600"
+                        }`}>
+                          {tab.label}
+                        </p>
+                        {hasError && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 ml-1" />
+                        )}
                       </div>
-                    </FormField>
-
-                    <FormField label="Generic Name">
-                      <div className="relative">
-                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <input
-                          type="text"
-                          value={formData.genericName}
-                          onChange={(e) => handleInputChange('genericName', e.target.value)}
-                          className={`${inputClass(false)} pl-9`}
-                          placeholder="Generic/salt name"
-                        />
-                      </div>
-                    </FormField>
-
-                    <FormField label="Category">
-                      <input
-                        type="text"
-                        value={formData.category}
-                        onChange={(e) => handleInputChange('category', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="e.g., Tablet"
-                      />
-                    </FormField>
-
-                    <FormField label="Sub Category">
-                      <input
-                        type="text"
-                        value={formData.subCategory}
-                        onChange={(e) => handleInputChange('subCategory', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="e.g., Analgesic"
-                      />
-                    </FormField>
-
-                    <FormField label="Pack Size">
-                      <input
-                        type="text"
-                        value={formData.packSize}
-                        onChange={(e) => handleInputChange('packSize', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="e.g., 10x10, 100ml, 82GM"
-                      />
-                    </FormField>
-
-                    <FormField label="Schedule">
-                      <select
-                        value={formData.schedule}
-                        onChange={(e) => handleInputChange('schedule', e.target.value)}
-                        className={selectClass}
-                      >
-                        <option value="">Select Schedule</option>
-                        <option value="Schedule H">Schedule H</option>
-                        <option value="Schedule H1">Schedule H1</option>
-                        <option value="Schedule X">Schedule X</option>
-                        <option value="OTC">OTC (Over The Counter)</option>
-                      </select>
-                    </FormField>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Storage Tab */}
-            {activeTab === 'storage' && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-                  <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-100">
-                    <div className="p-1.5 bg-green-100 rounded-lg">
-                      <Archive className="w-4 h-4 text-green-600" />
-                    </div>
-                    <h3 className="font-semibold text-gray-800">Storage & Inventory</h3>
-                    {errors.maxLevel && (
-                      <span className="ml-auto flex items-center gap-1 text-xs text-red-500">
-                        <AlertTriangle size={12} />
-                        Error
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="Rack Location" className="sm:col-span-2">
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <input
-                          type="text"
-                          value={formData.rackNo}
-                          onChange={(e) => handleInputChange('rackNo', e.target.value.toUpperCase())}
-                          className={`${inputClass(false)} pl-9 uppercase`}
-                          placeholder="e.g., A1, B2, C3"
-                        />
-                      </div>
-                    </FormField>
-
-                    <FormField label="Min Stock Level">
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={formData.minLevel}
-                        onChange={(e) => handleInputChange('minLevel', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="0"
-                        min="0"
-                      />
-                    </FormField>
-
-                    <FormField label="Max Stock Level" error={errors.maxLevel}>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={formData.maxLevel}
-                        onChange={(e) => handleInputChange('maxLevel', e.target.value)}
-                        className={inputClass(errors.maxLevel)}
-                        placeholder="0"
-                        min="0"
-                      />
-                    </FormField>
-
-                    <FormField label="Reorder Point" className="sm:col-span-2">
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={formData.reorderPoint}
-                        onChange={(e) => handleInputChange('reorderPoint', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="Auto calculate or enter manually"
-                        min="0"
-                      />
-                    </FormField>
-                  </div>
-
-                  {/* Info Box */}
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-                    <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      Stock levels are optional during product creation. You can set them later when adding inventory.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Pricing Tab */}
-            {activeTab === 'pricing' && (
-              <div className="space-y-4">
-                <div className="bg-white rounded-xl border border-gray-100 p-4 sm:p-6">
-                  <div className="flex items-center gap-2 pb-3 mb-4 border-b border-gray-100">
-                    <div className="p-1.5 bg-purple-100 rounded-lg">
-                      <Percent className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <h3 className="font-semibold text-gray-800">Pricing & Tax</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="HSN Code" className="sm:col-span-2">
-                      <div className="relative">
-                        <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
-                        <input
-                          type="text"
-                          value={formData.hsnCode}
-                          onChange={(e) => handleInputChange('hsnCode', e.target.value)}
-                          className={`${inputClass(false)} pl-9`}
-                          placeholder="Enter HSN Code"
-                        />
-                      </div>
-                    </FormField>
-
-                    {/* GST Mode Toggle */}
-                    <div className="sm:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 bg-slate-100 rounded-lg">
-                      <span className="text-xs font-medium text-slate-600">Tax Entry Mode</span>
-                      <button
-                        type="button"
-                        onClick={toggleGstMode}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                          gstMode === 'auto' 
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-purple-500 text-white'
-                        }`}
-                      >
-                        {gstMode === 'auto' ? '🔄 Auto (GST → Split)' : '✏️ Manual (CGST + SGST)'}
-                      </button>
-                    </div>
-
-                    {gstMode === 'auto' ? (
-                      <>
-                        <FormField label="GST Rate" className="sm:col-span-2">
-                          <select
-                            value={formData.gst}
-                            onChange={(e) => handleGSTChange(e.target.value)}
-                            className={selectClass}
-                          >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18">18%</option>
-                            <option value="28">28%</option>
-                          </select>
-                        </FormField>
-
-                        <FormField label="CGST % (Auto)">
-                          <input
-                            type="text"
-                            value={formData.cgstPercent}
-                            readOnly
-                            className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
-                          />
-                        </FormField>
-
-                        <FormField label="SGST % (Auto)">
-                          <input
-                            type="text"
-                            value={formData.sgstPercent}
-                            readOnly
-                            className="w-full px-3 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
-                          />
-                        </FormField>
-                      </>
-                    ) : (
-                      <>
-                        <FormField label="CGST %" error={errors.cgstPercent}>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={formData.cgstPercent}
-                            onChange={(e) => handleTaxChange('cgstPercent', e.target.value)}
-                            className={inputClass(errors.cgstPercent)}
-                            placeholder="0"
-                            min="0"
-                            max="14"
-                            step="0.5"
-                          />
-                        </FormField>
-
-                        <FormField label="SGST %">
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={formData.sgstPercent}
-                            onChange={(e) => handleTaxChange('sgstPercent', e.target.value)}
-                            className={inputClass(false)}
-                            placeholder="0"
-                            min="0"
-                            max="14"
-                            step="0.5"
-                          />
-                        </FormField>
-
-                        <FormField label="Total GST (Calculated)" className="sm:col-span-2">
-                          <input
-                            type="text"
-                            value={`${formData.gst}%`}
-                            readOnly
-                            className="w-full px-3 py-2.5 text-sm bg-purple-50 border border-purple-200 rounded-lg text-purple-700 font-medium"
-                          />
-                        </FormField>
-                      </>
-                    )}
-
-                    <FormField label="GST Sub Head" className="sm:col-span-2">
-                      <input
-                        type="text"
-                        value={formData.subHead}
-                        onChange={(e) => handleInputChange('subHead', e.target.value)}
-                        className={inputClass(false)}
-                        placeholder="Optional sub-classification"
-                      />
-                    </FormField>
-
-                    {/* Price Controlled Toggle */}
-                    <div className="sm:col-span-2 p-3 bg-white border border-slate-200 rounded-lg">
-                      <label className="flex items-center justify-between cursor-pointer gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                            formData.priceControlled ? 'bg-blue-100' : 'bg-slate-100'
-                          }`}>
-                            <Shield className={`w-4 h-4 ${
-                              formData.priceControlled ? 'text-blue-600' : 'text-slate-400'
-                            }`} />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-slate-800">Price Controlled</span>
-                            <p className="text-xs text-slate-500">Government regulated product</p>
-                          </div>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type="checkbox"
-                            checked={formData.priceControlled}
-                            onChange={(e) => handleInputChange('priceControlled', e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-10 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 after:shadow-sm"></div>
-                        </div>
-                      </label>
+                      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight line-clamp-2">
+                        {tab.description}
+                      </p>
                     </div>
                   </div>
+                </button>
+              );
+            })}
 
-                  {/* Info Box */}
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-2">
-                    <Layers size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-blue-700">
-                      {gstMode === 'auto' 
-                        ? 'GST automatically splits into CGST & SGST equally for intra-state sales.'
-                        : 'Enter CGST and SGST separately. Total GST will be calculated automatically.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Submit Error */}
-            {errors.submit && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-3">
-                <AlertTriangle size={18} className="text-red-600 mt-0.5 shrink-0" />
-                <p className="text-sm text-red-800">{errors.submit}</p>
-              </div>
-            )}
+            {/* Sidebar footer — spacer + required note */}
+            <div className="mt-auto px-2 pb-2 pt-3 border-t border-gray-100 mt-3">
+              <p className="text-[10px] text-gray-400 leading-relaxed">
+                <span className="text-red-400 font-bold">*</span> Required fields must be filled before saving.
+              </p>
+            </div>
           </div>
 
-          {/* FOOTER */}
-          <div className="px-4 sm:px-6 py-4 bg-white border-t border-gray-100">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              {/* Status Info */}
-              <div className="flex items-center gap-4 text-xs text-gray-400 order-2 sm:order-1">
-                <span className="flex items-center gap-1">
-                  <span className="text-red-500">*</span> Required fields
-                </span>
-                <span className="hidden sm:flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${stats.isValid ? 'bg-green-500' : 'bg-yellow-500'}`}></span>
-                  {stats.isValid ? 'Ready to save' : 'Fill required fields'}
+          {/* ── RIGHT CONTENT PANEL ── */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-white">
+            {/* Content scroll area */}
+            <div className="flex-1 overflow-y-auto p-5">
+
+              {activeTab === "basic" && (
+                <BasicInfoPanel
+                  formData={formData}
+                  errors={errors}
+                  handleInputChange={handleInputChange}
+                />
+              )}
+
+              {activeTab === "storage" && (
+                <StoragePanel
+                  formData={formData}
+                  errors={errors}
+                  handleInputChange={handleInputChange}
+                />
+              )}
+
+              {activeTab === "pricing" && (
+                <PricingPanel
+                  formData={formData}
+                  errors={errors}
+                  handleInputChange={handleInputChange}
+                  gstMode={gstMode}
+                  toggleGstMode={toggleGstMode}
+                  handleGSTChange={handleGSTChange}
+                  handleTaxChange={handleTaxChange}
+                />
+              )}
+
+              {/* Submit error */}
+              {errors.submit && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                  <AlertTriangle size={13} className="text-red-500 mt-0.5 shrink-0" />
+                  <p className="text-xs text-red-700">{errors.submit}</p>
+                </div>
+              )}
+            </div>
+
+            {/* ── FOOTER inside right panel ── */}
+            <div className="shrink-0 px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  stats.isValid ? "bg-emerald-500" : "bg-amber-400"
+                }`} />
+                <span className="text-[10px] text-gray-400">
+                  {stats.isValid ? "Ready to save" : "Fill name & manufacturer to continue"}
                 </span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-none px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !stats.isValid}
-                  className={`
-                    flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all
-                    ${stats.isValid && !isSubmitting
-                      ? 'bg-[#000060] text-white hover:bg-indigo-800'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    }
-                  `}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    stats.isValid && !isSubmitting
+                      ? "bg-[#05015A] text-white hover:bg-[#0a0280] shadow-sm"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   {isSubmitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Saving...
-                    </>
+                    <><Loader2 size={14} className="animate-spin" /> Saving...</>
                   ) : (
-                    <>
-                      <Save size={16} />
-                      {mode === 'create' ? 'Add Product' : 'Update Product'}
-                    </>
+                    <><Save size={14} /> {mode === "create" ? "Add Product" : "Update Product"}</>
                   )}
                 </button>
               </div>
@@ -784,813 +800,8 @@ const ProductMasterModal = ({
           </div>
         </form>
       </div>
-
-      {/* Animation Styles */}
-      <style jsx>{`
-        @keyframes zoom-in-95 {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        .animate-in {
-          animation: zoom-in-95 0.2s ease-out;
-        }
-        
-        /* Hide xs breakpoint utilities fallback */
-        @media (max-width: 475px) {
-          .xs\\:inline { display: none; }
-          .xs\\:hidden { display: inline; }
-        }
-        @media (min-width: 476px) {
-          .xs\\:inline { display: inline; }
-          .xs\\:hidden { display: none; }
-        }
-      `}</style>
     </div>
   );
 };
 
 export default ProductMasterModal;
-
-// // src/components/common/ProductMasterModal.jsx
-
-// import React, { useState, useEffect, useRef } from 'react';
-// import { 
-//   X, Save, Package, Pill, MapPin, 
-//   Loader2, AlertTriangle, Hash, Percent, 
-//   Shield, Archive, Building2, Tag, Layers,
-//   ChevronRight
-// } from 'lucide-react';
-
-// const FormField = ({ label, required, error, children, className = '' }) => (
-//   <div className={`space-y-1 ${className}`}>
-//     <label className="flex items-center gap-1 text-xs font-semibold text-slate-600 uppercase tracking-wide">
-//       {label}
-//       {required && <span className="text-red-500">*</span>}
-//     </label>
-//     {children}
-//     {error && (
-//       <p className="flex items-center gap-1 text-xs text-red-600">
-//         <AlertTriangle size={10} />
-//         {error}
-//       </p>
-//     )}
-//   </div>
-// );
-
-// const ProductMasterModal = ({ 
-//   open, 
-//   onClose, 
-//   onSave, 
-//   initialData = {},
-//   mode = 'create'
-// }) => {
-//   const [formData, setFormData] = useState({
-//     name: '',
-//     manufacturer: '',
-//     category: '',
-//     subCategory: '',
-//     genericName: '',
-//     schedule: '',
-//     rackNo: '',
-//     minLevel: '',
-//     maxLevel: '',
-//     reorderPoint: '',
-//     priceControlled: false,
-//     hsnCode: '',
-//     packSize: '',
-//     gst: '12',
-//     cgstPercent: '6',
-//     sgstPercent: '6',
-//     subHead: '',
-//   });
-
-//   const [errors, setErrors] = useState({});
-//   const [isSubmitting, setIsSubmitting] = useState(false);
-//   const [activeSection, setActiveSection] = useState('basic');
-//   const [gstMode, setGstMode] = useState('auto'); // 'auto' or 'manual'
-
-//   const basicRef = useRef(null);
-//   const storageRef = useRef(null);
-//   const pricingRef = useRef(null);
-
-//   const sections = [
-//     { id: 'basic', label: 'Basic Info', icon: Pill, ref: basicRef, color: 'blue' },
-//     { id: 'storage', label: 'Storage', icon: Archive, ref: storageRef, color: 'green' },
-//     { id: 'pricing', label: 'Pricing', icon: Percent, ref: pricingRef, color: 'purple' },
-//   ];
-
-//   // ✅ UPDATED: Reset form with ALL initial data fields
-//   useEffect(() => {
-//     if (open) {
-//       console.log('📝 ProductMasterModal initialData:', initialData);
-      
-//       // Determine GST mode based on initialData
-//       const hasManualGst = initialData.cgstPercent && initialData.sgstPercent;
-//       const calculatedGst = hasManualGst 
-//         ? String(parseFloat(initialData.cgstPercent) + parseFloat(initialData.sgstPercent))
-//         : '12';
-      
-//       setFormData({
-//         name: initialData.name || '',
-//         manufacturer: initialData.manufacturer || initialData.mfac || '',
-//         category: initialData.category || '',
-//         subCategory: initialData.subCategory || '',
-//         genericName: initialData.genericName || '',
-//         schedule: initialData.schedule || '',
-//         rackNo: initialData.rackNo || initialData.rack || '',
-//         minLevel: initialData.minLevel || '',
-//         maxLevel: initialData.maxLevel || '',
-//         reorderPoint: initialData.reorderPoint || '',
-//         priceControlled: initialData.priceControlled || false,
-//         // ✅ FIXED: Map HSN code from various sources
-//         hsnCode: initialData.hsnCode || initialData.hsn || '',
-//         packSize: initialData.packSize || initialData.pack || '',
-//         gst: initialData.gst || calculatedGst,
-//         // ✅ FIXED: Map CGST/SGST from import
-//         cgstPercent: initialData.cgstPercent || '6',
-//         sgstPercent: initialData.sgstPercent || '6',
-//         subHead: initialData.subHead || '',
-//       });
-      
-//       // Set GST mode based on whether we have explicit CGST/SGST values
-//       setGstMode(hasManualGst ? 'manual' : 'auto');
-//       setErrors({});
-//       setActiveSection('basic');
-//     }
-//   }, [open, initialData]);
-
-//   const scrollToSection = (sectionId) => {
-//     setActiveSection(sectionId);
-//     const section = sections.find(s => s.id === sectionId);
-//     if (section?.ref?.current) {
-//       section.ref.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-//     }
-//   };
-
-//   const validateForm = () => {
-//     const newErrors = {};
-    
-//     if (!formData.name.trim()) {
-//       newErrors.name = 'Product name is required';
-//     }
-    
-//     if (!formData.manufacturer.trim()) {
-//       newErrors.manufacturer = 'Manufacturer is required';
-//     }
-    
-//     if (formData.minLevel && formData.maxLevel && Number(formData.minLevel) >= Number(formData.maxLevel)) {
-//       newErrors.maxLevel = 'Max must be greater than min';
-//     }
-    
-//     // Validate CGST + SGST in manual mode
-//     if (gstMode === 'manual') {
-//       const cgst = parseFloat(formData.cgstPercent) || 0;
-//       const sgst = parseFloat(formData.sgstPercent) || 0;
-//       if (cgst + sgst > 28) {
-//         newErrors.cgstPercent = 'Total GST cannot exceed 28%';
-//       }
-//     }
-    
-//     setErrors(newErrors);
-//     return Object.keys(newErrors).length === 0;
-//   };
-
-//   // ✅ Handle GST change in AUTO mode
-//   const handleGSTChange = (value) => {
-//     const gst = parseFloat(value) || 0;
-//     const half = (gst / 2).toFixed(2);
-    
-//     setFormData(prev => ({
-//       ...prev,
-//       gst: value,
-//       cgstPercent: half,
-//       sgstPercent: half,
-//     }));
-    
-//     if (errors.gst) {
-//       setErrors(prev => ({ ...prev, gst: '' }));
-//     }
-//   };
-
-//   // ✅ Handle individual CGST/SGST change in MANUAL mode
-//   const handleTaxChange = (field, value) => {
-//     const numValue = parseFloat(value) || 0;
-    
-//     setFormData(prev => {
-//       const newData = { ...prev, [field]: value };
-      
-//       // Recalculate total GST
-//       const cgst = field === 'cgstPercent' ? numValue : parseFloat(prev.cgstPercent) || 0;
-//       const sgst = field === 'sgstPercent' ? numValue : parseFloat(prev.sgstPercent) || 0;
-//       newData.gst = String(cgst + sgst);
-      
-//       return newData;
-//     });
-    
-//     if (errors[field]) {
-//       setErrors(prev => ({ ...prev, [field]: '' }));
-//     }
-//   };
-
-//   // ✅ Toggle between auto and manual GST mode
-//   const toggleGstMode = () => {
-//     if (gstMode === 'auto') {
-//       setGstMode('manual');
-//     } else {
-//       // When switching back to auto, recalculate CGST/SGST from GST
-//       const gst = parseFloat(formData.gst) || 12;
-//       const half = (gst / 2).toFixed(2);
-//       setFormData(prev => ({
-//         ...prev,
-//         cgstPercent: half,
-//         sgstPercent: half,
-//       }));
-//       setGstMode('auto');
-//     }
-//   };
-
-//   // src/components/common/ProductMasterModal.jsx - UPDATE handleSubmit
-
-// const handleSubmit = async (e) => {
-//   e.preventDefault();
-  
-//   if (!validateForm()) {
-//     const firstError = Object.keys(errors)[0];
-//     const section = firstError === 'name' || firstError === 'manufacturer' ? 'basic' : 
-//                     firstError === 'maxLevel' ? 'storage' : 'basic';
-//     scrollToSection(section);
-//     return;
-//   }
-  
-//   setIsSubmitting(true);
-  
-//   try {
-//     // ✅ Helper: safely convert to number or null
-//     const toNumberOrNull = (val) => {
-//       if (val === null || val === undefined || val === '') return null;
-//       const num = Number(val);
-//       return isNaN(num) ? null : num;
-//     };
-
-//     const productData = {
-//       name: formData.name.trim(),
-//       manufacturer: formData.manufacturer.trim(),
-//       genericName: formData.genericName?.trim() || null,
-//       category: formData.category?.trim() || null,
-//       subCategory: formData.subCategory?.trim() || null,
-//       schedule: formData.schedule || null,
-//       hsnCode: formData.hsnCode?.trim() || null,
-//       packSize: formData.packSize?.trim() || null,
-//       gst: toNumberOrNull(formData.gst) ?? 12,
-//       cgstPercent: toNumberOrNull(formData.cgstPercent) ?? 6,
-//       sgstPercent: toNumberOrNull(formData.sgstPercent) ?? 6,
-//       rackNo: formData.rackNo?.trim()?.toUpperCase() || null,
-      
-//       // ✅ FIXED: Use correct field names that match backend schema
-//       min_stock_level: toNumberOrNull(formData.minLevel),
-//       max_stock_level: toNumberOrNull(formData.maxLevel),
-//       reorder_point: toNumberOrNull(formData.reorderPoint),
-      
-//       priceControlled: formData.priceControlled || false,
-//       subHead: formData.subHead?.trim() || null,
-//     };
-    
-//     console.log('📤 ProductMasterModal sending:', {
-//       min_stock_level: productData.min_stock_level,
-//       max_stock_level: productData.max_stock_level,
-//       reorder_point: productData.reorder_point,
-//     });
-    
-//     await onSave(productData);
-//     onClose();
-//   } catch (error) {
-//     console.error('Error saving product:', error);
-//     setErrors(prev => ({
-//       ...prev,
-//       submit: error.message || 'Failed to save product'
-//     }));
-//   } finally {
-//     setIsSubmitting(false);
-//   }
-// };
-
-//   const handleInputChange = (field, value) => {
-//     setFormData(prev => ({ ...prev, [field]: value }));
-//     if (errors[field]) {
-//       setErrors(prev => ({ ...prev, [field]: '' }));
-//     }
-//   };
-
-//   const inputClass = (hasError) => `
-//     w-full px-3 py-2 text-sm bg-white border rounded-lg transition-all duration-150 outline-none
-//     ${hasError 
-//       ? 'border-red-300 bg-red-50/50 focus:ring-2 focus:ring-red-500/20 focus:border-red-500' 
-//       : 'border-slate-300 hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500'
-//     }
-//   `;
-
-//   const selectClass = `
-//     w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg transition-all duration-150 outline-none
-//     hover:border-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer
-//   `;
-
-//   if (!open) return null;
-
-//   return (
-//     <div className="fixed inset-0 z-50 overflow-hidden">
-//       <div 
-//         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-//         onClick={onClose}
-//       />
-      
-//       <div className="relative flex items-start justify-center min-h-screen p-2 sm:p-4 overflow-y-auto">
-//         <div className="relative w-full max-w-6xl bg-white rounded-xl shadow-2xl my-4 sm:my-8">
-          
-//           {/* Header */}
-//           <div className="sticky top-0 z-10 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-[#000060] to-indigo-900 rounded-t-xl">
-//             <div className="flex items-center gap-3 sm:gap-4">
-//               <div className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-white/20 backdrop-blur rounded-lg">
-//                 <Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-//               </div>
-//               <div>
-//                 <h2 className="text-base sm:text-lg font-semibold text-white">
-//                   {mode === 'create' ? 'Add New Product' : 'Edit Product'}
-//                 </h2>
-//                 <p className="text-xs sm:text-sm text-blue-200">
-//                   Product Master Entry
-//                 </p>
-//               </div>
-//             </div>
-//             <button
-//               onClick={onClose}
-//               className="p-2 text-blue-200 hover:text-white hover:bg-white/20 rounded-lg transition-colors"
-//             >
-//               <X size={20} />
-//             </button>
-//           </div>
-
-//           {/* Horizontal Tab Navigation */}
-//           <div className="sticky top-[60px] sm:top-[68px] z-10 flex items-center gap-1 px-4 sm:px-6 py-3 bg-slate-50 border-b border-slate-200 overflow-x-auto">
-//             {sections.map((section, index) => (
-//               <React.Fragment key={section.id}>
-//                 <button
-//                   type="button"
-//                   onClick={() => scrollToSection(section.id)}
-//                   className={`flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-all ${
-//                     activeSection === section.id
-//                       ? 'bg-[#000060] text-white shadow-md'
-//                       : 'text-slate-600 hover:bg-slate-200'
-//                   }`}
-//                 >
-//                   <section.icon size={16} />
-//                   <span className="hidden xs:inline">{section.label}</span>
-//                 </button>
-//                 {index < sections.length - 1 && (
-//                   <ChevronRight size={16} className="text-slate-300 hidden sm:block shrink-0" />
-//                 )}
-//               </React.Fragment>
-//             ))}
-            
-//             <div className="hidden md:flex items-center gap-4 ml-auto text-xs text-slate-500">
-//               <span className="flex items-center gap-1">
-//                 <span className={`w-2 h-2 rounded-full ${Object.keys(errors).length === 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
-//                 {Object.keys(errors).length === 0 ? 'All fields valid' : `${Object.keys(errors).length} errors`}
-//               </span>
-//             </div>
-//           </div>
-
-//           {/* Form Content */}
-//           <form onSubmit={handleSubmit}>
-//             <div className="p-4 sm:p-6">
-              
-//               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                
-//                 {/* Section 1: Basic Information */}
-//                 <div 
-//                   ref={basicRef}
-//                   className={`lg:col-span-1 bg-gradient-to-br from-blue-50/50 to-slate-50 rounded-xl p-4 border-2 transition-all duration-300 ${
-//                     activeSection === 'basic' ? 'border-blue-400 shadow-lg shadow-blue-100' : 'border-slate-200'
-//                   }`}
-//                   onClick={() => setActiveSection('basic')}
-//                 >
-//                   <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
-//                     <div className="p-1.5 bg-blue-100 rounded-lg">
-//                       <Pill className="w-4 h-4 text-blue-600" />
-//                     </div>
-//                     <h3 className="font-semibold text-slate-800 text-sm">Basic Information</h3>
-//                     {(errors.name || errors.manufacturer) && (
-//                       <span className="ml-auto flex items-center gap-1 text-xs text-red-500">
-//                         <AlertTriangle size={12} />
-//                         Required
-//                       </span>
-//                     )}
-//                   </div>
-                  
-//                   <div className="space-y-3">
-//                     <FormField label="Product Name" required error={errors.name}>
-//                       <input
-//                         type="text"
-//                         value={formData.name}
-//                         onChange={(e) => handleInputChange('name', e.target.value)}
-//                         className={inputClass(errors.name)}
-//                         placeholder="Enter product name"
-//                         autoFocus
-//                       />
-//                     </FormField>
-
-//                     <FormField label="Manufacturer" required error={errors.manufacturer}>
-//                       <div className="relative">
-//                         <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-//                         <input
-//                           type="text"
-//                           value={formData.manufacturer}
-//                           onChange={(e) => handleInputChange('manufacturer', e.target.value)}
-//                           className={`${inputClass(errors.manufacturer)} pl-9`}
-//                           placeholder="Manufacturer name"
-//                         />
-//                       </div>
-//                     </FormField>
-
-//                     <FormField label="Generic Name">
-//                       <div className="relative">
-//                         <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-//                         <input
-//                           type="text"
-//                           value={formData.genericName}
-//                           onChange={(e) => handleInputChange('genericName', e.target.value)}
-//                           className={`${inputClass(false)} pl-9`}
-//                           placeholder="Generic/salt name"
-//                         />
-//                       </div>
-//                     </FormField>
-
-//                     <div className="grid grid-cols-2 gap-3">
-//                       <FormField label="Category">
-//                         <input
-//                           type="text"
-//                           value={formData.category}
-//                           onChange={(e) => handleInputChange('category', e.target.value)}
-//                           className={inputClass(false)}
-//                           placeholder="e.g., Tablet"
-//                         />
-//                       </FormField>
-
-//                       <FormField label="Sub Category">
-//                         <input
-//                           type="text"
-//                           value={formData.subCategory}
-//                           onChange={(e) => handleInputChange('subCategory', e.target.value)}
-//                           className={inputClass(false)}
-//                           placeholder="e.g., Analgesic"
-//                         />
-//                       </FormField>
-//                     </div>
-
-//                     <FormField label="Pack Size">
-//                       <input
-//                         type="text"
-//                         value={formData.packSize}
-//                         onChange={(e) => handleInputChange('packSize', e.target.value)}
-//                         className={inputClass(false)}
-//                         placeholder="e.g., 10x10, 100ml, 82GM"
-//                       />
-//                     </FormField>
-
-//                     <FormField label="Schedule">
-//                       <select
-//                         value={formData.schedule}
-//                         onChange={(e) => handleInputChange('schedule', e.target.value)}
-//                         className={selectClass}
-//                       >
-//                         <option value="">Select Schedule</option>
-//                         <option value="Schedule H">Schedule H</option>
-//                         <option value="Schedule H1">Schedule H1</option>
-//                         <option value="Schedule X">Schedule X</option>
-//                         <option value="OTC">OTC (Over The Counter)</option>
-//                       </select>
-//                     </FormField>
-//                   </div>
-//                 </div>
-
-//                 {/* Section 2: Storage & Inventory */}
-//                 <div 
-//                   ref={storageRef}
-//                   className={`lg:col-span-1 bg-gradient-to-br from-green-50/50 to-slate-50 rounded-xl p-4 border-2 transition-all duration-300 ${
-//                     activeSection === 'storage' ? 'border-green-400 shadow-lg shadow-green-100' : 'border-slate-200'
-//                   }`}
-//                   onClick={() => setActiveSection('storage')}
-//                 >
-//                   <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
-//                     <div className="p-1.5 bg-green-100 rounded-lg">
-//                       <Archive className="w-4 h-4 text-green-600" />
-//                     </div>
-//                     <h3 className="font-semibold text-slate-800 text-sm">Storage & Inventory</h3>
-//                     {errors.maxLevel && (
-//                       <span className="ml-auto flex items-center gap-1 text-xs text-red-500">
-//                         <AlertTriangle size={12} />
-//                         Error
-//                       </span>
-//                     )}
-//                   </div>
-                  
-//                   <div className="space-y-3">
-//                     <FormField label="Rack Location">
-//                       <div className="relative">
-//                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-//                         <input
-//                           type="text"
-//                           value={formData.rackNo}
-//                           onChange={(e) => handleInputChange('rackNo', e.target.value.toUpperCase())}
-//                           className={`${inputClass(false)} pl-9 uppercase`}
-//                           placeholder="e.g., A1, B2, C3"
-//                         />
-//                       </div>
-//                     </FormField>
-
-//                     <div className="grid grid-cols-2 gap-3">
-//                       <FormField label="Min Stock">
-//                         <input
-//                           type="number"
-//                           value={formData.minLevel}
-//                           onChange={(e) => handleInputChange('minLevel', e.target.value)}
-//                           className={inputClass(false)}
-//                           placeholder="0"
-//                           min="0"
-//                         />
-//                       </FormField>
-
-//                       <FormField label="Max Stock" error={errors.maxLevel}>
-//                         <input
-//                           type="number"
-//                           value={formData.maxLevel}
-//                           onChange={(e) => handleInputChange('maxLevel', e.target.value)}
-//                           className={inputClass(errors.maxLevel)}
-//                           placeholder="0"
-//                           min="0"
-//                         />
-//                       </FormField>
-//                     </div>
-
-//                     <FormField label="Reorder Point">
-//                       <input
-//                         type="number"
-//                         value={formData.reorderPoint}
-//                         onChange={(e) => handleInputChange('reorderPoint', e.target.value)}
-//                         className={inputClass(false)}
-//                         placeholder="Auto calculate"
-//                         min="0"
-//                       />
-//                     </FormField>
-
-//                     <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-//                       <div className="flex items-start gap-2">
-//                         <Shield className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-//                         <p className="text-xs text-amber-700">
-//                           Stock levels are optional during product creation. You can set them later when adding inventory.
-//                         </p>
-//                       </div>
-//                     </div>
-//                   </div>
-//                 </div>
-
-//                 {/* Section 3: Pricing & Tax - ✅ UPDATED */}
-//                 <div 
-//                   ref={pricingRef}
-//                   className={`lg:col-span-1 bg-gradient-to-br from-purple-50/50 to-slate-50 rounded-xl p-4 border-2 transition-all duration-300 ${
-//                     activeSection === 'pricing' ? 'border-purple-400 shadow-lg shadow-purple-100' : 'border-slate-200'
-//                   }`}
-//                   onClick={() => setActiveSection('pricing')}
-//                 >
-//                   <div className="flex items-center gap-2 pb-3 mb-4 border-b border-slate-200">
-//                     <div className="p-1.5 bg-purple-100 rounded-lg">
-//                       <Percent className="w-4 h-4 text-purple-600" />
-//                     </div>
-//                     <h3 className="font-semibold text-slate-800 text-sm">Pricing & Tax</h3>
-//                   </div>
-                  
-//                   <div className="space-y-3">
-//                     <FormField label="HSN Code">
-//                       <div className="relative">
-//                         <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-//                         <input
-//                           type="text"
-//                           value={formData.hsnCode}
-//                           onChange={(e) => handleInputChange('hsnCode', e.target.value)}
-//                           className={`${inputClass(false)} pl-9`}
-//                           placeholder="Enter HSN Code"
-//                         />
-//                       </div>
-//                     </FormField>
-
-//                     {/* ✅ NEW: GST Mode Toggle */}
-//                     <div className="flex items-center justify-between p-2 bg-slate-100 rounded-lg">
-//                       <span className="text-xs font-medium text-slate-600">Tax Entry Mode</span>
-//                       <button
-//                         type="button"
-//                         onClick={toggleGstMode}
-//                         className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-//                           gstMode === 'auto' 
-//                             ? 'bg-blue-500 text-white' 
-//                             : 'bg-purple-500 text-white'
-//                         }`}
-//                       >
-//                         {gstMode === 'auto' ? '🔄 Auto (GST → Split)' : '✏️ Manual (CGST + SGST)'}
-//                       </button>
-//                     </div>
-
-//                     {gstMode === 'auto' ? (
-//                       // AUTO MODE: Select GST, auto-split to CGST/SGST
-//                       <>
-//                         <FormField label="GST Rate">
-//                           <select
-//                             value={formData.gst}
-//                             onChange={(e) => handleGSTChange(e.target.value)}
-//                             className={selectClass}
-//                           >
-//                             <option value="0">0%</option>
-//                             <option value="5">5%</option>
-//                             <option value="12">12%</option>
-//                             <option value="18">18%</option>
-//                             <option value="28">28%</option>
-//                           </select>
-//                         </FormField>
-
-//                         <div className="grid grid-cols-2 gap-3">
-//                           <FormField label="CGST % (Auto)">
-//                             <input
-//                               type="text"
-//                               value={formData.cgstPercent}
-//                               readOnly
-//                               className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
-//                             />
-//                           </FormField>
-
-//                           <FormField label="SGST % (Auto)">
-//                             <input
-//                               type="text"
-//                               value={formData.sgstPercent}
-//                               readOnly
-//                               className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-600"
-//                             />
-//                           </FormField>
-//                         </div>
-//                       </>
-//                     ) : (
-//                       // ✅ MANUAL MODE: Enter CGST/SGST separately
-//                       <>
-//                         <div className="grid grid-cols-2 gap-3">
-//                           <FormField label="CGST %" error={errors.cgstPercent}>
-//                             <input
-//                               type="number"
-//                               value={formData.cgstPercent}
-//                               onChange={(e) => handleTaxChange('cgstPercent', e.target.value)}
-//                               className={inputClass(errors.cgstPercent)}
-//                               placeholder="0"
-//                               min="0"
-//                               max="14"
-//                               step="0.5"
-//                             />
-//                           </FormField>
-
-//                           <FormField label="SGST %">
-//                             <input
-//                               type="number"
-//                               value={formData.sgstPercent}
-//                               onChange={(e) => handleTaxChange('sgstPercent', e.target.value)}
-//                               className={inputClass(false)}
-//                               placeholder="0"
-//                               min="0"
-//                               max="14"
-//                               step="0.5"
-//                             />
-//                           </FormField>
-//                         </div>
-
-//                         <FormField label="Total GST (Calculated)">
-//                           <input
-//                             type="text"
-//                             value={`${formData.gst}%`}
-//                             readOnly
-//                             className="w-full px-3 py-2 text-sm bg-purple-50 border border-purple-200 rounded-lg text-purple-700 font-medium"
-//                           />
-//                         </FormField>
-//                       </>
-//                     )}
-
-//                     <FormField label="GST Sub Head">
-//                       <input
-//                         type="text"
-//                         value={formData.subHead}
-//                         onChange={(e) => handleInputChange('subHead', e.target.value)}
-//                         className={inputClass(false)}
-//                         placeholder="Optional sub-classification"
-//                       />
-//                     </FormField>
-
-//                     {/* Price Controlled Toggle */}
-//                     <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg">
-//                       <label className="flex items-center justify-between cursor-pointer">
-//                         <div className="flex items-center gap-2">
-//                           <div className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-//                             formData.priceControlled ? 'bg-blue-100' : 'bg-slate-100'
-//                           }`}>
-//                             <Shield className={`w-4 h-4 ${
-//                               formData.priceControlled ? 'text-blue-600' : 'text-slate-400'
-//                             }`} />
-//                           </div>
-//                           <div>
-//                             <span className="text-sm font-medium text-slate-800">Price Controlled</span>
-//                             <p className="text-xs text-slate-500">Govt. regulated</p>
-//                           </div>
-//                         </div>
-//                         <div className="relative">
-//                           <input
-//                             type="checkbox"
-//                             checked={formData.priceControlled}
-//                             onChange={(e) => handleInputChange('priceControlled', e.target.checked)}
-//                             className="sr-only peer"
-//                           />
-//                           <div className="w-10 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-blue-500/20 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 after:shadow-sm"></div>
-//                         </div>
-//                       </label>
-//                     </div>
-
-//                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-//                       <div className="flex items-start gap-2">
-//                         <Layers className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-//                         <p className="text-xs text-blue-700">
-//                           {gstMode === 'auto' 
-//                             ? 'GST automatically splits into CGST & SGST equally.'
-//                             : 'Enter CGST and SGST separately. Total will be calculated.'}
-//                         </p>
-//                       </div>
-//                     </div>
-//                   </div>
-//                 </div>
-
-//               </div>
-//             </div>
-
-//             {/* Footer */}
-//             <div className="sticky bottom-0 flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-6 py-4 bg-slate-100 border-t border-slate-200 rounded-b-xl">
-//               <div className="flex items-center gap-4 text-xs text-slate-500 order-2 sm:order-1">
-//                 <span className="flex items-center gap-1">
-//                   <span className="text-red-500">*</span> Required fields
-//                 </span>
-//                 <span className="hidden sm:flex items-center gap-1">
-//                   <span className={`w-2 h-2 rounded-full ${Object.keys(errors).length === 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
-//                   {Object.keys(errors).length === 0 ? 'Ready to save' : `${Object.keys(errors).length} field(s) need attention`}
-//                 </span>
-//               </div>
-              
-//               {errors.submit && (
-//                 <div className="w-full sm:w-auto order-1 sm:order-2">
-//                   <p className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-//                     <AlertTriangle size={12} />
-//                     {errors.submit}
-//                   </p>
-//                 </div>
-//               )}
-              
-//               <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
-//                 <button
-//                   type="button"
-//                   onClick={onClose}
-//                   className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-colors"
-//                   disabled={isSubmitting}
-//                 >
-//                   Cancel
-//                 </button>
-//                 <button
-//                   type="submit"
-//                   disabled={isSubmitting}
-//                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-[#000060] rounded-lg hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-//                 >
-//                   {isSubmitting ? (
-//                     <>
-//                       <Loader2 size={16} className="animate-spin" />
-//                       <span>Saving...</span>
-//                     </>
-//                   ) : (
-//                     <>
-//                       <Save size={16} />
-//                       <span>{mode === 'create' ? 'Add Product' : 'Update Product'}</span>
-//                     </>
-//                   )}
-//                 </button>
-//               </div>
-//             </div>
-//           </form>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default ProductMasterModal;

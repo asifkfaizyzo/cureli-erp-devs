@@ -56,15 +56,11 @@ const OnboardingPage = () => {
       setUserName(localStorage.getItem("user_name") || "");
     }
 
-    console.log("🔍 DEBUG initializeStep:");
-    console.log("  - location.state:", location.state);
-    console.log("  - pending_id:", pending_id);
-    console.log("  - routerStep:", routerStep);
-    console.log("  - access_token exists:", !!token);
+
 
     // CASE 1: Router passed a specific step (from login OTP verification)
     if (typeof routerStep === "number") {
-      console.log("✅ Using navigation step:", routerStep);
+     
 
       if (routerStep >= 12) {
         navigate("/verification", {
@@ -86,7 +82,7 @@ const OnboardingPage = () => {
         const res = await getOnboardingStatus();
         const data = res.data?.data;
 
-        console.log("📡 Onboarding status from API:", data);
+      
 
         const step = data?.onboarding_step ?? 4;
         const userStatus = data?.status;
@@ -139,14 +135,14 @@ const OnboardingPage = () => {
     // CASE 3: Fresh signup (has pending_id, no access_token)
     // This is a brand new user who just came from signup
     if (pending_id && !token) {
-      console.log("📝 Fresh signup detected, starting at step 0");
+    
       setProgressStep(0);
       setLoading(false);
       return;
     }
 
     // CASE 4: No token, no pending_id = redirect to home
-    console.log("❌ No valid session, redirecting to home");
+  
     navigate("/", { replace: true });
     setLoading(false);
   };
@@ -161,7 +157,7 @@ const OnboardingPage = () => {
     if (nextStep >= 4 && nextStep <= 12) {
       try {
         await updateOnboardingStep(nextStep);
-        console.log("✅ Backend step updated to:", nextStep);
+      
       } catch (err) {
         console.error("Failed to update step in backend:", err);
         // Continue anyway - don't block user progress
@@ -198,11 +194,21 @@ const OnboardingPage = () => {
 
       case 1:
         return (
-          <PhoneDetails pending_id={pending_id} onContinue={handleContinue} setPhone={setPhone}/>
+          <PhoneDetails
+            pending_id={pending_id}
+            onContinue={handleContinue}
+            setPhone={setPhone}
+          />
         );
 
       case 2:
-        return <PhoneOTP pending_id={pending_id} onContinue={handleContinue} phone={phone}/>;
+        return (
+          <PhoneOTP
+            pending_id={pending_id}
+            onContinue={handleContinue}
+            phone={phone}
+          />
+        );
 
       case 3:
         return (

@@ -1,13 +1,19 @@
 // src/pages/inventory/components/InventoryFilters.jsx
 
-import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
-import { 
-  Search, 
-  Filter, 
-  X, 
-  Package, 
-  AlertTriangle, 
-  Clock, 
+import React, {
+  useState,
+  useRef,
+  useMemo,
+  useEffect,
+  useCallback,
+} from "react";
+import {
+  Search,
+  Filter,
+  X,
+  Package,
+  AlertTriangle,
+  Clock,
   Plus,
   ChevronDown,
   SlidersHorizontal,
@@ -46,15 +52,16 @@ const SearchableDropdown = ({
   const filteredOptions = useMemo(() => {
     if (!search.trim()) return options;
     const query = search.toLowerCase().trim();
-    return options.filter(opt => 
-      opt.label?.toLowerCase().includes(query) ||
-      opt.value?.toLowerCase().includes(query)
+    return options.filter(
+      (opt) =>
+        opt.label?.toLowerCase().includes(query) ||
+        opt.value?.toLowerCase().includes(query),
     );
   }, [options, search]);
 
   // Find selected option
   const selectedOption = useMemo(() => {
-    return options.find(opt => opt.value === value);
+    return options.find((opt) => opt.value === value);
   }, [options, value]);
 
   // Click outside handler
@@ -79,27 +86,32 @@ const SearchableDropdown = ({
   // Scroll selected into view
   useEffect(() => {
     if (isOpen && listRef.current && value) {
-      const selectedEl = listRef.current.querySelector(`[data-value="${value}"]`);
+      const selectedEl = listRef.current.querySelector(
+        `[data-value="${value}"]`,
+      );
       if (selectedEl) {
-        selectedEl.scrollIntoView({ block: 'nearest' });
+        selectedEl.scrollIntoView({ block: "nearest" });
       }
     }
   }, [isOpen, value]);
 
   // Keyboard navigation
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Escape') {
-      setIsOpen(false);
-      setSearch("");
-    }
-    if (e.key === 'Enter' && filteredOptions.length > 0) {
-      e.preventDefault();
-      const firstOption = filteredOptions[0];
-      onChange(firstOption.value);
-      setIsOpen(false);
-      setSearch("");
-    }
-  }, [filteredOptions, onChange]);
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setSearch("");
+      }
+      if (e.key === "Enter" && filteredOptions.length > 0) {
+        e.preventDefault();
+        const firstOption = filteredOptions[0];
+        onChange(firstOption.value);
+        setIsOpen(false);
+        setSearch("");
+      }
+    },
+    [filteredOptions, onChange],
+  );
 
   const handleSelect = (option) => {
     onChange(option.value);
@@ -116,7 +128,11 @@ const SearchableDropdown = ({
   const hasValue = value && value !== "";
 
   return (
-    <div ref={containerRef} className={`relative ${className}`} style={{ zIndex: isOpen ? 100 : 1 }}>
+    <div
+      ref={containerRef}
+      className={`relative ${className}`}
+      style={{ zIndex: isOpen ? 100 : 1 }}
+    >
       {/* Trigger Button */}
       <button
         type="button"
@@ -125,24 +141,27 @@ const SearchableDropdown = ({
         className={`
           w-full h-10 flex items-center justify-between gap-2 px-3 rounded-lg border text-sm
           transition-all duration-200 text-left
-          ${disabled 
-            ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
-            : isOpen
-              ? 'bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm'
-              : hasValue
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:border-indigo-300'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300'
+          ${
+            disabled
+              ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+              : isOpen
+                ? "bg-white border-indigo-400 ring-2 ring-indigo-100 shadow-sm"
+                : hasValue
+                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:border-indigo-300"
+                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300"
           }
         `}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {Icon && (
-            <Icon 
-              size={14} 
-              className={`shrink-0 ${hasValue ? 'text-indigo-500' : 'text-slate-400'}`} 
+            <Icon
+              size={14}
+              className={`shrink-0 ${hasValue ? "text-indigo-500" : "text-slate-400"}`}
             />
           )}
-          <span className={`truncate ${hasValue ? 'font-medium' : 'text-slate-500'}`}>
+          <span
+            className={`truncate ${hasValue ? "font-medium" : "text-slate-500"}`}
+          >
             {selectedOption?.label || placeholder}
           </span>
         </div>
@@ -157,28 +176,29 @@ const SearchableDropdown = ({
               <X size={12} className="text-indigo-500" />
             </button>
           )}
-          <ChevronDown 
-            size={14} 
-            className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          <ChevronDown
+            size={14}
+            className={`text-slate-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
           />
         </div>
       </button>
 
       {/* Dropdown Panel - Absolute positioned */}
       {isOpen && (
-        <div 
+        <div
           className="absolute z-[9999] top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl"
           style={{
-            boxShadow: '0 10px 40px -5px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
-            minWidth: '100%',
+            boxShadow:
+              "0 10px 40px -5px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1)",
+            minWidth: "100%",
           }}
         >
           {/* Search Input */}
           <div className="p-2 border-b border-slate-100 bg-slate-50/50">
             <div className="relative">
-              <Search 
-                size={14} 
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" 
+              <Search
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
               />
               <input
                 ref={inputRef}
@@ -216,7 +236,7 @@ const SearchableDropdown = ({
           )}
 
           {/* Options List */}
-          <div 
+          <div
             ref={listRef}
             className="max-h-56 overflow-y-auto py-1 overscroll-contain"
           >
@@ -234,14 +254,17 @@ const SearchableDropdown = ({
                     className={`
                       w-full px-3 py-2.5 flex items-center gap-3 text-left text-sm
                       transition-all duration-100
-                      ${isSelected 
-                        ? 'bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500' 
-                        : 'hover:bg-slate-50 border-l-2 border-transparent'
+                      ${
+                        isSelected
+                          ? "bg-indigo-50 text-indigo-700 border-l-2 border-indigo-500"
+                          : "hover:bg-slate-50 border-l-2 border-transparent"
                       }
-                      ${isAllOption && !isSelected ? 'text-slate-500 italic' : ''}
+                      ${isAllOption && !isSelected ? "text-slate-500 italic" : ""}
                     `}
                   >
-                    <span className={`flex-1 truncate ${isSelected ? 'font-medium' : ''}`}>
+                    <span
+                      className={`flex-1 truncate ${isSelected ? "font-medium" : ""}`}
+                    >
                       {option.label}
                     </span>
                     {isSelected && (
@@ -255,8 +278,12 @@ const SearchableDropdown = ({
                 <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
                   <Search size={20} className="text-slate-400" />
                 </div>
-                <p className="text-sm font-medium text-slate-600">{emptyMessage}</p>
-                <p className="text-xs text-slate-400 mt-1">Try a different search term</p>
+                <p className="text-sm font-medium text-slate-600">
+                  {emptyMessage}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Try a different search term
+                </p>
               </div>
             )}
           </div>
@@ -279,10 +306,10 @@ const SearchableDropdown = ({
 // MAIN INVENTORY FILTERS COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-const InventoryFilters = ({ 
-  filters, 
-  onChange, 
-  suppliers = [], 
+const InventoryFilters = ({
+  filters,
+  onChange,
+  suppliers = [],
   categories = [],
   branches = [],
   showBranchFilter = false,
@@ -295,52 +322,100 @@ const InventoryFilters = ({
   const [showFilters, setShowFilters] = useState(false);
 
   // Build filter options
-  const statusOptions = useMemo(() => [
-    { value: "", label: "All Stock Status" },
-    { value: "In Stock", label: "In Stock" },
-    { value: "Low Stock", label: "Low Stock" },
-    { value: "Out of Stock", label: "Out of Stock" },
-    { value: "Expired", label: "Expired" },
-    { value: "Expiring Soon", label: "Expiring Soon" },
-  ], []);
+  const statusOptions = useMemo(
+    () => [
+      { value: "", label: "All Stock Status" },
+      { value: "In Stock", label: "In Stock" },
+      { value: "Low Stock", label: "Low Stock" },
+      { value: "Out of Stock", label: "Out of Stock" },
+      { value: "Expired", label: "Expired" },
+      { value: "Expiring Soon", label: "Expiring Soon" },
+    ],
+    [],
+  );
 
-  const expiryOptions = useMemo(() => [
-    { value: "", label: "All Expiry" },
-    { value: "expired", label: "Expired" },
-    { value: "30days", label: "Expiring in 30 days" },
-    { value: "90days", label: "Expiring in 90 days" },
-    { value: "valid", label: "Valid (Not Expiring)" },
-  ], []);
+  const expiryOptions = useMemo(
+    () => [
+      { value: "", label: "All Expiry" },
+      { value: "expired", label: "Expired" },
+      { value: "30days", label: "Expiring in 30 days" },
+      { value: "90days", label: "Expiring in 90 days" },
+      { value: "valid", label: "Valid (Not Expiring)" },
+    ],
+    [],
+  );
 
-  const supplierOptions = useMemo(() => [
-    { value: "", label: `All Suppliers (${suppliers.length})` },
-    ...suppliers.map(s => ({ value: s, label: s }))
-  ], [suppliers]);
+  const supplierOptions = useMemo(
+    () => [
+      { value: "", label: `All Suppliers (${suppliers.length})` },
+      ...suppliers.map((s) => ({ value: s, label: s })),
+    ],
+    [suppliers],
+  );
 
-  const categoryOptions = useMemo(() => [
-    { value: "", label: `All Categories (${categories.length})` },
-    ...categories.map(c => ({ value: c, label: c }))
-  ], [categories]);
+  const categoryOptions = useMemo(
+    () => [
+      { value: "", label: `All Categories (${categories.length})` },
+      ...categories.map((c) => ({ value: c, label: c })),
+    ],
+    [categories],
+  );
 
-  const branchOptions = useMemo(() => [
-    { value: "", label: `All Branches (${branches.length})` },
-    ...branches.map(b => ({ value: b, label: b }))
-  ], [branches]);
+  const branchOptions = useMemo(
+    () => [
+      { value: "", label: `All Branches (${branches.length})` },
+      ...branches.map((b) => ({ value: b, label: b })),
+    ],
+    [branches],
+  );
 
   // Calculate active filters
   const activeFilters = useMemo(() => {
     const active = [];
-    if (filters.search) active.push({ key: 'search', label: `"${filters.search}"`, value: filters.search });
-    if (filters.status) active.push({ key: 'status', label: filters.status, value: filters.status });
+    if (filters.search)
+      active.push({
+        key: "search",
+        label: `"${filters.search}"`,
+        value: filters.search,
+      });
+    if (filters.status)
+      active.push({
+        key: "status",
+        label: filters.status,
+        value: filters.status,
+      });
     if (filters.expiry) {
-      const expiryLabel = expiryOptions.find(o => o.value === filters.expiry)?.label || filters.expiry;
-      active.push({ key: 'expiry', label: expiryLabel, value: filters.expiry });
+      const expiryLabel =
+        expiryOptions.find((o) => o.value === filters.expiry)?.label ||
+        filters.expiry;
+      active.push({ key: "expiry", label: expiryLabel, value: filters.expiry });
     }
-    if (filters.supplier) active.push({ key: 'supplier', label: filters.supplier, value: filters.supplier });
-    if (filters.category) active.push({ key: 'category', label: filters.category, value: filters.category });
-    if (filters.branch) active.push({ key: 'branch', label: filters.branch, value: filters.branch });
-    if (filters.lowStock) active.push({ key: 'lowStock', label: 'Low Stock', value: true });
-    if (filters.includeExpired) active.push({ key: 'includeExpired', label: 'Include Expired', value: true });
+    if (filters.supplier)
+      active.push({
+        key: "supplier",
+        label: filters.supplier,
+        value: filters.supplier,
+      });
+    if (filters.category)
+      active.push({
+        key: "category",
+        label: filters.category,
+        value: filters.category,
+      });
+    if (filters.branch)
+      active.push({
+        key: "branch",
+        label: filters.branch,
+        value: filters.branch,
+      });
+    if (filters.lowStock)
+      active.push({ key: "lowStock", label: "Low Stock", value: true });
+    if (filters.includeExpired)
+      active.push({
+        key: "includeExpired",
+        label: "Include Expired",
+        value: true,
+      });
     return active;
   }, [filters, expiryOptions]);
 
@@ -359,7 +434,7 @@ const InventoryFilters = ({
   };
 
   const removeFilter = (key) => {
-    if (key === 'lowStock' || key === 'includeExpired') {
+    if (key === "lowStock" || key === "includeExpired") {
       onChange(key, false);
     } else {
       onChange(key, "");
@@ -372,7 +447,7 @@ const InventoryFilters = ({
   };
 
   return (
-    // ✅ KEY FIX: Changed overflow-hidden to overflow-visible
+    //  KEY FIX: Changed overflow-hidden to overflow-visible
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-visible">
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* PRIMARY HEADER BAR */}
@@ -382,10 +457,10 @@ const InventoryFilters = ({
         <div className="flex-1 flex items-center gap-2 sm:gap-3">
           {/* Search Input */}
           <div className="relative flex-1 min-w-0">
-            <Search 
-              size={16} 
+            <Search
+              size={16}
               className={`absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 transition-colors ${
-                filters.search ? 'text-indigo-500' : 'text-slate-400'
+                filters.search ? "text-indigo-500" : "text-slate-400"
               }`}
             />
             <input
@@ -395,16 +470,17 @@ const InventoryFilters = ({
                 w-full h-10 sm:h-9 pl-10 pr-9 border rounded-lg text-sm
                 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500
                 transition-all duration-200 placeholder:text-slate-400
-                ${filters.search 
-                  ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-medium" 
-                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300"
+                ${
+                  filters.search
+                    ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-medium"
+                    : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300"
                 }
               `}
               placeholder="Search medicine, batch, supplier..."
               value={filters.search}
               onChange={(e) => onChange("search", e.target.value)}
             />
-            
+
             {filters.search && (
               <button
                 onClick={clearSearch}
@@ -421,11 +497,12 @@ const InventoryFilters = ({
             className={`
               h-10 sm:h-9 px-3 flex items-center gap-2 rounded-lg border transition-all duration-200
               shrink-0 text-sm font-medium
-              ${showFilters 
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-700' 
-                : hasActiveFilters
-                  ? 'bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+              ${
+                showFilters
+                  ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                  : hasActiveFilters
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100"
+                    : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
               }
             `}
           >
@@ -436,9 +513,9 @@ const InventoryFilters = ({
                 {activeFilterCount}
               </span>
             )}
-            <ChevronDown 
-              size={14} 
-              className={`hidden sm:block transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`}
+            <ChevronDown
+              size={14}
+              className={`hidden sm:block transition-transform duration-200 ${showFilters ? "rotate-180" : ""}`}
             />
           </button>
         </div>
@@ -461,7 +538,10 @@ const InventoryFilters = ({
               className="h-10 sm:h-9 w-10 sm:w-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200 transition-all disabled:opacity-50"
               title="Refresh"
             >
-              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw
+                size={16}
+                className={isRefreshing ? "animate-spin" : ""}
+              />
             </button>
           )}
 
@@ -484,10 +564,10 @@ const InventoryFilters = ({
       <div
         className={`
           transition-all duration-300 ease-in-out
-          ${showFilters ? 'opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'}
+          ${showFilters ? "opacity-100 overflow-visible" : "max-h-0 opacity-0 overflow-hidden"}
         `}
         style={{
-          maxHeight: showFilters ? '500px' : '0px',
+          maxHeight: showFilters ? "500px" : "0px",
         }}
       >
         <div className="px-3 sm:px-4 py-4 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white overflow-visible">
@@ -596,21 +676,30 @@ const InventoryFilters = ({
                     onChange={(e) => onChange("lowStock", e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className={`
+                  <div
+                    className={`
                     w-9 h-5 rounded-full transition-all duration-200
-                    ${filters.lowStock 
-                      ? 'bg-amber-500' 
-                      : 'bg-slate-200 group-hover:bg-slate-300'
+                    ${
+                      filters.lowStock
+                        ? "bg-amber-500"
+                        : "bg-slate-200 group-hover:bg-slate-300"
                     }
-                  `} />
-                  <div className={`
+                  `}
+                  />
+                  <div
+                    className={`
                     absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
-                    ${filters.lowStock ? 'translate-x-4' : 'translate-x-0'}
-                  `} />
+                    ${filters.lowStock ? "translate-x-4" : "translate-x-0"}
+                  `}
+                  />
                 </div>
-                <span className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  filters.lowStock ? 'text-amber-600' : 'text-slate-600 group-hover:text-amber-600'
-                }`}>
+                <span
+                  className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    filters.lowStock
+                      ? "text-amber-600"
+                      : "text-slate-600 group-hover:text-amber-600"
+                  }`}
+                >
                   <AlertTriangle size={14} />
                   Low Stock Only
                 </span>
@@ -622,24 +711,35 @@ const InventoryFilters = ({
                   <input
                     type="checkbox"
                     checked={filters.includeExpired || false}
-                    onChange={(e) => onChange("includeExpired", e.target.checked)}
+                    onChange={(e) =>
+                      onChange("includeExpired", e.target.checked)
+                    }
                     className="sr-only peer"
                   />
-                  <div className={`
+                  <div
+                    className={`
                     w-9 h-5 rounded-full transition-all duration-200
-                    ${filters.includeExpired 
-                      ? 'bg-red-500' 
-                      : 'bg-slate-200 group-hover:bg-slate-300'
+                    ${
+                      filters.includeExpired
+                        ? "bg-red-500"
+                        : "bg-slate-200 group-hover:bg-slate-300"
                     }
-                  `} />
-                  <div className={`
+                  `}
+                  />
+                  <div
+                    className={`
                     absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
-                    ${filters.includeExpired ? 'translate-x-4' : 'translate-x-0'}
-                  `} />
+                    ${filters.includeExpired ? "translate-x-4" : "translate-x-0"}
+                  `}
+                  />
                 </div>
-                <span className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  filters.includeExpired ? 'text-red-600' : 'text-slate-600 group-hover:text-red-600'
-                }`}>
+                <span
+                  className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    filters.includeExpired
+                      ? "text-red-600"
+                      : "text-slate-600 group-hover:text-red-600"
+                  }`}
+                >
                   <Clock size={14} />
                   Include Expired
                 </span>
@@ -670,7 +770,7 @@ const InventoryFilters = ({
               <CheckCircle2 size={10} />
               Active:
             </span>
-            
+
             {activeFilters.map((filter) => (
               <span
                 key={filter.key}
@@ -704,7 +804,8 @@ const InventoryFilters = ({
         <div className="sm:hidden px-3 py-2 border-t border-slate-100 bg-indigo-50/50">
           <div className="flex items-center justify-between">
             <span className="text-xs text-indigo-600 font-medium">
-              {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''} active
+              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}{" "}
+              active
             </span>
             <button
               onClick={clearFilters}

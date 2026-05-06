@@ -26,11 +26,11 @@ import {
 } from "../../../api/subscription";
 import { fetchUserLimits } from "../../../api/users";
 import { fetchBranchLimits } from "../../../api/branches";
-import { useToast } from "../../../components/common/Toast"; // ✅ ADDED
+import { useToast } from "../../../components/common/Toast"; //  ADDED
 
 // Utils & Config
 import { analyzePlanChange } from "../../../utils/planChangeUtils";
-import { normalizePlans } from "../../../utils/normalizePlan"; // ✅ NEW IMPORT
+import { normalizePlans } from "../../../utils/normalizePlan"; //  NEW IMPORT
 
 // Components
 import CurrentPlanBanner from "./comps/CurrentPlanBanner";
@@ -48,7 +48,7 @@ import RenewalConfirmModal from "./comps/RenewalConfirmModal";
  */
 const UpgradePlanPage = () => {
   const navigate = useNavigate();
-  const toast = useToast(); // ✅ ADDED
+  const toast = useToast(); //  ADDED
 
   // ============================================
   // STATE
@@ -97,7 +97,7 @@ const UpgradePlanPage = () => {
           fetchBranchLimits(),
         ]);
 
-      // Plans - ✅ NORMALIZE PLANS
+      // Plans -  NORMALIZE PLANS
       const plansData =
         plansRes.data?.data?.plans || plansRes.data?.plans || [];
       const normalizedPlans = normalizePlans(plansData);
@@ -120,13 +120,13 @@ const UpgradePlanPage = () => {
         activeBranches: branchCount,
       });
 
-      // ✅ ADDED: Success toast on refresh (optional)
+      //  ADDED: Success toast on refresh (optional)
       // toast.success("Data Loaded", "Plan information updated.");
     } catch (err) {
       console.error("Failed to load data:", err);
       const errorMsg = "Failed to load plan information. Please try again.";
       setError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Load Failed", errorMsg);
     } finally {
       setLoading(false);
@@ -145,7 +145,7 @@ const UpgradePlanPage = () => {
     const analysis = analyzePlanChange(
       currentSubscription?.plan || { max_users: 0, max_branches: 0, price: 0 },
       plan,
-      usage
+      usage,
     );
 
     setSelectedPlan(plan);
@@ -160,7 +160,7 @@ const UpgradePlanPage = () => {
     } else if (analysis.direction === "downgrade") {
       setModalState("downgrade_warning");
     } else {
-      // ✅ CHANGED: Alert to Toast
+      //  CHANGED: Alert to Toast
       toast.info("No Change", "You're already on this plan.");
     }
   };
@@ -196,7 +196,7 @@ const UpgradePlanPage = () => {
         err.response?.data?.message ||
         "Failed to process renewal. Please try again.";
       setModalError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Renewal Failed", errorMsg);
       setProcessing(false);
     }
@@ -233,7 +233,7 @@ const UpgradePlanPage = () => {
         err.response?.data?.message ||
         "Failed to process upgrade. Please try again.";
       setModalError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Upgrade Failed", errorMsg);
       setProcessing(false);
     }
@@ -257,10 +257,10 @@ const UpgradePlanPage = () => {
             razorpay_signature: response.razorpay_signature,
             subscription_id: data.subscription_id,
           });
-          // ✅ CHANGED: Alert to Toast
+          //  CHANGED: Alert to Toast
           toast.success(
             "Payment Successful",
-            `Your plan has been upgraded to ${data.plan_name}!`
+            `Your plan has been upgraded to ${data.plan_name}!`,
           );
           handleCloseModals();
           loadData();
@@ -269,7 +269,7 @@ const UpgradePlanPage = () => {
           const errorMsg =
             "Payment was successful but activation failed. Please contact support.";
           setModalError(errorMsg);
-          // ✅ ADDED: Error toast
+          //  ADDED: Error toast
           toast.error("Activation Failed", errorMsg);
           setProcessing(false);
         }
@@ -281,7 +281,7 @@ const UpgradePlanPage = () => {
           } catch (err) {
             console.error("Failed to cancel pending subscription:", err);
           }
-          // ✅ CHANGED: setModalError to Toast
+          //  CHANGED: setModalError to Toast
           toast.warning("Payment Cancelled", "Your payment was cancelled.");
           setProcessing(false);
         },
@@ -299,9 +299,10 @@ const UpgradePlanPage = () => {
       } catch (err) {
         console.error("Failed to cancel pending subscription:", err);
       }
-      const errorMsg = response.error.description || "Payment failed. Please try again.";
+      const errorMsg =
+        response.error.description || "Payment failed. Please try again.";
       setModalError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Payment Failed", errorMsg);
       setProcessing(false);
     });
@@ -341,7 +342,7 @@ const UpgradePlanPage = () => {
 
       const data = response.data.data;
 
-      // ✅ CHANGED: Alert to Toast with details
+      //  CHANGED: Alert to Toast with details
       let message = "Plan changed successfully!";
       if (data.disabled_users > 0 || data.deactivated_branches > 0) {
         message = `Plan downgraded. ${data.disabled_users} user(s) disabled, ${data.deactivated_branches} branch(es) deactivated.`;
@@ -356,7 +357,7 @@ const UpgradePlanPage = () => {
         err.response?.data?.message ||
         "Failed to change plan. Please try again.";
       setModalError(errorMsg);
-      // ✅ ADDED: Error toast
+      //  ADDED: Error toast
       toast.error("Downgrade Failed", errorMsg);
       setProcessing(false);
     }
@@ -490,7 +491,7 @@ const UpgradePlanPage = () => {
         <CurrentPlanBanner subscription={currentSubscription} usage={usage} />
       )}
 
-      {/* ✅ REMOVED: Error Banner (using toast instead) */}
+      {/*  REMOVED: Error Banner (using toast instead) */}
 
       {/* Plans Section */}
       <div className="flex-1">
@@ -597,80 +598,132 @@ const UpgradePlanPage = () => {
 // CUSTOM PLAN CARD
 // ============================================
 
+// In UpgradePlanPage.jsx — replace the CustomPlanCard function
+
 function CustomPlanCard() {
   return (
     <div
       className={`
-        group relative flex flex-col rounded-2xl p-6
-        shadow-md border-2 transition-all duration-300
-        bg-gradient-to-b from-amber-50 to-orange-100
-        hover:from-amber-600 hover:to-orange-600
-        border-amber-300 border-dashed
-        hover:shadow-xl hover:-translate-y-1
-        w-[265px] h-[390px]
-      `}
+      group relative flex flex-col rounded-2xl p-6
+      shadow-md border-2 transition-all duration-300
+      bg-white hover:shadow-xl hover:-translate-y-1
+      border-amber-300 border-dashed
+      w-[265px] min-h-[390px]
+    `}
     >
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-        <div className="whitespace-nowrap flex items-center gap-1.5 px-4 py-1.5 bg-amber-600 text-white text-xs font-bold rounded-full shadow-lg">
-          <Sparkles size={12} />
+      {/* Hover overlay */}
+      <div
+        className="absolute inset-0 rounded-2xl overflow-hidden
+                      bg-gradient-to-b from-amber-500 to-orange-500
+                      opacity-0 group-hover:opacity-100
+                      transition-opacity duration-300 pointer-events-none"
+      />
+
+      {/* Badge */}
+      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+        <div
+          className="whitespace-nowrap flex items-center gap-1.5
+                        px-3 py-1 bg-amber-600 text-white text-[10px]
+                        font-bold rounded-full shadow-lg uppercase tracking-wider"
+        >
+          <Sparkles size={10} />
           TAILORED FOR YOU
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <div className="h-[160px] flex flex-col">
-          <h2 className="text-xl font-bold text-gray-800 group-hover:text-white text-center">
-            Custom Plan
-          </h2>
-          <p className="text-sm text-gray-600 group-hover:text-white/80 text-center mt-1 line-clamp-2 min-h-[40px]">
-            Need something specific? We'll tailor a plan for your business.
-          </p>
-          <div className="flex items-baseline justify-center gap-1 mt-3">
-            <span className="text-2xl font-bold text-amber-600 group-hover:text-white">
-              Custom Pricing
-            </span>
-          </div>
-          <div className="flex justify-center gap-4 mt-3">
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Users size={14} />
-              <span>Flexible</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-600 group-hover:text-white/80">
-              <Building2 size={14} />
-              <span>Flexible</span>
-            </div>
-          </div>
-        </div>
+      <div className="relative z-10 flex-1 flex flex-col pt-2">
+        <h2
+          className="text-lg font-bold text-gray-800 group-hover:text-white
+                       text-center transition-colors duration-300 mb-1"
+        >
+          Custom Plan
+        </h2>
+        <p
+          className="text-xs text-gray-600 group-hover:text-white/80
+                      text-center transition-colors duration-300 min-h-[32px] mb-3"
+        >
+          Need something specific? We'll tailor a plan for your business.
+        </p>
 
-        <div className="h-px w-full bg-gray-300 group-hover:bg-white/30 my-3" />
-
-        <div className="flex-1 flex flex-col">
-          <ul className="space-y-1.5 flex-1">
-            {[
-              "Unlimited users & branches",
-              "Priority 24/7 support",
-              "Custom integrations",
-              "Dedicated account manager",
-            ].map((feature, idx) => (
-              <li key={idx} className="flex items-center gap-2 text-sm">
-                <span className="text-emerald-500 group-hover:text-emerald-300 flex-shrink-0">
-                  <Check size={14} />
-                </span>
-                <span className="text-gray-700 group-hover:text-white text-xs">
-                  {feature}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <a
-            href="mailto:info@cureliofficial.com?subject=Custom%20Plan%20Inquiry"
-            className="mt-auto w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-all duration-300 bg-amber-600 hover:bg-amber-700 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+        <div className="flex flex-col items-center mb-3">
+          <span
+            className="text-3xl font-extrabold text-amber-600
+                           group-hover:text-white transition-colors duration-300"
           >
-            <Mail size={16} />
-            Contact Sales
-          </a>
+            Custom
+          </span>
+          <p
+            className="text-[11px] text-gray-400 group-hover:text-white/50
+                        transition-colors duration-300 mt-1"
+          >
+            Based on your requirements
+          </p>
         </div>
+
+        <div
+          className="flex justify-center gap-6 mb-3 text-xs text-gray-600
+                        group-hover:text-white/80 transition-colors duration-300"
+        >
+          <div className="flex items-center gap-1.5">
+            <Users
+              size={14}
+              className="text-gray-400 group-hover:text-white/50
+                                        transition-colors duration-300"
+            />
+            <span>Flexible</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Building2
+              size={14}
+              className="text-gray-400 group-hover:text-white/50
+                                            transition-colors duration-300"
+            />
+            <span>Flexible</span>
+          </div>
+        </div>
+
+        <div
+          className="h-px w-full bg-gray-200 group-hover:bg-white/20
+                        transition-colors duration-300 mb-3"
+        />
+
+        <ul className="space-y-2 flex-1 mb-4">
+          {[
+            "Unlimited users & branches",
+            "Priority 24/7 support",
+            "Custom integrations",
+            "Dedicated account manager",
+          ].map((feature, idx) => (
+            <li key={idx} className="flex items-center gap-2 text-xs">
+              <Check
+                size={13}
+                strokeWidth={2.5}
+                className="flex-shrink-0 text-amber-500 group-hover:text-amber-300
+                                transition-colors duration-300"
+              />
+              <span
+                className="text-gray-700 group-hover:text-white/90
+                               transition-colors duration-300"
+              >
+                {feature}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        {/* Button — scale only */}
+        <a
+  href="mailto:info@cureliofficial.com?subject=Custom%20Plan%20Inquiry"
+  className="w-full py-2.5 rounded-xl text-sm font-semibold text-white text-center
+             transition-colors duration-300
+             hover:scale-[1.03] active:scale-[0.98]
+             shadow-sm flex items-center justify-center gap-2
+             bg-amber-600 text-white
+             group-hover:bg-white group-hover:text-amber-600"
+>
+  <Mail size={14} />
+  Contact Sales
+</a>
       </div>
     </div>
   );

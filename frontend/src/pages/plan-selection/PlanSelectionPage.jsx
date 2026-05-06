@@ -78,7 +78,6 @@ const PlanSelectionPage = () => {
    * CRITICAL: Reset setup store to prevent stale data causing redirect loops
    */
   const navigateToSetup = () => {
-    console.log("🔄 Resetting setup store before navigation to /setup");
     resetSetup();
     navigate("/setup", { replace: true, state: { fromPlanSelection: true } });
   };

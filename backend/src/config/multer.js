@@ -4,8 +4,8 @@
 // Uses fileStorage.service.js for all validation
 // ============================================
 
-import multer from 'multer';
-import * as fileStorage from '../services/fileStorage.service.js';
+import multer from "multer";
+import * as fileStorage from "../services/fileStorage.service.js";
 
 // ============================================
 // UNIVERSAL STORAGE (MEMORY)
@@ -31,7 +31,7 @@ function createFileFilter(folder) {
       fileStorage.validateFolder(folder);
       fileStorage.validateExtension(file.originalname);
       fileStorage.validateMimeType(folder, file.mimetype);
-      
+
       // If all pass, accept file
       cb(null, true);
     } catch (error) {
@@ -52,9 +52,9 @@ function createFileFilter(folder) {
  */
 export function createUploader(folder, options = {}) {
   const {
-    maxFileSize = null,  // If null, uses folder default from fileStorage
+    maxFileSize = null, // If null, uses folder default from fileStorage
     maxFiles = 1,
-    fieldName = 'file',
+    fieldName = "file",
   } = options;
 
   // Get max size from fileStorage or use custom
@@ -82,10 +82,10 @@ export function createUploader(folder, options = {}) {
 
 function getMaxFileSize(folder) {
   const MAX_FILE_SIZES = {
-    shop_files: 5 * 1024 * 1024,              // 5MB
-    broadcast_attachments: 50 * 1024 * 1024,  // 50MB
-    email_attachments: 10 * 1024 * 1024,      // 10MB
-    tickets: 5 * 1024 * 1024,                 // 5MB
+    shop_files: 5 * 1024 * 1024, // 5MB
+    broadcast_attachments: 50 * 1024 * 1024, // 50MB
+    email_attachments: 10 * 1024 * 1024, // 10MB
+    tickets: 5 * 1024 * 1024, // 5MB
   };
 
   return MAX_FILE_SIZES[folder] || 10 * 1024 * 1024; // Default 10MB
@@ -95,28 +95,28 @@ function getMaxFileSize(folder) {
 // PRE-CONFIGURED UPLOADERS (for convenience)
 // ============================================
 
-export const shopFilesUpload = createUploader('shop_files', {
-  fieldName: 'file',
+export const shopFilesUpload = createUploader("shop_files", {
+  fieldName: "file",
   maxFiles: 1,
 });
 
-export const ticketsUpload = createUploader('tickets', {
-  fieldName: 'files',
+export const ticketsUpload = createUploader("tickets", {
+  fieldName: "files",
   maxFiles: 5,
 });
 
-export const broadcastUpload = createUploader('broadcast_attachments', {
-  fieldName: 'file',
+export const broadcastUpload = createUploader("broadcast_attachments", {
+  fieldName: "file",
   maxFiles: 1,
 });
 
-export const emailAttachmentUpload = createUploader('email_attachments', {
-  fieldName: 'file',
+export const emailAttachmentUpload = createUploader("email_attachments", {
+  fieldName: "file",
   maxFiles: 1,
 });
 
 // ============================================
-// ✅ NEW: GENERIC MULTER INSTANCE (for backwards compatibility)
+//  NEW: GENERIC MULTER INSTANCE (for backwards compatibility)
 // ============================================
 
 /**
@@ -142,54 +142,54 @@ export function handleMulterError(err, req, res, next) {
     return next();
   }
 
-  console.error('[Multer] Upload error:', err.message);
+  console.error("[Multer] Upload error:", err.message);
 
   // Multer errors
-  if (err.code === 'LIMIT_FILE_SIZE') {
+  if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
       success: false,
-      message: 'File too large',
+      message: "File too large",
       error: `Maximum file size exceeded. ${err.message}`,
     });
   }
 
-  if (err.code === 'LIMIT_FILE_COUNT') {
+  if (err.code === "LIMIT_FILE_COUNT") {
     return res.status(400).json({
       success: false,
-      message: 'Too many files',
+      message: "Too many files",
       error: err.message,
     });
   }
 
-  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+  if (err.code === "LIMIT_UNEXPECTED_FILE") {
     return res.status(400).json({
       success: false,
-      message: 'Unexpected field',
-      error: 'Invalid file field name',
+      message: "Unexpected field",
+      error: "Invalid file field name",
     });
   }
 
   // fileStorage validation errors
-  if (err.code === 'BLOCKED_EXTENSION') {
+  if (err.code === "BLOCKED_EXTENSION") {
     return res.status(400).json({
       success: false,
-      message: 'Invalid file type',
+      message: "Invalid file type",
       error: err.message,
     });
   }
 
-  if (err.code === 'INVALID_MIME_TYPE') {
+  if (err.code === "INVALID_MIME_TYPE") {
     return res.status(400).json({
       success: false,
-      message: 'Invalid file type',
+      message: "Invalid file type",
       error: err.message,
     });
   }
 
-  if (err.code === 'FILE_TOO_LARGE') {
+  if (err.code === "FILE_TOO_LARGE") {
     return res.status(400).json({
       success: false,
-      message: 'File too large',
+      message: "File too large",
       error: err.message,
     });
   }
@@ -197,7 +197,7 @@ export function handleMulterError(err, req, res, next) {
   // Generic error
   return res.status(500).json({
     success: false,
-    message: 'File upload failed',
+    message: "File upload failed",
     error: err.message,
   });
 }
@@ -208,7 +208,7 @@ export function handleMulterError(err, req, res, next) {
 
 export default {
   createUploader,
-  upload,  // ✅ Added for backwards compatibility
+  upload, //  Added for backwards compatibility
   shopFilesUpload,
   ticketsUpload,
   broadcastUpload,

@@ -1,7 +1,7 @@
 //Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\api\axios.js
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL ;
+const API_URL = import.meta.env.VITE_API_URL;
 const CAdminAPI = axios.create({
   baseURL: `${API_URL}/cadmin`,
   withCredentials: true,
@@ -21,19 +21,17 @@ function isTokenExpired(token) {
 // Helper to refresh token
 async function refreshAccessToken() {
   try {
-    console.log("🔄 Attempting to refresh access token...");
     const response = await axios.get(`${API_URL}/cadmin/refresh`, {
       withCredentials: true,
     });
     const newToken = response.data?.data?.access_token;
     if (newToken) {
       localStorage.setItem("cadmin_access_token", newToken);
-      console.log("✅ Access token refreshed successfully");
       return newToken;
     }
     throw new Error("No token in response");
   } catch (error) {
-    console.error("❌ Token refresh failed:", error.message);
+    console.error(" Token refresh failed:", error.message);
     localStorage.removeItem("cadmin_access_token");
     throw error;
   }
@@ -45,7 +43,14 @@ let refreshPromise = null;
 CAdminAPI.interceptors.request.use(
   async (config) => {
     // Skip token check for auth endpoints
-    const skipUrls = ["/login", "/verify-otp", "/refresh", "/logout", "/forgot-password", "/reset-password"];
+    const skipUrls = [
+      "/login",
+      "/verify-otp",
+      "/refresh",
+      "/logout",
+      "/forgot-password",
+      "/reset-password",
+    ];
     const shouldSkip = skipUrls.some((url) => config.url?.includes(url));
 
     if (shouldSkip) {
@@ -56,15 +61,12 @@ CAdminAPI.interceptors.request.use(
 
     // Check if token is expired or about to expire
     if (isTokenExpired(token)) {
-      console.log("⚠️ Token expired or expiring soon, refreshing...");
-
       if (!isRefreshing) {
         isRefreshing = true;
-        refreshPromise = refreshAccessToken()
-          .finally(() => {
-            isRefreshing = false;
-            refreshPromise = null;
-          });
+        refreshPromise = refreshAccessToken().finally(() => {
+          isRefreshing = false;
+          refreshPromise = null;
+        });
       }
 
       try {
@@ -82,19 +84,31 @@ CAdminAPI.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 // Response interceptor - handle 401 errors
 CAdminAPI.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.error("🔴 [Axios] Response error:", {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data,
+      _retry: error.config?._retry,
+    });
     const originalRequest = error.config;
 
     // Skip for auth endpoints
     const skipUrls = ["/login", "/verify-otp", "/refresh", "/logout"];
-    const shouldSkip = skipUrls.some((url) => originalRequest.url?.includes(url));
+    const shouldSkip = skipUrls.some((url) =>
+      originalRequest.url?.includes(url),
+    );
 
-    if (error.response?.status === 401 && !originalRequest._retry && !shouldSkip) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !shouldSkip
+    ) {
       originalRequest._retry = true;
 
       try {
@@ -109,6 +123,6 @@ CAdminAPI.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 export default CAdminAPI;

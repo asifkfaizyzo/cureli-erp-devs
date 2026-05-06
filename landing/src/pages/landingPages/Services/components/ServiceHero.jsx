@@ -67,20 +67,19 @@ FogParticle.displayName = "FogParticle";
 // ============================================
 const HeroContent = memo(() => (
   <div className="text-center lg:text-left" data-aos="fade-right">
-    <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
+    {/* <div className="inline-block px-3 py-1 xs:px-4 xs:py-1.5 mb-4 sm:mb-5 md:mb-6 text-xs xs:text-sm sm:text-base bg-white/10 border border-white/20 rounded-full backdrop-blur-sm">
       Decentralized App &amp; Platform
-    </div>
+    </div> */}
 
     <h1 className="text-3xl xs:text-4xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-7xl font-semibold leading-tight mb-4 sm:mb-5 md:mb-6">
-      Built Around Your{" "}
-      <br className="hidden xs:block" />
+      Built Around Your <br className="hidden xs:block" />
       Pharmacy's Success
     </h1>
 
     <p className="text-sm xs:text-base sm:text-lg md:text-lg lg:text-xl xl:text-xl text-white/80 mb-6 sm:mb-7 md:mb-8 max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto lg:mx-0 leading-relaxed">
       With our medicine ordering app for patients and our all-in-one pharmacy
-      ERP system, everything we offer is designed to help modernize your pharmacy
-      and your patients' experience.
+      ERP system, everything we offer is designed to help modernize your
+      pharmacy and your patients' experience.
     </p>
 
     <a
@@ -147,17 +146,15 @@ const ServiceHero = () => {
       <div className="relative z-10 w-full max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 xs:px-5 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16">
         {/* Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 md:gap-10 lg:gap-12 xl:gap-16 2xl:gap-20 items-center">
-
-          {/* ✅ Image — order-1 on mobile (top), order-2 on lg (right) */}
+          {/*  Image — order-1 on mobile (top), order-2 on lg (right) */}
           <div className="order-1 lg:order-2">
             <HeroImage />
           </div>
 
-          {/* ✅ Content — order-2 on mobile (bottom), order-1 on lg (left) */}
+          {/*  Content — order-2 on mobile (bottom), order-1 on lg (left) */}
           <div className="order-2 lg:order-1">
             <HeroContent />
           </div>
-
         </div>
       </div>
     </section>

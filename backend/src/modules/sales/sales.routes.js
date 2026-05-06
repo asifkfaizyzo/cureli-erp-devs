@@ -61,7 +61,7 @@ router.use(requireAuth);
 router.post(
   "/returns",
   validateBody(createSalesReturnSchema),
-  createSalesReturnController
+  createSalesReturnController,
 );
 
 // Get all sales returns
@@ -74,21 +74,21 @@ router.get("/returns/:returnId", getReturnDetailsController);
 router.post(
   "/returns/:returnId/approve",
   validateBody(approveReturnSchema),
-  approveOrRejectReturnController
+  approveOrRejectReturnController,
 );
 
 // Cancel approved return (Super Admin only)
 router.patch(
   "/returns/:returnId/cancel",
   validateBody(cancelSalesReturnSchema),
-  cancelSalesReturnController
+  cancelSalesReturnController,
 );
 
 // Revert approved return to pending (Super Admin only)
 router.patch(
   "/returns/:returnId/revert",
   validateBody(revertSalesReturnSchema),
-  revertSalesReturnController
+  revertSalesReturnController,
 );
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -102,7 +102,7 @@ router.get("/credits", getCustomerCreditsController);
 router.post(
   "/credits/apply",
   validateBody(applyCustomerCreditSchema),
-  applyCustomerCreditController
+  applyCustomerCreditController,
 );
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -122,7 +122,11 @@ router.get("/parked", getParkedInvoicesController);
 // ═══════════════════════════════════════════════════════════════════════
 
 // Create draft sale
-router.post("/", validateBody(createSalesInvoiceSchema), createDraftSaleController);
+router.post(
+  "/",
+  validateBody(createSalesInvoiceSchema),
+  createDraftSaleController,
+);
 
 // Get all sales invoices
 router.get("/", getSalesInvoicesController);
@@ -137,46 +141,65 @@ router.get("/:invoiceId", getInvoiceDetailsController);
 router.get("/:invoiceId/returnable-items", getReturnableItemsController);
 
 // Add items to draft
-router.post("/:invoiceId/items", validateBody(addItemsSchema), addItemsController);
+router.post(
+  "/:invoiceId/items",
+  validateBody(addItemsSchema),
+  addItemsController,
+);
 
 // Remove item from draft
 router.delete("/:invoiceId/items/:itemId", removeItemController);
 
 // Park invoice
-router.post("/:invoiceId/park", validateBody(parkInvoiceSchema), parkInvoiceController);
+router.post(
+  "/:invoiceId/park",
+  validateBody(parkInvoiceSchema),
+  parkInvoiceController,
+);
 
 // Resume parked invoice
 router.post("/:invoiceId/resume", resumeParkedInvoiceController);
 
 // Confirm sale
-router.post("/:invoiceId/confirm", validateBody(confirmInvoiceSchema), confirmSaleController);
+router.post(
+  "/:invoiceId/confirm",
+  validateBody(confirmInvoiceSchema),
+  confirmSaleController,
+);
 
 // Cancel invoice
-router.post("/:invoiceId/cancel", validateBody(cancelInvoiceSchema), cancelInvoiceController);
+router.post(
+  "/:invoiceId/cancel",
+  validateBody(cancelInvoiceSchema),
+  cancelInvoiceController,
+);
 
 // Record payment
-router.post("/:invoiceId/payments", validateBody(recordPaymentSchema), recordPaymentController);
+router.post(
+  "/:invoiceId/payments",
+  validateBody(recordPaymentSchema),
+  recordPaymentController,
+);
 
-// ✅ ADD THIS: Update invoice (DRAFT/PARKED only)
+//  ADD THIS: Update invoice (DRAFT/PARKED only)
 router.put(
   "/:invoiceId",
   validateBody(updateSalesInvoiceSchema),
-  updateSalesInvoiceController
+  updateSalesInvoiceController,
 );
 
-// ✅ ADD THIS: Update payment status (Super Admin only)
+//  ADD THIS: Update payment status (Super Admin only)
 router.patch(
   "/:invoiceId/payment-status",
   validateBody(updatePaymentStatusSchema),
-  updatePaymentStatusController
+  updatePaymentStatusController,
 );
 
 // Update invoice (DRAFT/PARKED/CONFIRMED for Super Admin)
 router.put(
   "/:invoiceId",
   validateBody(updateSalesInvoiceSchema),
-  updateSalesInvoiceController
+  updateSalesInvoiceController,
 );
-
 
 export default router;

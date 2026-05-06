@@ -38,7 +38,7 @@ const SetupRouter = () => {
   useEffect(() => {
     // Prevent multiple routing attempts
     if (hasRouted.current) {
-      console.log("⚠️ SetupRouter: Already routed, skipping");
+      
       return;
     }
 
@@ -52,7 +52,7 @@ const SetupRouter = () => {
 
       // If coming from plan selection, ensure store is reset
       if (fromPlanSelection) {
-        console.log("🔄 SetupRouter: Fresh from plan selection, resetting store");
+        
         resetSetup();
       }
 
@@ -64,14 +64,14 @@ const SetupRouter = () => {
         const statusData = statusRes.data?.data;
 
         if (statusData?.is_complete) {
-          console.log("✅ SetupRouter: Setup complete (backend), going to dashboard");
+          
           completeSetup();
           hasRouted.current = true;
           navigate("/dashboard", { replace: true });
           return;
         }
 
-        console.log("📋 SetupRouter: Backend says setup NOT complete");
+      
       } catch (err) {
         if (err.response?.status === 401) {
           localStorage.clear();
@@ -99,16 +99,13 @@ const SetupRouter = () => {
       }
 
       if (!subscriptionData?.has_active_subscription) {
-        console.log("❌ SetupRouter: No subscription, going to plan selection");
+      
         hasRouted.current = true;
         navigate("/plan-selection", { replace: true });
         return;
       }
 
-      console.log(
-        "✅ SetupRouter: Active subscription:",
-        subscriptionData.current_plan?.name
-      );
+      
 
       // ============================================
       // INITIALIZE: Set plan limits
@@ -139,7 +136,7 @@ const SetupRouter = () => {
       // ============================================
       // ROUTE: Go to branches (first step)
       // ============================================
-      console.log("📍 SetupRouter: Going to /setup/branches");
+    
       hasRouted.current = true;
       navigate("/setup/branches", { replace: true });
     } catch (err) {

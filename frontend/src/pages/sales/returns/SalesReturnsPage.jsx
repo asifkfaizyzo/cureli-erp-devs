@@ -1,6 +1,12 @@
 // frontend/src/pages/sales/returns/SalesReturnsPage.jsx
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import {
   Package,
   Search,
@@ -24,7 +30,11 @@ import {
 } from "lucide-react";
 import { useToast } from "../../../components/common/Toast";
 import salesAPI from "../../../api/sales";
-import { useAuthStore, selectBranchContext, selectIsSuperAdmin } from "../../../store/useAuthStore";
+import {
+  useAuthStore,
+  selectBranchContext,
+  selectIsSuperAdmin,
+} from "../../../store/useAuthStore";
 import ViewSalesReturnModal from "./components/ViewSalesReturnModal";
 import SalesReturnsTable from "./components/SalesReturnsTable";
 import CreateSalesReturnModal from "./components/CreateSalesReturnModal";
@@ -51,7 +61,7 @@ const RETURN_REASON_LABELS = {
   DOCTOR_ADVISED: "Doctor Advised Return",
 };
 
-// ✅ Match schema enum values (CASH, CREDIT, ADJUST_NEXT)
+//  Match schema enum values (CASH, CREDIT, ADJUST_NEXT)
 const REFUND_MODE_CONFIG = {
   CASH: {
     label: "Cash Refund",
@@ -118,7 +128,9 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
       <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
         <div className="flex items-center gap-2 text-sm text-blue-700">
           <Layers size={16} className="text-blue-500" />
-          <span>Viewing returns from <strong>All Branches</strong></span>
+          <span>
+            Viewing returns from <strong>All Branches</strong>
+          </span>
           <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">
             Combined View
           </span>
@@ -135,7 +147,9 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
     <div className="px-4 py-2 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
       <div className="flex items-center gap-2 text-sm text-green-700">
         <Building2 size={16} className="text-green-500" />
-        <span>Viewing returns for <strong>{branchName || "Selected Branch"}</strong></span>
+        <span>
+          Viewing returns for <strong>{branchName || "Selected Branch"}</strong>
+        </span>
         {itemCount > 0 && (
           <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">
             {itemCount} returns
@@ -152,7 +166,10 @@ const BranchContextBanner = ({ isGlobalMode, branchName, itemCount }) => {
 
 const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
   const totalPendingAmount = useMemo(() => {
-    return pendingReturns.reduce((sum, ret) => sum + Math.abs(parseFloat(ret.net_amount) || 0), 0);
+    return pendingReturns.reduce(
+      (sum, ret) => sum + Math.abs(parseFloat(ret.net_amount) || 0),
+      0,
+    );
   }, [pendingReturns]);
 
   if (pendingReturns.length === 0) return null;
@@ -165,15 +182,22 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
             <Shield size={20} className="text-white" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-amber-900">Pending Approvals</h3>
+            <h3 className="text-base font-bold text-amber-900">
+              Pending Approvals
+            </h3>
             <p className="text-xs text-amber-700">
-              {pendingReturns.length} return{pendingReturns.length !== 1 ? "s" : ""} awaiting approval
+              {pendingReturns.length} return
+              {pendingReturns.length !== 1 ? "s" : ""} awaiting approval
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] text-amber-600 uppercase tracking-wider mb-0.5">Total Amount</p>
-          <p className="text-lg font-bold text-amber-900">{formatCurrency(totalPendingAmount)}</p>
+          <p className="text-[10px] text-amber-600 uppercase tracking-wider mb-0.5">
+            Total Amount
+          </p>
+          <p className="text-lg font-bold text-amber-900">
+            {formatCurrency(totalPendingAmount)}
+          </p>
         </div>
       </div>
 
@@ -191,17 +215,22 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
                     {returnInvoice.invoice_number}
                   </p>
                   <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
-                    {RETURN_REASON_LABELS[returnInvoice.return_reason] || returnInvoice.return_reason}
+                    {RETURN_REASON_LABELS[returnInvoice.return_reason] ||
+                      returnInvoice.return_reason}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-600">
                   <span className="flex items-center gap-1 truncate">
                     <Users size={12} />
-                    {returnInvoice.customer?.name || returnInvoice.walkin_name || "Walk-in Customer"}
+                    {returnInvoice.customer?.name ||
+                      returnInvoice.walkin_name ||
+                      "Walk-in Customer"}
                   </span>
                   <span className="flex items-center gap-1">
                     <Calendar size={12} />
-                    {formatDate(returnInvoice.invoice_date || returnInvoice.created_at)}
+                    {formatDate(
+                      returnInvoice.invoice_date || returnInvoice.created_at,
+                    )}
                   </span>
                   <span className="flex items-center gap-1">
                     <FileText size={12} />
@@ -240,7 +269,11 @@ const ApprovalQueueCard = ({ pendingReturns, onViewReturn }) => {
 const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
   const [showFilters, setShowFilters] = useState(false);
 
-  const hasActiveFilters = filters.startDate || filters.endDate || filters.approvalStatus || filters.search;
+  const hasActiveFilters =
+    filters.startDate ||
+    filters.endDate ||
+    filters.approvalStatus ||
+    filters.search;
 
   const activeFilterCount = [
     filters.startDate,
@@ -310,13 +343,15 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
             </div>
 
             <div className="flex-1 min-w-[200px]">
-              <label className="text-xs text-gray-500 font-medium mb-1.5 block">Search</label>
+              <label className="text-xs text-gray-500 font-medium mb-1.5 block">
+                Search
+              </label>
               <div className="relative">
-                <Search 
-                  size={16} 
+                <Search
+                  size={16}
                   className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
                     filters.search ? "text-[#000060]" : "text-gray-400"
-                  }`} 
+                  }`}
                 />
                 <input
                   type="text"
@@ -326,9 +361,10 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
                   className={`w-full h-10 pl-10 pr-10 text-sm border rounded-lg shadow-sm
                     focus:outline-none focus:ring-2 focus:ring-[#000060]/20 focus:border-[#000060]
                     transition-all duration-200
-                    ${filters.search 
-                      ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium" 
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    ${
+                      filters.search
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
                     }`}
                 />
                 {filters.search && (
@@ -346,29 +382,35 @@ const ReturnsFilters = ({ filters, onFilterChange, onReset }) => {
           {hasActiveFilters && (
             <div className="mt-4 pt-3 border-t border-slate-100">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-slate-500 font-medium">Active Filters:</span>
-                
+                <span className="text-xs text-slate-500 font-medium">
+                  Active Filters:
+                </span>
+
                 {filters.startDate && (
                   <FilterTag
                     label={`From: ${formatDate(filters.startDate)}`}
                     onRemove={() => onFilterChange("startDate", "")}
                   />
                 )}
-                
+
                 {filters.endDate && (
                   <FilterTag
                     label={`To: ${formatDate(filters.endDate)}`}
                     onRemove={() => onFilterChange("endDate", "")}
                   />
                 )}
-                
+
                 {filters.approvalStatus && (
                   <FilterTag
-                    label={APPROVAL_STATUS_OPTIONS.find(o => o.value === filters.approvalStatus)?.label || filters.approvalStatus}
+                    label={
+                      APPROVAL_STATUS_OPTIONS.find(
+                        (o) => o.value === filters.approvalStatus,
+                      )?.label || filters.approvalStatus
+                    }
                     onRemove={() => onFilterChange("approvalStatus", "")}
                   />
                 )}
-                
+
                 {filters.search && (
                   <FilterTag
                     label={`"${filters.search}"`}
@@ -402,19 +444,69 @@ const FilterTag = ({ label, onRemove }) => (
 
 const StatsCards = ({ stats }) => {
   const cards = [
-    { label: "Total Returns", value: stats.total, icon: Package, color: "slate", bgColor: "bg-white" },
-    { label: "Pending", value: stats.pending, icon: Clock, color: "amber", bgColor: "bg-amber-50" },
-    { label: "Approved", value: stats.approved, icon: CheckCircle2, color: "green", bgColor: "bg-green-50" },
-    { label: "Rejected", value: stats.rejected, icon: XCircle, color: "red", bgColor: "bg-red-50" },
-    { label: "Cancelled", value: stats.cancelled, icon: Ban, color: "gray", bgColor: "bg-gray-50" },
+    {
+      label: "Total Returns",
+      value: stats.total,
+      icon: Package,
+      color: "slate",
+      bgColor: "bg-white",
+    },
+    {
+      label: "Pending",
+      value: stats.pending,
+      icon: Clock,
+      color: "amber",
+      bgColor: "bg-amber-50",
+    },
+    {
+      label: "Approved",
+      value: stats.approved,
+      icon: CheckCircle2,
+      color: "green",
+      bgColor: "bg-green-50",
+    },
+    {
+      label: "Rejected",
+      value: stats.rejected,
+      icon: XCircle,
+      color: "red",
+      bgColor: "bg-red-50",
+    },
+    {
+      label: "Cancelled",
+      value: stats.cancelled,
+      icon: Ban,
+      color: "gray",
+      bgColor: "bg-gray-50",
+    },
   ];
 
   const colorMap = {
-    slate: { text: "text-[#000060]", icon: "text-[#000060]", border: "border-slate-200" },
-    amber: { text: "text-amber-700", icon: "text-amber-600", border: "border-amber-200" },
-    green: { text: "text-green-700", icon: "text-green-600", border: "border-green-200" },
-    red: { text: "text-red-700", icon: "text-red-600", border: "border-red-200" },
-    gray: { text: "text-gray-700", icon: "text-gray-600", border: "border-gray-200" },
+    slate: {
+      text: "text-[#000060]",
+      icon: "text-[#000060]",
+      border: "border-slate-200",
+    },
+    amber: {
+      text: "text-amber-700",
+      icon: "text-amber-600",
+      border: "border-amber-200",
+    },
+    green: {
+      text: "text-green-700",
+      icon: "text-green-600",
+      border: "border-green-200",
+    },
+    red: {
+      text: "text-red-700",
+      icon: "text-red-600",
+      border: "border-red-200",
+    },
+    gray: {
+      text: "text-gray-700",
+      icon: "text-gray-600",
+      border: "border-gray-200",
+    },
   };
 
   return (
@@ -428,7 +520,9 @@ const StatsCards = ({ stats }) => {
             className={`${card.bgColor} rounded-xl border ${colors.border} p-3 shadow-sm hover:shadow-md transition-shadow`}
           >
             <div className="flex items-center justify-between mb-1">
-              <p className={`text-xs font-medium ${colors.text}`}>{card.label}</p>
+              <p className={`text-xs font-medium ${colors.text}`}>
+                {card.label}
+              </p>
               <Icon size={16} className={colors.icon} />
             </div>
             <p className={`text-xl font-bold ${colors.text}`}>{card.value}</p>
@@ -445,18 +539,18 @@ const StatsCards = ({ stats }) => {
 
 const SalesReturnsPage = () => {
   const toast = useToast();
-  
+
   const branchContext = useAuthStore(selectBranchContext);
   const isSuperAdmin = useAuthStore(selectIsSuperAdmin);
-  const user = useAuthStore(state => state.user);
-  
+  const user = useAuthStore((state) => state.user);
+
   const isGlobalMode = branchContext.mode === "GLOBAL";
   const currentBranchId = branchContext.branch_id;
   const currentBranchName = branchContext.branch_name;
 
   const prevBranchRef = useRef({
     mode: branchContext.mode,
-    branch_id: branchContext.branch_id
+    branch_id: branchContext.branch_id,
   });
 
   // State
@@ -496,7 +590,9 @@ const SalesReturnsPage = () => {
 
   // Computed
   const pendingReturns = useMemo(() => {
-    return returns.filter((r) => r.return_approval_status === "PENDING_APPROVAL");
+    return returns.filter(
+      (r) => r.return_approval_status === "PENDING_APPROVAL",
+    );
   }, [returns]);
 
   const filteredReturns = useMemo(() => {
@@ -506,12 +602,12 @@ const SalesReturnsPage = () => {
       const query = filters.search.toLowerCase();
       result = result.filter(
         (r) =>
-          // ✅ FIX: Search by invoice_number instead of return_number
+          //  FIX: Search by invoice_number instead of return_number
           r.invoice_number?.toLowerCase().includes(query) ||
           r.customer?.name?.toLowerCase().includes(query) ||
           r.customer?.phone?.includes(query) ||
           r.walkin_name?.toLowerCase().includes(query) ||
-          r.walkin_phone?.includes(query)
+          r.walkin_phone?.includes(query),
       );
     }
 
@@ -522,10 +618,15 @@ const SalesReturnsPage = () => {
   const stats = useMemo(() => {
     return {
       total: total,
-      pending: returns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length,
-      approved: returns.filter((r) => r.return_approval_status === "APPROVED").length,
-      rejected: returns.filter((r) => r.return_approval_status === "REJECTED").length,
-      cancelled: returns.filter((r) => r.return_approval_status === "CANCELLED").length,
+      pending: returns.filter(
+        (r) => r.return_approval_status === "PENDING_APPROVAL",
+      ).length,
+      approved: returns.filter((r) => r.return_approval_status === "APPROVED")
+        .length,
+      rejected: returns.filter((r) => r.return_approval_status === "REJECTED")
+        .length,
+      cancelled: returns.filter((r) => r.return_approval_status === "CANCELLED")
+        .length,
     };
   }, [returns, total]);
 
@@ -533,73 +634,84 @@ const SalesReturnsPage = () => {
   // LOAD RETURNS
   // ══════════════════════════════════════════════════════════════════════
 
-  const loadReturns = useCallback(async (showBranchSwitchingState = false) => {
-    try {
-      if (showBranchSwitchingState) {
-        setIsBranchSwitching(true);
-      } else {
-        setLoading(true);
-      }
-
-      const params = { ...filters };
-
-      Object.keys(params).forEach((key) => {
-        if (params[key] === "" || params[key] === null || params[key] === undefined) {
-          delete params[key];
+  const loadReturns = useCallback(
+    async (showBranchSwitchingState = false) => {
+      try {
+        if (showBranchSwitchingState) {
+          setIsBranchSwitching(true);
+        } else {
+          setLoading(true);
         }
-      });
 
-      console.log("📦 Loading sales returns with branch context:", {
-        mode: branchContext.mode,
-        branch_id: branchContext.branch_id,
-        branch_name: branchContext.branch_name,
-        filters: params
-      });
+        const params = { ...filters };
 
-      const response = await salesAPI.getAllReturns(params);
-      setReturns(response.data?.returns || []);
-      setTotal(response.data?.total || 0);
-    } catch (error) {
-      console.error("Load returns error:", error);
-      toast.error("Failed to Load Returns", error.response?.data?.message || error.message);
-    } finally {
-      setLoading(false);
-      setIsBranchSwitching(false);
-    }
-  }, [filters, branchContext.mode, branchContext.branch_id, toast]);
+        Object.keys(params).forEach((key) => {
+          if (
+            params[key] === "" ||
+            params[key] === null ||
+            params[key] === undefined
+          ) {
+            delete params[key];
+          }
+        });
+
+        
+
+        const response = await salesAPI.getAllReturns(params);
+        setReturns(response.data?.returns || []);
+        setTotal(response.data?.total || 0);
+      } catch (error) {
+        console.error("Load returns error:", error);
+        toast.error(
+          "Failed to Load Returns",
+          error.response?.data?.message || error.message,
+        );
+      } finally {
+        setLoading(false);
+        setIsBranchSwitching(false);
+      }
+    },
+    [filters, branchContext.mode, branchContext.branch_id, toast],
+  );
 
   // Watch for branch changes
   useEffect(() => {
     const prevBranch = prevBranchRef.current;
-    const branchChanged = 
-      prevBranch.mode !== branchContext.mode || 
+    const branchChanged =
+      prevBranch.mode !== branchContext.mode ||
       prevBranch.branch_id !== branchContext.branch_id;
-    
+
     if (branchChanged) {
-      console.log("🔄 Branch changed detected in Sales Returns page:", {
-        from: prevBranch,
-        to: {
-          mode: branchContext.mode,
-          branch_id: branchContext.branch_id
-        }
-      });
+     
 
       prevBranchRef.current = {
         mode: branchContext.mode,
-        branch_id: branchContext.branch_id
+        branch_id: branchContext.branch_id,
       };
-      
+
       setReturns([]);
-      
+
       if (branchContext.mode === "GLOBAL") {
-        toast.info("Switched to All Branches", "Loading combined returns data...");
+        toast.info(
+          "Switched to All Branches",
+          "Loading combined returns data...",
+        );
       } else if (branchContext.branch_name) {
-        toast.info("Branch Changed", `Loading returns for ${branchContext.branch_name}...`);
+        toast.info(
+          "Branch Changed",
+          `Loading returns for ${branchContext.branch_name}...`,
+        );
       }
-      
+
       loadReturns(true);
     }
-  }, [branchContext.mode, branchContext.branch_id, branchContext.branch_name, toast, loadReturns]);
+  }, [
+    branchContext.mode,
+    branchContext.branch_id,
+    branchContext.branch_name,
+    toast,
+    loadReturns,
+  ]);
 
   // Initial load and filter changes
   useEffect(() => {
@@ -642,7 +754,7 @@ const SalesReturnsPage = () => {
   const handleViewReturn = async (returnData) => {
     try {
       const returnId = returnData.invoice_id;
-      
+
       if (!returnId) {
         toast.error("Invalid return", "Return ID is missing");
         return;
@@ -652,7 +764,10 @@ const SalesReturnsPage = () => {
       setViewReturnModal({ open: true, returnData: response.data });
     } catch (error) {
       console.error("Failed to get return details:", error);
-      toast.error("Failed to load return details", error.response?.data?.message || error.message);
+      toast.error(
+        "Failed to load return details",
+        error.response?.data?.message || error.message,
+      );
     }
   };
 
@@ -661,7 +776,7 @@ const SalesReturnsPage = () => {
   // ══════════════════════════════════════════════════════════════════════
 
   const handleApproveReturn = (returnData) => {
-    // ✅ Get refund_mode with fallback to adjustment_type
+    //  Get refund_mode with fallback to adjustment_type
     const refundMode = returnData.refund_mode || returnData.adjustment_type;
     const refundConfig = REFUND_MODE_CONFIG[refundMode];
 
@@ -684,7 +799,10 @@ const SalesReturnsPage = () => {
             <p className="text-sm text-blue-800 font-medium mb-2">This will:</p>
             <ul className="text-xs text-blue-700 list-disc list-inside space-y-1">
               <li>Add stock back to inventory</li>
-              <li>Process refund/credit ({refundConfig?.label || refundMode || "N/A"})</li>
+              <li>
+                Process refund/credit (
+                {refundConfig?.label || refundMode || "N/A"})
+              </li>
               <li>Mark return as approved</li>
             </ul>
           </div>
@@ -704,12 +822,18 @@ const SalesReturnsPage = () => {
       const returnId = returnData.invoice_id;
       await salesAPI.approveReturn(returnId, { action: "APPROVE" });
 
-      toast.success("Return Approved", "Stock restored and refund/credit processed.");
+      toast.success(
+        "Return Approved",
+        "Stock restored and refund/credit processed.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Approve return error:", error);
-      toast.error("Approval Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Approval Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -738,7 +862,9 @@ const SalesReturnsPage = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Rejection Reason <span className="text-red-500">*</span>
-              <span className="text-xs font-normal text-gray-500 ml-2">(minimum 10 characters)</span>
+              <span className="text-xs font-normal text-gray-500 ml-2">
+                (minimum 10 characters)
+              </span>
             </label>
             <textarea
               id="rejection-reason"
@@ -747,14 +873,21 @@ const SalesReturnsPage = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
             />
           </div>
-          <p className="text-sm text-red-600 font-medium">⚠️ This action cannot be undone.</p>
+          <p className="text-sm text-red-600 font-medium">
+            ⚠️ This action cannot be undone.
+          </p>
         </div>
       ),
       confirmText: "Reject Return",
       onConfirm: async () => {
-        const reason = document.getElementById("rejection-reason")?.value.trim();
+        const reason = document
+          .getElementById("rejection-reason")
+          ?.value.trim();
         if (!reason || reason.length < 10) {
-          toast.warning("Reason Required", "Please provide a rejection reason (minimum 10 characters).");
+          toast.warning(
+            "Reason Required",
+            "Please provide a rejection reason (minimum 10 characters).",
+          );
           return;
         }
         setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
@@ -774,7 +907,10 @@ const SalesReturnsPage = () => {
       loadReturns(false);
     } catch (error) {
       console.error("Reject return error:", error);
-      toast.error("Rejection Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Rejection Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -788,17 +924,23 @@ const SalesReturnsPage = () => {
     try {
       setActionLoading(true);
       const returnId = returnData.invoice_id;
-      
-      console.log("📤 Cancelling return:", { returnId, data });
-      
+
+    
+
       await salesAPI.cancelApprovedReturn(returnId, data);
 
-      toast.success("Return Cancelled", "Stock has been deducted and customer credits have been cancelled.");
+      toast.success(
+        "Return Cancelled",
+        "Stock has been deducted and customer credits have been cancelled.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Cancel return error:", error);
-      toast.error("Cancellation Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Cancellation Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -812,17 +954,23 @@ const SalesReturnsPage = () => {
     try {
       setActionLoading(true);
       const returnId = returnData.invoice_id;
-      
-      console.log("📤 Reverting return:", { returnId, reason });
-      
+
+    
+
       await salesAPI.revertReturnToPending(returnId, { revert_reason: reason });
 
-      toast.success("Return Reverted", "Return has been reverted to pending approval.");
+      toast.success(
+        "Return Reverted",
+        "Return has been reverted to pending approval.",
+      );
       closeViewModal();
       loadReturns(false);
     } catch (error) {
       console.error("Revert return error:", error);
-      toast.error("Revert Failed", error.response?.data?.message || error.message);
+      toast.error(
+        "Revert Failed",
+        error.response?.data?.message || error.message,
+      );
     } finally {
       setActionLoading(false);
     }
@@ -845,7 +993,7 @@ const SalesReturnsPage = () => {
     <div className="h-full flex flex-col p-4 max-w-[1800px] mx-auto">
       {/* Branch Context Banner */}
       {isSuperAdmin && (
-        <BranchContextBanner 
+        <BranchContextBanner
           isGlobalMode={isGlobalMode}
           branchName={currentBranchName}
           itemCount={total}
@@ -859,10 +1007,14 @@ const SalesReturnsPage = () => {
           <p className="text-sm text-slate-500 mt-0.5">
             Manage customer returns and refund workflow
             {isSuperAdmin && (
-              <span className="ml-2 text-amber-600 font-medium">• Super Admin Mode</span>
+              <span className="ml-2 text-amber-600 font-medium">
+                • Super Admin Mode
+              </span>
             )}
             {isGlobalMode && (
-              <span className="ml-2 text-blue-600 font-medium">• Viewing All Branches</span>
+              <span className="ml-2 text-blue-600 font-medium">
+                • Viewing All Branches
+              </span>
             )}
           </p>
         </div>
@@ -877,13 +1029,16 @@ const SalesReturnsPage = () => {
               New Return
             </button>
           )}
-          
+
           <button
             onClick={handleRefresh}
             disabled={refreshing || actionLoading || isBranchSwitching}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#000060] text-white text-sm font-medium hover:bg-[#000060]/90 transition-colors disabled:opacity-50 shadow-lg shadow-[#000060]/20"
           >
-            <RefreshCw size={16} className={refreshing || isBranchSwitching ? "animate-spin" : ""} />
+            <RefreshCw
+              size={16}
+              className={refreshing || isBranchSwitching ? "animate-spin" : ""}
+            />
             Refresh
           </button>
         </div>
@@ -897,7 +1052,10 @@ const SalesReturnsPage = () => {
       {/* Approval Queue (Super Admin Only) */}
       {isSuperAdmin && pendingReturns.length > 0 && (
         <div className="shrink-0">
-          <ApprovalQueueCard pendingReturns={pendingReturns} onViewReturn={handleViewReturn} />
+          <ApprovalQueueCard
+            pendingReturns={pendingReturns}
+            onViewReturn={handleViewReturn}
+          />
         </div>
       )}
 
@@ -917,9 +1075,12 @@ const SalesReturnsPage = () => {
             <div className="flex flex-col items-center gap-3 p-6 bg-white rounded-xl shadow-lg border border-gray-200">
               <div className="w-10 h-10 border-4 border-[#000060] border-t-transparent rounded-full animate-spin" />
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-700">Switching Branch</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Switching Branch
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Loading returns for {isGlobalMode ? "all branches" : currentBranchName}...
+                  Loading returns for{" "}
+                  {isGlobalMode ? "all branches" : currentBranchName}...
                 </p>
               </div>
             </div>

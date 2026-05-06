@@ -46,7 +46,7 @@ const AuthGuard = ({ children }) => {
 
   // Not authenticated → redirect to login
   if (!isAuthenticated) {
-    console.log("🚫 AuthGuard: Not authenticated, redirecting to login");
+   
     
     return (
       <Navigate 

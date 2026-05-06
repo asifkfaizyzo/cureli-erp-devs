@@ -4,7 +4,7 @@ import CAdminAPI from "./axios";
 
 const log = (...args) => {
   if (process.env.NODE_ENV !== "production") {
-    console.log("[DASHBOARD API]", ...args);
+    // console.log("[DASHBOARD API]", ...args);
   }
 };
 

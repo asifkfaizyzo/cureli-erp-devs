@@ -1,7 +1,7 @@
 // backend/src/modules/cadmin/broadcast/email/cadminEmailBroadcast.service.js
 
 import prisma from "../../../../config/prisma.js";
-import { sendMail, mailer } from "../../../../utils/email.js";
+import { mailer } from "../../../../utils/email.js";
 import { convertPlainTextToHtml } from "./emailBroadcast.converter.js";
 import * as fileStorage from "../../../../services/fileStorage.service.js";
 import {
@@ -27,18 +27,32 @@ import {
   filterUnsubscribedRecipients,
 } from "./emailBroadcast.unsubscribe.js";
 
-// ============================================
-// CONSTANTS
-// ============================================
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const FOLDER = "email_attachments";
-const BATCH_SIZE = 100;
-const BATCH_DELAY_MS = 1000;
 
-// ✅ NEW: Default email sender info
+/**
+ * SES safe sending parameters
+ *
+ * SES limit: 14 emails/second
+ * We use 10/second to stay well under the limit.
+ *
+ * BATCH_SIZE  = 10   → send 10 emails per batch
+ * BATCH_DELAY = 1000 → wait 1 second between batches
+ * Result: 10 emails/second → safe under 14/sec SES limit
+ *
+ * Within each batch we use Promise.allSettled (parallel within the batch).
+ * Nodemailer's connection pool (maxConnections=5, rateLimit=10/sec set in
+ * email.js) provides an additional safety layer.
+ */
+const BATCH_SIZE = 10; // emails per batch
+const BATCH_DELAY_MS = 1000; // ms between batches → 10/sec effective rate
+
 const DEFAULT_FROM_NAME = process.env.EMAIL_FROM_NAME || "Cureli Health";
-const DEFAULT_FROM_EMAIL = process.env.EMAIL_FROM_ADDRESS || "info@curelihealth.com";
-const DEFAULT_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@curelihealth.com";
+const DEFAULT_FROM_EMAIL =
+  process.env.EMAIL_FROM_ADDRESS || "info@curelihealth.com";
+const DEFAULT_REPLY_TO =
+  process.env.EMAIL_REPLY_TO || "support@curelihealth.com";
 
 const CAMPAIGN_STATUS = {
   DRAFT: "DRAFT",
@@ -51,49 +65,41 @@ const CAMPAIGN_STATUS = {
   CANCELLED: "CANCELLED",
 };
 
-// ============================================
-// FILE HELPER FUNCTIONS — S3 VERSION
-// ============================================
+// ── File helpers ──────────────────────────────────────────────────────────────
 
 async function deleteEmailAttachment(filename) {
   if (!filename) return false;
-
   try {
     return await fileStorage.deleteFile({ folder: FOLDER, filename });
-  } catch (error) {
+  } catch (err) {
     console.warn(
-      `[Email Broadcast] Failed to delete attachment: ${filename}`,
-      error.message
+      `[Email Broadcast] Failed to delete ${filename}:`,
+      err.message,
     );
     return false;
   }
 }
 
 async function deleteEmailAttachments(filenames) {
-  if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
-    return { deleted: 0, failed: 0 };
-  }
-
+  if (!filenames?.length) return { deleted: 0, failed: 0 };
   const files = filenames
-    .filter((f) => f)
+    .filter(Boolean)
     .map((filename) => ({ folder: FOLDER, filename }));
-
-  return await fileStorage.deleteFiles(files);
+  return fileStorage.deleteFiles(files);
 }
 
 async function getEmailAttachmentUrl(filename) {
   if (!filename) return null;
-
   try {
     return await fileStorage.getSignedUrl({
       folder: FOLDER,
       filename,
       expiresIn: 3600,
     });
-  } catch (error) {
+  } catch (err) {
     console.warn(
-      `[Email Broadcast] Failed to get URL for: ${filename}`,
-      error.message
+      `[Email Broadcast] Failed to get URL for ${filename}:`,
+      err.message,
     );
     return null;
   }
@@ -102,10 +108,7 @@ async function getEmailAttachmentUrl(filename) {
 async function deleteEmailCampaignFiles(campaignId) {
   const campaign = await prisma.emailBroadcastCampaign.findUnique({
     where: { campaign_id: campaignId },
-    select: {
-      inline_image: true,
-      attachments: true,
-    },
+    select: { inline_image: true, attachments: true },
   });
 
   if (!campaign) return { deleted: 0, failed: 0 };
@@ -118,584 +121,454 @@ async function deleteEmailCampaignFiles(campaignId) {
       filename: campaign.inline_image.filename,
     });
   }
-
-  if (campaign.attachments && Array.isArray(campaign.attachments)) {
+  if (Array.isArray(campaign.attachments)) {
     campaign.attachments.forEach((att) => {
-      if (att?.filename) {
-        filesToDelete.push({
-          folder: FOLDER,
-          filename: att.filename,
-        });
-      }
+      if (att?.filename)
+        filesToDelete.push({ folder: FOLDER, filename: att.filename });
     });
   }
 
-  if (filesToDelete.length === 0) {
-    return { deleted: 0, failed: 0 };
-  }
+  if (!filesToDelete.length) return { deleted: 0, failed: 0 };
 
-  return await fileStorage.deleteFiles(filesToDelete);
+  return fileStorage.deleteFiles(filesToDelete);
 }
 
-// ============================================
-// PREVIEW RECIPIENTS
-// ============================================
+// ── Preview ───────────────────────────────────────────────────────────────────
 
 export async function previewRecipientCount(data) {
-  try {
-    const { target_filters, target_users, target_cadmins } = data;
+  const { target_filters, target_users, target_cadmins } = data;
 
-    const preview = await previewRecipients(
-      target_filters,
-      target_users,
-      target_cadmins
-    );
+  const preview = await previewRecipients(
+    target_filters,
+    target_users,
+    target_cadmins,
+  );
+  const quota = await getRemainingCapacity();
 
-    const quota = await getRemainingCapacity();
-
-    return {
-      ...preview,
-      quota: {
-        remaining: quota.remaining,
-        used: quota.used,
-        limit: quota.limit,
-        can_send_all: quota.remaining >= preview.total_after_unsubscribe,
-      },
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Preview failed:", error);
-    throw error;
-  }
+  return {
+    ...preview,
+    quota: {
+      remaining: quota.remaining,
+      used: quota.used,
+      limit: quota.limit,
+      can_send_all: quota.remaining >= preview.total_after_unsubscribe,
+    },
+  };
 }
 
-// ============================================
-// CREATE DRAFT
-// ============================================
+// ── Create Draft ──────────────────────────────────────────────────────────────
 
 export async function createDraft(data, context) {
-  try {
-    const {
+  const {
+    subject,
+    message_text,
+    target_filters,
+    target_users,
+    target_cadmins,
+    inline_image,
+    attachments,
+    action_url,
+    action_label,
+  } = data;
+
+  const body_html = convertPlainTextToHtml(message_text);
+  const preview = await previewRecipients(
+    target_filters,
+    target_users,
+    target_cadmins,
+  );
+
+  const campaign = await prisma.emailBroadcastCampaign.create({
+    data: {
       subject,
-      message_text,
-      target_filters,
-      target_users,
-      target_cadmins,
-      inline_image,
-      attachments,
-      action_url,
-      action_label,
-    } = data;
+      body_html,
+      body_text: message_text,
+      from_name: DEFAULT_FROM_NAME,
+      from_email: DEFAULT_FROM_EMAIL,
+      reply_to: DEFAULT_REPLY_TO,
+      target_filters: target_filters || {},
+      target_users: target_users ?? true,
+      target_cadmins: target_cadmins ?? false,
+      inline_image: inline_image || null,
+      attachments: attachments || [],
+      action_url: action_url || null,
+      action_label: action_label || null,
+      recipient_count: preview.total_after_unsubscribe,
+      status: CAMPAIGN_STATUS.DRAFT,
+      created_by_cadmin: context.actor_id,
+      cadmin_name: context.actor_name,
+    },
+  });
 
-    // Convert plain text to HTML
-    const body_html = convertPlainTextToHtml(message_text);
-
-    // Calculate recipient count
-    const preview = await previewRecipients(
-      target_filters,
-      target_users,
-      target_cadmins
-    );
-
-    // ✅ FIXED: Use correct field names matching Prisma schema
-    const campaign = await prisma.emailBroadcastCampaign.create({
-      data: {
-        subject,
-        body_html,                          // ✅ Changed from message_html
-        body_text: message_text,            // ✅ Changed from message_text
-        from_name: DEFAULT_FROM_NAME,       // ✅ Added required field
-        from_email: DEFAULT_FROM_EMAIL,     // ✅ Added required field
-        reply_to: DEFAULT_REPLY_TO,         // ✅ Added optional field
-        target_filters: target_filters || {},
-        target_users: target_users ?? true,
-        target_cadmins: target_cadmins ?? false,
-        inline_image: inline_image || null,
-        attachments: attachments || [],
-        action_url: action_url || null,
-        action_label: action_label || null,
-        recipient_count: preview.total_after_unsubscribe,
-        status: CAMPAIGN_STATUS.DRAFT,
-        created_by_cadmin: context.actor_id,
-        cadmin_name: context.actor_name,
-      },
-    });
-
-    console.log(`[Email Broadcast] Draft created: ${campaign.campaign_id}`);
-
-    return {
-      campaign_id: campaign.campaign_id,
-      subject: campaign.subject,
-      status: campaign.status,
-      recipient_count: campaign.recipient_count,
-      created_at: campaign.created_at,
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Create draft failed:", error);
-    throw error;
-  }
+  return {
+    campaign_id: campaign.campaign_id,
+    subject: campaign.subject,
+    status: campaign.status,
+    recipient_count: campaign.recipient_count,
+    created_at: campaign.created_at,
+  };
 }
 
-// ============================================
-// UPDATE DRAFT
-// ============================================
+// ── Update Draft ──────────────────────────────────────────────────────────────
 
 export async function updateDraft(campaignId, data, context) {
-  try {
-    const existing = await prisma.emailBroadcastCampaign.findUnique({
-      where: { campaign_id: campaignId },
-    });
+  const existing = await prisma.emailBroadcastCampaign.findUnique({
+    where: { campaign_id: campaignId },
+  });
 
-    if (!existing) {
-      const error = new Error("Campaign not found");
-      error.status = 404;
-      throw error;
-    }
-
-    if (
-      ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
-        existing.status
-      )
-    ) {
-      const error = new Error(
-        `Cannot edit campaign with status: ${existing.status}`
-      );
-      error.status = 400;
-      throw error;
-    }
-
-    const updateData = {};
-
-    if (data.subject !== undefined) {
-      updateData.subject = data.subject;
-    }
-
-    // ✅ FIXED: Use correct field names
-    if (data.message_text !== undefined) {
-      updateData.body_text = data.message_text;
-      updateData.body_html = convertPlainTextToHtml(data.message_text);
-    }
-
-    if (data.target_filters !== undefined) {
-      updateData.target_filters = data.target_filters;
-    }
-
-    if (data.target_users !== undefined) {
-      updateData.target_users = data.target_users;
-    }
-
-    if (data.target_cadmins !== undefined) {
-      updateData.target_cadmins = data.target_cadmins;
-    }
-
-    if (data.inline_image !== undefined) {
-      if (
-        existing.inline_image?.filename &&
-        existing.inline_image.filename !== data.inline_image?.filename
-      ) {
-        await deleteEmailAttachment(existing.inline_image.filename);
-      }
-      updateData.inline_image = data.inline_image;
-    }
-
-    if (data.attachments !== undefined) {
-      const oldFilenames = (existing.attachments || []).map((a) => a.filename);
-      const newFilenames = (data.attachments || []).map((a) => a.filename);
-      const removedFilenames = oldFilenames.filter(
-        (f) => f && !newFilenames.includes(f)
-      );
-      await deleteEmailAttachments(removedFilenames);
-
-      updateData.attachments = data.attachments;
-    }
-
-    if (data.action_url !== undefined) {
-      updateData.action_url = data.action_url;
-    }
-
-    if (data.action_label !== undefined) {
-      updateData.action_label = data.action_label;
-    }
-
-    const filtersChanged =
-      data.target_filters !== undefined ||
-      data.target_users !== undefined ||
-      data.target_cadmins !== undefined;
-
-    if (filtersChanged) {
-      const preview = await previewRecipients(
-        updateData.target_filters || existing.target_filters,
-        updateData.target_users ?? existing.target_users,
-        updateData.target_cadmins ?? existing.target_cadmins
-      );
-      updateData.recipient_count = preview.total_after_unsubscribe;
-    }
-
-    const updated = await prisma.emailBroadcastCampaign.update({
-      where: { campaign_id: campaignId },
-      data: updateData,
-    });
-
-    console.log(`[Email Broadcast] Draft updated: ${campaignId}`);
-
-    return {
-      campaign_id: updated.campaign_id,
-      subject: updated.subject,
-      status: updated.status,
-      recipient_count: updated.recipient_count,
-      updated_at: updated.updated_at,
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Update draft failed:", error);
-    throw error;
+  if (!existing) {
+    const e = new Error("Campaign not found");
+    e.status = 404;
+    throw e;
   }
+
+  if (
+    ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
+      existing.status,
+    )
+  ) {
+    const e = new Error(`Cannot edit campaign with status: ${existing.status}`);
+    e.status = 400;
+    throw e;
+  }
+
+  const updateData = {};
+
+  if (data.subject !== undefined) updateData.subject = data.subject;
+  if (data.message_text !== undefined) {
+    updateData.body_text = data.message_text;
+    updateData.body_html = convertPlainTextToHtml(data.message_text);
+  }
+  if (data.target_filters !== undefined)
+    updateData.target_filters = data.target_filters;
+  if (data.target_users !== undefined)
+    updateData.target_users = data.target_users;
+  if (data.target_cadmins !== undefined)
+    updateData.target_cadmins = data.target_cadmins;
+  if (data.action_url !== undefined) updateData.action_url = data.action_url;
+  if (data.action_label !== undefined)
+    updateData.action_label = data.action_label;
+
+  // Replace inline image — delete old file if it changed
+  if (data.inline_image !== undefined) {
+    if (
+      existing.inline_image?.filename &&
+      existing.inline_image.filename !== data.inline_image?.filename
+    ) {
+      await deleteEmailAttachment(existing.inline_image.filename);
+    }
+    updateData.inline_image = data.inline_image;
+  }
+
+  // Replace attachments — delete removed files
+  if (data.attachments !== undefined) {
+    const oldFilenames = (existing.attachments || []).map((a) => a.filename);
+    const newFilenames = (data.attachments || []).map((a) => a.filename);
+    await deleteEmailAttachments(
+      oldFilenames.filter((f) => f && !newFilenames.includes(f)),
+    );
+    updateData.attachments = data.attachments;
+  }
+
+  // Recalculate recipient count if audience changed
+  const audienceChanged =
+    data.target_filters !== undefined ||
+    data.target_users !== undefined ||
+    data.target_cadmins !== undefined;
+
+  if (audienceChanged) {
+    const preview = await previewRecipients(
+      updateData.target_filters ?? existing.target_filters,
+      updateData.target_users ?? existing.target_users,
+      updateData.target_cadmins ?? existing.target_cadmins,
+    );
+    updateData.recipient_count = preview.total_after_unsubscribe;
+  }
+
+  const updated = await prisma.emailBroadcastCampaign.update({
+    where: { campaign_id: campaignId },
+    data: updateData,
+  });
+
+  return {
+    campaign_id: updated.campaign_id,
+    subject: updated.subject,
+    status: updated.status,
+    recipient_count: updated.recipient_count,
+    updated_at: updated.updated_at,
+  };
 }
 
-// ============================================
-// SCHEDULE CAMPAIGN
-// ============================================
+// ── Schedule ──────────────────────────────────────────────────────────────────
 
 export async function scheduleCampaign(campaignId, scheduledFor, context) {
-  try {
-    const existing = await prisma.emailBroadcastCampaign.findUnique({
-      where: { campaign_id: campaignId },
-    });
+  const existing = await prisma.emailBroadcastCampaign.findUnique({
+    where: { campaign_id: campaignId },
+  });
 
-    if (!existing) {
-      const error = new Error("Campaign not found");
-      error.status = 404;
-      throw error;
-    }
-
-    if (
-      ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
-        existing.status
-      )
-    ) {
-      const error = new Error(
-        `Cannot schedule campaign with status: ${existing.status}`
-      );
-      error.status = 400;
-      throw error;
-    }
-
-    const scheduledDate = new Date(scheduledFor);
-    if (scheduledDate <= new Date()) {
-      const error = new Error("Scheduled time must be in the future");
-      error.status = 400;
-      throw error;
-    }
-
-    const updated = await prisma.emailBroadcastCampaign.update({
-      where: { campaign_id: campaignId },
-      data: {
-        status: CAMPAIGN_STATUS.SCHEDULED,
-        scheduled_for: scheduledDate,
-      },
-    });
-
-    console.log(
-      `[Email Broadcast] Campaign ${campaignId} scheduled for ${scheduledFor}`
-    );
-
-    return {
-      campaign_id: updated.campaign_id,
-      subject: updated.subject,
-      status: updated.status,
-      scheduled_for: updated.scheduled_for,
-      recipient_count: updated.recipient_count,
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Schedule failed:", error);
-    throw error;
+  if (!existing) {
+    const e = new Error("Campaign not found");
+    e.status = 404;
+    throw e;
   }
+
+  if (
+    ![CAMPAIGN_STATUS.DRAFT, CAMPAIGN_STATUS.SCHEDULED].includes(
+      existing.status,
+    )
+  ) {
+    const e = new Error(
+      `Cannot schedule campaign with status: ${existing.status}`,
+    );
+    e.status = 400;
+    throw e;
+  }
+
+  const scheduledDate = new Date(scheduledFor);
+  if (scheduledDate <= new Date()) {
+    const e = new Error("Scheduled time must be in the future");
+    e.status = 400;
+    throw e;
+  }
+
+  const updated = await prisma.emailBroadcastCampaign.update({
+    where: { campaign_id: campaignId },
+    data: { status: CAMPAIGN_STATUS.SCHEDULED, scheduled_for: scheduledDate },
+  });
+
+  return {
+    campaign_id: updated.campaign_id,
+    subject: updated.subject,
+    status: updated.status,
+    scheduled_for: updated.scheduled_for,
+    recipient_count: updated.recipient_count,
+  };
 }
 
-// ============================================
-// SEND IMMEDIATELY
-// ============================================
+// ── Send Immediately ──────────────────────────────────────────────────────────
 
 export async function sendImmediate(data, context) {
-  try {
-    const {
-      subject,
-      message_text,
-      target_filters,
-      target_users,
-      target_cadmins,
-      inline_image,
-      attachments,
-      action_url,
-      action_label,
-    } = data;
+  const {
+    subject,
+    message_text,
+    target_filters,
+    target_users,
+    target_cadmins,
+    inline_image,
+    attachments,
+    action_url,
+    action_label,
+  } = data;
 
-    // Convert plain text to HTML
-    const body_html = convertPlainTextToHtml(message_text);
+  const body_html = convertPlainTextToHtml(message_text);
+  const recipients = await resolveRecipients(
+    target_filters,
+    target_users,
+    target_cadmins,
+    true,
+  );
 
-    // Resolve recipients
-    const recipients = await resolveRecipients(
-      target_filters,
-      target_users,
-      target_cadmins,
-      true
-    );
-
-    if (recipients.length === 0) {
-      const error = new Error("No recipients found for the selected filters");
-      error.status = 400;
-      throw error;
-    }
-
-    // Check quota
-    const quotaCheck = await canSendEmails(recipients.length);
-    if (!quotaCheck.canSend) {
-      console.log(
-        `[Email Broadcast] Quota check: need ${recipients.length}, have ${quotaCheck.available}`
-      );
-    }
-
-    // ✅ FIXED: Use correct field names matching Prisma schema
-    const campaign = await prisma.emailBroadcastCampaign.create({
-      data: {
-        subject,
-        body_html,                          // ✅ Changed from message_html
-        body_text: message_text,            // ✅ Changed from message_text
-        from_name: DEFAULT_FROM_NAME,       // ✅ Added required field
-        from_email: DEFAULT_FROM_EMAIL,     // ✅ Added required field
-        reply_to: DEFAULT_REPLY_TO,         // ✅ Added optional field
-        target_filters: target_filters || {},
-        target_users: target_users ?? true,
-        target_cadmins: target_cadmins ?? false,
-        inline_image: inline_image || null,
-        attachments: attachments || [],
-        action_url: action_url || null,
-        action_label: action_label || null,
-        recipient_count: recipients.length,
-        status: CAMPAIGN_STATUS.SENDING,
-        processing: true,
-        processing_started_at: new Date(),
-        created_by_cadmin: context.actor_id,
-        cadmin_name: context.actor_name,
-      },
-    });
-
-    // Start async sending (don't await)
-    processCampaignSending(campaign.campaign_id).catch((err) => {
-      console.error(
-        `[Email Broadcast] Async sending failed for ${campaign.campaign_id}:`,
-        err
-      );
-    });
-
-    return {
-      campaign_id: campaign.campaign_id,
-      status: CAMPAIGN_STATUS.SENDING,
-      recipient_count: recipients.length,
-      message: "Emails are being sent in the background",
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Send immediate failed:", error);
-    throw error;
+  if (recipients.length === 0) {
+    const e = new Error("No recipients found for the selected filters");
+    e.status = 400;
+    throw e;
   }
+
+  // Non-blocking quota check (warn but don't block — campaign handles pausing)
+  await canSendEmails(recipients.length);
+
+  const campaign = await prisma.emailBroadcastCampaign.create({
+    data: {
+      subject,
+      body_html,
+      body_text: message_text,
+      from_name: DEFAULT_FROM_NAME,
+      from_email: DEFAULT_FROM_EMAIL,
+      reply_to: DEFAULT_REPLY_TO,
+      target_filters: target_filters || {},
+      target_users: target_users ?? true,
+      target_cadmins: target_cadmins ?? false,
+      inline_image: inline_image || null,
+      attachments: attachments || [],
+      action_url: action_url || null,
+      action_label: action_label || null,
+      recipient_count: recipients.length,
+      status: CAMPAIGN_STATUS.SENDING,
+      processing: true,
+      processing_started_at: new Date(),
+      created_by_cadmin: context.actor_id,
+      cadmin_name: context.actor_name,
+    },
+  });
+
+  // Fire and forget — response returns immediately
+  processCampaignSending(campaign.campaign_id).catch((err) => {
+    console.error(
+      `[Email Broadcast] Async sending failed for ${campaign.campaign_id}:`,
+      err,
+    );
+  });
+
+  return {
+    campaign_id: campaign.campaign_id,
+    status: CAMPAIGN_STATUS.SENDING,
+    recipient_count: recipients.length,
+    message: "Emails are being sent in the background",
+  };
 }
 
-// ============================================
-// SEND TEST EMAIL
-// ============================================
+// ── Send Test Email ───────────────────────────────────────────────────────────
 
 export async function sendTestEmail(data, context) {
-  try {
-    const {
-      subject,
-      message_text,
-      inline_image,
-      attachments,
-      action_url,
-      action_label,
-    } = data;
+  const {
+    subject,
+    message_text,
+    inline_image,
+    attachments,
+    action_url,
+    action_label,
+  } = data;
 
-    // Get CAdmin's email
-    const cadmin = await prisma.cAdmin.findUnique({
-      where: { cadmin_id: context.actor_id },
-      select: { email: true, name: true },
-    });
+  const cadmin = await prisma.cAdmin.findUnique({
+    where: { cadmin_id: context.actor_id },
+    select: { email: true, name: true },
+  });
 
-    if (!cadmin || !cadmin.email) {
-      const error = new Error("CAdmin email not found");
-      error.status = 400;
-      throw error;
-    }
-
-    // Convert plain text to HTML
-    const body_html = convertPlainTextToHtml(message_text);
-
-    // Resolve attachment URLs for nodemailer
-    let resolvedInlineImage = inline_image;
-    let resolvedAttachments = attachments || [];
-
-    if (inline_image?.filename) {
-      const signedUrl = await getEmailAttachmentUrl(inline_image.filename);
-      resolvedInlineImage = { ...inline_image, url: signedUrl || inline_image.url };
-    }
-
-    if (attachments && attachments.length > 0) {
-      resolvedAttachments = await Promise.all(
-        attachments.map(async (att) => {
-          if (att?.filename) {
-            const signedUrl = await getEmailAttachmentUrl(att.filename);
-            return { ...att, url: signedUrl || att.url };
-          }
-          return att;
-        })
-      );
-    }
-
-    // Build email HTML
-    const html = buildEmailHtml({
-      subject,
-      messageHtml: body_html,
-      recipientName: cadmin.name,
-      inlineImage: resolvedInlineImage,
-      attachments: resolvedAttachments,
-      actionUrl: action_url,
-      actionLabel: action_label,
-      unsubscribeUrl: null,
-      isTest: true,
-    });
-
-    // Format attachments for Nodemailer
-    const nodemailerAttachments = formatAttachmentsForNodemailer(
-      resolvedInlineImage,
-      resolvedAttachments
-    );
-
-    // Send email
-    await mailer.sendMail({
-      from: `"${DEFAULT_FROM_NAME}" <${DEFAULT_FROM_EMAIL}>`,
-      to: cadmin.email,
-      subject: `[TEST] ${subject}`,
-      html: html,
-      attachments: nodemailerAttachments,
-    });
-
-    console.log(`[Email Broadcast] Test email sent to ${cadmin.email}`);
-
-    return {
-      success: true,
-      sent_to: cadmin.email,
-      message: "Test email sent successfully",
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Test email failed:", error);
-    throw error;
+  if (!cadmin?.email) {
+    const e = new Error("CAdmin email not found");
+    e.status = 400;
+    throw e;
   }
+
+  const body_html = convertPlainTextToHtml(message_text);
+
+  // Resolve signed URLs for attachments
+  let resolvedInlineImage = inline_image;
+  let resolvedAttachments = attachments || [];
+
+  if (inline_image?.filename) {
+    const url = await getEmailAttachmentUrl(inline_image.filename);
+    resolvedInlineImage = { ...inline_image, url: url || inline_image.url };
+  }
+
+  if (resolvedAttachments.length > 0) {
+    resolvedAttachments = await Promise.all(
+      resolvedAttachments.map(async (att) => {
+        if (att?.filename) {
+          const url = await getEmailAttachmentUrl(att.filename);
+          return { ...att, url: url || att.url };
+        }
+        return att;
+      }),
+    );
+  }
+
+  const html = buildEmailHtml({
+    subject,
+    messageHtml: body_html,
+    recipientName: cadmin.name,
+    inlineImage: resolvedInlineImage,
+    attachments: resolvedAttachments,
+    actionUrl: action_url,
+    actionLabel: action_label,
+    unsubscribeUrl: null,
+    isTest: true,
+  });
+
+  const nodemailerAttachments = formatAttachmentsForNodemailer(
+    resolvedInlineImage,
+    resolvedAttachments,
+  );
+
+  await mailer.sendMail({
+    from: `"${DEFAULT_FROM_NAME}" <${DEFAULT_FROM_EMAIL}>`,
+    replyTo: DEFAULT_REPLY_TO,
+    to: cadmin.email,
+    subject: `[TEST] ${subject}`,
+    html,
+    attachments: nodemailerAttachments,
+  });
+
+  return { success: true, sent_to: cadmin.email };
 }
 
-// ============================================
-// CANCEL CAMPAIGN
-// ============================================
+// ── Cancel ────────────────────────────────────────────────────────────────────
 
 export async function cancelCampaign(campaignId, context) {
-  try {
-    const existing = await prisma.emailBroadcastCampaign.findUnique({
-      where: { campaign_id: campaignId },
-    });
+  const existing = await prisma.emailBroadcastCampaign.findUnique({
+    where: { campaign_id: campaignId },
+  });
 
-    if (!existing) {
-      const error = new Error("Campaign not found");
-      error.status = 404;
-      throw error;
-    }
-
-    if (
-      ![CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.PAUSED].includes(
-        existing.status
-      )
-    ) {
-      const error = new Error(
-        `Cannot cancel campaign with status: ${existing.status}`
-      );
-      error.status = 400;
-      throw error;
-    }
-
-    const deleteResult = await deleteEmailCampaignFiles(campaignId);
-    console.log(
-      `[Email Broadcast] Deleted ${deleteResult.deleted} files for cancelled campaign ${campaignId}`
-    );
-
-    const updated = await prisma.emailBroadcastCampaign.update({
-      where: { campaign_id: campaignId },
-      data: {
-        status: CAMPAIGN_STATUS.CANCELLED,
-        processing: false,
-      },
-    });
-
-    console.log(`[Email Broadcast] Campaign ${campaignId} cancelled`);
-
-    return {
-      campaign_id: updated.campaign_id,
-      status: updated.status,
-      action: "cancelled",
-      files_deleted: deleteResult.deleted,
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Cancel failed:", error);
-    throw error;
+  if (!existing) {
+    const e = new Error("Campaign not found");
+    e.status = 404;
+    throw e;
   }
+
+  if (
+    ![CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.PAUSED].includes(
+      existing.status,
+    )
+  ) {
+    const e = new Error(
+      `Cannot cancel campaign with status: ${existing.status}`,
+    );
+    e.status = 400;
+    throw e;
+  }
+
+  const deleteResult = await deleteEmailCampaignFiles(campaignId);
+
+  const updated = await prisma.emailBroadcastCampaign.update({
+    where: { campaign_id: campaignId },
+    data: { status: CAMPAIGN_STATUS.CANCELLED, processing: false },
+  });
+
+  return {
+    campaign_id: updated.campaign_id,
+    status: updated.status,
+    action: "cancelled",
+    files_deleted: deleteResult.deleted,
+  };
 }
 
-// ============================================
-// DELETE DRAFT
-// ============================================
+// ── Delete Draft ──────────────────────────────────────────────────────────────
 
 export async function deleteDraft(campaignId, context) {
-  try {
-    const existing = await prisma.emailBroadcastCampaign.findUnique({
-      where: { campaign_id: campaignId },
-    });
+  const existing = await prisma.emailBroadcastCampaign.findUnique({
+    where: { campaign_id: campaignId },
+  });
 
-    if (!existing) {
-      const error = new Error("Campaign not found");
-      error.status = 404;
-      throw error;
-    }
-
-    if (existing.status !== CAMPAIGN_STATUS.DRAFT) {
-      const error = new Error("Can only delete draft campaigns");
-      error.status = 400;
-      throw error;
-    }
-
-    const deleteResult = await deleteEmailCampaignFiles(campaignId);
-    console.log(
-      `[Email Broadcast] Deleted ${deleteResult.deleted} files for campaign ${campaignId}`
-    );
-
-    await prisma.emailBroadcastCampaign.delete({
-      where: { campaign_id: campaignId },
-    });
-
-    console.log(`[Email Broadcast] Draft ${campaignId} deleted`);
-
-    return {
-      campaign_id: campaignId,
-      action: "deleted",
-      files_deleted: deleteResult.deleted,
-    };
-  } catch (error) {
-    console.error("[Email Broadcast] Delete draft failed:", error);
-    throw error;
+  if (!existing) {
+    const e = new Error("Campaign not found");
+    e.status = 404;
+    throw e;
   }
+
+  if (existing.status !== CAMPAIGN_STATUS.DRAFT) {
+    const e = new Error("Can only delete draft campaigns");
+    e.status = 400;
+    throw e;
+  }
+
+  const deleteResult = await deleteEmailCampaignFiles(campaignId);
+
+  await prisma.emailBroadcastCampaign.delete({
+    where: { campaign_id: campaignId },
+  });
+
+  return {
+    campaign_id: campaignId,
+    action: "deleted",
+    files_deleted: deleteResult.deleted,
+  };
 }
 
-// ============================================
-// LIST ENDPOINTS
-// ============================================
+// ── List Endpoints ────────────────────────────────────────────────────────────
 
 export async function getDrafts(pagination = {}) {
   const { page = 1, limit = 10, search = "" } = pagination;
   const skip = (page - 1) * limit;
-
   const where = {
     status: CAMPAIGN_STATUS.DRAFT,
     ...(search && {
@@ -716,28 +589,19 @@ export async function getDrafts(pagination = {}) {
     prisma.emailBroadcastCampaign.count({ where }),
   ]);
 
-  // ✅ Map to expected format for frontend
-  const mappedDrafts = drafts.map((draft) => ({
-    ...draft,
-    message_text: draft.body_text,
-    message_html: draft.body_html,
-  }));
-
   return {
-    drafts: mappedDrafts,
-    pagination: {
-      page,
-      limit,
-      total,
-      total_pages: Math.ceil(total / limit),
-    },
+    drafts: drafts.map((d) => ({
+      ...d,
+      message_text: d.body_text,
+      message_html: d.body_html,
+    })),
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
   };
 }
 
 export async function getScheduled(pagination = {}) {
   const { page = 1, limit = 10 } = pagination;
   const skip = (page - 1) * limit;
-
   const where = {
     status: { in: [CAMPAIGN_STATUS.SCHEDULED, CAMPAIGN_STATUS.PAUSED] },
   };
@@ -752,28 +616,20 @@ export async function getScheduled(pagination = {}) {
     prisma.emailBroadcastCampaign.count({ where }),
   ]);
 
-  const scheduledWithMeta = scheduled.map((item) => ({
-    ...item,
-    message_text: item.body_text,
-    message_html: item.body_html,
-    time_until: item.scheduled_for ? getTimeUntil(item.scheduled_for) : null,
-  }));
-
   return {
-    scheduled: scheduledWithMeta,
-    pagination: {
-      page,
-      limit,
-      total,
-      total_pages: Math.ceil(total / limit),
-    },
+    scheduled: scheduled.map((item) => ({
+      ...item,
+      message_text: item.body_text,
+      message_html: item.body_html,
+      time_until: item.scheduled_for ? getTimeUntil(item.scheduled_for) : null,
+    })),
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
   };
 }
 
 export async function getHistory(pagination = {}) {
   const { page = 1, limit = 10, search = "" } = pagination;
   const skip = (page - 1) * limit;
-
   const where = {
     status: {
       in: [
@@ -801,24 +657,17 @@ export async function getHistory(pagination = {}) {
     prisma.emailBroadcastCampaign.count({ where }),
   ]);
 
-  const historyWithStats = history.map((item) => ({
-    ...item,
-    message_text: item.body_text,
-    message_html: item.body_html,
-    delivery_rate:
-      item.recipient_count > 0
-        ? Math.round((item.delivered_count / item.recipient_count) * 100)
-        : 0,
-  }));
-
   return {
-    history: historyWithStats,
-    pagination: {
-      page,
-      limit,
-      total,
-      total_pages: Math.ceil(total / limit),
-    },
+    history: history.map((item) => ({
+      ...item,
+      message_text: item.body_text,
+      message_html: item.body_html,
+      delivery_rate:
+        item.recipient_count > 0
+          ? Math.round((item.delivered_count / item.recipient_count) * 100)
+          : 0,
+    })),
+    pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
   };
 }
 
@@ -828,22 +677,45 @@ export async function getCampaignById(campaignId) {
   });
 
   if (!campaign) {
-    const error = new Error("Campaign not found");
-    error.status = 404;
-    throw error;
+    const e = new Error("Campaign not found");
+    e.status = 404;
+    throw e;
   }
 
-  // ✅ Map to expected format
+  // ── Resolve signed URLs for inline image ─────────────────────────────────
+  let resolvedInlineImage = campaign.inline_image || null;
+  if (resolvedInlineImage?.filename) {
+    const url = await getEmailAttachmentUrl(resolvedInlineImage.filename);
+    resolvedInlineImage = {
+      ...resolvedInlineImage,
+      url: url || resolvedInlineImage.url,
+    };
+  }
+
+  // ── Resolve signed URLs for attachments ──────────────────────────────────
+  let resolvedAttachments = campaign.attachments || [];
+  if (resolvedAttachments.length > 0) {
+    resolvedAttachments = await Promise.all(
+      resolvedAttachments.map(async (att) => {
+        if (att?.filename) {
+          const url = await getEmailAttachmentUrl(att.filename);
+          return { ...att, url: url || att.url };
+        }
+        return att;
+      }),
+    );
+  }
+
   return {
     ...campaign,
     message_text: campaign.body_text,
     message_html: campaign.body_html,
+    inline_image: resolvedInlineImage,
+    attachments: resolvedAttachments,
   };
 }
 
-// ============================================
-// QUOTA INFO
-// ============================================
+// ── Quota Info ────────────────────────────────────────────────────────────────
 
 export async function getQuotaStatus() {
   const capacity = await getRemainingCapacity();
@@ -858,33 +730,40 @@ export async function getQuotaStatus() {
   };
 }
 
-// ============================================
-// FILTER OPTIONS
-// ============================================
+// ── Re-export filter helpers ──────────────────────────────────────────────────
 
 export { getShopsForFilter, getActivePlans, getCAdminRoles };
 
-// ============================================
-// INTERNAL: Campaign Sending Processor
-// ============================================
+// ── Core Sending Engine ───────────────────────────────────────────────────────
 
+/**
+ * processCampaignSending
+ *
+ * Sends emails in batches of BATCH_SIZE (10) with BATCH_DELAY_MS (1000ms)
+ * between batches. This keeps throughput at ~10 emails/second — safely under
+ * SES's 14/second limit.
+ *
+ * Within each batch, Promise.allSettled sends emails in parallel.
+ * Nodemailer's connection pool (set in email.js) queues internally if needed.
+ *
+ * Pauses automatically when daily quota is exhausted. Cron worker resumes
+ * paused campaigns the next day.
+ */
 export async function processCampaignSending(campaignId) {
-  console.log(`[Email Broadcast] Starting to process campaign ${campaignId}`);
+ 
 
   try {
     const campaign = await prisma.emailBroadcastCampaign.findUnique({
       where: { campaign_id: campaignId },
     });
 
-    if (!campaign) {
-      throw new Error("Campaign not found");
-    }
+    if (!campaign) throw new Error("Campaign not found");
 
     const allRecipients = await resolveRecipients(
       campaign.target_filters,
       campaign.target_users,
       campaign.target_cadmins,
-      true
+      true,
     );
 
     if (allRecipients.length === 0) {
@@ -906,13 +785,10 @@ export async function processCampaignSending(campaignId) {
     let failed = campaign.failed_count || 0;
     let processedIndex = startIndex;
 
-    // Process in batches
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-      const shouldPause = await shouldPauseSending();
-      if (shouldPause) {
-        console.log(
-          `[Email Broadcast] Pausing campaign ${campaignId} - daily quota exhausted`
-        );
+      // ── Quota gate ───────────────────────────────────────────────────────
+      const pauseNeeded = await shouldPauseSending();
+      if (pauseNeeded) {
 
         await prisma.emailBroadcastCampaign.update({
           where: { campaign_id: campaignId },
@@ -928,9 +804,8 @@ export async function processCampaignSending(campaignId) {
         return { paused: true, delivered, failed };
       }
 
-      const batch = recipients.slice(i, i + BATCH_SIZE);
-
       const capacity = await getRemainingCapacity();
+      const batch = recipients.slice(i, i + BATCH_SIZE);
       const canSend = Math.min(batch.length, capacity.remaining);
 
       if (canSend === 0) {
@@ -946,15 +821,16 @@ export async function processCampaignSending(campaignId) {
       }
 
       const batchToSend = batch.slice(0, canSend);
-
       const batchResults = await sendBatch(campaign, batchToSend);
 
       delivered += batchResults.delivered;
       failed += batchResults.failed;
       processedIndex += batchToSend.length;
 
+      // Increment quota counter AFTER actually sending
       await incrementSentCount(batchToSend.length);
 
+      // Persist progress after every batch
       await prisma.emailBroadcastCampaign.update({
         where: { campaign_id: campaignId },
         data: {
@@ -964,17 +840,20 @@ export async function processCampaignSending(campaignId) {
         },
       });
 
+      // ── Rate limit delay ─────────────────────────────────────────────────
+      // Wait 1 second before next batch → effective rate: BATCH_SIZE/sec = 10/sec
       if (i + BATCH_SIZE < recipients.length) {
         await sleep(BATCH_DELAY_MS);
       }
     }
 
-    let finalStatus = CAMPAIGN_STATUS.SENT;
-    if (delivered === 0) {
-      finalStatus = CAMPAIGN_STATUS.FAILED;
-    } else if (failed > 0) {
-      finalStatus = CAMPAIGN_STATUS.PARTIAL_FAILURE;
-    }
+    // ── Final status ─────────────────────────────────────────────────────────
+    const finalStatus =
+      delivered === 0
+        ? CAMPAIGN_STATUS.FAILED
+        : failed > 0
+          ? CAMPAIGN_STATUS.PARTIAL_FAILURE
+          : CAMPAIGN_STATUS.SENT;
 
     await prisma.emailBroadcastCampaign.update({
       where: { campaign_id: campaignId },
@@ -990,15 +869,12 @@ export async function processCampaignSending(campaignId) {
     });
 
     console.log(
-      `[Email Broadcast] Campaign ${campaignId} completed: ${delivered} delivered, ${failed} failed`
+      `[Email Broadcast] Campaign ${campaignId} done: ${delivered} delivered, ${failed} failed`,
     );
 
     return { delivered, failed, status: finalStatus };
   } catch (error) {
-    console.error(
-      `[Email Broadcast] Processing failed for ${campaignId}:`,
-      error
-    );
+    console.error(`[Email Broadcast] Campaign ${campaignId} failed:`, error);
 
     await prisma.emailBroadcastCampaign
       .update({
@@ -1016,30 +892,35 @@ export async function processCampaignSending(campaignId) {
 }
 
 /**
- * Send a batch of emails
+ * sendBatch — sends a batch of ≤10 emails in parallel using Promise.allSettled.
+ * Nodemailer's internal queue and rateLimit setting in email.js act as a second
+ * layer of rate enforcement.
  */
 async function sendBatch(campaign, recipients) {
   let delivered = 0;
   let failed = 0;
 
-  // Resolve attachment URLs once for the batch
+  // Resolve attachment URLs once per batch (signed URLs, 1-hour expiry)
   let resolvedInlineImage = campaign.inline_image;
   let resolvedAttachments = campaign.attachments || [];
 
   if (campaign.inline_image?.filename) {
-    const signedUrl = await getEmailAttachmentUrl(campaign.inline_image.filename);
-    resolvedInlineImage = { ...campaign.inline_image, url: signedUrl || campaign.inline_image.url };
+    const url = await getEmailAttachmentUrl(campaign.inline_image.filename);
+    resolvedInlineImage = {
+      ...campaign.inline_image,
+      url: url || campaign.inline_image.url,
+    };
   }
 
-  if (campaign.attachments && campaign.attachments.length > 0) {
+  if (resolvedAttachments.length > 0) {
     resolvedAttachments = await Promise.all(
-      campaign.attachments.map(async (att) => {
+      resolvedAttachments.map(async (att) => {
         if (att?.filename) {
-          const signedUrl = await getEmailAttachmentUrl(att.filename);
-          return { ...att, url: signedUrl || att.url };
+          const url = await getEmailAttachmentUrl(att.filename);
+          return { ...att, url: url || att.url };
         }
         return att;
-      })
+      }),
     );
   }
 
@@ -1048,29 +929,34 @@ async function sendBatch(campaign, recipients) {
       try {
         const unsubscribeUrl = buildUnsubscribeUrl(recipient.email);
 
-        // ✅ Use body_html from campaign
+        // Build fresh CID for each email so images embed correctly per-recipient
+        const inlineImageForRecipient = resolvedInlineImage
+          ? { ...resolvedInlineImage }
+          : null;
+
         const html = buildEmailHtml({
           subject: campaign.subject,
           messageHtml: campaign.body_html,
           recipientName: recipient.name,
-          inlineImage: resolvedInlineImage,
+          inlineImage: inlineImageForRecipient,
           attachments: resolvedAttachments,
           actionUrl: campaign.action_url,
           actionLabel: campaign.action_label,
-          unsubscribeUrl: unsubscribeUrl,
+          unsubscribeUrl,
           isTest: false,
         });
 
         const nodemailerAttachments = formatAttachmentsForNodemailer(
-          resolvedInlineImage,
-          resolvedAttachments
+          inlineImageForRecipient,
+          resolvedAttachments,
         );
 
         await mailer.sendMail({
-          from: `"${campaign.from_name || DEFAULT_FROM_NAME}" <${campaign.from_email || DEFAULT_FROM_EMAIL}>`,
+          from: `"${campaign.from_name || DEFAULT_FROM_NAME}"  <${campaign.from_email || DEFAULT_FROM_EMAIL}>`,
+          replyTo: campaign.reply_to || DEFAULT_REPLY_TO,
           to: recipient.email,
           subject: campaign.subject,
-          html: html,
+          html,
           attachments: nodemailerAttachments,
           headers: {
             "List-Unsubscribe": `<${unsubscribeUrl}>`,
@@ -1081,38 +967,30 @@ async function sendBatch(campaign, recipients) {
         return { success: true, email: recipient.email };
       } catch (err) {
         console.error(
-          `[Email Broadcast] Failed to send to ${recipient.email}:`,
-          err.message
+          `[Email Broadcast] Failed → ${recipient.email}:`,
+          err.message,
         );
         return { success: false, email: recipient.email, error: err.message };
       }
-    })
+    }),
   );
 
-  results.forEach((result) => {
-    if (result.status === "fulfilled" && result.value.success) {
-      delivered++;
-    } else {
-      failed++;
-    }
+  results.forEach((r) => {
+    if (r.status === "fulfilled" && r.value.success) delivered++;
+    else failed++;
   });
 
   return { delivered, failed };
 }
 
-// ============================================
-// HELPERS
-// ============================================
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getTimeUntil(dateString) {
-  const scheduled = new Date(dateString);
-  const now = new Date();
-  const diffMs = scheduled - now;
+  const diff = new Date(dateString) - new Date();
+  if (diff < 0) return "Sending soon...";
 
-  if (diffMs < 0) return "Sending soon...";
-
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const hours = Math.floor(diff / 3_600_000);
+  const minutes = Math.floor((diff % 3_600_000) / 60_000);
 
   if (hours < 1) return `in ${minutes} minute${minutes !== 1 ? "s" : ""}`;
   if (hours < 24)

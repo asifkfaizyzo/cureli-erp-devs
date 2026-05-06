@@ -92,6 +92,7 @@ export async function createPlan(data) {
     };
   } catch (error) {
     console.error("createPlan error:", error);
+    console.error("createPlan error:", error.response?.data); 
     throw error;
   }
 }
