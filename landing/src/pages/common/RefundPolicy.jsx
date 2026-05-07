@@ -113,7 +113,7 @@ const RefundPolicy = () => {
             <p>For refund-related queries, reach out to us:</p>
             <p className="mt-2">
               <strong>Email:</strong> support@cureli.com<br />
-              <strong>Phone:</strong> +91 1234567890<br />
+              <strong>Phone:</strong> +91 8025043217<br />
               <strong>Business Hours:</strong> Monday – Saturday, 9:00 AM – 6:00 PM IST
             </p>
           </section>
