@@ -219,8 +219,8 @@ const PrivacyPage = () => {
             </h2>
             <p>
               <strong>Email:</strong> privacy@cureli.com<br />
-              <strong>Phone:</strong> +91 1234567890<br />
-              <strong>Address:</strong> [Your Business Address]
+              <strong>Phone:</strong> +91 8025043217<br />
+              <strong>Address:</strong> Karnataka, India
             </p>
           </section>
         </div>

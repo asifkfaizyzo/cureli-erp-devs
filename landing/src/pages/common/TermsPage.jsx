@@ -183,7 +183,7 @@ const TermsPage = () => {
             <p>If you have any questions about these Terms, please contact us at:</p>
             <p className="mt-2">
               <strong>Email:</strong> support@cureli.com<br />
-              <strong>Phone:</strong> +91 1234567890
+              <strong>Phone:</strong> +91 8025043217
             </p>
           </section>
         </div>
