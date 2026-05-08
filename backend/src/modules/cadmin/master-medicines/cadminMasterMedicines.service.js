@@ -4,6 +4,7 @@ import path from "path";
 import { notifyAsync } from "../../notifications/notification.service.js";
 import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
 import * as audit from "../../audit/index.js";
+import { resolveAssetUrl, resolveAssetUrls } from "../../../services/assetUrl.service.js";
 
 // ══════════════════════════════════════════════════════════════
 // HELPER: Compute Image Status
@@ -154,8 +155,9 @@ export async function getMasterMedicines({
 
     const imgStatus = computeImageStatus(med.images);
     const primaryImageObj = med.images.find((img) => img.type === "PRIMARY");
-    const primaryImage =
-      primaryImageObj?.url || med.variants[0]?.images?.[0] || null;
+    const primaryImage = resolveAssetUrl(
+      primaryImageObj?.url || med.variants[0]?.images?.[0] || null
+    );
 
     return {
       id: med.master_medicine_id,
@@ -185,7 +187,7 @@ export async function getMasterMedicines({
         manufacturer: v.manufacturer,
         marketer: v.marketer,
         packSize: v.pack_size,
-        primaryImage: v.images?.[0] || null,
+        primaryImage: resolveAssetUrl(v.images?.[0] || null),
       })),
       createdAt: med.created_at,
       updatedAt: med.updated_at,
@@ -215,6 +217,7 @@ export async function getMasterMedicines({
     },
   };
 }
+
 
 // ══════════════════════════════════════════════════════════════
 // GET SINGLE MASTER MEDICINE WITH ALL VARIANTS
@@ -309,18 +312,18 @@ export async function getMasterMedicineById(id) {
         discountPercent: v.discount_percent,
       },
       description: v.description,
-      images: v.images || [],
+      images: resolveAssetUrls(v.images || []),
       createdAt: v.created_at,
       updatedAt: v.updated_at,
     })),
     images: medicine.images.map((img) => ({
-      id: img.image_id,
-      skuId: img.sku_id,
-      url: img.url,
-      type: img.type,
-      source: img.source,
-      sequence: img.sequence,
-      uploadedBy: img.uploaded_by,
+      id:           img.image_id,
+      skuId:        img.sku_id,
+      url:          resolveAssetUrl(img.url),
+      type:         img.type,
+      source:       img.source,
+      sequence:     img.sequence,
+      uploadedBy:   img.uploaded_by,
       isPlaceholder: img.url?.includes("PLACEHOLDER") || false,
     })),
     createdAt: medicine.created_at,
@@ -390,11 +393,11 @@ export async function getVariantBySkuId(skuId) {
     },
     description: variant.description,
     images: images.map((img) => ({
-      id: img.image_id,
-      url: img.url,
-      type: img.type,
-      source: img.source,
-      sequence: img.sequence,
+      id:         img.image_id,
+      url:        resolveAssetUrl(img.url),
+      type:       img.type,
+      source:     img.source,
+      sequence:   img.sequence,
       uploadedBy: img.uploaded_by,
     })),
     master: {

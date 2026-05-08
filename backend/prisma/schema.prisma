@@ -647,8 +647,8 @@ model MasterMedicine {
   master_medicine_id String   @id @default(uuid()) @db.Uuid
   
   // Core identifiers
-  master_key         String   @unique @db.VarChar(100)  //  NEW: "fluoxetine_capsule"
-  generic_name       String   @db.VarChar(300)          //  NEW: "Fluoxetine Capsule"
+  master_key         String   @unique @db.VarChar(500)  //  NEW: "fluoxetine_capsule"
+  generic_name       String   @db.VarChar(500)          //  NEW: "Fluoxetine Capsule"
   
   // Medicine properties
   type               MedicineType
@@ -688,8 +688,8 @@ model MasterMedicineVariant {
   sku_id             String   @unique @db.VarChar(50)    // "10005", "10010"
   
   // Product details
-  name               String   @db.VarChar(300)           // "Topinate Cream"
-  brand              String?  @db.VarChar(150)           // "Topinate"
+  name               String   @db.VarChar(500)           // "Topinate Cream"
+  brand              String?  @db.VarChar(350)           // "Topinate"
   
   // Composition (with strengths)
   composition        Json                                 // [{ name, strength }]
