@@ -661,6 +661,7 @@ model MasterMedicine {
   
   // Metadata
   variant_count      Int      @default(0)                //  NEW: Number of variants
+  image_status       String   @default("NONE") @db.VarChar(10)  
   is_active          Boolean  @default(true)
   created_at         DateTime @default(now()) @db.Timestamptz(6)
   updated_at         DateTime @updatedAt @db.Timestamptz(6)
@@ -676,6 +677,7 @@ model MasterMedicine {
   @@index([form])
   @@index([is_active])
   @@index([primary_category])
+  @@index([image_status])
   @@map("master_medicines")
 }
 

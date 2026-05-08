@@ -29,6 +29,7 @@ const NoImagesTable = ({
   onSelectionChange,
   onUploadImage,
   onViewLinked,
+  onRowClick,
   loading = false,
 }) => {
   const [searchText, setSearchText] = useState("");
@@ -61,7 +62,10 @@ const NoImagesTable = ({
     if (!resizing) return;
     setColumnWidths((p) => ({
       ...p,
-      [resizing.col]: Math.max(50, resizing.startWidth + (e.clientX - resizing.startX)),
+      [resizing.col]: Math.max(
+        50,
+        resizing.startWidth + (e.clientX - resizing.startX),
+      ),
     }));
   };
   const handleMouseUp = () => setResizing(null);
@@ -86,7 +90,7 @@ const NoImagesTable = ({
       result = result.filter(
         (med) =>
           med.name?.toLowerCase().includes(search) ||
-          med.manufacturer?.toLowerCase().includes(search)
+          med.manufacturer?.toLowerCase().includes(search),
       );
     }
 
@@ -133,15 +137,15 @@ const NoImagesTable = ({
     paginatedData.length > 0 &&
     paginatedData.every((item) => selectedIds.includes(item.id));
   const someSelected = paginatedData.some((item) =>
-    selectedIds.includes(item.id)
+    selectedIds.includes(item.id),
   );
 
   const toggleSelectAll = () => {
     if (allSelected) {
       onSelectionChange(
         selectedIds.filter(
-          (id) => !paginatedData.some((item) => item.id === id)
-        )
+          (id) => !paginatedData.some((item) => item.id === id),
+        ),
       );
     } else {
       onSelectionChange([
@@ -171,13 +175,22 @@ const NoImagesTable = ({
     const isActive = sortConfig.key === sortKey;
     if (isActive) {
       return sortConfig.order === "asc" ? (
-        <ChevronUp size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+        <ChevronUp
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       ) : (
-        <ChevronDown size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+        <ChevronDown
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       );
     }
     return (
-      <ChevronsUpDown size={14} className={`${styles.header.sortIcon.inactive} flex-shrink-0`} />
+      <ChevronsUpDown
+        size={14}
+        className={`${styles.header.sortIcon.inactive} flex-shrink-0`}
+      />
     );
   };
 
@@ -250,12 +263,22 @@ const NoImagesTable = ({
         </th>
 
         <ResizableTh col="index">#</ResizableTh>
-        <ResizableTh col="name" sortKey="name">Name</ResizableTh>
-        <ResizableTh col="type" align="center" sortKey="type">Type</ResizableTh>
+        <ResizableTh col="name" sortKey="name">
+          Name
+        </ResizableTh>
+        <ResizableTh col="type" align="center" sortKey="type">
+          Type
+        </ResizableTh>
         <ResizableTh col="manufacturer">Manufacturer</ResizableTh>
-        <ResizableTh col="linked" align="center" sortKey="linkedCount">Linked</ResizableTh>
-        <ResizableTh col="created" sortKey="createdAt">Created</ResizableTh>
-        <ResizableTh col="actions" align="center">Actions</ResizableTh>
+        <ResizableTh col="linked" align="center" sortKey="linkedCount">
+          Linked
+        </ResizableTh>
+        <ResizableTh col="created" sortKey="createdAt">
+          Created
+        </ResizableTh>
+        <ResizableTh col="actions" align="center">
+          Actions
+        </ResizableTh>
       </tr>
     </thead>
   );
@@ -274,7 +297,10 @@ const NoImagesTable = ({
               type="text"
               placeholder="Search medicines without images..."
               value={searchText}
-              onChange={(e) => { setSearchText(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
                          focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
@@ -291,7 +317,10 @@ const NoImagesTable = ({
           <div className="w-36">
             <StyledSelect
               value={typeFilter}
-              onChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}
+              onChange={(v) => {
+                setTypeFilter(v);
+                setCurrentPage(1);
+              }}
               options={[
                 { value: "", label: "All Types" },
                 { value: "DRUG", label: "Drug" },
@@ -328,7 +357,10 @@ const NoImagesTable = ({
       <div className={styles.container.wrapper}>
         <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
-            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
               {tableHeader}
               <tbody>
                 <TableSkeleton rows={rowsPerPage} columns={8} />
@@ -341,7 +373,10 @@ const NoImagesTable = ({
               subtitle="Great! No medicines are missing images"
             />
           ) : (
-            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
               {tableHeader}
               <tbody>
                 {paginatedData.map((med, index) => {
@@ -351,19 +386,30 @@ const NoImagesTable = ({
                   return (
                     <tr
                       key={med.id}
-                      className={`${
-                        isSelected ? "bg-indigo-50/80" : getRowBgClass(index)
+                      onClick={() => onRowClick?.(med)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-indigo-50/80"
+                          : index % 2 === 0
+                            ? "bg-white hover:bg-indigo-50/40"
+                            : "bg-gray-50/50 hover:bg-indigo-50/40"
                       }`}
                       style={{ height: `${heights.bodyRow}px` }}
                     >
-                      {/* Checkbox */}
-                      <td className={styles.cell.base}>
+                      {/* Checkbox — stop propagation */}
+                      <td
+                        className={styles.cell.base}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => toggleSelect(med.id)}
                           className="text-gray-400 hover:text-gray-600"
                         >
                           {isSelected ? (
-                            <CheckSquare size={17} className="text-indigo-600" />
+                            <CheckSquare
+                              size={17}
+                              className="text-indigo-600"
+                            />
                           ) : (
                             <Square size={17} />
                           )}
@@ -371,7 +417,9 @@ const NoImagesTable = ({
                       </td>
 
                       {/* Index */}
-                      <td className={`${styles.cell.base} ${styles.cell.muted} font-medium`}>
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.muted} font-medium`}
+                      >
                         {startIndex + index + 1}
                       </td>
 
@@ -381,14 +429,18 @@ const NoImagesTable = ({
                           <p className={`${styles.cell.primary} truncate`}>
                             {med.name}
                           </p>
-                          <p className={`text-xs ${styles.cell.muted} truncate`}>
+                          <p
+                            className={`text-xs ${styles.cell.muted} truncate`}
+                          >
                             {med.composition || "—"}
                           </p>
                         </div>
                       </td>
 
                       {/* Type */}
-                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center}`}
+                      >
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             med.type === "DRUG"
@@ -402,13 +454,15 @@ const NoImagesTable = ({
 
                       {/* Manufacturer */}
                       <td className={styles.cell.base}>
-                        <span className={`${styles.cell.secondary} truncate block max-w-[150px]`}>
+                        <span
+                          className={`${styles.cell.secondary} truncate block max-w-[150px]`}
+                        >
                           {med.manufacturer || "—"}
                         </span>
                       </td>
 
                       {/* Linked */}
-                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                      <td className={`${styles.cell.base} ${styles.cell.center}`} onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => onViewLinked(med)}
                           disabled={linkedCount === 0}
@@ -424,12 +478,14 @@ const NoImagesTable = ({
                       </td>
 
                       {/* Created */}
-                      <td className={`${styles.cell.base} ${styles.cell.muted} text-xs`}>
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.muted} text-xs`}
+                      >
                         {formatDate(med.createdAt)}
                       </td>
 
                       {/* Actions */}
-                      <td className={styles.cell.base}>
+                      <td className={styles.cell.base} onClick={(e) => e.stopPropagation()}>
                         <div className={styles.actions.container}>
                           {linkedCount > 0 && (
                             <button

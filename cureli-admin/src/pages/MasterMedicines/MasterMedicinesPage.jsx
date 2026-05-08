@@ -182,6 +182,13 @@ const MasterMedicinesPage = () => {
   const [noImageData, setNoImageData] = useState([]);
   const [catalogViewMode, setCatalogViewMode] = useState("table");
 
+  const [hasLoaded, setHasLoaded] = useState({
+    unmapped: false,
+    review: false,
+    raw: false,
+    none: false,
+  });
+
   // ═══════════════════════════════════════════════════════════
   // DATA LOADING
   // ═══════════════════════════════════════════════════════════
@@ -383,14 +390,60 @@ const MasterMedicinesPage = () => {
     }
   }, []);
 
+  // ── On mount: only load what is immediately visible ──
   useEffect(() => {
     loadStats();
     loadCatalog();
-    loadUnmapped();
-    loadReview();
-    loadNoImages();
-    loadRawImages();
   }, []); // eslint-disable-line
+
+  // ── Lazy load Mapping tab data when first visited ──
+  useEffect(() => {
+    if (activeSection !== "mapping") return;
+
+    if (activeMappingTab === "unmapped" && !hasLoaded.unmapped) {
+      loadUnmapped();
+      setHasLoaded((prev) => ({ ...prev, unmapped: true }));
+    }
+
+    if (activeMappingTab === "review" && !hasLoaded.review) {
+      loadReview();
+      setHasLoaded((prev) => ({ ...prev, review: true }));
+    }
+  }, [activeSection, activeMappingTab]); // eslint-disable-line
+
+  // ── Lazy load Images tab data when first visited ──
+  useEffect(() => {
+    if (activeSection !== "images") return;
+
+    if (activeImageTab === "raw" && !hasLoaded.raw) {
+      loadRawImages();
+      setHasLoaded((prev) => ({ ...prev, raw: true }));
+    }
+
+    if (activeImageTab === "none" && !hasLoaded.none) {
+      loadNoImages();
+      setHasLoaded((prev) => ({ ...prev, none: true }));
+    }
+  }, [activeSection, activeImageTab]); // eslint-disable-line
+
+  // ── Pre-fetch second mapping sub-tab when mapping section opens ──
+  useEffect(() => {
+    if (activeSection !== "mapping") return;
+
+    // After a short delay, pre-fetch the other mapping tab in background
+    const timer = setTimeout(() => {
+      if (!hasLoaded.review) {
+        loadReview();
+        setHasLoaded((prev) => ({ ...prev, review: true }));
+      }
+      if (!hasLoaded.unmapped) {
+        loadUnmapped();
+        setHasLoaded((prev) => ({ ...prev, unmapped: true }));
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [activeSection]); // eslint-disable-line
 
   // ═══════════════════════════════════════════════════════════
   // HANDLERS - Unmapped
@@ -888,6 +941,10 @@ const MasterMedicinesPage = () => {
     setSelectedReview([]);
     setSelectedRaw([]);
     setSelectedNone([]);
+
+    // Reset lazy load trackers so everything reloads fresh
+    setHasLoaded({ unmapped: false, review: false, raw: false, none: false });
+
     loadStats();
     loadCatalog();
     loadUnmapped();
@@ -997,6 +1054,7 @@ const MasterMedicinesPage = () => {
             onSelectionChange={setSelectedNone}
             onUploadImage={handleUploadImage}
             onViewLinked={handleViewLinked}
+            onRowClick={handleViewMasterDetail}
           />
         );
       }
@@ -1310,7 +1368,9 @@ const MasterMedicinesPage = () => {
       {/* ── Ignore Confirmation Dialog ── */}
       <ConfirmDialog
         isOpen={confirmIgnore.open}
-        onClose={() => setConfirmIgnore({ open: false, item: null, bulk: false })}
+        onClose={() =>
+          setConfirmIgnore({ open: false, item: null, bulk: false })
+        }
         onConfirm={executeIgnore}
         title={
           confirmIgnore.bulk
@@ -1373,9 +1433,7 @@ const MasterMedicinesPage = () => {
                   <span className="font-semibold">What this means:</span>
                 </div>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>
-                    This group will be hidden from the unmapped queue
-                  </li>
+                  <li>This group will be hidden from the unmapped queue</li>
                   <li>Shop inventories will NOT be affected</li>
                   <li>
                     These medicines will remain unlinked to the master catalog
