@@ -501,9 +501,11 @@ export async function handleImageUpload(req, res) {
     const image = await uploadMasterImage(
       id,
       {
-        filename: req.file.filename,
-        type: req.body.type || "PRIMARY",
-        skuId: req.body.skuId,
+        buffer:       req.file.buffer,       // ← memory buffer from multer
+        mimetype:     req.file.mimetype,     // ← "image/jpeg" etc
+        originalname: req.file.originalname, // ← original filename for ext
+        type:         req.body.type || "PRIMARY",
+        skuId:        req.body.skuId,
       },
       cadminName,
       auditContext,
@@ -515,7 +517,6 @@ export async function handleImageUpload(req, res) {
     return res.status(500).json({ success: false, message: error.message });
   }
 }
-
 // ══════════════════════════════════════════════════════════════
 // IMAGE DELETE
 // ══════════════════════════════════════════════════════════════

@@ -2,9 +2,6 @@
 
 import { Router } from "express";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
 import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
 import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
@@ -32,25 +29,11 @@ import {
 
 const router = Router();
 
-// ── MULTER CONFIG ────────────────────────────────────────────────────────────
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const tempPath = path.join(__dirname, "../../../../static/medicine_images/uploads");
-    fs.mkdirSync(tempPath, { recursive: true });
-    cb(null, tempPath);
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `verified_${timestamp}${ext}`);
-  },
-});
+// ── MULTER CONFIG — memory storage, buffer goes straight to S3 ───────────────
+// No disk writes. req.file.buffer is passed to the service for S3 upload.
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
@@ -65,116 +48,103 @@ const upload = multer({
 // ── ALL ROUTES REQUIRE AUTH ──────────────────────────────────────────────────
 router.use(requireCAdmin);
 
-// ── READ ROUTES (master_medicines.view) ──────────────────────────────────────
+// ── READ ROUTES ──────────────────────────────────────────────────────────────
 router.get(
   "/master-medicines/stats",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   getMasterMedicinesStats
 );
-
 router.get(
   "/master-medicines/filters",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   getFilters
 );
-
 router.get(
   "/master-medicines/autocomplete",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   autocomplete
 );
-
 router.get(
   "/master-medicines/variants/:skuId",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   getVariant
 );
-
 router.get(
   "/master-medicines/variants/:variantId/linked",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   listLinkedByVariant
 );
-
-// ── MAPPING READ ROUTES (view permission sufficient to read unmapped/review) ─
 router.get(
   "/master-medicines/unmapped",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   listUnmappedMedicines
 );
-
 router.get(
   "/master-medicines/review",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   listNeedsReview
 );
 
-// ── MAPPING ACTION ROUTES (master_medicines.manage_mapping) ──────────────────
+// ── MAPPING ACTION ROUTES ────────────────────────────────────────────────────
 router.post(
   "/master-medicines/review/:medicineId/accept",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
   acceptMatch
 );
-
 router.post(
   "/master-medicines/review/:medicineId/reject",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
   rejectMatch
 );
-
 router.post(
   "/master-medicines/match",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
   matchToVariant
 );
-
 router.post(
   "/master-medicines/ignore",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
   ignoreUnmapped
 );
-
 router.post(
   "/master-medicines/unlink/:medicineId",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_MAPPING),
   unlinkMedicine
 );
 
-// ── LINKED READ ROUTES (view permission) ─────────────────────────────────────
+// ── LINKED READ ROUTES ───────────────────────────────────────────────────────
 router.get(
   "/master-medicines/:id/linked",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   listLinkedMedicines
 );
 
-// ── IMAGE ROUTES (master_medicines.manage_images) ────────────────────────────
+// ── IMAGE ROUTES ─────────────────────────────────────────────────────────────
 router.post(
   "/master-medicines/:id/images",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_IMAGES),
   upload.single("image"),
   handleImageUpload
 );
-
 router.delete(
   "/master-medicines/images/:imageId",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_MANAGE_IMAGES),
   handleImageDelete
 );
 
-// ── CREATE ROUTE (master_medicines.create) ───────────────────────────────────
+// ── CREATE ROUTE ─────────────────────────────────────────────────────────────
 router.post(
   "/master-medicines",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_CREATE),
   createMasterMed
 );
 
-// ── MAIN READ ROUTES (must be last — catches parameterized :id) ──────────────
+// ── MAIN READ ROUTES (must be last) ──────────────────────────────────────────
 router.get(
   "/master-medicines",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   listMasterMedicines
 );
-
 router.get(
   "/master-medicines/:id",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),

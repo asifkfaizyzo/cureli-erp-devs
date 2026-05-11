@@ -4,6 +4,8 @@ import path from "path";
 import { notifyAsync } from "../../notifications/notification.service.js";
 import { NOTIFICATION_EVENTS } from "../../notifications/notification.events.js";
 import * as audit from "../../audit/index.js";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import s3Client, { S3_BUCKET } from "../../../config/s3.js";
 import {
   resolveAssetUrl,
   resolveAssetUrls,
@@ -1507,8 +1509,9 @@ export async function uploadMasterImage(
   cadminName,
   auditContext = {},
 ) {
-  const { filename, type = "PRIMARY", skuId } = imageData;
+  const { buffer, mimetype, originalname, type = "PRIMARY", skuId } = imageData;
 
+  // ── 1. Validate the master exists ────────────────────────────────────────
   const master = await prisma.masterMedicine.findUnique({
     where: { master_medicine_id: masterMedicineId },
     include: {
@@ -1520,21 +1523,30 @@ export async function uploadMasterImage(
 
   const effectiveSkuId = skuId || master.variants[0]?.sku_id || "master";
 
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const baseDir = path.join(__dirname, "../../../../static/medicine_images");
-  const sourceFile = path.join(baseDir, "uploads", filename);
-  const targetDir = path.join(baseDir, effectiveSkuId);
-  const targetFile = path.join(targetDir, filename);
+  // ── 2. Build S3 key ───────────────────────────────────────────────────────
+  // Format: medicine_images/{skuId}/verified_{timestamp}.{ext}
+  // Matches existing scraped image key format — same bucket, same folder
+  const ext = originalname
+    ? "." + originalname.split(".").pop().toLowerCase()
+    : mimetype === "image/png"
+      ? ".png"
+      : mimetype === "image/webp"
+        ? ".webp"
+        : ".jpg";
 
-  const fs = await import("fs");
-  fs.default.mkdirSync(targetDir, { recursive: true });
+  const s3Key = `medicine_images/${effectiveSkuId}/verified_${Date.now()}${ext}`;
 
-  if (fs.default.existsSync(sourceFile) && sourceFile !== targetFile) {
-    fs.default.renameSync(sourceFile, targetFile);
-  }
+  // ── 3. Upload buffer to S3 ────────────────────────────────────────────────
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket:      S3_BUCKET,
+      Key:         s3Key,
+      Body:        buffer,
+      ContentType: mimetype,
+    }),
+  );
 
-  const url = `/static/medicine_images/${effectiveSkuId}/${filename}`;
-
+  // ── 4. If new PRIMARY, demote existing PRIMARY to GALLERY ─────────────────
   if (type === "PRIMARY") {
     await prisma.masterMedicineImage.updateMany({
       where: {
@@ -1545,38 +1557,40 @@ export async function uploadMasterImage(
     });
   }
 
+  // ── 5. Get next sequence number ───────────────────────────────────────────
   const maxSeq = await prisma.masterMedicineImage.aggregate({
     where: { master_medicine_id: masterMedicineId },
     _max: { sequence: true },
   });
 
+  // ── 6. Save S3 key in DB (NOT a full URL — resolveAssetUrl handles that) ──
   const image = await prisma.masterMedicineImage.create({
     data: {
       master_medicine_id: masterMedicineId,
-      sku_id: effectiveSkuId,
-      url,
+      sku_id:             effectiveSkuId,
+      url:                s3Key,           // ← S3 key only, same as scraped images
       type,
-      source: "UPLOADED",
-      sequence: (maxSeq._max.sequence || 0) + 1,
-      uploaded_by: cadminName,
+      source:             "UPLOADED",
+      sequence:           (maxSeq._max.sequence || 0) + 1,
+      uploaded_by:        cadminName,
     },
   });
 
+  // ── 7. Sync image_status column ───────────────────────────────────────────
   await syncImageStatus(masterMedicineId);
 
-
+  // ── 8. Audit log ──────────────────────────────────────────────────────────
   await audit.log({
-    action: audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
+    action:      audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
     entity_type: audit.EntityType.MASTER_MEDICINE_IMAGE,
-    entity_id: image.image_id,
+    entity_id:   image.image_id,
     ...auditContext,
     reason_code: audit.AuditReasonCode.ADMIN_ACTION,
     metadata: {
       master_medicine_id: masterMedicineId,
-      sku_id: effectiveSkuId,
-      image_type: type,
-      filename: filename,
-      url: url,
+      sku_id:             effectiveSkuId,
+      image_type:         type,
+      s3_key:             s3Key,
       uploaded_by_cadmin: cadminName,
     },
   });
