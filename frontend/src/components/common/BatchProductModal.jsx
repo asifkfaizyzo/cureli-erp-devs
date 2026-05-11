@@ -1,13 +1,24 @@
 // src/components/common/BatchProductModal.jsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from "react";
 import {
-  X, Package, AlertCircle, ChevronRight,
-  SkipForward, Plus, Check, Loader2,
-  Building2, Hash, MapPin, Percent,
-  CheckCircle, ArrowRight, Info
-} from 'lucide-react';
-import ProductMasterModal from './ProductMasterModal';
+  X,
+  Package,
+  AlertCircle,
+  ChevronRight,
+  SkipForward,
+  Plus,
+  Check,
+  Loader2,
+  Building2,
+  Hash,
+  MapPin,
+  Percent,
+  CheckCircle,
+  ArrowRight,
+  Info,
+} from "lucide-react";
+import ProductMasterModal from "./ProductMasterModal";
 
 // ══════════════════════════════════════════════════════════════
 // CATALOG STATUS INDICATOR
@@ -43,7 +54,9 @@ const CatalogBadge = ({ catalogMatch }) => {
   const c = config[catalogMatch.status] || config.NO_MATCH;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${c.bg} ${c.border} ${c.text}`}
+    >
       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
       {c.label}
     </span>
@@ -56,26 +69,31 @@ const CatalogBadge = ({ catalogMatch }) => {
 
 const DetailField = ({ icon: Icon, label, value, detected = false }) => (
   <div className="flex items-center gap-2.5 p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
-    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-      detected ? 'bg-emerald-50' : 'bg-gray-100'
-    }`}>
-      <Icon size={14} className={detected ? 'text-emerald-600' : 'text-gray-400'} />
+    <div
+      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+        detected ? "bg-emerald-50" : "bg-gray-100"
+      }`}
+    >
+      <Icon
+        size={14}
+        className={detected ? "text-emerald-600" : "text-gray-400"}
+      />
     </div>
     <div className="min-w-0 flex-1">
       <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wide leading-tight">
         {label}
       </p>
-      <p className={`text-xs font-medium truncate mt-0.5 ${
-        value && value !== 'Not specified'
-          ? 'text-gray-900'
-          : 'text-gray-400 italic'
-      }`}>
-        {value || 'Not specified'}
+      <p
+        className={`text-xs font-medium truncate mt-0.5 ${
+          value && value !== "Not specified"
+            ? "text-gray-900"
+            : "text-gray-400 italic"
+        }`}
+      >
+        {value || "Not specified"}
       </p>
     </div>
-    {detected && (
-      <Check size={12} className="text-emerald-500 shrink-0" />
-    )}
+    {detected && <Check size={12} className="text-emerald-500 shrink-0" />}
   </div>
 );
 
@@ -89,6 +107,7 @@ const BatchProductModal = ({
   newProducts = [],
   onSaveAll,
   onSkipAll,
+  isSaving = false,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [savedProducts, setSavedProducts] = useState([]);
@@ -105,30 +124,32 @@ const BatchProductModal = ({
 
   const currentProduct = newProducts[currentIndex];
   const hasMore = currentIndex < newProducts.length - 1;
-  const progress = newProducts.length > 0
-    ? ((Object.keys(processingStatus).length) / newProducts.length) * 100
-    : 0;
+  const progress =
+    newProducts.length > 0
+      ? (Object.keys(processingStatus).length / newProducts.length) * 100
+      : 0;
 
-  const savedCount = useMemo(() =>
-    Object.values(processingStatus).filter(s => s === 'saved').length,
-    [processingStatus]
+  const savedCount = useMemo(
+    () => Object.values(processingStatus).filter((s) => s === "saved").length,
+    [processingStatus],
   );
 
-  const skippedCount = useMemo(() =>
-    Object.values(processingStatus).filter(s => s === 'skipped').length,
-    [processingStatus]
+  const skippedCount = useMemo(
+    () => Object.values(processingStatus).filter((s) => s === "skipped").length,
+    [processingStatus],
   );
 
-  const remainingCount = newProducts.length - Object.keys(processingStatus).length;
+  const remainingCount =
+    newProducts.length - Object.keys(processingStatus).length;
 
   const handleSaveProduct = (productData) => {
     const updatedProducts = [...savedProducts, productData];
     setSavedProducts(updatedProducts);
-    setProcessingStatus(prev => ({ ...prev, [currentIndex]: 'saved' }));
+    setProcessingStatus((prev) => ({ ...prev, [currentIndex]: "saved" }));
     setShowProductModal(false);
 
     if (hasMore) {
-      setTimeout(() => setCurrentIndex(prev => prev + 1), 300);
+      setTimeout(() => setCurrentIndex((prev) => prev + 1), 300);
     } else {
       onSaveAll(updatedProducts);
       onClose();
@@ -136,9 +157,9 @@ const BatchProductModal = ({
   };
 
   const handleSkipProduct = () => {
-    setProcessingStatus(prev => ({ ...prev, [currentIndex]: 'skipped' }));
+    setProcessingStatus((prev) => ({ ...prev, [currentIndex]: "skipped" }));
     if (hasMore) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
     } else {
       onSaveAll(savedProducts);
       onClose();
@@ -156,8 +177,16 @@ const BatchProductModal = ({
   const hasRack = !!(currentProduct.rackNo || currentProduct.rack);
   const hasPack = !!(currentProduct.packSize || currentProduct.pack);
   const hasGst = !!(currentProduct.gst || currentProduct.cgstPercent);
-  const hasManufacturer = !!(currentProduct.manufacturer || currentProduct.mfac);
-  const detectedFieldCount = [hasHsn, hasRack, hasPack, hasGst, hasManufacturer].filter(Boolean).length;
+  const hasManufacturer = !!(
+    currentProduct.manufacturer || currentProduct.mfac
+  );
+  const detectedFieldCount = [
+    hasHsn,
+    hasRack,
+    hasPack,
+    hasGst,
+    hasManufacturer,
+  ].filter(Boolean).length;
 
   const gstDisplay = currentProduct.gst
     ? `${currentProduct.gst}%`
@@ -165,28 +194,28 @@ const BatchProductModal = ({
       ? `${parseFloat(currentProduct.cgstPercent) + parseFloat(currentProduct.sgstPercent)}%`
       : null;
 
-  const cgstSgstDisplay = currentProduct.cgstPercent && currentProduct.sgstPercent
-    ? `${currentProduct.cgstPercent}% / ${currentProduct.sgstPercent}%`
-    : null;
+  const cgstSgstDisplay =
+    currentProduct.cgstPercent && currentProduct.sgstPercent
+      ? `${currentProduct.cgstPercent}% / ${currentProduct.sgstPercent}%`
+      : null;
 
   const getInitialDataForModal = () => ({
-    name: currentProduct.name || '',
-    manufacturer: currentProduct.manufacturer || currentProduct.mfac || '',
-    genericName: currentProduct.genericName || '',
-    category: currentProduct.category || '',
-    hsnCode: currentProduct.hsnCode || currentProduct.hsn || '',
-    packSize: currentProduct.packSize || currentProduct.pack || '',
-    rackNo: currentProduct.rackNo || currentProduct.rack || '',
-    gst: currentProduct.gst || '12',
-    cgstPercent: currentProduct.cgstPercent || '6',
-    sgstPercent: currentProduct.sgstPercent || '6',
+    name: currentProduct.name || "",
+    manufacturer: currentProduct.manufacturer || currentProduct.mfac || "",
+    genericName: currentProduct.genericName || "",
+    category: currentProduct.category || "",
+    hsnCode: currentProduct.hsnCode || currentProduct.hsn || "",
+    packSize: currentProduct.packSize || currentProduct.pack || "",
+    rackNo: currentProduct.rackNo || currentProduct.rack || "",
+    gst: currentProduct.gst || "12",
+    cgstPercent: currentProduct.cgstPercent || "6",
+    sgstPercent: currentProduct.sgstPercent || "6",
   });
 
   return (
     <>
       {/* ── OVERLAY ── */}
       <div className="fixed inset-0 z-40 flex items-center justify-center">
-
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -211,8 +240,8 @@ const BatchProductModal = ({
           style={{
             // Pushes the modal down so it doesn't hide under the navbar.
             // Change 64px to match your actual navbar height (common: 56px, 64px, 72px)
-            marginTop: '64px',
-            maxHeight: 'calc(100vh - 80px)',
+            marginTop: "64px",
+            maxHeight: "calc(100vh - 80px)",
           }}
         >
           {/* ═══════════ HEADER ═══════════ */}
@@ -227,7 +256,8 @@ const BatchProductModal = ({
                     Add New Products to Shop
                   </h2>
                   <p className="text-white/60 text-xs mt-0.5">
-                    {currentIndex + 1} of {newProducts.length} products to review
+                    {currentIndex + 1} of {newProducts.length} products to
+                    review
                   </p>
                 </div>
               </div>
@@ -271,7 +301,6 @@ const BatchProductModal = ({
 
           {/* ═══════════ CONTENT ═══════════ */}
           <div className="flex flex-1 overflow-hidden min-h-0">
-
             {/* Left Panel — Product Queue
                 Hidden on very small screens, visible from sm: up */}
             <div className="hidden sm:flex w-44 lg:w-52 shrink-0 bg-gray-50 border-r border-gray-200 flex-col overflow-hidden">
@@ -293,22 +322,23 @@ const BatchProductModal = ({
                         disabled={isFuture}
                         className={`
                           w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all
-                          ${isCurrent
-                            ? 'bg-indigo-50 text-indigo-800 font-medium border border-indigo-200'
-                            : status === 'saved'
-                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                              : status === 'skipped'
-                                ? 'bg-gray-100 text-gray-400 line-through'
-                                : 'text-gray-400 cursor-not-allowed'
+                          ${
+                            isCurrent
+                              ? "bg-indigo-50 text-indigo-800 font-medium border border-indigo-200"
+                              : status === "saved"
+                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                : status === "skipped"
+                                  ? "bg-gray-100 text-gray-400 line-through"
+                                  : "text-gray-400 cursor-not-allowed"
                           }
                         `}
                       >
                         {/* Status dot */}
-                        {status === 'saved' ? (
+                        {status === "saved" ? (
                           <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                             <Check size={9} className="text-emerald-600" />
                           </span>
-                        ) : status === 'skipped' ? (
+                        ) : status === "skipped" ? (
                           <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
                             <SkipForward size={9} className="text-gray-400" />
                           </span>
@@ -318,10 +348,14 @@ const BatchProductModal = ({
                           </span>
                         ) : (
                           <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                            <span className="text-[8px] font-bold text-gray-400">{index + 1}</span>
+                            <span className="text-[8px] font-bold text-gray-400">
+                              {index + 1}
+                            </span>
                           </span>
                         )}
-                        <span className="truncate text-[11px]">{product.name}</span>
+                        <span className="truncate text-[11px]">
+                          {product.name}
+                        </span>
                       </button>
                     );
                   })}
@@ -331,7 +365,6 @@ const BatchProductModal = ({
 
             {/* Right Panel — Current Product Details */}
             <div className="flex-1 overflow-y-auto p-4 lg:p-5">
-
               {/* Mobile: queue indicator (shown only on xs) */}
               <div className="sm:hidden mb-3 flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
                 <span className="text-xs text-indigo-700 font-medium">
@@ -358,7 +391,9 @@ const BatchProductModal = ({
                   </p>
                   {currentProduct.catalogMatch && (
                     <div className="mt-2">
-                      <CatalogBadge catalogMatch={currentProduct.catalogMatch} />
+                      <CatalogBadge
+                        catalogMatch={currentProduct.catalogMatch}
+                      />
                     </div>
                   )}
                 </div>
@@ -367,10 +402,18 @@ const BatchProductModal = ({
               {/* Detected Fields Info */}
               {detectedFieldCount > 0 && (
                 <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
-                  <CheckCircle size={14} className="text-emerald-600 mt-0.5 shrink-0" />
+                  <CheckCircle
+                    size={14}
+                    className="text-emerald-600 mt-0.5 shrink-0"
+                  />
                   <div className="text-xs text-emerald-700">
-                    <span className="font-semibold">{detectedFieldCount} fields detected</span>
-                    <span className="text-emerald-600"> — pre-filled in the product form.</span>
+                    <span className="font-semibold">
+                      {detectedFieldCount} fields detected
+                    </span>
+                    <span className="text-emerald-600">
+                      {" "}
+                      — pre-filled in the product form.
+                    </span>
                   </div>
                 </div>
               )}
@@ -404,13 +447,13 @@ const BatchProductModal = ({
                 <DetailField
                   icon={Percent}
                   label="GST Rate"
-                  value={gstDisplay || 'Default 12%'}
+                  value={gstDisplay || "Default 12%"}
                   detected={hasGst}
                 />
                 <DetailField
                   icon={Percent}
                   label="CGST / SGST"
-                  value={cgstSgstDisplay || '6% / 6%'}
+                  value={cgstSgstDisplay || "6% / 6%"}
                   detected={!!currentProduct.cgstPercent}
                 />
               </div>
@@ -419,14 +462,32 @@ const BatchProductModal = ({
               <div className="flex flex-col sm:flex-row gap-2.5">
                 <button
                   onClick={() => setShowProductModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#05015A] text-white font-semibold rounded-xl hover:bg-[#0a0280] transition-colors shadow-sm text-sm"
+                  disabled={isSaving}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
+             bg-[#05015A] text-white font-semibold rounded-xl
+             hover:bg-[#0a0280] transition-colors shadow-sm text-sm
+             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Plus size={16} />
-                  Add Product Details
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={16} />
+                      Add Product Details
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={handleSkipProduct}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-gray-700 font-medium border border-gray-200 rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors text-sm"
+                  disabled={isSaving}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5
+             bg-white text-gray-700 font-medium border border-gray-200
+             rounded-xl hover:bg-gray-50 hover:border-gray-300
+             transition-colors text-sm
+             disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <SkipForward size={16} />
                   Skip
@@ -439,21 +500,23 @@ const BatchProductModal = ({
           <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-t border-gray-200">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-gray-500">
-                <span className="font-bold text-emerald-600">{savedCount}</span> added
+                <span className="font-bold text-emerald-600">{savedCount}</span>{" "}
+                added
               </span>
               <span className="text-gray-300">•</span>
               <span className="text-gray-500">
-                <span className="font-bold text-gray-600">{skippedCount}</span> skipped
+                <span className="font-bold text-gray-600">{skippedCount}</span>{" "}
+                skipped
               </span>
             </div>
             <button
               onClick={handleSkipAll}
-              className="text-xs text-gray-500 hover:text-red-600 transition-colors font-medium"
+              disabled={isSaving}
+              className="text-xs text-gray-500 hover:text-red-600 transition-colors font-medium disabled:opacity-40"
             >
               Skip all ({remainingCount})
             </button>
           </div>
-
         </div>
       </div>
 
