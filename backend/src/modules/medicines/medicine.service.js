@@ -45,7 +45,6 @@ class MedicineService {
   ============================================ */
 
   async createMedicine(data, shopId, branchId, userId, linkingData = null) {
-
     if (!branchId) {
       throw new ApiError(
         "Branch selection is required to create medicines.",
@@ -89,6 +88,8 @@ class MedicineService {
     // Determine linking status
     let linkStatus = "PENDING";
     let masterMedicineId = null;
+    let linkedVariantId = null; // ← ADD
+    let linkedVariantSku = null;
     let linkConfidenceScore = null;
     let linkedAt = null;
     let linkedByType = null;
@@ -103,20 +104,19 @@ class MedicineService {
       ) {
         linkStatus = "AUTO_LINKED";
         masterMedicineId = linkingData.master_medicine_id;
+        linkedVariantId = linkingData.matched_variant?.variant_id ?? null; // ← ADD
+        linkedVariantSku = linkingData.matched_variant?.sku_id ?? null;
         linkConfidenceScore = linkingData.confidence;
         linkedAt = new Date();
         linkedByType = "SYSTEM";
         suggestionReason = linkingData.reason;
-        
       } else if (linkingData.status === "PENDING") {
         linkStatus = "SUGGESTED";
         linkConfidenceScore = linkingData.confidence;
         suggestedMasterId = linkingData.suggested_master_id;
         suggestionReason = linkingData.reason;
-       
       } else {
         linkStatus = "PENDING";
-      
       }
     }
 
@@ -147,6 +147,8 @@ class MedicineService {
 
         // Linking fields
         master_medicine_id: masterMedicineId,
+        linked_variant_id: linkedVariantId, // ← ADD
+        linked_variant_sku: linkedVariantSku,
         link_status: linkStatus,
         link_confidence_score: linkConfidenceScore,
         linked_at: linkedAt,
@@ -169,8 +171,6 @@ class MedicineService {
       },
     });
 
-   
-
     // If no linking data provided, try auto-link (fallback for non-import creation)
     if (!linkingData && !masterMedicineId) {
       try {
@@ -185,6 +185,8 @@ class MedicineService {
             where: { medicine_id: medicine.medicine_id },
             data: {
               master_medicine_id: linkResult.master_medicine_id,
+              linked_variant_id: linkResult.matched_variant?.variant_id ?? null, // ← ADD
+              linked_variant_sku: linkResult.matched_variant?.sku_id ?? null,
               link_status: "AUTO_LINKED",
               link_confidence_score: linkResult.confidence,
               linked_at: new Date(),
@@ -192,8 +194,6 @@ class MedicineService {
               suggestion_reason: linkResult.reason,
             },
           });
-
-         
         } else if (linkResult.status === "PENDING") {
           await prisma.medicine.update({
             where: { medicine_id: medicine.medicine_id },
@@ -204,8 +204,6 @@ class MedicineService {
               suggestion_reason: linkResult.reason,
             },
           });
-
-          
         }
       } catch (linkError) {
         console.warn("⚠️ Auto-link failed:", linkError.message);
@@ -432,7 +430,6 @@ class MedicineService {
       }
     }
 
- 
     return results;
   }
 
