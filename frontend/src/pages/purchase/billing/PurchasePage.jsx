@@ -10,6 +10,8 @@ import {
   RefreshCw,
   Building2,
   Plus,
+  FileSpreadsheet,
+  Loader2 as SpinnerIcon,
 } from "lucide-react";
 
 // Components
@@ -88,9 +90,11 @@ const PurchasePage = () => {
   // ============================================
   // SHOP DETAILS (replaces COMPANY_DETAILS)
   // ============================================
-  const { companyDetails, isLoading: shopDetailsLoading, error: shopError } = useShopDetails(
-  user?.shop_id,
-);
+  const {
+    companyDetails,
+    isLoading: shopDetailsLoading,
+    error: shopError,
+  } = useShopDetails(user?.shop_id);
 
   // ============================================
   // API INTEGRATION
@@ -125,7 +129,8 @@ const PurchasePage = () => {
   const [importResultModalOpen, setImportResultModalOpen] = useState(false);
   const [importCatalogResults, setImportCatalogResults] = useState(null);
   const [importNewProducts, setImportNewProducts] = useState([]);
-
+  const [importProgress, setImportProgress] = useState(null);
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
   // ============================================
   // LOADING STATES
   // ============================================
@@ -194,6 +199,13 @@ const PurchasePage = () => {
     },
     [],
   );
+  const handleImportProgress = useCallback((progress) => {
+    if (progress.phase === "done") {
+      setTimeout(() => setImportProgress(null), 400);
+    } else {
+      setImportProgress(progress);
+    }
+  }, []);
 
   const { handleImportFile, handleExportExcel } = usePurchaseImportExport(
     (importedRows, newProducts = []) => {
@@ -210,14 +222,14 @@ const PurchasePage = () => {
     toast,
     medicines,
     handleCatalogCheckComplete,
+    handleImportProgress,
   );
 
-
   useEffect(() => {
-  console.log("[PurchasePage] user object:", user);
-  console.log("[PurchasePage] shop_id from user:", user?.shop_id);
-  console.log("[PurchasePage] companyDetails:", companyDetails);
-}, [user, companyDetails]);
+    console.log("[PurchasePage] user object:", user);
+    console.log("[PurchasePage] shop_id from user:", user?.shop_id);
+    console.log("[PurchasePage] companyDetails:", companyDetails);
+  }, [user, companyDetails]);
 
   // ============================================
   // SECURITY CHECK
@@ -1073,6 +1085,7 @@ const PurchasePage = () => {
   // ============================================
   const handleBatchProductSave = useCallback(
     async (productsToSave) => {
+      setIsBatchSaving(true); // ← ADD
       try {
         if (productsToSave.length > 0) {
           const productsWithLinking = productsToSave.map((product) => {
@@ -1151,6 +1164,8 @@ const PurchasePage = () => {
         setNewProductsFromImport([]);
       } catch (error) {
         console.error("Batch product save error:", error);
+      } finally {
+        setIsBatchSaving(false); // ← ADD
       }
     },
     [bulkCreateMedicines, setRows, newProductsFromImport],
@@ -1287,26 +1302,27 @@ const PurchasePage = () => {
   // Falls back to placeholder text while loading so the print
   // component always receives a valid object.
   const printCompanyDetails = {
-  name:
-    companyDetails.business_name ||
-    companyDetails.legal_name ||
-    "YOUR PHARMACY NAME",
-  address: companyDetails.full_address || 
-    [
-      companyDetails.address_line_1,
-      companyDetails.address_line_2,
-      companyDetails.city,
-      companyDetails.state,
-      companyDetails.pincode,
-    ]
-      .filter(Boolean)
-      .join(", ") ||
-    "",
-  phone: companyDetails.phone || "",
-  email: companyDetails.email || "",
-  gstin: companyDetails.gst_number || "",
-  drugLicense: companyDetails.drug_license_no || "",
-};
+    name:
+      companyDetails.business_name ||
+      companyDetails.legal_name ||
+      "YOUR PHARMACY NAME",
+    address:
+      companyDetails.full_address ||
+      [
+        companyDetails.address_line_1,
+        companyDetails.address_line_2,
+        companyDetails.city,
+        companyDetails.state,
+        companyDetails.pincode,
+      ]
+        .filter(Boolean)
+        .join(", ") ||
+      "",
+    phone: companyDetails.phone || "",
+    email: companyDetails.email || "",
+    gstin: companyDetails.gst_number || "",
+    drugLicense: companyDetails.drug_license_no || "",
+  };
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-gray-50 p-1.5 gap-1.5 font-sans">
@@ -1493,6 +1509,78 @@ const PurchasePage = () => {
         </div>
       </div>
 
+      {/* ══════════════════════════════════════════════════
+    IMPORT PROGRESS OVERLAY
+    ══════════════════════════════════════════════════ */}
+      {importProgress && importProgress.phase === "analyzing" && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+          {/* Card */}
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 flex flex-col items-center gap-5">
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
+              <FileSpreadsheet size={32} className="text-indigo-600" />
+            </div>
+
+            {/* Title */}
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-gray-900">
+                Checking Master Catalog
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Matching your products against the global medicine database
+              </p>
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full">
+              <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                <span>
+                  {importProgress.checked < importProgress.total
+                    ? `Checking ${importProgress.checked} of ${importProgress.total}...`
+                    : "Finalizing results..."}
+                </span>
+                <span className="font-semibold text-indigo-600">
+                  {importProgress.total > 0
+                    ? Math.round(
+                        (importProgress.checked / importProgress.total) * 100,
+                      )
+                    : 0}
+                  %
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300 ease-out"
+                  style={{
+                    width:
+                      importProgress.total > 0
+                        ? `${(importProgress.checked / importProgress.total) * 100}%`
+                        : "0%",
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Row count detail */}
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <SpinnerIcon size={13} className="animate-spin text-indigo-500" />
+              <span>
+                {importProgress.checked} / {importProgress.total} products
+                checked
+              </span>
+            </div>
+
+            {/* Do not close warning */}
+            <p className="text-[11px] text-gray-400 text-center">
+              Please wait — do not close this window
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* MODALS */}
       <SupplierModal
         open={supplierModalOpen}
@@ -1544,6 +1632,7 @@ const PurchasePage = () => {
         newProducts={newProductsFromImport}
         onSaveAll={handleBatchProductSave}
         onSkipAll={handleBatchProductSkip}
+        isSaving={isBatchSaving} // ← ADD
       />
 
       <ImportResultModal
