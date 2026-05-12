@@ -33,15 +33,24 @@ router.use(requireAuth);
 router.post("/check-import", async (req, res) => {
   try {
     const { rows } = req.body;
-    
+
     if (!rows || !Array.isArray(rows)) {
       return fail(res, "rows array is required", 400);
     }
-    
+
     if (rows.length > 500) {
       return fail(res, "Maximum 500 rows per request", 400);
     }
-    
+
+    // Validate each row has at minimum a name field
+    // pack_size, manufacturer, generic_name are all optional
+    const invalidRow = rows.findIndex(
+      (r) => typeof r !== "object" || r === null,
+    );
+    if (invalidRow !== -1) {
+      return fail(res, `Row ${invalidRow} is not a valid object`, 400);
+    }
+
     const result = await bulkCheckImportRows(rows);
     return success(res, result, "Import check complete");
   } catch (error) {

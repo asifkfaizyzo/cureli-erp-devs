@@ -56,7 +56,7 @@ const medicinesAPI = {
       "/medicines/bulk",
       {
         medicines,
-        linkingResults, // NEW: Pass linking results from master catalog check
+        linkingResults,
       },
       {
         headers: getBranchHeaders(),
@@ -84,7 +84,7 @@ const medicinesAPI = {
    */
   checkMasterCatalog: async (rows) => {
     const response = await api.post(
-      "/medicines/linking/check-import",
+      "/medicine-linking/check-import",
       { rows },
       { headers: getBranchHeaders() },
     );
@@ -105,7 +105,7 @@ const medicinesAPI = {
       );
       return response.data;
     } catch (error) {
-      console.error(" Error checking master catalog:", error);
+      console.error("Error checking master catalog:", error);
       throw error;
     }
   },
@@ -124,7 +124,7 @@ const medicinesAPI = {
       });
       return response.data;
     } catch (error) {
-      console.error(" Error fetching catalog link status:", error);
+      console.error("Error fetching catalog link status:", error);
       throw error;
     }
   },
@@ -136,7 +136,7 @@ const medicinesAPI = {
    */
   linkToMaster: async (medicineId, masterMedicineId) => {
     const response = await api.post(
-      `/medicines/linking/${medicineId}/link`,
+      `/medicine-linking/${medicineId}/link`,
       { masterMedicineId },
       { headers: getBranchHeaders() },
     );
@@ -150,7 +150,7 @@ const medicinesAPI = {
    */
   unlinkFromMaster: async (medicineId, reject = false) => {
     const response = await api.post(
-      `/medicines/linking/${medicineId}/unlink`,
+      `/medicine-linking/${medicineId}/unlink`,
       { reject },
       { headers: getBranchHeaders() },
     );
@@ -164,7 +164,7 @@ const medicinesAPI = {
    */
   getLinkSuggestions: async (medicineId) => {
     const response = await api.get(
-      `/medicines/linking/${medicineId}/suggestions`,
+      `/medicine-linking/${medicineId}/suggestions`,
       {
         headers: getBranchHeaders(),
       },
@@ -178,7 +178,7 @@ const medicinesAPI = {
    * @returns {Object} { medicines: Array, pagination: Object }
    */
   getUnlinkedMedicines: async (options = {}) => {
-    const response = await api.get("/medicines/linking/unlinked", {
+    const response = await api.get("/medicine-linking/unlinked", {
       params: options,
       headers: getBranchHeaders(),
     });
@@ -190,7 +190,7 @@ const medicinesAPI = {
    * @returns {Object} { total, linked, pending, rejected, linkRate }
    */
   getLinkingStats: async () => {
-    const response = await api.get("/medicines/linking/stats", {
+    const response = await api.get("/medicine-linking/stats", {
       headers: getBranchHeaders(),
     });
     return response.data;
@@ -202,7 +202,7 @@ const medicinesAPI = {
    */
   bulkAcceptLinks: async (links) => {
     const response = await api.post(
-      "/medicines/linking/bulk-accept",
+      "/medicine-linking/bulk-accept",
       { links },
       { headers: getBranchHeaders() },
     );
@@ -215,8 +215,35 @@ const medicinesAPI = {
    */
   bulkRejectLinks: async (medicineIds) => {
     const response = await api.post(
-      "/medicines/linking/bulk-reject",
+      "/medicine-linking/bulk-reject",
       { medicineIds },
+      { headers: getBranchHeaders() },
+    );
+    return response.data;
+  },
+
+  /**
+   * Search master catalog for manual linking
+   * @param {string} query - Search term
+   * @param {number} limit - Max results
+   * @returns {Object} { results: Array }
+   */
+  searchMasterCatalog: async (query, limit = 10) => {
+    const response = await api.get("/medicine-linking/search-catalog", {
+      params: { q: query, limit },
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  /**
+   * Auto-link all pending medicines for shop
+   * @returns {Object} bulk auto-link result
+   */
+  bulkAutoLink: async () => {
+    const response = await api.post(
+      "/medicine-linking/bulk-auto-link",
+      {},
       { headers: getBranchHeaders() },
     );
     return response.data;
