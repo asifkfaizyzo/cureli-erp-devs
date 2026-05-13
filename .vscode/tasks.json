@@ -107,7 +107,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/landing"
+        "cwd": "${workspaceFolder}/landing-web"
       },
       "isBackground": true,
       "presentation": {
