@@ -2,7 +2,7 @@
 
 /**
  * =============================================================================
- * CADMIN PERMISSION REGISTRY — FRONTEND
+ * CADMIN PERMISSION REGISTRY — pharmacy-web
  * =============================================================================
  *
  * This file is a mirror of backend/src/config/cadminPermissions.js
@@ -10,9 +10,9 @@
  * The backend is the source of truth — if you add a permission there,
  * add it here too and update CADMIN_PERMISSION_GROUPS.
  *
- * HOW PERMISSIONS WORK IN THE FRONTEND:
+ * HOW PERMISSIONS WORK IN THE pharmacy-web:
  * ─────────────────────────────────────
- * 1. On login, the frontend calls GET /cadmin/me
+ * 1. On login, the pharmacy-web calls GET /cadmin/me
  * 2. The response includes admin.permissions[] (flat string array)
  *    and admin.is_super_cadmin (boolean)
  * 3. These are stored in AuthContext
@@ -644,7 +644,7 @@ export const CADMIN_PERMISSION_GROUPS = [
 
 // =============================================================================
 // ROUTE → PERMISSION MAPPING
-// Used for sidebar visibility. Maps frontend routes to required permissions.
+// Used for sidebar visibility. Maps pharmacy-web routes to required permissions.
 // If a route requires ANY of the listed permissions, it is visible.
 // Empty array = accessible to all authenticated admins.
 // =============================================================================

@@ -1,8 +1,6 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\common\ConfirmDialog.jsx
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cadmin-web\src\components\common\ConfirmDialog.jsx
 
 import { AlertTriangle, CheckCircle, Mail, Trash2 } from "lucide-react";
-
-
 
 const ConfirmDialog = ({
   isOpen,
@@ -40,14 +38,16 @@ const ConfirmDialog = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
         {/* Icon */}
-        <div className={`w-12 h-12 rounded-full ${styles.icon} flex items-center justify-center mx-auto mb-4`}>
+        <div
+          className={`w-12 h-12 rounded-full ${styles.icon} flex items-center justify-center mx-auto mb-4`}
+        >
           {type === "danger" && <Trash2 size={24} />}
           {type === "warning" && <AlertTriangle size={24} />}
           {type === "success" && <CheckCircle size={24} />}
@@ -60,9 +60,7 @@ const ConfirmDialog = ({
         </h3>
 
         {/* Message */}
-        <div className="text-gray-600 text-center mb-6">
-          {message}
-        </div>
+        <div className="text-gray-600 text-center mb-6">{message}</div>
 
         {/* Buttons */}
         <div className="flex gap-3">

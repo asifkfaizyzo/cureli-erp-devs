@@ -1,4 +1,4 @@
-// cureli-admin\src\pages\Communications\pages\Enquiries\components\EnquiryDetailsModal.jsx
+// cadmin-web\src\pages\Communications\pages\Enquiries\components\EnquiryDetailsModal.jsx
 import {
   X,
   Mail,
@@ -162,7 +162,10 @@ const EnquiryDetailsModal = ({
       await updateEnquiryStatus(enquiry.enquiry_id, newStatus);
       setDetails((prev) => ({ ...prev, status: newStatus }));
       onStatusChange?.();
-      toast.success("Status Updated", `Status changed to ${newStatus.replace("_", " ")}`);
+      toast.success(
+        "Status Updated",
+        `Status changed to ${newStatus.replace("_", " ")}`,
+      );
     } catch (err) {
       console.error("Failed to update status:", err);
       toast.error("Error", "Failed to update status");
@@ -192,41 +195,41 @@ const EnquiryDetailsModal = ({
 
   // Status options for StyledSelect
   const statusOptions = [
-    { 
-      value: "PENDING", 
+    {
+      value: "PENDING",
       label: (
         <>
           <Clock className="w-3.5 h-3.5" />
           <span>Pending</span>
         </>
-      )
+      ),
     },
-    { 
-      value: "IN_PROGRESS", 
+    {
+      value: "IN_PROGRESS",
       label: (
         <>
           <Circle className="w-3.5 h-3.5" />
           <span>In Progress</span>
         </>
-      )
+      ),
     },
-    { 
-      value: "REPLIED", 
+    {
+      value: "REPLIED",
       label: (
         <>
           <CheckCircle className="w-3.5 h-3.5" />
           <span>Replied</span>
         </>
-      )
+      ),
     },
-    { 
-      value: "CLOSED", 
+    {
+      value: "CLOSED",
       label: (
         <>
           <Lock className="w-3.5 h-3.5" />
           <span>Closed</span>
         </>
-      )
+      ),
     },
   ];
 
@@ -258,15 +261,23 @@ const EnquiryDetailsModal = ({
                   <FileText className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-white">Enquiry Details</h2>
-                  <p className="text-xs text-white/70">{enquiry?.enquiry_number}</p>
+                  <h2 className="text-base font-semibold text-white">
+                    Enquiry Details
+                  </h2>
+                  <p className="text-xs text-white/70">
+                    {enquiry?.enquiry_number}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 {details && (
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} ${currentStatus.text}`}>
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${currentStatus.bg} ${currentStatus.text}`}
+                  >
                     <StatusIcon className="w-3.5 h-3.5" />
-                    <span className="font-semibold text-xs">{currentStatus.label}</span>
+                    <span className="font-semibold text-xs">
+                      {currentStatus.label}
+                    </span>
                   </div>
                 )}
                 <button
@@ -317,7 +328,9 @@ const EnquiryDetailsModal = ({
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 text-sm truncate">{details.name}</p>
+                        <p className="font-medium text-gray-900 text-sm truncate">
+                          {details.name}
+                        </p>
                         <p className="text-xs text-gray-500">Customer Name</p>
                       </div>
                     </div>
@@ -362,8 +375,12 @@ const EnquiryDetailsModal = ({
                         <Calendar className="w-4 h-4 text-[#000060]" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 text-sm">{formatDate(details.created_at)}</p>
-                        <p className="text-xs text-gray-500">{formatRelativeTime(details.created_at)}</p>
+                        <p className="font-medium text-gray-900 text-sm">
+                          {formatDate(details.created_at)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatRelativeTime(details.created_at)}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -483,7 +500,9 @@ const EnquiryDetailsModal = ({
                           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                             <MessageSquare className="w-6 h-6 text-gray-400" />
                           </div>
-                          <p className="text-gray-500 font-medium text-sm mb-1">No replies yet</p>
+                          <p className="text-gray-500 font-medium text-sm mb-1">
+                            No replies yet
+                          </p>
                           <p className="text-xs text-gray-400 mb-3">
                             Send your first response to this enquiry
                           </p>

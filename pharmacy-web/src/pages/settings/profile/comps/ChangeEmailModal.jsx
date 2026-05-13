@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\ChangeEmailModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\ChangeEmailModal.jsx
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,7 +15,10 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
-import { initiateEmailChange, verifyEmailChange } from "../../../../api/profile";
+import {
+  initiateEmailChange,
+  verifyEmailChange,
+} from "../../../../api/profile";
 
 /**
  * ChangeEmailModal
@@ -64,7 +67,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
       newErrors.new_email = "New email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.new_email)) {
       newErrors.new_email = "Invalid email format";
-    } else if (formData.new_email.toLowerCase() === currentEmail?.toLowerCase()) {
+    } else if (
+      formData.new_email.toLowerCase() === currentEmail?.toLowerCase()
+    ) {
       newErrors.new_email = "New email is same as current email";
     }
 
@@ -103,8 +108,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
       setStep(2);
     } catch (err) {
       console.error("Initiate email change error:", err);
-      const message = err.response?.data?.message || "Failed to initiate email change";
-      
+      const message =
+        err.response?.data?.message || "Failed to initiate email change";
+
       // Handle specific errors
       if (message.toLowerCase().includes("password")) {
         setErrors({ current_password: message });
@@ -136,8 +142,11 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
     } catch (err) {
       console.error("Verify email change error:", err);
       const message = err.response?.data?.message || "Failed to verify OTP";
-      
-      if (message.toLowerCase().includes("otp") || message.toLowerCase().includes("expired")) {
+
+      if (
+        message.toLowerCase().includes("otp") ||
+        message.toLowerCase().includes("expired")
+      ) {
         setErrors({ otp: message });
       } else {
         setSubmitError(message);
@@ -172,7 +181,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-emerald-600" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Email Changed!</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Email Changed!
+          </h3>
           <p className="text-gray-500">
             Your email has been updated to <strong>{otpSentTo}</strong>
           </p>
@@ -253,13 +264,16 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                 className="space-y-4"
               >
                 <p className="text-sm text-gray-600 mb-4">
-                  Enter your current password and new email address. We'll send a verification code to your new email.
+                  Enter your current password and new email address. We'll send
+                  a verification code to your new email.
                 </p>
 
                 {/* Current Email Display */}
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-500 mb-1">Current Email</p>
-                  <p className="text-sm font-medium text-gray-900">{currentEmail || "Not set"}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {currentEmail || "Not set"}
+                  </p>
                 </div>
 
                 {/* Current Password */}
@@ -275,7 +289,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     <input
                       type={showPassword ? "text" : "password"}
                       value={formData.current_password}
-                      onChange={(e) => handleChange("current_password", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("current_password", e.target.value)
+                      }
                       placeholder="Enter your password"
                       className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.current_password
@@ -292,7 +308,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     </button>
                   </div>
                   {errors.current_password && (
-                    <p className="text-red-500 text-xs mt-1">{errors.current_password}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.current_password}
+                    </p>
                   )}
                 </div>
 
@@ -309,7 +327,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     <input
                       type="email"
                       value={formData.new_email}
-                      onChange={(e) => handleChange("new_email", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("new_email", e.target.value)
+                      }
                       placeholder="newemail@example.com"
                       className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.new_email
@@ -319,7 +339,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     />
                   </div>
                   {errors.new_email && (
-                    <p className="text-red-500 text-xs mt-1">{errors.new_email}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.new_email}
+                    </p>
                   )}
                 </div>
               </motion.div>
@@ -341,7 +363,9 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                   <p className="text-sm text-gray-600">
                     We've sent a verification code to
                   </p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">{otpSentTo}</p>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">
+                    {otpSentTo}
+                  </p>
                 </div>
 
                 {/* OTP Input */}
@@ -353,7 +377,10 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     type="text"
                     value={formData.otp}
                     onChange={(e) =>
-                      handleChange("otp", e.target.value.replace(/\D/g, "").slice(0, 6))
+                      handleChange(
+                        "otp",
+                        e.target.value.replace(/\D/g, "").slice(0, 6),
+                      )
                     }
                     placeholder="Enter 4-digit code"
                     maxLength={6}
@@ -365,12 +392,15 @@ const ChangeEmailModal = ({ currentEmail, onClose }) => {
                     autoFocus
                   />
                   {errors.otp && (
-                    <p className="text-red-500 text-xs mt-1 text-center">{errors.otp}</p>
+                    <p className="text-red-500 text-xs mt-1 text-center">
+                      {errors.otp}
+                    </p>
                   )}
                 </div>
 
                 <p className="text-xs text-gray-500 text-center">
-                  Code expires in 10 minutes. Check your spam folder if you don't see it.
+                  Code expires in 10 minutes. Check your spam folder if you
+                  don't see it.
                 </p>
               </motion.div>
             )}

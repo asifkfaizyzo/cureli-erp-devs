@@ -30,7 +30,7 @@ const FALLBACK_CACHE_KEY = "__current_shop__";
  * Fetches and caches real shop profile from the backend.
  * shop_id is used ONLY as a cache key — the backend resolves
  * the shop from the JWT token, so fetching works even when
- * shop_id is not present in the frontend user object.
+ * shop_id is not present in the pharmacy-web user object.
  *
  * @param {string|null|undefined} shopId
  */
@@ -76,7 +76,10 @@ export function useShopDetails(shopId) {
         const shopData = payload?.data ?? payload;
         console.log("[useShopDetails] Shop data:", shopData);
 
-        if (shopData && (shopData.shop_id || shopData.business_name !== undefined)) {
+        if (
+          shopData &&
+          (shopData.shop_id || shopData.business_name !== undefined)
+        ) {
           const formatted = {
             business_name: shopData.business_name || "",
             legal_name: shopData.legal_name || shopData.business_name || "",
@@ -98,7 +101,10 @@ export function useShopDetails(shopId) {
           // regardless of whether shopId was available
           CACHE.set(cacheKey, { data: formatted, timestamp: Date.now() });
           if (shopData.shop_id && cacheKey !== shopData.shop_id) {
-            CACHE.set(shopData.shop_id, { data: formatted, timestamp: Date.now() });
+            CACHE.set(shopData.shop_id, {
+              data: formatted,
+              timestamp: Date.now(),
+            });
           }
 
           setCompanyDetails(formatted);

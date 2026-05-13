@@ -499,7 +499,7 @@ export const isNameAvailable = (name, plans, excludeId = null) => {
 };
 
 /**
- * Generates cloned plan name (frontend helper)
+ * Generates cloned plan name (pharmacy-web helper)
  */
 export const generateCloneName = (originalName, existingPlans) => {
   let baseName = originalName.replace(/\s*\(Copy(?:\s*\d+)?\)\s*$/, "");

@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\ChangePasswordModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\ChangePasswordModal.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -40,7 +40,10 @@ const ChangePasswordModal = ({ onClose }) => {
     { label: "One uppercase letter", test: (p) => /[A-Z]/.test(p) },
     { label: "One lowercase letter", test: (p) => /[a-z]/.test(p) },
     { label: "One number", test: (p) => /\d/.test(p) },
-    { label: "One special character (@$!%*?&)", test: (p) => /[@$!%*?&]/.test(p) },
+    {
+      label: "One special character (@$!%*?&)",
+      test: (p) => /[@$!%*?&]/.test(p),
+    },
   ];
 
   const handleChange = (field, value) => {
@@ -61,7 +64,9 @@ const ChangePasswordModal = ({ onClose }) => {
     if (!formData.new_password) {
       newErrors.new_password = "New password is required";
     } else {
-      const failedReqs = requirements.filter((r) => !r.test(formData.new_password));
+      const failedReqs = requirements.filter(
+        (r) => !r.test(formData.new_password),
+      );
       if (failedReqs.length > 0) {
         newErrors.new_password = "Password does not meet requirements";
       }
@@ -73,8 +78,12 @@ const ChangePasswordModal = ({ onClose }) => {
       newErrors.confirm_password = "Passwords do not match";
     }
 
-    if (formData.current_password === formData.new_password && formData.new_password) {
-      newErrors.new_password = "New password must be different from current password";
+    if (
+      formData.current_password === formData.new_password &&
+      formData.new_password
+    ) {
+      newErrors.new_password =
+        "New password must be different from current password";
     }
 
     setErrors(newErrors);
@@ -97,7 +106,9 @@ const ChangePasswordModal = ({ onClose }) => {
       }, 2000);
     } catch (err) {
       console.error("Change password error:", err);
-      setSubmitError(err.response?.data?.message || "Failed to change password");
+      setSubmitError(
+        err.response?.data?.message || "Failed to change password",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -120,8 +131,12 @@ const ChangePasswordModal = ({ onClose }) => {
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-emerald-600" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Password Changed!</h3>
-          <p className="text-gray-500">Your password has been updated successfully.</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Password Changed!
+          </h3>
+          <p className="text-gray-500">
+            Your password has been updated successfully.
+          </p>
         </motion.div>
       </div>
     );
@@ -172,7 +187,9 @@ const ChangePasswordModal = ({ onClose }) => {
                 <input
                   type={showCurrentPassword ? "text" : "password"}
                   value={formData.current_password}
-                  onChange={(e) => handleChange("current_password", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("current_password", e.target.value)
+                  }
                   placeholder="Enter current password"
                   className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                     errors.current_password
@@ -185,11 +202,17 @@ const ChangePasswordModal = ({ onClose }) => {
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showCurrentPassword ? (
+                    <EyeOff size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
                 </button>
               </div>
               {errors.current_password && (
-                <p className="text-red-500 text-xs mt-1">{errors.current_password}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.current_password}
+                </p>
               )}
             </div>
 
@@ -223,7 +246,9 @@ const ChangePasswordModal = ({ onClose }) => {
                 </button>
               </div>
               {errors.new_password && (
-                <p className="text-red-500 text-xs mt-1">{errors.new_password}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.new_password}
+                </p>
               )}
 
               {/* Password Requirements */}
@@ -260,14 +285,17 @@ const ChangePasswordModal = ({ onClose }) => {
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={formData.confirm_password}
-                  onChange={(e) => handleChange("confirm_password", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("confirm_password", e.target.value)
+                  }
                   placeholder="Confirm new password"
                   className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                     errors.confirm_password
                       ? "border-red-400 focus:ring-red-400/30 focus:border-red-400"
-                      : formData.confirm_password && formData.new_password === formData.confirm_password
-                      ? "border-emerald-400 focus:ring-emerald-400/30 focus:border-emerald-400"
-                      : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
+                      : formData.confirm_password &&
+                          formData.new_password === formData.confirm_password
+                        ? "border-emerald-400 focus:ring-emerald-400/30 focus:border-emerald-400"
+                        : "border-gray-300 focus:border-[#000060] focus:ring-[#000060]/20"
                   }`}
                 />
                 <button
@@ -275,11 +303,17 @@ const ChangePasswordModal = ({ onClose }) => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showConfirmPassword ? (
+                    <EyeOff size={16} />
+                  ) : (
+                    <Eye size={16} />
+                  )}
                 </button>
               </div>
               {errors.confirm_password && (
-                <p className="text-red-500 text-xs mt-1">{errors.confirm_password}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.confirm_password}
+                </p>
               )}
             </div>
 

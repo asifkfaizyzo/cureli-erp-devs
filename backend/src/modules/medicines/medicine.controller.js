@@ -6,7 +6,7 @@ import medicineService from "./medicine.service.js";
 
 /**
  * Extract branch context from request headers
- * Frontend sends: X-Branch-Mode and X-Branch-Id headers
+ * pharmacy-web sends: X-Branch-Mode and X-Branch-Id headers
  */
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";

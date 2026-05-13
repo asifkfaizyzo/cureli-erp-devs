@@ -1,16 +1,8 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\PersonalInfoCard.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\PersonalInfoCard.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  User,
-  Mail,
-  Phone,
-  Lock,
-  Calendar,
-  Edit3,
-  AtSign,
-} from "lucide-react";
+import { User, Mail, Phone, Lock, Calendar, Edit3, AtSign } from "lucide-react";
 
 import ChangeEmailModal from "./ChangeEmailModal";
 import ChangePhoneModal from "./ChangePhoneModal";
@@ -57,7 +49,9 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
         </div>
         <div className="min-w-0">
           <p className="text-xs text-gray-500 font-medium">{label}</p>
-          <p className="text-sm font-semibold text-gray-900 truncate">{value}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">
+            {value}
+          </p>
         </div>
       </div>
       {editable && (
@@ -80,8 +74,12 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
           <div className="flex items-center gap-3">
             <User size={20} className="text-[#000060]" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
-              <p className="text-xs text-gray-500">{user.full_name} • @{user.username}</p>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Personal Information
+              </h2>
+              <p className="text-xs text-gray-500">
+                {user.full_name} • @{user.username}
+              </p>
             </div>
           </div>
         </div>
@@ -90,18 +88,10 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
         <div className="p-6 flex-1">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Full Name - View Only */}
-            <InfoItem
-              icon={User}
-              label="Full Name"
-              value={user.full_name}
-            />
+            <InfoItem icon={User} label="Full Name" value={user.full_name} />
 
             {/* Username - View Only */}
-            <InfoItem
-              icon={AtSign}
-              label="Username"
-              value={user.username}
-            />
+            <InfoItem icon={AtSign} label="Username" value={user.username} />
 
             {/* Email - Editable */}
             <InfoItem
@@ -155,9 +145,7 @@ const PersonalInfoCard = ({ user, onUpdate }) => {
         />
       )}
 
-      {showPasswordModal && (
-        <ChangePasswordModal onClose={handleModalClose} />
-      )}
+      {showPasswordModal && <ChangePasswordModal onClose={handleModalClose} />}
     </>
   );
 };

@@ -1,7 +1,10 @@
 // Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\backend\src\middleware\rbac.js
 
 import { fail } from "../utils/response.js";
-import { roleHasPermission, roleHasAnyPermission } from "../config/permissions.js";
+import {
+  roleHasPermission,
+  roleHasAnyPermission,
+} from "../config/permissions.js";
 
 /**
  * ============================================
@@ -11,11 +14,11 @@ import { roleHasPermission, roleHasAnyPermission } from "../config/permissions.j
 
 /**
  * Require user to have one of the specified roles
- * 
+ *
  * Usage:
  *   router.get("/admin-only", requireAuth, requireRole("super_admin"), handler)
  *   router.get("/managers", requireAuth, requireRole("super_admin", "branch_admin"), handler)
- * 
+ *
  * @param  {...string} allowedRoles - Roles that are allowed access
  */
 export function requireRole(...allowedRoles) {
@@ -29,13 +32,13 @@ export function requireRole(...allowedRoles) {
 
     if (!allowedRoles.includes(role)) {
       console.warn(
-        `🚫 Role denied: User ${req.user.user_id} with role "${role}" tried to access route requiring [${allowedRoles.join(", ")}]`
+        `🚫 Role denied: User ${req.user.user_id} with role "${role}" tried to access route requiring [${allowedRoles.join(", ")}]`,
       );
       return fail(
         res,
         "Access denied. You don't have permission to perform this action.",
         403,
-        { code: "INSUFFICIENT_ROLE" }
+        { code: "INSUFFICIENT_ROLE" },
       );
     }
 
@@ -51,11 +54,11 @@ export function requireRole(...allowedRoles) {
 
 /**
  * Require user to have a specific permission
- * 
+ *
  * Usage:
  *   router.post("/bills", requireAuth, requirePermission("billing:create"), handler)
  *   router.get("/reports", requireAuth, requirePermission("reports:sales"), handler)
- * 
+ *
  * @param {string} permission - Required permission string
  */
 export function requirePermission(permission) {
@@ -68,13 +71,13 @@ export function requirePermission(permission) {
 
     if (!roleHasPermission(role, permission)) {
       console.warn(
-        `🚫 Permission denied: User ${user_id} with role "${role}" lacks permission "${permission}"`
+        `🚫 Permission denied: User ${user_id} with role "${role}" lacks permission "${permission}"`,
       );
       return fail(
         res,
         "Access denied. You don't have permission to perform this action.",
         403,
-        { code: "INSUFFICIENT_PERMISSION", required: permission }
+        { code: "INSUFFICIENT_PERMISSION", required: permission },
       );
     }
 
@@ -84,10 +87,10 @@ export function requirePermission(permission) {
 
 /**
  * Require user to have ANY of the specified permissions
- * 
+ *
  * Usage:
  *   router.get("/data", requireAuth, requireAnyPermission("billing:view", "purchase:view"), handler)
- * 
+ *
  * @param  {...string} permissions - At least one of these permissions is required
  */
 export function requireAnyPermission(...permissions) {
@@ -100,13 +103,13 @@ export function requireAnyPermission(...permissions) {
 
     if (!roleHasAnyPermission(role, permissions)) {
       console.warn(
-        `🚫 Permission denied: User ${user_id} with role "${role}" lacks any of [${permissions.join(", ")}]`
+        `🚫 Permission denied: User ${user_id} with role "${role}" lacks any of [${permissions.join(", ")}]`,
       );
       return fail(
         res,
         "Access denied. You don't have permission to perform this action.",
         403,
-        { code: "INSUFFICIENT_PERMISSION", required_any: permissions }
+        { code: "INSUFFICIENT_PERMISSION", required_any: permissions },
       );
     }
 
@@ -122,28 +125,25 @@ export function requireAnyPermission(...permissions) {
 
 /**
  * Ensure user can only access their own branch's data
- * 
+ *
  * For super_admin: Allows access to any branch (or uses query param/body for branch selection)
  * For branch_admin/staff: Restricts to their assigned branch only
- * 
+ *
  * This middleware:
  * 1. Checks if branch_id is provided in request (params, query, or body)
  * 2. For non-super_admin, validates it matches their assigned branch
  * 3. Attaches the effective branch_id to req.branchContext
- * 
+ *
  * Usage:
  *   router.get("/sales/:branch_id", requireAuth, requireBranchAccess(), handler)
  *   router.post("/invoice", requireAuth, requireBranchAccess(), handler) // branch_id in body
- * 
+ *
  * @param {Object} options
  * @param {string} options.paramName - Name of the branch_id param (default: "branch_id")
  * @param {boolean} options.allowSuperAdminOverride - Allow SA to access any branch (default: true)
  */
 export function requireBranchAccess(options = {}) {
-  const { 
-    paramName = "branch_id", 
-    allowSuperAdminOverride = true 
-  } = options;
+  const { paramName = "branch_id", allowSuperAdminOverride = true } = options;
 
   return (req, res, next) => {
     if (!req.user) {
@@ -185,20 +185,20 @@ export function requireBranchAccess(options = {}) {
         res,
         "You are not assigned to any branch. Please contact your administrator.",
         403,
-        { code: "NO_BRANCH_ASSIGNED" }
+        { code: "NO_BRANCH_ASSIGNED" },
       );
     }
 
     // If a specific branch was requested, validate it matches user's branch
     if (requestedBranchId && requestedBranchId !== userBranchId) {
       console.warn(
-        `🚫 Branch access denied: User ${user_id} tried to access branch ${requestedBranchId} but belongs to ${userBranchId}`
+        `🚫 Branch access denied: User ${user_id} tried to access branch ${requestedBranchId} but belongs to ${userBranchId}`,
       );
       return fail(
         res,
         "Access denied. You can only access data from your assigned branch.",
         403,
-        { code: "BRANCH_ACCESS_DENIED" }
+        { code: "BRANCH_ACCESS_DENIED" },
       );
     }
 
@@ -220,12 +220,12 @@ export function requireBranchAccess(options = {}) {
 
 /**
  * Ensure user belongs to the shop being accessed
- * 
+ *
  * Useful for routes that include shop_id in params
- * 
+ *
  * Usage:
  *   router.get("/shops/:shop_id/data", requireAuth, requireShopAccess(), handler)
- * 
+ *
  * @param {Object} options
  * @param {string} options.paramName - Name of the shop_id param (default: "shop_id")
  */
@@ -256,13 +256,13 @@ export function requireShopAccess(options = {}) {
     // Validate user belongs to this shop
     if (requestedShopId !== userShopId) {
       console.warn(
-        `🚫 Shop access denied: User ${user_id} tried to access shop ${requestedShopId} but belongs to ${userShopId}`
+        `🚫 Shop access denied: User ${user_id} tried to access shop ${requestedShopId} but belongs to ${userShopId}`,
       );
       return fail(
         res,
         "Access denied. You don't have access to this shop.",
         403,
-        { code: "SHOP_ACCESS_DENIED" }
+        { code: "SHOP_ACCESS_DENIED" },
       );
     }
 
@@ -279,13 +279,13 @@ export function requireShopAccess(options = {}) {
 
 /**
  * Create a combined guard with permission + branch access
- * 
+ *
  * Usage:
- *   router.post("/sales", requireAuth, createGuard({ 
+ *   router.post("/sales", requireAuth, createGuard({
  *     permission: "billing:create",
- *     requireBranch: true 
+ *     requireBranch: true
  *   }), handler)
- * 
+ *
  * @param {Object} config
  * @param {string} config.permission - Required permission
  * @param {string[]} config.permissions - Required any of these permissions
@@ -293,12 +293,7 @@ export function requireShopAccess(options = {}) {
  * @param {boolean} config.requireBranch - Enforce branch access (default: true)
  */
 export function createGuard(config = {}) {
-  const {
-    permission,
-    permissions,
-    roles,
-    requireBranch = true,
-  } = config;
+  const { permission, permissions, roles, requireBranch = true } = config;
 
   return async (req, res, next) => {
     if (!req.user) {
@@ -313,13 +308,13 @@ export function createGuard(config = {}) {
     if (roles && roles.length > 0) {
       if (!roles.includes(role)) {
         console.warn(
-          `🚫 Role denied: User ${user_id} with role "${role}" tried to access route requiring [${roles.join(", ")}]`
+          `🚫 Role denied: User ${user_id} with role "${role}" tried to access route requiring [${roles.join(", ")}]`,
         );
         return fail(
           res,
           "Access denied. You don't have permission to perform this action.",
           403,
-          { code: "INSUFFICIENT_ROLE" }
+          { code: "INSUFFICIENT_ROLE" },
         );
       }
     }
@@ -330,13 +325,13 @@ export function createGuard(config = {}) {
     if (permission) {
       if (!roleHasPermission(role, permission)) {
         console.warn(
-          `🚫 Permission denied: User ${user_id} with role "${role}" lacks permission "${permission}"`
+          `🚫 Permission denied: User ${user_id} with role "${role}" lacks permission "${permission}"`,
         );
         return fail(
           res,
           "Access denied. You don't have permission to perform this action.",
           403,
-          { code: "INSUFFICIENT_PERMISSION", required: permission }
+          { code: "INSUFFICIENT_PERMISSION", required: permission },
         );
       }
     }
@@ -344,13 +339,13 @@ export function createGuard(config = {}) {
     if (permissions && permissions.length > 0) {
       if (!roleHasAnyPermission(role, permissions)) {
         console.warn(
-          `🚫 Permission denied: User ${user_id} with role "${role}" lacks any of [${permissions.join(", ")}]`
+          `🚫 Permission denied: User ${user_id} with role "${role}" lacks any of [${permissions.join(", ")}]`,
         );
         return fail(
           res,
           "Access denied. You don't have permission to perform this action.",
           403,
-          { code: "INSUFFICIENT_PERMISSION", required_any: permissions }
+          { code: "INSUFFICIENT_PERMISSION", required_any: permissions },
         );
       }
     }
@@ -360,9 +355,7 @@ export function createGuard(config = {}) {
     // ============================================
     if (requireBranch) {
       const requestedBranchId =
-        req.params.branch_id ||
-        req.query.branch_id ||
-        req.body?.branch_id;
+        req.params.branch_id || req.query.branch_id || req.body?.branch_id;
 
       if (role === "super_admin") {
         // SA can access all
@@ -373,12 +366,9 @@ export function createGuard(config = {}) {
       } else {
         // Must have branch assigned
         if (!userBranchId) {
-          return fail(
-            res,
-            "You are not assigned to any branch.",
-            403,
-            { code: "NO_BRANCH_ASSIGNED" }
-          );
+          return fail(res, "You are not assigned to any branch.", 403, {
+            code: "NO_BRANCH_ASSIGNED",
+          });
         }
 
         // Validate branch match
@@ -387,7 +377,7 @@ export function createGuard(config = {}) {
             res,
             "Access denied. You can only access your assigned branch.",
             403,
-            { code: "BRANCH_ACCESS_DENIED" }
+            { code: "BRANCH_ACCESS_DENIED" },
           );
         }
 
@@ -406,8 +396,8 @@ export function createGuard(config = {}) {
  * ============================================
  * UTILITY: Get user permissions endpoint
  * ============================================
- * 
- * Use this in a route to return user's permissions to frontend
+ *
+ * Use this in a route to return user's permissions to pharmacy-web
  */
 export function getUserPermissionsHandler(req, res) {
   if (!req.user) {

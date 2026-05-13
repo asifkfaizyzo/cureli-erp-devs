@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\SessionsCard.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\SessionsCard.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -30,7 +30,12 @@ const SessionsCard = ({ sessions = [], onUpdate }) => {
   const getDeviceIcon = (deviceInfo) => {
     if (!deviceInfo) return Monitor;
     const lower = deviceInfo.toLowerCase();
-    if (lower.includes("android") || lower.includes("iphone") || lower.includes("ios") || lower.includes("mobile")) {
+    if (
+      lower.includes("android") ||
+      lower.includes("iphone") ||
+      lower.includes("ios") ||
+      lower.includes("mobile")
+    ) {
       return Smartphone;
     }
     return Monitor;
@@ -100,18 +105,25 @@ const SessionsCard = ({ sessions = [], onUpdate }) => {
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {/* Device Icon */}
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-            isCurrent ? "bg-emerald-100" : "bg-[#000060]/10"
-          }`}>
-            <DeviceIcon size={18} className={isCurrent ? "text-emerald-600" : "text-[#000060]"} />
+          <div
+            className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+              isCurrent ? "bg-emerald-100" : "bg-[#000060]/10"
+            }`}
+          >
+            <DeviceIcon
+              size={18}
+              className={isCurrent ? "text-emerald-600" : "text-[#000060]"}
+            />
           </div>
 
           {/* Session Info */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className={`text-sm font-medium truncate ${
-                isCurrent ? "text-emerald-900" : "text-gray-900"
-              }`}>
+              <p
+                className={`text-sm font-medium truncate ${
+                  isCurrent ? "text-emerald-900" : "text-gray-900"
+                }`}
+              >
                 {session.device_info || "Unknown Device"}
               </p>
               {isCurrent && (
@@ -161,9 +173,12 @@ const SessionsCard = ({ sessions = [], onUpdate }) => {
           <div className="flex items-center gap-3">
             <Shield size={20} className="text-[#000060]" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Active Sessions</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Active Sessions
+              </h2>
               <p className="text-xs text-gray-500">
-                {sessions.length} active session{sessions.length !== 1 ? "s" : ""}
+                {sessions.length} active session
+                {sessions.length !== 1 ? "s" : ""}
               </p>
             </div>
           </div>
@@ -249,8 +264,10 @@ const SessionsCard = ({ sessions = [], onUpdate }) => {
         title="Logout All Other Sessions?"
         message={
           <span>
-            This will log you out from <strong>{otherSessions.length}</strong> other device
-            {otherSessions.length > 1 ? "s" : ""}. You will remain logged in on this device.
+            This will log you out from <strong>{otherSessions.length}</strong>{" "}
+            other device
+            {otherSessions.length > 1 ? "s" : ""}. You will remain logged in on
+            this device.
           </span>
         }
         confirmText="Logout All Others"

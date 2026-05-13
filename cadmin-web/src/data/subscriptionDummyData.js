@@ -1,5 +1,5 @@
 // Subscription Plans Dummy Data
-// For frontend development and testing
+// For pharmacy-web development and testing
 
 import { PLAN_STATUS } from "../config/modules/subscriptionConfig";
 
@@ -7,7 +7,8 @@ export const dummyPlans = [
   {
     id: "plan_001",
     name: "Free Starter",
-    description: "Get started with Cureli. Perfect for trying out the platform.",
+    description:
+      "Get started with Cureli. Perfect for trying out the platform.",
     price: 0,
     usersLimit: 2,
     branchesLimit: 1,
@@ -21,7 +22,8 @@ export const dummyPlans = [
   {
     id: "plan_002",
     name: "Basic Plan",
-    description: "Essential features for small businesses starting their journey.",
+    description:
+      "Essential features for small businesses starting their journey.",
     price: 2999,
     usersLimit: 5,
     branchesLimit: 1,
@@ -35,7 +37,8 @@ export const dummyPlans = [
   {
     id: "plan_003",
     name: "Standard Plan",
-    description: "Comprehensive features for growing teams and multiple locations.",
+    description:
+      "Comprehensive features for growing teams and multiple locations.",
     price: 7999,
     usersLimit: 15,
     branchesLimit: 3,
@@ -49,7 +52,8 @@ export const dummyPlans = [
   {
     id: "plan_004",
     name: "Premium Plan",
-    description: "Advanced features with priority support for established businesses.",
+    description:
+      "Advanced features with priority support for established businesses.",
     price: 14999,
     usersLimit: 30,
     branchesLimit: 5,
@@ -63,7 +67,8 @@ export const dummyPlans = [
   {
     id: "plan_005",
     name: "Enterprise Plan",
-    description: "Unlimited access for large organizations with dedicated support.",
+    description:
+      "Unlimited access for large organizations with dedicated support.",
     price: 29999,
     usersLimit: -1, // -1 means unlimited
     branchesLimit: 10,

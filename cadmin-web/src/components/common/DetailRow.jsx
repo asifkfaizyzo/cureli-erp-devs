@@ -1,6 +1,15 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\components\common\DetailRow.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\cadmin-web\src\components\common\DetailRow.jsx
 
-import { Pencil, ClipboardCopy, CheckCircle, XCircle, Clock, Lock, ChevronDown, Check } from "lucide-react";
+import {
+  Pencil,
+  ClipboardCopy,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Lock,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 
@@ -18,7 +27,7 @@ const DetailRow = ({
   const [copied, setCopied] = useState(false);
   const [isSelectOpen, setIsSelectOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState(null);
-  
+
   const selectTriggerRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -68,8 +77,10 @@ const DetailRow = ({
 
     const handleClickOutside = (e) => {
       if (
-        selectTriggerRef.current && !selectTriggerRef.current.contains(e.target) &&
-        dropdownRef.current && !dropdownRef.current.contains(e.target)
+        selectTriggerRef.current &&
+        !selectTriggerRef.current.contains(e.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
       ) {
         setIsSelectOpen(false);
       }
@@ -95,7 +106,8 @@ const DetailRow = ({
   }, [isSelectOpen, updateDropdownPosition]);
 
   // Get selected option label
-  const selectedOptionLabel = options.find((o) => o.value === value)?.label || value;
+  const selectedOptionLabel =
+    options.find((o) => o.value === value)?.label || value;
 
   // Render status badge
   const renderStatusBadge = (status) => {
@@ -103,7 +115,11 @@ const DetailRow = ({
     let styles = "bg-gray-100 text-gray-700";
     let icon = null;
 
-    if (statusLower === "active" || statusLower === "yes" || statusLower === "paid") {
+    if (
+      statusLower === "active" ||
+      statusLower === "yes" ||
+      statusLower === "paid"
+    ) {
       styles = "bg-emerald-100 text-emerald-700";
       icon = <CheckCircle size={12} />;
     } else if (
@@ -158,7 +174,11 @@ const DetailRow = ({
     let styles = "bg-blue-100 text-blue-700";
     let icon = <Clock size={12} />;
 
-    if (statusLower === "verified" || statusLower === "completed" || statusLower === "active") {
+    if (
+      statusLower === "verified" ||
+      statusLower === "completed" ||
+      statusLower === "active"
+    ) {
       styles = "bg-emerald-100 text-emerald-700";
       icon = <CheckCircle size={12} />;
     } else if (statusLower?.includes("pending")) {
@@ -201,9 +221,10 @@ const DetailRow = ({
             className={`
               w-full px-4 py-2.5 text-sm text-left flex items-center justify-between
               transition-colors duration-150
-              ${value === option.value
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-gray-700 hover:bg-gray-50"
+              ${
+                value === option.value
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-gray-700 hover:bg-gray-50"
               }
             `}
           >
@@ -214,7 +235,7 @@ const DetailRow = ({
           </button>
         ))}
       </div>,
-      document.body
+      document.body,
     );
   };
 
@@ -224,7 +245,9 @@ const DetailRow = ({
         {/* Label */}
         <label className="w-36 text-sm font-medium text-gray-500 flex-shrink-0 flex items-center gap-1">
           {label}
-          {disabled && isEditing && <Lock size={12} className="text-gray-400" />}
+          {disabled && isEditing && (
+            <Lock size={12} className="text-gray-400" />
+          )}
         </label>
 
         {/* Value */}
@@ -261,9 +284,10 @@ const DetailRow = ({
                   w-full px-4 py-2.5 pr-10 rounded-lg text-sm text-left
                   flex items-center justify-between
                   transition-all duration-200 shadow-sm
-                  ${isSelectOpen
-                    ? "bg-white border-2 border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "bg-white border-2 border-indigo-500 hover:border-indigo-600"
+                  ${
+                    isSelectOpen
+                      ? "bg-white border-2 border-indigo-500 ring-2 ring-indigo-500/20"
+                      : "bg-white border-2 border-indigo-500 hover:border-indigo-600"
                   }
                 `}
               >
@@ -324,8 +348,8 @@ const DetailRow = ({
                   isEditing && !disabled
                     ? "bg-white border-2 border-indigo-500 text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     : disabled && isEditing
-                    ? "bg-gray-100 border border-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-white border border-gray-200 text-gray-700 cursor-default"
+                      ? "bg-gray-100 border border-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-white border border-gray-200 text-gray-700 cursor-default"
                 }
               `}
             />

@@ -83,7 +83,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/cureli-admin"
+        "cwd": "${workspaceFolder}/cadmin-web"
       },
       "isBackground": true,
       "presentation": {
@@ -95,7 +95,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/pharmacy-web"
       },
       "isBackground": true,
       "presentation": {

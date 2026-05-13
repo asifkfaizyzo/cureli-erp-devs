@@ -1,4 +1,4 @@
-//cureli-admin\src\api\cadminMasterMedicines.js
+//cadmin-web\src\api\cadminMasterMedicines.js
 import CAdminAPI from "./axios";
 
 // ══════════════════════════════════════════════════════════════

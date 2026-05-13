@@ -15,7 +15,7 @@ strings are assigned to which custom roles.
 
 When you add a new feature that needs access control, follow every step
 in this guide in order. Skipping any step will result in either the backend
-not enforcing the permission or the frontend not showing/hiding correctly.
+not enforcing the permission or the pharmacy-web not showing/hiding correctly.
 
 ---
 
@@ -38,7 +38,7 @@ not enforcing the permission or the frontend not showing/hiding correctly.
 │ 4. At login, requireCAdmin loads permissions from DB │
 │ and attaches them to req.cadmin.permissions[] │
 │ │
-│ 5. Frontend reads admin.permissions[] from AuthContext │
+│ 5. pharmacy-web reads admin.permissions[] from AuthContext │
 │ via useCAdminPermission().hasPermission(...) │
 │ │
 │ 6. UI hides/shows based on permission │
@@ -114,7 +114,7 @@ Find the correct group or create a new one:
 
 ---
 
-### STEP 2 — Add to Frontend Permission Registry
+### STEP 2 — Add to pharmacy-web Permission Registry
 
 **File:** `pharmacy-web/src/config/cadminPermissions.js`
 
@@ -148,7 +148,7 @@ Then add to `CADMIN_PERMISSION_GROUPS` in the same file (mirror of backend):
 },
 ```
 
-**Important:** The frontend `CADMIN_PERMISSION_GROUPS` drives the
+**Important:** The pharmacy-web `CADMIN_PERMISSION_GROUPS` drives the
 role creation checklist UI. If you skip this, the permission will exist
 but admins cannot assign it via the UI.
 
@@ -192,7 +192,7 @@ every authenticated admin must access them.
 
 ---
 
-### STEP 4 — Add UI Gate in Frontend Component (if needed)
+### STEP 4 — Add UI Gate in pharmacy-web Component (if needed)
 
 In any component that renders the feature, gate the UI element:
 
@@ -299,7 +299,7 @@ Copy this when adding any new permission:
 [ ] Step 2: Added to CADMIN_PERMISSIONS in pharmacy-web/src/config/cadminPermissions.js
 [ ] Step 2: Added to CADMIN_PERMISSION_GROUPS in pharmacy-web/src/config/cadminPermissions.js
 [ ] Step 3: requireCAdminPermission() added to backend route(s)
-[ ] Step 4: hasPermission() gate added in frontend component (if UI element)
+[ ] Step 4: hasPermission() gate added in pharmacy-web component (if UI element)
 [ ] Step 5: Added to useCAdminMenuPermissions() (if sidebar item)
 [ ] Step 5: Added to MENU_ITEMS in AdminSidebar.jsx (if sidebar item)
 [ ] Step 5: Added to CADMIN_ROUTE_PERMISSIONS (if sidebar item)
@@ -311,7 +311,7 @@ Copy this when adding any new permission:
 
 ## Common Mistakes
 
-### Mistake 1 — String mismatch between frontend and backend
+### Mistake 1 — String mismatch between pharmacy-web and backend
 
 **Wrong:**
 
@@ -319,11 +319,11 @@ Copy this when adding any new permission:
 // backend
 REPORTS_EXPORT: "reports.export";
 
-// frontend (typo)
+// pharmacy-web (typo)
 REPORTS_EXPORT: "report.export"; // ← missing 's'
 ```
 
-**Result:** Permission is enforced on backend but frontend always shows
+**Result:** Permission is enforced on backend but pharmacy-web always shows
 the element (because `hasPermission("report.export")` never matches
 `"reports.export"` in the admin's permissions array).
 
@@ -392,7 +392,7 @@ populated by `requireCAdmin`. Without `requireCAdmin` running first,
 
 ### Mistake 5 — Gating UI but not the API
 
-Only adding `hasPermission()` in the frontend component without adding
+Only adding `hasPermission()` in the pharmacy-web component without adding
 `requireCAdminPermission()` to the backend route means the UI hides
 the button but the API is still wide open. Anyone who knows the endpoint
 can call it directly.
@@ -408,9 +408,9 @@ can call it directly.
 | Backend permission constants + groups          | `backend/src/config/cadminPermissions.js`                                     |
 | Backend auth middleware                        | `backend/src/middleware/requireCAdmin.js`                                     |
 | Backend permission enforcement middleware      | `backend/src/middleware/requireCAdminPermission.js`                           |
-| Frontend permission constants + groups         | `pharmacy-web/src/config/cadminPermissions.js`                                |
-| Frontend permission hook                       | `pharmacy-web/src/hooks/useCAdminPermission.js`                               |
-| Frontend route guards                          | `pharmacy-web/src/App.jsx`                                                    |
+| pharmacy-web permission constants + groups     | `pharmacy-web/src/config/cadminPermissions.js`                                |
+| pharmacy-web permission hook                   | `pharmacy-web/src/hooks/useCAdminPermission.js`                               |
+| pharmacy-web route guards                      | `pharmacy-web/src/App.jsx`                                                    |
 | Sidebar menu items                             | `pharmacy-web/src/components/layout/AdminSidebar.jsx`                         |
 | Role creation UI (checklist reads from groups) | `pharmacy-web/src/pages/Cadmin-management/comps/RolePermissionsChecklist.jsx` |
 
@@ -434,7 +434,7 @@ If SUPER_CADMIN → bypasses all checks (is_super_cadmin = true)
 Handler runs
 ```
 
-On the frontend:
+On the pharmacy-web:
 
 ```
 AuthProvider mounts → calls GET /cadmin/me

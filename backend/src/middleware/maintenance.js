@@ -40,7 +40,7 @@ const maintenanceMiddleware = (req, res, next) => {
   // Check if path is excluded
   const isExcludedPath = excludedPaths.some(
     (excludedPath) =>
-      req.path === excludedPath || req.path.startsWith(excludedPath + "/")
+      req.path === excludedPath || req.path.startsWith(excludedPath + "/"),
   );
 
   if (isExcludedPath) {
@@ -50,7 +50,7 @@ const maintenanceMiddleware = (req, res, next) => {
   // Check if IP is allowed (only if there are allowed IPs configured)
   if (allowedIps.length > 0) {
     const isAllowedIp = allowedIps.some(
-      (allowedIp) => clientIp === allowedIp || clientIp.includes(allowedIp)
+      (allowedIp) => clientIp === allowedIp || clientIp.includes(allowedIp),
     );
 
     if (isAllowedIp) {
@@ -63,8 +63,7 @@ const maintenanceMiddleware = (req, res, next) => {
     process.env.MAINTENANCE_MESSAGE?.replace(/^["']|["']$/g, "") ||
     "We are currently performing scheduled maintenance. Please check back soon.";
 
- 
-  // Set header for frontend to detect
+  // Set header for pharmacy-web to detect
   res.setHeader("X-Maintenance-Mode", "true");
 
   return res.status(503).json({

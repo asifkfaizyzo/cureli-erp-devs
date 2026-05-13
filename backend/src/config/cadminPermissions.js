@@ -30,8 +30,8 @@
  *         Add it as middleware on the specific route
  *         Example: router.get("/reports", requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_VIEW_SALES), handler)
  *
- * Step 4: Add UI gate in frontend if needed
- *         The frontend reads permissions from AuthContext → admin.permissions[]
+ * Step 4: Add UI gate in pharmacy-web if needed
+ *         The pharmacy-web reads permissions from AuthContext → admin.permissions[]
  *         Use the useCAdminPermission() hook: const { hasPermission } = useCAdminPermission()
  *         Example: hasPermission("reports.view_sales")
  *

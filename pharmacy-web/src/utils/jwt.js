@@ -5,7 +5,7 @@
  * JWT UTILITIES
  * ============================================
  * 
- * Lightweight JWT decode for frontend use.
+ * Lightweight JWT decode for pharmacy-web use.
  * NOTE: This does NOT verify the token signature.
  * Verification is done server-side.
  */

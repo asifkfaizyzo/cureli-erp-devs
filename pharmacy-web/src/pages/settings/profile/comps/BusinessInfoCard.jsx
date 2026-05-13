@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\BusinessInfoCard.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\BusinessInfoCard.jsx
 
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -40,9 +40,11 @@ const BusinessInfoCard = ({ shop, onUpdate }) => {
 
   // Info item component
   const InfoItem = ({ icon: Icon, label, value, note, fullWidth = false }) => (
-    <div className={`flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors ${
-      fullWidth ? "md:col-span-2 lg:col-span-3" : ""
-    }`}>
+    <div
+      className={`flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors ${
+        fullWidth ? "md:col-span-2 lg:col-span-3" : ""
+      }`}
+    >
       <div className="w-10 h-10 bg-[#000060]/10 rounded-lg flex items-center justify-center flex-shrink-0">
         <Icon size={18} className="text-[#000060]" />
       </div>
@@ -70,7 +72,9 @@ const BusinessInfoCard = ({ shop, onUpdate }) => {
           <div className="flex items-center gap-3">
             <Building2 size={20} className="text-[#000060]" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Business Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Business Information
+              </h2>
               <p className="text-xs text-gray-500">{shop.business_name}</p>
             </div>
           </div>
@@ -102,11 +106,7 @@ const BusinessInfoCard = ({ shop, onUpdate }) => {
             />
 
             {/* Pincode */}
-            <InfoItem
-              icon={MapPin}
-              label="Pincode"
-              value={shop.pincode}
-            />
+            <InfoItem icon={MapPin} label="Pincode" value={shop.pincode} />
 
             {/* Full Address - Full Width */}
             <InfoItem

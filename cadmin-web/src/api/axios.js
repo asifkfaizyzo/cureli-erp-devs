@@ -1,4 +1,4 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\api\axios.js
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cadmin-web\src\api\axios.js
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;

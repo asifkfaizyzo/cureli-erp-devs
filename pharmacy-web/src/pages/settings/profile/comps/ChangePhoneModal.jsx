@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\ChangePhoneModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\ChangePhoneModal.jsx
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,11 +29,11 @@ import {
 /**
  * ChangePhoneModal
  * Multi-step modal for changing phone number
- * 
- * Method 1 (OTP): 
+ *
+ * Method 1 (OTP):
  *   Step 1: Send & verify OTP to old phone
  *   Step 2: Enter new phone & verify OTP sent to new phone
- * 
+ *
  * Method 2 (Password):
  *   Step 1: Enter password + new phone
  *   Step 2: Verify OTP sent to new phone
@@ -126,7 +126,7 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       const response = await initiatePhoneVerifyOld();
       const timeout = response.data?.data?.timeout || 300;
       startCountdown(Math.min(30, timeout));
-      
+
       // Only set method if OTP was sent successfully
       setMethod("otp");
     } catch (err) {
@@ -136,7 +136,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       if (err.response?.status === 429) {
         const waitTime = err.response?.data?.data?.waitTime || 30;
         startCountdown(waitTime);
-        setSubmitError(`Please wait ${waitTime} seconds before requesting again`);
+        setSubmitError(
+          `Please wait ${waitTime} seconds before requesting again`,
+        );
       } else {
         setSubmitError(message);
       }
@@ -249,7 +251,8 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       setStep(2);
     } catch (err) {
       console.error("Initiate phone change error:", err);
-      const message = err.response?.data?.message || "Failed to initiate phone change";
+      const message =
+        err.response?.data?.message || "Failed to initiate phone change";
 
       if (message.toLowerCase().includes("password")) {
         setErrors({ current_password: message });
@@ -289,7 +292,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
       console.error("Verify new OTP error:", err);
       const message = err.response?.data?.message || "Failed to verify OTP";
 
-      if (message.toLowerCase().includes("otp") || message.toLowerCase().includes("expired")) {
+      if (
+        message.toLowerCase().includes("otp") ||
+        message.toLowerCase().includes("expired")
+      ) {
         setErrors({ new_otp: message });
       } else {
         setSubmitError(message);
@@ -368,9 +374,12 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-emerald-600" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Phone Changed!</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Phone Changed!
+          </h3>
           <p className="text-gray-500">
-            Your phone has been updated to <strong>{formatPhone(formData.new_phone)}</strong>
+            Your phone has been updated to{" "}
+            <strong>{formatPhone(formData.new_phone)}</strong>
           </p>
         </motion.div>
       </div>
@@ -413,7 +422,7 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            {(method !== null) && (
+            {method !== null && (
               <button
                 onClick={handleBack}
                 disabled={isSubmitting}
@@ -422,7 +431,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                 <ArrowLeft size={20} />
               </button>
             )}
-            <h2 className="text-lg font-bold text-gray-900">Change Phone Number</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              Change Phone Number
+            </h2>
           </div>
           <button
             onClick={() => onClose(false)}
@@ -498,7 +509,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                 >
                   <div className="w-12 h-12 bg-[#000060]/10 rounded-lg flex items-center justify-center flex-shrink-0">
                     {isSubmitting ? (
-                      <Loader2 size={24} className="text-[#000060] animate-spin" />
+                      <Loader2
+                        size={24}
+                        className="text-[#000060] animate-spin"
+                      />
                     ) : (
                       <MessageSquare size={24} className="text-[#000060]" />
                     )}
@@ -506,12 +520,14 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">Verify via OTP</p>
                     <p className="text-sm text-gray-500">
-                      {isSubmitting 
-                        ? "Sending OTP..." 
+                      {isSubmitting
+                        ? "Sending OTP..."
                         : "We'll send a code to your current phone"}
                     </p>
                   </div>
-                  {!isSubmitting && <ArrowRight size={20} className="text-gray-400" />}
+                  {!isSubmitting && (
+                    <ArrowRight size={20} className="text-gray-400" />
+                  )}
                 </button>
 
                 {/* Password Method */}
@@ -527,7 +543,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     <KeyRound size={24} className="text-[#000060]" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">Verify via Password</p>
+                    <p className="font-medium text-gray-900">
+                      Verify via Password
+                    </p>
                     <p className="text-sm text-gray-500">
                       Use your account password instead
                     </p>
@@ -567,7 +585,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     type="text"
                     value={formData.old_otp}
                     onChange={(e) =>
-                      handleChange("old_otp", e.target.value.replace(/\D/g, "").slice(0, 6))
+                      handleChange(
+                        "old_otp",
+                        e.target.value.replace(/\D/g, "").slice(0, 6),
+                      )
                     }
                     placeholder="Enter OTP"
                     maxLength={6}
@@ -579,13 +600,17 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     autoFocus
                   />
                   {errors.old_otp && (
-                    <p className="text-red-500 text-xs mt-1 text-center">{errors.old_otp}</p>
+                    <p className="text-red-500 text-xs mt-1 text-center">
+                      {errors.old_otp}
+                    </p>
                   )}
 
                   {/* Resend OTP */}
                   <div className="flex justify-center mt-2">
                     {countdown > 0 ? (
-                      <p className="text-xs text-gray-500">Resend OTP in {countdown}s</p>
+                      <p className="text-xs text-gray-500">
+                        Resend OTP in {countdown}s
+                      </p>
                     ) : (
                       <button
                         onClick={handleResendOtp}
@@ -635,7 +660,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                       type="tel"
                       value={formData.new_phone}
                       onChange={(e) =>
-                        handleChange("new_phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        handleChange(
+                          "new_phone",
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
                       }
                       placeholder="9876543210"
                       maxLength={10}
@@ -648,7 +676,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     />
                   </div>
                   {errors.new_phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.new_phone}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.new_phone}
+                    </p>
                   )}
                 </div>
               </motion.div>
@@ -664,7 +694,8 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                 className="space-y-4"
               >
                 <p className="text-sm text-gray-600 mb-4">
-                  Enter your current password and new phone number. We'll send a verification code to your new phone.
+                  Enter your current password and new phone number. We'll send a
+                  verification code to your new phone.
                 </p>
 
                 {/* Current Phone Display */}
@@ -688,7 +719,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     <input
                       type={showPassword ? "text" : "password"}
                       value={formData.current_password}
-                      onChange={(e) => handleChange("current_password", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("current_password", e.target.value)
+                      }
                       placeholder="Enter your password"
                       className={`w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.current_password
@@ -705,7 +738,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     </button>
                   </div>
                   {errors.current_password && (
-                    <p className="text-red-500 text-xs mt-1">{errors.current_password}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.current_password}
+                    </p>
                   )}
                 </div>
 
@@ -722,7 +757,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                       type="tel"
                       value={formData.new_phone}
                       onChange={(e) =>
-                        handleChange("new_phone", e.target.value.replace(/\D/g, "").slice(0, 10))
+                        handleChange(
+                          "new_phone",
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
                       }
                       placeholder="9876543210"
                       maxLength={10}
@@ -734,7 +772,9 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     />
                   </div>
                   {errors.new_phone && (
-                    <p className="text-red-500 text-xs mt-1">{errors.new_phone}</p>
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.new_phone}
+                    </p>
                   )}
                 </div>
               </motion.div>
@@ -770,7 +810,10 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     type="text"
                     value={formData.new_otp}
                     onChange={(e) =>
-                      handleChange("new_otp", e.target.value.replace(/\D/g, "").slice(0, 6))
+                      handleChange(
+                        "new_otp",
+                        e.target.value.replace(/\D/g, "").slice(0, 6),
+                      )
                     }
                     placeholder="Enter OTP"
                     maxLength={6}
@@ -782,13 +825,17 @@ const ChangePhoneModal = ({ currentPhone, onClose }) => {
                     autoFocus
                   />
                   {errors.new_otp && (
-                    <p className="text-red-500 text-xs mt-1 text-center">{errors.new_otp}</p>
+                    <p className="text-red-500 text-xs mt-1 text-center">
+                      {errors.new_otp}
+                    </p>
                   )}
 
                   {/* Resend OTP */}
                   <div className="flex justify-center mt-2">
                     {countdown > 0 ? (
-                      <p className="text-xs text-gray-500">Resend OTP in {countdown}s</p>
+                      <p className="text-xs text-gray-500">
+                        Resend OTP in {countdown}s
+                      </p>
                     ) : (
                       <button
                         onClick={handleResendOtp}

@@ -1,4 +1,4 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cureli-admin\src\api\cadminUsers.js
+//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cadmin-web\src\api\cadminUsers.js
 import CAdminAPI from "./axios";
 
 /**

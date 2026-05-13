@@ -1,4 +1,4 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\frontend\src\pages\settings\profile\comps\EditBusinessModal.jsx
+// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\EditBusinessModal.jsx
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -39,12 +39,39 @@ const EditBusinessModal = ({ shop, onClose }) => {
 
   // Indian states list (you can import from your existing utils)
   const states = [
-    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
-    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
-    "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
-    "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-    "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
-    "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chhattisgarh",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+    "Delhi",
+    "Jammu and Kashmir",
+    "Ladakh",
+    "Puducherry",
+    "Chandigarh",
   ];
 
   const handleChange = (field, value) => {
@@ -120,7 +147,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
       }, 1500);
     } catch (err) {
       console.error("Update business error:", err);
-      setSubmitError(err.response?.data?.message || "Failed to update business information");
+      setSubmitError(
+        err.response?.data?.message || "Failed to update business information",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -144,7 +173,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
             <CheckCircle size={32} className="text-emerald-600" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Updated!</h3>
-          <p className="text-gray-500">Business information updated successfully.</p>
+          <p className="text-gray-500">
+            Business information updated successfully.
+          </p>
         </motion.div>
       </div>
     );
@@ -170,7 +201,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900">Edit Business Information</h2>
+          <h2 className="text-lg font-bold text-gray-900">
+            Edit Business Information
+          </h2>
           <button
             onClick={() => onClose(false)}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -195,7 +228,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
                 <input
                   type="text"
                   value={formData.business_name}
-                  onChange={(e) => handleChange("business_name", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("business_name", e.target.value)
+                  }
                   placeholder="Your Business Name"
                   className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                     errors.business_name
@@ -205,7 +240,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
                 />
               </div>
               {errors.business_name && (
-                <p className="text-red-500 text-xs mt-1">{errors.business_name}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.business_name}
+                </p>
               )}
             </div>
 
@@ -222,7 +259,9 @@ const EditBusinessModal = ({ shop, onClose }) => {
                 <input
                   type="text"
                   value={formData.address_line_1}
-                  onChange={(e) => handleChange("address_line_1", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("address_line_1", e.target.value)
+                  }
                   placeholder="Street address, building name"
                   className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-all ${
                     errors.address_line_1
@@ -232,11 +271,11 @@ const EditBusinessModal = ({ shop, onClose }) => {
                 />
               </div>
               {errors.address_line_1 && (
-                <p className="text-red-500 text-xs mt-1">{errors.address_line_1}</p>
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.address_line_1}
+                </p>
               )}
             </div>
-
-
 
             {/* City & State Row */}
             <div className="grid grid-cols-2 gap-4">
@@ -303,7 +342,10 @@ const EditBusinessModal = ({ shop, onClose }) => {
                 type="text"
                 value={formData.pincode}
                 onChange={(e) =>
-                  handleChange("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
+                  handleChange(
+                    "pincode",
+                    e.target.value.replace(/\D/g, "").slice(0, 6),
+                  )
                 }
                 placeholder="6-digit pincode"
                 maxLength={6}

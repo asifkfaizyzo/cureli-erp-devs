@@ -5,7 +5,7 @@ const RECAPTCHA_THRESHOLD = parseFloat(process.env.RECAPTCHA_THRESHOLD) || 0.3;
 
 /**
  * Verify reCAPTCHA v3 token and return full result
- * @param {string} token - The reCAPTCHA token from frontend
+ * @param {string} token - The reCAPTCHA token from pharmacy-web
  * @param {string|null} expectedAction - Optional action name to verify
  * @returns {Promise<{success: boolean, score?: number, action?: string, error?: string}>}
  */
@@ -101,7 +101,7 @@ export function isRecaptchaScoreValid(score, threshold = RECAPTCHA_THRESHOLD) {
 
 /**
  * Simple reCAPTCHA verification (returns boolean)
- * @param {string} token - The reCAPTCHA token from frontend
+ * @param {string} token - The reCAPTCHA token from pharmacy-web
  * @returns {Promise<boolean>}
  */
 export async function validateRecaptcha(token) {
@@ -121,7 +121,7 @@ export async function validateRecaptcha(token) {
 
 // /**
 //  * Verify reCAPTCHA v3 token and check score
-//  * @param {string} token - The reCAPTCHA token from frontend
+//  * @param {string} token - The reCAPTCHA token from pharmacy-web
 //  * @param {string|null} expectedAction - Optional action name to verify
 //  * @returns {Promise<boolean>} - True if valid, false otherwise
 //  */
@@ -170,7 +170,7 @@ export async function validateRecaptcha(token) {
 // /**
 //  * Verify reCAPTCHA and return score validation result
 //  * (Existing function - keep for backward compatibility)
-//  * @param {string} token - The reCAPTCHA token from frontend
+//  * @param {string} token - The reCAPTCHA token from pharmacy-web
 //  * @returns {Promise<{success: boolean, score?: number, error?: string}>}
 //  */
 // export async function isRecaptchaScoreValid(token) {
