@@ -20,30 +20,31 @@ not enforcing the permission or the frontend not showing/hiding correctly.
 ---
 
 ## Architecture Summary
+```
 
-```
 ┌─────────────────────────────────────────────────────────────┐
-│  PERMISSION FLOW                                            │
-│                                                             │
-│  1. Code defines permission string                          │
-│     backend/src/config/cadminPermissions.js                 │
-│     frontend/src/config/cadminPermissions.js                │
-│                                                             │
-│  2. Backend enforces it on the route                        │
-│     requireCAdminPermission(CADMIN_PERMISSIONS.YOUR_KEY)    │
-│                                                             │
-│  3. DB stores which roles have it                           │
-│     cadmin_custom_roles.permissions = String[]              │
-│                                                             │
-│  4. At login, requireCAdmin loads permissions from DB       │
-│     and attaches them to req.cadmin.permissions[]           │
-│                                                             │
-│  5. Frontend reads admin.permissions[] from AuthContext      │
-│     via useCAdminPermission().hasPermission(...)            │
-│                                                             │
-│  6. UI hides/shows based on permission                      │
+│ PERMISSION FLOW │
+│ │
+│ 1. Code defines permission string │
+│ backend/src/config/cadminPermissions.js │
+│ pharmacy-web/src/config/cadminPermissions.js │
+│ │
+│ 2. Backend enforces it on the route │
+│ requireCAdminPermission(CADMIN_PERMISSIONS.YOUR_KEY) │
+│ │
+│ 3. DB stores which roles have it │
+│ cadmin_custom_roles.permissions = String[] │
+│ │
+│ 4. At login, requireCAdmin loads permissions from DB │
+│ and attaches them to req.cadmin.permissions[] │
+│ │
+│ 5. Frontend reads admin.permissions[] from AuthContext │
+│ via useCAdminPermission().hasPermission(...) │
+│ │
+│ 6. UI hides/shows based on permission │
 └─────────────────────────────────────────────────────────────┘
-```
+
+````
 
 ---
 
@@ -77,7 +78,7 @@ Find the correct module section and add your constant:
 REPORTS_VIEW:         "reports.view",
 REPORTS_VIEW_DETAIL:  "reports.view_detail",
 REPORTS_EXPORT:       "reports.export",       // ← your new permission
-```
+````
 
 Then add it to `CADMIN_PERMISSION_GROUPS` in the same file.
 Find the correct group or create a new one:
@@ -107,6 +108,7 @@ Find the correct group or create a new one:
 ```
 
 **Why both places?**
+
 - `CADMIN_PERMISSIONS` → used in routes and middleware for enforcement
 - `CADMIN_PERMISSION_GROUPS` → used in the role creation UI checklist
 
@@ -114,7 +116,7 @@ Find the correct group or create a new one:
 
 ### STEP 2 — Add to Frontend Permission Registry
 
-**File:** `frontend/src/config/cadminPermissions.js`
+**File:** `pharmacy-web/src/config/cadminPermissions.js`
 
 The string value MUST be **byte-for-byte identical** to the backend.
 
@@ -166,7 +168,7 @@ router.get(
   "/reports/export",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_EXPORT),
-  exportReportsController
+  exportReportsController,
 );
 
 // Any of multiple permissions (if route is accessible by different roles):
@@ -177,7 +179,7 @@ router.get(
     CADMIN_PERMISSIONS.REPORTS_VIEW,
     CADMIN_PERMISSIONS.REPORTS_EXPORT,
   ),
-  listReportsController
+  listReportsController,
 );
 ```
 
@@ -220,7 +222,7 @@ the data. Always do both.
 
 ### STEP 5 — Add to Sidebar Visibility (if it gates a menu item)
 
-**File:** `frontend/src/hooks/useCAdminPermission.js`
+**File:** `pharmacy-web/src/hooks/useCAdminPermission.js`
 
 If your new feature has a sidebar menu item, add it to
 `useCAdminMenuPermissions`:
@@ -236,18 +238,18 @@ Then in `AdminSidebar.jsx`, add the menu item:
 const MENU_ITEMS = [
   // ... existing items ...
   {
-    id:          "reports",
-    label:       "Reports",
-    icon:        BarChart,
-    path:        "/reports",
+    id: "reports",
+    label: "Reports",
+    icon: BarChart,
+    path: "/reports",
     breadcrumbs: ["Reports"],
-    permissionKey: "reports",   // ← must match key in useCAdminMenuPermissions
+    permissionKey: "reports", // ← must match key in useCAdminMenuPermissions
   },
 ];
 ```
 
 And add the route to `CADMIN_ROUTE_PERMISSIONS` in
-`frontend/src/config/cadminPermissions.js`:
+`pharmacy-web/src/config/cadminPermissions.js`:
 
 ```js
 "/reports": [CADMIN_PERMISSIONS.REPORTS_VIEW],
@@ -294,8 +296,8 @@ Copy this when adding any new permission:
 ```
 [ ] Step 1: Added to CADMIN_PERMISSIONS in backend/src/config/cadminPermissions.js
 [ ] Step 1: Added to CADMIN_PERMISSION_GROUPS in backend/src/config/cadminPermissions.js
-[ ] Step 2: Added to CADMIN_PERMISSIONS in frontend/src/config/cadminPermissions.js
-[ ] Step 2: Added to CADMIN_PERMISSION_GROUPS in frontend/src/config/cadminPermissions.js
+[ ] Step 2: Added to CADMIN_PERMISSIONS in pharmacy-web/src/config/cadminPermissions.js
+[ ] Step 2: Added to CADMIN_PERMISSION_GROUPS in pharmacy-web/src/config/cadminPermissions.js
 [ ] Step 3: requireCAdminPermission() added to backend route(s)
 [ ] Step 4: hasPermission() gate added in frontend component (if UI element)
 [ ] Step 5: Added to useCAdminMenuPermissions() (if sidebar item)
@@ -312,12 +314,13 @@ Copy this when adding any new permission:
 ### Mistake 1 — String mismatch between frontend and backend
 
 **Wrong:**
+
 ```js
 // backend
-REPORTS_EXPORT: "reports.export"
+REPORTS_EXPORT: "reports.export";
 
 // frontend (typo)
-REPORTS_EXPORT: "report.export"   // ← missing 's'
+REPORTS_EXPORT: "report.export"; // ← missing 's'
 ```
 
 **Result:** Permission is enforced on backend but frontend always shows
@@ -331,13 +334,15 @@ the element (because `hasPermission("report.export")` never matches
 ### Mistake 2 — Using colon notation instead of dot notation
 
 **Wrong:**
+
 ```js
-REPORTS_EXPORT: "reports:export"   // ← old system used colons
+REPORTS_EXPORT: "reports:export"; // ← old system used colons
 ```
 
 **Correct:**
+
 ```js
-REPORTS_EXPORT: "reports.export"   // ← new system uses dots
+REPORTS_EXPORT: "reports.export"; // ← new system uses dots
 ```
 
 The old CAdmin system (ANALYST, ACCOUNTANT, SALESMAN enum roles) used
@@ -359,13 +364,24 @@ via the UI.
 ### Mistake 4 — Forgetting requireCAdmin before requireCAdminPermission
 
 **Wrong:**
+
 ```js
-router.get("/reports", requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_VIEW), handler);
+router.get(
+  "/reports",
+  requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_VIEW),
+  handler,
+);
 ```
 
 **Correct:**
+
 ```js
-router.get("/reports", requireCAdmin, requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_VIEW), handler);
+router.get(
+  "/reports",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.REPORTS_VIEW),
+  handler,
+);
 ```
 
 `requireCAdminPermission` reads from `req.cadmin.permissions[]` which is
@@ -387,16 +403,16 @@ can call it directly.
 
 ## Files Reference
 
-| Purpose | File |
-|---|---|
-| Backend permission constants + groups | `backend/src/config/cadminPermissions.js` |
-| Backend auth middleware | `backend/src/middleware/requireCAdmin.js` |
-| Backend permission enforcement middleware | `backend/src/middleware/requireCAdminPermission.js` |
-| Frontend permission constants + groups | `frontend/src/config/cadminPermissions.js` |
-| Frontend permission hook | `frontend/src/hooks/useCAdminPermission.js` |
-| Frontend route guards | `frontend/src/App.jsx` |
-| Sidebar menu items | `frontend/src/components/layout/AdminSidebar.jsx` |
-| Role creation UI (checklist reads from groups) | `frontend/src/pages/Cadmin-management/comps/RolePermissionsChecklist.jsx` |
+| Purpose                                        | File                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| Backend permission constants + groups          | `backend/src/config/cadminPermissions.js`                                     |
+| Backend auth middleware                        | `backend/src/middleware/requireCAdmin.js`                                     |
+| Backend permission enforcement middleware      | `backend/src/middleware/requireCAdminPermission.js`                           |
+| Frontend permission constants + groups         | `pharmacy-web/src/config/cadminPermissions.js`                                |
+| Frontend permission hook                       | `pharmacy-web/src/hooks/useCAdminPermission.js`                               |
+| Frontend route guards                          | `pharmacy-web/src/App.jsx`                                                    |
+| Sidebar menu items                             | `pharmacy-web/src/components/layout/AdminSidebar.jsx`                         |
+| Role creation UI (checklist reads from groups) | `pharmacy-web/src/pages/Cadmin-management/comps/RolePermissionsChecklist.jsx` |
 
 ---
 
@@ -432,8 +448,10 @@ checks admin.permissions.includes("reports.export")
      ↓
 If SUPER_CADMIN (admin.is_super_cadmin = true) → always returns true
 ```
+
 ```
 
 ---
 
 This document covers every file that needs to change, every common mistake, and the exact runtime flow. Any developer or LLM starting fresh from this doc can add a permission correctly without needing to read the source code.
+```

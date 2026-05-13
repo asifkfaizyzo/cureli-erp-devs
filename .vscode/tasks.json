@@ -4,7 +4,18 @@
   "tasks": [
     {
       "label": "start-cureli",
-      "dependsOn": ["Backend", "cAdmin", "ERP","Landing","Prisma","Backend tree","Landing tree","ERP tree","cAdmin tree","Git"],
+      "dependsOn": [
+        "Backend",
+        "cAdmin",
+        "ERP",
+        "Landing",
+        "Prisma",
+        "Backend tree",
+        "Landing tree",
+        "ERP tree",
+        "cAdmin tree",
+        "Git"
+      ],
       "dependsOrder": "parallel"
     },
     {
@@ -37,7 +48,7 @@
       "command": "tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/frontend/src"
+        "cwd": "${workspaceFolder}/pharmacy-web/src"
       },
       "presentation": {
         "panel": "new"
@@ -49,7 +60,7 @@
       "command": "tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/cureli-admin/src"
+        "cwd": "${workspaceFolder}/cadmin-web/src"
       },
       "presentation": {
         "panel": "new"
@@ -61,7 +72,7 @@
       "command": "tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/landing/src"
+        "cwd": "${workspaceFolder}/landing-web/src"
       },
       "presentation": {
         "panel": "new"
