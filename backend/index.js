@@ -12,7 +12,7 @@ import { initializeCronJobs } from "./src/cron/jobs.js";
 // ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
 // CHANGED: added relaxedLimiter to import
-import { globalLimiter, cadminLimiter, relaxedLimiter } from "./src/middleware/rateLimiter.js";
+import { globalLimiter, cadminLimiter, relaxedLimiter, mobileLimiter } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
 // ROUTES
@@ -56,6 +56,10 @@ import cadminEmailBroadcastRoutes from "./src/modules/cadmin/broadcast/email/cad
 import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
 import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
 import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js";
+
+// ── Mobile App Routes ──────────────────────────────────────────
+import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
+import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
 
 // ============================================
 // APP SETUP
@@ -131,6 +135,7 @@ app.use("/api", globalLimiter);
 // CAdmin limiter — now also per-user keyed
 app.use("/cadmin", cadminLimiter);
 
+app.use("/mobile", mobileLimiter);
 // ============================================
 // FILE SERVING
 // ============================================
@@ -192,7 +197,7 @@ app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin", cadminTicketsRoutes);
-app.use("/cadmin/enquiries", enquiriesRoutes);
+app.use("/cadmin", enquiriesRoutes);
 app.use("/cadmin", cadminSubscriptionsRoutes);
 app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);
@@ -200,6 +205,9 @@ app.use("/cadmin", cadminNotificationRoutes);
 app.use("/cadmin", cadminEmailBroadcastRoutes);
 app.use("/cadmin", cadminDashboardRoutes);
 app.use("/cadmin", cadminMasterMedicinesRoutes);
+
+app.use("/mobile", mobileAuthRoutes);
+app.use("/mobile", mobileUsersRoutes);
 
 // ============================================
 // HEALTH CHECK

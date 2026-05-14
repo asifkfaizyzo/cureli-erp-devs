@@ -1,0 +1,9 @@
+// src/constants/config.ts
+
+const DEV_BASE_URL = 'http://localhost:5000';  // ← replace x with your machine's local IP
+const PROD_BASE_URL = 'https://api.cureliofficial.com';    // ← replace with your production URL
+
+export const CONFIG = {
+  BASE_URL: __DEV__ ? DEV_BASE_URL : PROD_BASE_URL,
+  API_TIMEOUT: 15000, // 15 seconds
+} as const;

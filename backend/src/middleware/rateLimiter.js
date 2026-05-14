@@ -107,3 +107,33 @@ export const signupLimiter = rateLimit({
     message: "Too many signup attempts. Please try again later.",
   },
 });
+// ============================================
+// MOBILE API LIMITER — for /mobile/* (customer app)
+// ============================================
+export const mobileLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 120,
+  keyGenerator: userOrIpKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many requests. Please try again later.",
+  },
+});
+
+// ============================================
+// MOBILE AUTH LIMITER — OTP send + verify only
+// Tighter window, IP-keyed using the same safe helper
+// ============================================
+export const mobileAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => `ip:${ipKeyGenerator(req)}`,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many authentication attempts. Please try again later.",
+  },
+});
