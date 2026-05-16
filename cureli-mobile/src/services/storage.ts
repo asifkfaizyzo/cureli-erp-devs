@@ -12,20 +12,18 @@
 
 import { createMMKV } from 'react-native-mmkv';
 
-// Single MMKV instance for the whole app.
-// ID scopes it — if you ever need a second store (e.g. cart cache),
-// create a separate instance with a different id.
 const storage = createMMKV({
   id: 'cureli-mobile-storage',
 });
 
 // ── Keys ──────────────────────────────────────────────────────
-// Centralized here so no magic strings anywhere else in the app.
 
 const KEYS = {
-  ACCESS_TOKEN: 'auth.access_token',
-  REFRESH_TOKEN: 'auth.refresh_token',
-  USER: 'auth.user',
+  ACCESS_TOKEN:        'auth.access_token',
+  REFRESH_TOKEN:       'auth.refresh_token',
+  USER:                'auth.user',
+  INTRO_SEEN:          'onboarding.intro_seen',
+  ONBOARDING_COMPLETE: 'onboarding.completed',
 } as const;
 
 // ── Token Storage ─────────────────────────────────────────────
@@ -50,7 +48,6 @@ export const StorageService = {
   getUser<T = unknown>(): T | null {
     const raw = storage.getString(KEYS.USER);
     if (!raw) return null;
-
     try {
       return JSON.parse(raw) as T;
     } catch {
@@ -80,5 +77,23 @@ export const StorageService = {
 
   clearAll(): void {
     storage.clearAll();
+  },
+
+  // ── Onboarding flags ──────────────────────────────────────
+
+  isIntroSeen(): boolean {
+    return storage.getBoolean(KEYS.INTRO_SEEN) ?? false;
+  },
+
+  setIntroSeen(): void {
+    storage.set(KEYS.INTRO_SEEN, true);
+  },
+
+  isOnboardingComplete(): boolean {
+    return storage.getBoolean(KEYS.ONBOARDING_COMPLETE) ?? false;
+  },
+
+  setOnboardingComplete(): void {
+    storage.set(KEYS.ONBOARDING_COMPLETE, true);
   },
 };

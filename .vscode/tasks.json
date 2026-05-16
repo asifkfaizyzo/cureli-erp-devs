@@ -137,6 +137,38 @@
       "presentation": {
         "panel": "new"
       }
-    }
+    },
+    {
+  "label": "start-cureli-mobile",
+  "dependsOn": [
+    "Backend Mobile Tree",
+    "Mobile Tree"
+  ],
+  "dependsOrder": "parallel"
+},
+{
+  "label": "Backend Mobile Tree",
+  "type": "shell",
+  "command": "ls; cd src; tree /f; powershell",
+  "options": {
+    "cwd": "${workspaceFolder}/backend"
+  },
+  "isBackground": true,
+  "presentation": {
+    "panel": "new"
+  }
+},
+{
+  "label": "Mobile Tree",
+  "type": "shell",
+  "command": "ls; cd assets; tree /f; cd ..; cd src; tree /f; cd ..; cd app; tree /f; powershell",
+  "options": {
+    "cwd": "${workspaceFolder}/cureli-mobile"
+  },
+  "isBackground": true,
+  "presentation": {
+    "panel": "new"
+  }
+}
   ]
 }

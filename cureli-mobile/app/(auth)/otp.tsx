@@ -19,12 +19,12 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
-import { useState, useEffect, useRef } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuthStore } from '../../src/store/authStore';
-
+} from "react-native";
+import { useState, useEffect, useRef } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuthStore } from "../../src/store/authStore";
+import { StorageService } from '../../src/services/storage';
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30; // seconds
 
@@ -32,7 +32,7 @@ export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { login, sendOtp } = useAuthStore();
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
@@ -71,7 +71,7 @@ export default function OtpScreen() {
 
   async function handleVerify(code: string) {
     if (!phone) {
-      setError('Phone number missing. Please go back and try again.');
+      setError("Phone number missing. Please go back and try again.");
       return;
     }
     if (code.length !== OTP_LENGTH) return;
@@ -82,16 +82,14 @@ export default function OtpScreen() {
     try {
       const { isNewUser } = await login(phone, code);
 
-      // Replace the auth stack with the main app.
-      // router.replace() means the user cannot press back to get to login.
-      // This is correct — once logged in, going back should not be possible.
-      router.replace('/(tabs)/home');
-
-      // isNewUser is available here for future onboarding routing:
-      // if (isNewUser) router.replace('/(onboarding)/name');
-      // else router.replace('/(tabs)/home');
+      const onboardingDone = StorageService.isOnboardingComplete();
+      if (isNewUser && !onboardingDone) {
+        router.replace("/onboarding/name");
+      } else {
+        router.replace("/(tabs)/home");
+      }
     } catch (err: unknown) {
-      setOtp(''); // clear the input on failure
+      setOtp(""); // clear the input on failure
       setError(extractErrorMessage(err));
       // Re-focus the input so user can try again immediately
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -107,7 +105,7 @@ export default function OtpScreen() {
 
     setResending(true);
     setError(null);
-    setOtp('');
+    setOtp("");
 
     try {
       await sendOtp(phone);
@@ -122,7 +120,7 @@ export default function OtpScreen() {
   // ── OTP Input Handler ─────────────────────────────────────
 
   function handleOtpChange(text: string) {
-    const digits = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
+    const digits = text.replace(/\D/g, "").slice(0, OTP_LENGTH);
     setOtp(digits);
     if (error) setError(null);
   }
@@ -136,7 +134,7 @@ export default function OtpScreen() {
     return (
       <View style={styles.otpBoxRow}>
         {Array.from({ length: OTP_LENGTH }).map((_, index) => {
-          const char = otp[index] ?? '';
+          const char = otp[index] ?? "";
           const isCurrent = index === otp.length && !loading;
           const isFilled = index < otp.length;
 
@@ -163,13 +161,12 @@ export default function OtpScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View style={styles.container}>
-
           {/* ── Back Button ──────────────────────────────── */}
           <TouchableOpacity
             style={styles.backButton}
@@ -183,10 +180,7 @@ export default function OtpScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Enter OTP</Text>
             <Text style={styles.subtitle}>
-              Sent to{' '}
-              <Text style={styles.phoneHighlight}>
-                +91 {phone}
-              </Text>
+              Sent to <Text style={styles.phoneHighlight}>+91 {phone}</Text>
             </Text>
           </View>
 
@@ -210,9 +204,7 @@ export default function OtpScreen() {
           </View>
 
           {/* ── Error ────────────────────────────────────── */}
-          {error && (
-            <Text style={styles.errorText}>{error}</Text>
-          )}
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
           {/* ── Loading indicator ─────────────────────────── */}
           {loading && (
@@ -240,7 +232,6 @@ export default function OtpScreen() {
               )}
             </TouchableOpacity>
           </View>
-
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -248,24 +239,24 @@ export default function OtpScreen() {
 }
 
 function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
+  if (err && typeof err === "object" && "response" in err) {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
     const status = axiosErr.response?.status;
     const message = axiosErr.response?.data?.message;
 
-    if (status === 429) return message ?? 'Too many attempts. Please wait.';
-    if (status === 403) return message ?? 'Account suspended. Contact support.';
+    if (status === 429) return message ?? "Too many attempts. Please wait.";
+    if (status === 403) return message ?? "Account suspended. Contact support.";
     if (message) return message;
   }
-  return 'Verification failed. Please try again.';
+  return "Verification failed. Please try again.";
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   keyboardView: {
     flex: 1,
@@ -277,119 +268,119 @@ const styles = StyleSheet.create({
     gap: 28,
   },
   backButton: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingVertical: 8,
   },
   backText: {
     fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
+    color: "#64748b",
+    fontWeight: "500",
   },
   header: {
     gap: 8,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontWeight: "800",
+    color: "#0f172a",
   },
   subtitle: {
     fontSize: 15,
-    color: '#64748b',
+    color: "#64748b",
     lineHeight: 22,
   },
   phoneHighlight: {
-    color: '#05015A',
-    fontWeight: '700',
+    color: "#05015A",
+    fontWeight: "700",
   },
   otpSection: {
-    alignItems: 'center',
-    position: 'relative',
+    alignItems: "center",
+    position: "relative",
   },
   hiddenInput: {
-    position: 'absolute',
+    position: "absolute",
     opacity: 0,
     width: 1,
     height: 1,
   },
   otpBoxRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   otpBox: {
     width: 48,
     height: 58,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8fafc",
+    position: "relative",
   },
   otpBoxFilled: {
-    borderColor: '#05015A',
-    backgroundColor: '#eef2ff',
+    borderColor: "#05015A",
+    backgroundColor: "#eef2ff",
   },
   otpBoxActive: {
-    borderColor: '#05015A',
+    borderColor: "#05015A",
     borderWidth: 2,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   otpBoxError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fff5f5',
+    borderColor: "#ef4444",
+    backgroundColor: "#fff5f5",
   },
   otpChar: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#0f172a',
+    fontWeight: "700",
+    color: "#0f172a",
   },
   cursor: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     width: 2,
     height: 22,
-    backgroundColor: '#05015A',
+    backgroundColor: "#05015A",
     borderRadius: 1,
   },
   errorText: {
     fontSize: 13,
-    color: '#ef4444',
-    fontWeight: '500',
-    textAlign: 'center',
+    color: "#ef4444",
+    fontWeight: "500",
+    textAlign: "center",
     marginTop: -12,
   },
   loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     marginTop: -12,
   },
   loadingText: {
     fontSize: 14,
-    color: '#05015A',
-    fontWeight: '500',
+    color: "#05015A",
+    fontWeight: "500",
   },
   resendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   resendLabel: {
     fontSize: 14,
-    color: '#64748b',
+    color: "#64748b",
   },
   resendCooldown: {
     fontSize: 14,
-    color: '#94a3b8',
-    fontWeight: '600',
+    color: "#94a3b8",
+    fontWeight: "600",
   },
   resendActive: {
     fontSize: 14,
-    color: '#05015A',
-    fontWeight: '700',
+    color: "#05015A",
+    fontWeight: "700",
   },
 });

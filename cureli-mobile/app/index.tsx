@@ -1,11 +1,17 @@
 // app/index.tsx
 //
-// Root index route — immediately redirects based on auth status.
-// This file exists solely to give Expo Router a valid screen at "/"
-// so it does not show "unmatched route" while the auth check runs.
+// Root route — decides where to send the user on app open.
+//
+// Routing priority:
+//   1. Fonts/auth still loading     → show spinner
+//   2. Authenticated                → animated splash → home
+//   3. Not authenticated            → animated splash → login or intro
+//
+// The splash screen handles the intro/login decision itself
+// based on StorageService.isIntroSeen().
 
 import { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { router, useRootNavigationState } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 
@@ -17,23 +23,23 @@ export default function Index() {
     if (!navigationState?.key) return;
     if (status === 'unknown' || status === 'checking') return;
 
-    if (status === 'unauthenticated') {
-      router.replace('/(auth)/login');
-    } else if (status === 'authenticated') {
-      router.replace('/(tabs)/home');
-    }
+    // Always go through the animated splash first.
+    // Splash reads auth status from the store and routes accordingly.
+    router.replace('/splash');
   }, [status, navigationState?.key]);
 
-  // Always show spinner — this screen should never be visible for more
-  // than a fraction of a second before redirecting
   return (
-    <View style={{
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#ffffff',
-    }}>
+    <View style={styles.container}>
       <ActivityIndicator size="large" color="#05015A" />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#05015A',
+  },
+});
