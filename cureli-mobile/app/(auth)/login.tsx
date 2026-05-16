@@ -1,15 +1,4 @@
 // app/(auth)/login.tsx
-//
-// LOGIN SCREEN — Phone number entry
-//
-// Flow:
-//   User enters phone → tap Send OTP → POST /mobile/auth/send-otp
-//   Success → navigate to /(auth)/otp passing phone as param
-//
-// Phone normalization:
-//   The backend accepts 10-digit numbers with or without +91.
-//   We strip formatting here before sending.
-//   Display format in the input shows the raw number the user types.
 
 import {
   View,
@@ -18,28 +7,29 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
+import { useTheme } from '../../src/theme/ThemeContext';
 
 export default function LoginScreen() {
   const { sendOtp } = useAuthStore();
+  const { colors, isDark } = useTheme();
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Validation ────────────────────────────────────────────
-  // Client-side validation before hitting the network.
-  // Backend also validates — this is just UX feedback.
+  const scrollRef = useRef<ScrollView>(null);
 
   function validatePhone(value: string): string | null {
-    const cleaned = value.replace(/\D/g, ''); // strip non-digits
+    const cleaned = value.replace(/\D/g, '');
     if (cleaned.length === 0) return 'Enter your mobile number';
     if (cleaned.length < 10) return 'Enter a valid 10-digit mobile number';
     if (cleaned.length > 10) return 'Mobile number must be 10 digits';
@@ -47,11 +37,9 @@ export default function LoginScreen() {
     return null;
   }
 
-  // ── Handle Send OTP ───────────────────────────────────────
-
   async function handleSendOtp() {
+    Keyboard.dismiss();
     setError(null);
-
     const cleaned = phone.replace(/\D/g, '');
     const validationError = validatePhone(cleaned);
     if (validationError) {
@@ -62,133 +50,201 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await sendOtp(cleaned);
-
-      // Navigate to OTP screen, passing the phone number as a param.
-      // The OTP screen needs the phone to call verify-otp.
-      // href with params: Expo Router passes them as query string internally.
       router.push({
         pathname: '/(auth)/otp',
         params: { phone: cleaned },
       });
     } catch (err: unknown) {
-      const message = extractErrorMessage(err);
-      setError(message);
+      setError(extractErrorMessage(err));
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.container}>
+  function handleInputFocus() {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 350);
+  }
 
-          {/* ── Header ──────────────────────────────────── */}
-          <View style={styles.header}>
-            <Text style={styles.logo}>cureli</Text>
-            <Text style={styles.tagline}>medicines delivered fast</Text>
+  const logoSource = isDark
+    ? require('../../assets/images/cureliwhitenew.png')
+    : require('../../assets/images/curelidarknew.png');
+
+  return (
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top', 'bottom']}
+    >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Logo + branding ────────────────────────── */}
+        <View style={styles.topSection}>
+          <Image
+            source={logoSource}
+            style={styles.logo}
+            contentFit="contain"
+          />
+          <Text style={[styles.brandName, { color: colors.text.primary }]}>
+            cureli
+          </Text>
+          <Text style={[styles.tagline, { color: colors.text.faint }]}>
+            medicines delivered fast
+          </Text>
+        </View>
+
+        {/* ── Form ───────────────────────────────────── */}
+        <View style={styles.formSection}>
+          <View style={styles.welcomeBlock}>
+            <Text style={[styles.title, { color: colors.text.primary }]}>
+              Welcome
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+              Enter your mobile number to get started
+            </Text>
           </View>
 
-          {/* ── Form ────────────────────────────────────── */}
-          <View style={styles.form}>
-            <Text style={styles.title}>Enter your mobile number</Text>
-            <Text style={styles.subtitle}>
-              We'll send you a 6-digit OTP to verify
-            </Text>
-
-            {/* Phone Input */}
-            <View style={styles.inputWrapper}>
-              {/* Country code prefix — non-editable */}
-              <View style={styles.prefix}>
-                <Text style={styles.prefixText}>+91</Text>
-              </View>
-
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={(text) => {
-                  // Only allow digits, max 10
-                  const digits = text.replace(/\D/g, '').slice(0, 10);
-                  setPhone(digits);
-                  if (error) setError(null);
-                }}
-                placeholder="98765 43210"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-                maxLength={10}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={handleSendOtp}
-                editable={!loading}
-              />
+          {/* Phone input */}
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.background.input,
+                borderColor: error
+                  ? colors.status.error
+                  : colors.border.input,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.prefix,
+                {
+                  backgroundColor: isDark
+                    ? colors.background.elevated
+                    : '#f1f5f9',
+                  borderRightColor: colors.border.input,
+                },
+              ]}
+            >
+              <Text style={styles.prefixFlag}>🇮🇳</Text>
+              <Text
+                style={[
+                  styles.prefixText,
+                  { color: colors.text.secondary },
+                ]}
+              >
+                +91
+              </Text>
             </View>
 
-            {/* Error message */}
-            {error && (
-              <Text style={styles.errorText}>{error}</Text>
-            )}
-
-            {/* Send OTP Button */}
-            <TouchableOpacity
-              style={[
-                styles.button,
-                (loading || phone.length < 10) && styles.buttonDisabled,
-              ]}
-              onPress={handleSendOtp}
-              disabled={loading || phone.length < 10}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <Text style={styles.buttonText}>Send OTP</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Terms note */}
-            <Text style={styles.termsText}>
-              By continuing, you agree to our{' '}
-              <Text style={styles.termsLink}>Terms of Service</Text>
-              {' '}and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
-            </Text>
+            <TextInput
+              style={[styles.input, { color: colors.text.primary }]}
+              value={phone}
+              onChangeText={(text) => {
+                const digits = text.replace(/\D/g, '').slice(0, 10);
+                setPhone(digits);
+                if (error) setError(null);
+              }}
+              placeholder="98765 43210"
+              placeholderTextColor={colors.text.faint}
+              keyboardType="number-pad"
+              maxLength={10}
+              returnKeyType="done"
+              onSubmitEditing={handleSendOtp}
+              onFocus={handleInputFocus}
+              editable={!loading}
+            />
           </View>
 
+          {/* Error */}
+          {error ? (
+            <View style={styles.errorRow}>
+              <MaterialIcons
+                name="error-outline"
+                size={14}
+                color={colors.status.error}
+              />
+              <Text
+                style={[styles.errorText, { color: colors.status.error }]}
+              >
+                {error}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Send OTP button */}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              {
+                backgroundColor: isDark
+                  ? colors.brand.accent
+                  : colors.brand.primary,
+              },
+              (loading || phone.length < 10) && styles.buttonDisabled,
+            ]}
+            onPress={handleSendOtp}
+            disabled={loading || phone.length < 10}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <>
+                <Text style={styles.buttonText}>Send OTP</Text>
+                <MaterialIcons
+                  name="arrow-forward"
+                  size={18}
+                  color="#ffffff"
+                />
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Terms */}
+          <Text style={[styles.termsText, { color: colors.text.faint }]}>
+            By continuing, you agree to our{' '}
+            <Text
+              style={[styles.termsLink, { color: colors.brand.accent }]}
+            >
+              Terms of Service
+            </Text>{' '}
+            and{' '}
+            <Text
+              style={[styles.termsLink, { color: colors.brand.accent }]}
+            >
+              Privacy Policy
+            </Text>
+          </Text>
         </View>
-      </KeyboardAvoidingView>
+
+        {/* ── Scroll padding ─────────────────────────── */}
+        {/* This empty view gives scrollToEnd something to scroll into */}
+        {/* Without it, the content ends at the button and there's */}
+        {/* nowhere to scroll when the keyboard opens */}
+        <View style={styles.keyboardSpacer} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Error extraction helper ───────────────────────────────────
-// Extracts the backend's error message from axios errors.
-// Falls back to a generic message if the shape is unexpected.
-
 function extractErrorMessage(err: unknown): string {
-  if (
-    err &&
-    typeof err === 'object' &&
-    'response' in err
-  ) {
+  if (err && typeof err === 'object' && 'response' in err) {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
-
     const status = axiosErr.response?.status;
     const message = axiosErr.response?.data?.message;
-
-    if (status === 429) {
+    if (status === 429)
       return message ?? 'Too many attempts. Please wait before trying again.';
-    }
-    if (status === 403) {
+    if (status === 403)
       return message ?? 'Your account has been suspended. Contact support.';
-    }
-    if (message) {
-      return message;
-    }
+    if (message) return message;
   }
   return 'Something went wrong. Please try again.';
 }
@@ -196,108 +252,136 @@ function extractErrorMessage(err: unknown): string {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
-  keyboardView: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'space-between',
+  scrollContent: {
+    flexGrow: 1,
     paddingBottom: 24,
   },
-  header: {
-    paddingTop: 48,
-    alignItems: 'flex-start',
+
+  // ── Top: logo ──
+  topSection: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 48,
+    gap: 4,
   },
   logo: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#05015A',
-    letterSpacing: -1,
+    width: 72,
+    height: 72,
+    marginBottom: 16,
+  },
+  brandName: {
+    fontSize: 34,
+    fontFamily: 'Amulya',
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   tagline: {
     fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 4,
-    fontWeight: '500',
+    fontFamily: 'Inter_400Regular',
+    letterSpacing: 0.3,
+    marginTop: 2,
   },
-  form: {
+
+  // ── Form ──
+  formSection: {
+    paddingHorizontal: 24,
     gap: 16,
   },
+  welcomeBlock: {
+    gap: 6,
+    marginBottom: 8,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 4,
+    fontSize: 26,
+    fontFamily: 'Inter_700Bold',
+    lineHeight: 32,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
-    lineHeight: 20,
+    fontFamily: 'Inter_400Regular',
+    lineHeight: 22,
   },
+
+  // ── Phone input ──
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
+    borderRadius: 14,
     overflow: 'hidden',
-    marginTop: 8,
   },
   prefix: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 16,
-    backgroundColor: '#f1f5f9',
     borderRightWidth: 1.5,
-    borderRightColor: '#e2e8f0',
+  },
+  prefixFlag: {
+    fontSize: 18,
   },
   prefixText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#334155',
+    fontFamily: 'Inter_600SemiBold',
   },
   input: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
+    fontSize: 20,
+    fontFamily: 'Inter_600SemiBold',
     paddingHorizontal: 16,
     paddingVertical: 16,
     letterSpacing: 2,
   },
-  errorText: {
-    fontSize: 13,
-    color: '#ef4444',
-    fontWeight: '500',
+
+  // ── Error ──
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: -8,
   },
+  errorText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
+
+  // ── Button ──
   button: {
-    backgroundColor: '#05015A',
-    paddingVertical: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
+
+  // ── Terms ──
   termsText: {
     fontSize: 12,
-    color: '#94a3b8',
+    fontFamily: 'Inter_400Regular',
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 8,
+    lineHeight: 19,
+    marginTop: 4,
   },
   termsLink: {
-    color: '#05015A',
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+  },
+
+  // ── Keyboard spacer ──
+  // Provides scroll room when keyboard opens.
+  // scrollToEnd scrolls this into view, pushing the form up above the keyboard.
+  keyboardSpacer: {
+    height: 320,
   },
 });

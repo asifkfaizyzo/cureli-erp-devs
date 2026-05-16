@@ -122,4 +122,23 @@ export const profileApi = {
   logoutAllDevices: async (): Promise<void> => {
     await authApi.logoutAll();
   },
+   /**
+   * POST /mobile/users/account/delete/send-otp
+   * Sends a deletion OTP to the user's registered phone.
+   */
+  sendDeleteAccountOtp: async (): Promise<{ expiresIn: number }> => {
+    const response = await api.post<ApiResponse<{ expiresIn: number }>>(
+      '/mobile/users/account/delete/send-otp',
+    );
+    return response.data.data;
+  },
+
+  /**
+   * POST /mobile/users/account/delete/confirm
+   * Verifies OTP and permanently deletes the account.
+   */
+  confirmDeleteAccount: async (otp: string): Promise<void> => {
+    await api.post('/mobile/users/account/delete/confirm', { otp });
+  },
 };
+

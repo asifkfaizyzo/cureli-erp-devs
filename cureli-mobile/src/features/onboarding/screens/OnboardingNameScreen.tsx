@@ -1,8 +1,4 @@
 // src/features/onboarding/screens/OnboardingNameScreen.tsx
-//
-// Step 1 of post-login onboarding.
-// Collects full_name — required, cannot be skipped.
-// Calls PATCH /mobile/users/profile on submit.
 
 import { useState } from 'react';
 import {
@@ -21,9 +17,10 @@ import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useUpdateProfile } from '../../profile/hooks/useUpdateProfile';
-import { Colors } from '../../../theme/colors';
+import { useTheme } from '../../../theme/ThemeContext';
 
 export function OnboardingNameScreen() {
+  const { colors, isDark } = useTheme();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { updateProfile, isPending, error: mutationError } = useUpdateProfile({
@@ -48,7 +45,7 @@ export function OnboardingNameScreen() {
     if (!validate()) return;
 
     updateProfile(
-      { full_name: name.trim(), email: '' },
+      { full_name: name.trim() },
       {
         onSuccess: () => {
           router.replace('/onboarding/email');
@@ -59,8 +56,15 @@ export function OnboardingNameScreen() {
 
   const displayError = error ?? mutationError;
 
+  const logoSource = isDark
+    ? require('../../../../assets/images/cureliwhitenew.png')
+    : require('../../../../assets/images/curelidarknew.png');
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -71,17 +75,17 @@ export function OnboardingNameScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Logo */}
-          <Image
-            source={require('../../../../assets/images/cureliwhitenew.png')}
-            style={styles.logo}
-            contentFit="contain"
-          />
+          <Image source={logoSource} style={styles.logo} contentFit="contain" />
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.stepLabel}>Step 1 of 2</Text>
-            <Text style={styles.title}>What should we{'\n'}call you?</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.stepLabel, { color: colors.text.faint }]}>
+              Step 1 of 2
+            </Text>
+            <Text style={[styles.title, { color: colors.text.primary }]}>
+              What should we{'\n'}call you?
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
               Your name helps us personalise your experience
             </Text>
           </View>
@@ -89,14 +93,23 @@ export function OnboardingNameScreen() {
           {/* Input */}
           <View style={styles.inputBlock}>
             <TextInput
-              style={[styles.input, displayError ? styles.inputError : null]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background.input,
+                  borderColor: displayError
+                    ? colors.status.error
+                    : colors.border.input,
+                  color: colors.text.primary,
+                },
+              ]}
               value={name}
               onChangeText={(v) => {
                 setName(v);
                 if (error) setError(null);
               }}
               placeholder="Enter your full name"
-              placeholderTextColor={Colors.text.faint}
+              placeholderTextColor={colors.text.faint}
               autoCapitalize="words"
               autoCorrect={false}
               autoFocus
@@ -105,7 +118,9 @@ export function OnboardingNameScreen() {
               onSubmitEditing={handleContinue}
             />
             {displayError ? (
-              <Text style={styles.fieldError}>{displayError}</Text>
+              <Text style={[styles.fieldError, { color: colors.status.error }]}>
+                {displayError}
+              </Text>
             ) : null}
           </View>
 
@@ -113,6 +128,11 @@ export function OnboardingNameScreen() {
           <TouchableOpacity
             style={[
               styles.button,
+              {
+                backgroundColor: isDark
+                  ? colors.brand.accent
+                  : colors.brand.primary,
+              },
               (isPending || name.trim().length < 2) && styles.buttonDisabled,
             ]}
             onPress={handleContinue}
@@ -131,7 +151,7 @@ export function OnboardingNameScreen() {
           </TouchableOpacity>
 
           {/* Note */}
-          <Text style={styles.note}>
+          <Text style={[styles.note, { color: colors.text.faint }]}>
             You can change this later in your profile settings
           </Text>
         </ScrollView>
@@ -143,7 +163,6 @@ export function OnboardingNameScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   flex: {
     flex: 1,
@@ -158,9 +177,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 52,
     height: 52,
-    backgroundColor: Colors.brand.dark,
     borderRadius: 14,
-    padding: 8,
   },
   header: {
     gap: 10,
@@ -168,56 +185,44 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text.faint,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   title: {
     fontSize: 30,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text.primary,
     lineHeight: 38,
   },
   subtitle: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.muted,
     lineHeight: 23,
   },
   inputBlock: {
     gap: 6,
   },
   input: {
-    backgroundColor: Colors.background.page,
     borderWidth: 1.5,
-    borderColor: Colors.border.default,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 15,
     fontSize: 17,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.primary,
-  },
-  inputError: {
-    borderColor: Colors.status.error,
-    backgroundColor: Colors.status.errorBg,
   },
   fieldError: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: Colors.status.error,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.brand.dark,
     paddingVertical: 16,
     borderRadius: 14,
   },
   buttonDisabled: {
-    backgroundColor: Colors.text.disabled,
+    opacity: 0.45,
   },
   buttonText: {
     fontSize: 16,
@@ -227,7 +232,6 @@ const styles = StyleSheet.create({
   note: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.faint,
     textAlign: 'center',
   },
 });

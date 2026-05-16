@@ -122,3 +122,11 @@ export const updateAddressSchema = z
       path: ["custom_label"],
     }
   );
+
+  export const confirmDeleteAccountSchema = z.object({
+  otp: z
+    .string()
+    .trim()
+    .length(6, { message: "OTP must be exactly 6 digits" })
+    .regex(/^\d{6}$/, { message: "OTP must contain only digits" }),
+});

@@ -5,13 +5,17 @@
 
 export const STORAGE_KEYS = {
   // ── Auth (also defined in services/storage.ts internally) ─
-  ACCESS_TOKEN:  'auth.access_token',
-  REFRESH_TOKEN: 'auth.refresh_token',
-  USER:          'auth.user',
+  ACCESS_TOKEN: "auth.access_token",
+  REFRESH_TOKEN: "auth.refresh_token",
+  USER: "auth.user",
 
   // ── Onboarding ────────────────────────────────────────────
-  INTRO_SEEN:          'onboarding.intro_seen',
-  ONBOARDING_COMPLETE: 'onboarding.completed',
+  INTRO_SEEN: "onboarding.intro_seen",
+  ONBOARDING_COMPLETE: "onboarding.completed",
+
+  // App settings
+  THEME_PREFERENCE: "app.theme_preference",
+  DARK_VARIANT: "app.dark_variant",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

@@ -1,16 +1,9 @@
 // src/features/profile/components/ProfileMenuItem.tsx
-//
-// Reusable menu row: icon + label + optional right element + chevron.
-// Separator line renders between items automatically via StyleSheet.
 
 import React from 'react';
-import {
-  TouchableOpacity,
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '../../../theme/ThemeContext';
 
 interface ProfileMenuItemProps {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -33,30 +26,49 @@ export function ProfileMenuItem({
   showSeparator = true,
   destructive = false,
 }: ProfileMenuItemProps) {
-  const resolvedIconColor = iconColor ?? (destructive ? '#ef4444' : '#64748b');
-  const resolvedLabelColor = labelColor ?? (destructive ? '#ef4444' : '#0f172a');
+  const { colors } = useTheme();
+
+  const resolvedIconColor =
+    iconColor ?? (destructive ? colors.status.error : colors.text.muted);
+  const resolvedLabelColor =
+    labelColor ?? (destructive ? colors.status.error : colors.text.primary);
 
   return (
     <>
       <TouchableOpacity
-        style={styles.row}
+        style={[styles.row, { backgroundColor: colors.background.card }]}
         onPress={onPress}
         activeOpacity={0.7}
       >
         <View style={styles.iconWrapper}>
           <MaterialIcons name={icon} size={20} color={resolvedIconColor} />
         </View>
-        <Text style={[styles.label, { color: resolvedLabelColor }]}>
+        <Text
+          style={[
+            styles.label,
+            { color: resolvedLabelColor, fontFamily: 'Inter_500Medium' },
+          ]}
+        >
           {label}
         </Text>
         <View style={styles.right}>
           {rightLabel ? (
-            <Text style={styles.rightLabel}>{rightLabel}</Text>
+            <Text style={[styles.rightLabel, { color: colors.text.faint }]}>
+              {rightLabel}
+            </Text>
           ) : null}
-          <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+          <MaterialIcons
+            name="chevron-right"
+            size={20}
+            color={colors.text.faint}
+          />
         </View>
       </TouchableOpacity>
-      {showSeparator && <View style={styles.separator} />}
+      {showSeparator && (
+        <View
+          style={[styles.separator, { backgroundColor: colors.border.subtle }]}
+        />
+      )}
     </>
   );
 }
@@ -67,7 +79,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#ffffff',
   },
   iconWrapper: {
     width: 32,
@@ -77,8 +88,6 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '500',
-    color: '#0f172a',
   },
   right: {
     flexDirection: 'row',
@@ -87,11 +96,10 @@ const styles = StyleSheet.create({
   },
   rightLabel: {
     fontSize: 13,
-    color: '#94a3b8',
+    fontFamily: 'Inter_400Regular',
   },
   separator: {
     height: 1,
-    backgroundColor: '#e2e8f0',
     marginLeft: 60,
   },
 });

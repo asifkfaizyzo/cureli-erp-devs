@@ -1,10 +1,8 @@
 // src/features/profile/components/ProfileSection.tsx
-//
-// Reusable section wrapper with a title header.
-// Used to group related items on the profile screen.
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../../theme/ThemeContext';
 
 interface ProfileSectionProps {
   title: string;
@@ -12,10 +10,22 @@ interface ProfileSectionProps {
 }
 
 export function ProfileSection({ title, children }: ProfileSectionProps) {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={styles.card}>{children}</View>
+      <Text style={[styles.title, { color: colors.text.muted }]}>{title}</Text>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.background.card,
+            borderColor: colors.border.default,
+          },
+        ]}
+      >
+        {children}
+      </View>
     </View>
   );
 }
@@ -26,19 +36,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     letterSpacing: 1,
-    color: '#64748b',
     textTransform: 'uppercase',
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   card: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginHorizontal: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
 });

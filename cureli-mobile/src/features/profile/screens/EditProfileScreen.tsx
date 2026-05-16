@@ -1,10 +1,6 @@
 // src/features/profile/screens/EditProfileScreen.tsx
-//
-// Edit full_name and email.
-// Phone is identity — never editable, not shown here.
-// Validates inline before firing the mutation.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,15 +9,14 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useProfile } from '../hooks/useProfile';
-import { useUpdateProfile } from '../hooks/useUpdateProfile';
-
-// ── Validation ────────────────────────────────────────────────
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useProfile } from "../hooks/useProfile";
+import { useUpdateProfile } from "../hooks/useUpdateProfile";
+import { useTheme } from "../../../theme/ThemeContext";
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 
 interface FormErrors {
   full_name?: string;
@@ -30,76 +25,70 @@ interface FormErrors {
 
 function validate(name: string, email: string): FormErrors {
   const errors: FormErrors = {};
-
   if (name.trim().length > 0 && name.trim().length < 2) {
-    errors.full_name = 'Name must be at least 2 characters';
+    errors.full_name = "Name must be at least 2 characters";
   }
   if (name.trim().length > 200) {
-    errors.full_name = 'Name must not exceed 200 characters';
+    errors.full_name = "Name must not exceed 200 characters";
   }
-
   if (email.trim().length > 0) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      errors.email = 'Enter a valid email address';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = "Enter a valid email address";
     }
   }
-
   return errors;
 }
 
-// ── Screen ────────────────────────────────────────────────────
-
 export function EditProfileScreen() {
+  const { colors, isDark } = useTheme();
+  const { alert } = useDialog();
   const { user } = useProfile();
-  const { updateProfile, isPending, error: mutationError, reset } = useUpdateProfile();
+  const {
+    updateProfile,
+    isPending,
+    error: mutationError,
+    reset,
+  } = useUpdateProfile();
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState({ full_name: false, email: false });
 
-  // Seed form with current user data once loaded
+  const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
+
   useEffect(() => {
     if (user) {
-      setFullName(user.full_name ?? '');
-      setEmail(user.email ?? '');
+      setFullName(user.full_name ?? "");
+      setEmail(user.email ?? "");
     }
   }, [user]);
 
-  // Clear mutation error when user starts typing
   useEffect(() => {
     if (mutationError) reset();
   }, [fullName, email]);
 
-  const handleBlur = (field: 'full_name' | 'email') => {
+  const handleBlur = (field: "full_name" | "email") => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const errs = validate(fullName, email);
-    setErrors(errs);
+    setErrors(validate(fullName, email));
   };
 
   const handleSave = () => {
     const errs = validate(fullName, email);
     setErrors(errs);
     setTouched({ full_name: true, email: true });
-
     if (Object.keys(errs).length > 0) return;
-
-    // Build payload — only send fields that have changed
-    const payload: { full_name?: string; email?: string | null } = {};
 
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
+    const payload: { full_name?: string; email?: string | null } = {};
 
-    if (trimmedName !== (user?.full_name ?? '')) {
+    if (trimmedName !== (user?.full_name ?? ""))
       payload.full_name = trimmedName || undefined;
-    }
-    if (trimmedEmail !== (user?.email ?? '')) {
+    if (trimmedEmail !== (user?.email ?? ""))
       payload.email = trimmedEmail || null;
-    }
 
     if (Object.keys(payload).length === 0) {
-      // Nothing changed
       router.back();
       return;
     }
@@ -107,34 +96,53 @@ export function EditProfileScreen() {
     updateProfile(
       { full_name: trimmedName, email: trimmedEmail },
       {
-        onError: (err) => {
-          // mutationError from hook covers most cases,
-          // but show Alert for network-level failures
-          const msg =
-            (err as { message?: string })?.message ??
-            'Failed to save changes';
-          Alert.alert('Error', msg);
+        onError: async (err) => {
+          await alert({
+            title: "Error",
+            message:
+              (err as { message?: string })?.message ??
+              "Failed to save changes",
+            confirmLabel: "OK",
+            icon: "error-outline",
+          });
         },
       },
     );
   };
 
   const hasChanges =
-    fullName.trim() !== (user?.full_name ?? '') ||
-    email.trim() !== (user?.email ?? '');
+    fullName.trim() !== (user?.full_name ?? "") ||
+    email.trim() !== (user?.email ?? "");
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={["top", "bottom"]}
+    >
       {/* Header */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.background.card,
+            borderBottomColor: colors.border.default,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButton}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="arrow-back" size={22} color="#0f172a" />
+          <MaterialIcons
+            name="arrow-back"
+            size={22}
+            color={colors.text.primary}
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
+          Edit Profile
+        </Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -143,53 +151,114 @@ export function EditProfileScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Mutation-level error banner */}
+        {/* Mutation error banner */}
         {mutationError ? (
-          <View style={styles.errorBanner}>
-            <MaterialIcons name="error-outline" size={16} color="#ef4444" />
-            <Text style={styles.errorBannerText}>{mutationError}</Text>
+          <View
+            style={[
+              styles.errorBanner,
+              {
+                backgroundColor: colors.status.errorBg,
+                borderColor: colors.status.errorBorder,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name="error-outline"
+              size={16}
+              color={colors.status.error}
+            />
+            <Text
+              style={[
+                styles.errorBannerText,
+                { color: colors.status.error, fontFamily: "Inter_500Medium" },
+              ]}
+            >
+              {mutationError}
+            </Text>
           </View>
         ) : null}
 
         {/* Full Name */}
         <View style={styles.field}>
-          <Text style={styles.label}>Full Name</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
+            ]}
+          >
+            Full Name
+          </Text>
           <TextInput
             style={[
               styles.input,
-              touched.full_name && errors.full_name ? styles.inputError : null,
+              {
+                backgroundColor: colors.background.input,
+                borderColor:
+                  touched.full_name && errors.full_name
+                    ? colors.status.error
+                    : colors.border.input,
+                color: colors.text.primary,
+                fontFamily: "Inter_400Regular", // ← moved into style
+              },
             ]}
             value={fullName}
             onChangeText={setFullName}
-            onBlur={() => handleBlur('full_name')}
+            onBlur={() => handleBlur("full_name")}
             placeholder="Enter your full name"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.text.faint}
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="next"
             maxLength={200}
           />
           {touched.full_name && errors.full_name ? (
-            <Text style={styles.fieldError}>{errors.full_name}</Text>
+            <Text
+              style={[
+                styles.fieldError,
+                { color: colors.status.error, fontFamily: "Inter_500Medium" },
+              ]}
+            >
+              {errors.full_name}
+            </Text>
           ) : null}
         </View>
 
         {/* Email */}
         <View style={styles.field}>
-          <Text style={styles.label}>
-            Email{' '}
-            <Text style={styles.labelOptional}>(optional)</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
+            ]}
+          >
+            Email{" "}
+            <Text
+              style={{
+                color: colors.text.faint,
+                fontFamily: "Inter_400Regular",
+              }}
+            >
+              (optional)
+            </Text>
           </Text>
           <TextInput
             style={[
               styles.input,
-              touched.email && errors.email ? styles.inputError : null,
+              {
+                backgroundColor: colors.background.input,
+                borderColor:
+                  touched.email && errors.email
+                    ? colors.status.error
+                    : colors.border.input,
+                color: colors.text.primary,
+                fontFamily: "Inter_400Regular", // ← moved into style
+              },
             ]}
             value={email}
             onChangeText={setEmail}
-            onBlur={() => handleBlur('email')}
+            onBlur={() => handleBlur("email")}
             placeholder="Enter your email address"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.text.faint}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -197,47 +266,104 @@ export function EditProfileScreen() {
             maxLength={255}
           />
           {touched.email && errors.email ? (
-            <Text style={styles.fieldError}>{errors.email}</Text>
+            <Text
+              style={[
+                styles.fieldError,
+                { color: colors.status.error, fontFamily: "Inter_500Medium" },
+              ]}
+            >
+              {errors.email}
+            </Text>
           ) : null}
-          <Text style={styles.fieldHint}>
+          <Text
+            style={[
+              styles.fieldHint,
+              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+            ]}
+          >
             Used for order confirmations and receipts
           </Text>
         </View>
 
-        {/* Phone — display only */}
+        {/* Phone — locked */}
         <View style={styles.field}>
-          <Text style={styles.label}>Phone Number</Text>
+          <Text
+            style={[
+              styles.label,
+              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
+            ]}
+          >
+            Phone Number
+          </Text>
           <View style={styles.phoneRow}>
+            // AFTER
             <TextInput
-              style={[styles.input, styles.inputLocked]}
-              value={user?.phone ?? ''}
+              style={[
+                styles.input,
+                styles.inputLocked,
+                {
+                  backgroundColor: colors.background.elevated,
+                  borderColor: colors.border.subtle,
+                  color: colors.text.faint,
+                  fontFamily: "Inter_400Regular", // ← moved into style
+                },
+              ]}
+              value={user?.phone ?? ""}
               editable={false}
             />
-            <View style={styles.verifiedBadge}>
-              <MaterialIcons name="verified" size={13} color="#22c55e" />
-              <Text style={styles.verifiedText}>Verified</Text>
+            <View
+              style={[
+                styles.verifiedBadge,
+                {
+                  backgroundColor: colors.status.successBg,
+                  borderColor: colors.status.successBorder,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="verified"
+                size={13}
+                color={colors.status.success}
+              />
+              <Text
+                style={[
+                  styles.verifiedText,
+                  {
+                    color: colors.status.success,
+                    fontFamily: "Inter_600SemiBold",
+                  },
+                ]}
+              >
+                Verified
+              </Text>
             </View>
           </View>
-          <Text style={styles.fieldHint}>
+          <Text
+            style={[
+              styles.fieldHint,
+              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+            ]}
+          >
             Phone number cannot be changed — it is your login identity
           </Text>
         </View>
 
-        {/* Save button */}
+        {/* Save */}
         <TouchableOpacity
           style={[
             styles.saveButton,
+            { backgroundColor: brandColor },
             (!hasChanges || isPending) && styles.saveButtonDisabled,
           ]}
           onPress={handleSave}
           disabled={!hasChanges || isPending}
           activeOpacity={0.8}
         >
-          {isPending ? (
-            <ActivityIndicator size={18} color="#ffffff" />
-          ) : null}
-          <Text style={styles.saveButtonText}>
-            {isPending ? 'Saving…' : 'Save Changes'}
+          {isPending ? <ActivityIndicator size={18} color="#ffffff" /> : null}
+          <Text
+            style={[styles.saveButtonText, { fontFamily: "Inter_700Bold" }]}
+          >
+            {isPending ? "Saving…" : "Save Changes"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -246,140 +372,74 @@ export function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
+  safe: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   backButton: {
     width: 36,
     height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
   },
   headerTitle: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#0f172a',
   },
-  headerRight: {
-    width: 36,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-    gap: 8,
-  },
+  headerRight: { width: 36 },
+  scroll: { flex: 1 },
+  content: { padding: 20, gap: 8 },
   errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: '#fecaca',
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
   },
-  errorBannerText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#ef4444',
-    fontWeight: '500',
-  },
-  field: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  labelOptional: {
-    fontWeight: '400',
-    color: '#94a3b8',
-  },
+  errorBannerText: { flex: 1, fontSize: 13 },
+  field: { marginBottom: 20 },
+  label: { fontSize: 13, marginBottom: 8 },
   input: {
-    backgroundColor: '#ffffff',
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#0f172a',
   },
-  inputError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fef2f2',
-  },
-  inputLocked: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    color: '#94a3b8',
-    borderColor: '#e2e8f0',
-  },
+  inputLocked: { flex: 1 },
   phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
-    backgroundColor: '#f0fdf4',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
   },
-  verifiedText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#22c55e',
-  },
-  fieldError: {
-    fontSize: 12,
-    color: '#ef4444',
-    marginTop: 5,
-    fontWeight: '500',
-  },
-  fieldHint: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 5,
-  },
+  verifiedText: { fontSize: 11 },
+  fieldError: { fontSize: 12, marginTop: 5 },
+  fieldHint: { fontSize: 12, marginTop: 5 },
   saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    backgroundColor: '#05015A',
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
   },
-  saveButtonDisabled: {
-    backgroundColor: '#94a3b8',
-  },
-  saveButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
+  saveButtonDisabled: { opacity: 0.45 },
+  saveButtonText: { fontSize: 15, color: "#ffffff" },
 });

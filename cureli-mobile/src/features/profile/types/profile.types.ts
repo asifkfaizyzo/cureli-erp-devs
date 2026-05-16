@@ -1,6 +1,6 @@
 // src/features/profile/types/profile.types.ts
 
-import type { AddressLabel } from '../constants/profile.constants';
+import type { AddressLabel } from "../constants/profile.constants";
 
 // ── Address ───────────────────────────────────────────────────
 
@@ -28,8 +28,8 @@ export interface Address {
 // ── Profile form ──────────────────────────────────────────────
 
 export interface ProfileFormData {
-  full_name: string;
-  email: string;
+  full_name?: string; // ← make optional
+  email?: string | null; // ← make optional, allow null
 }
 
 // ── Address form ──────────────────────────────────────────────
@@ -54,7 +54,7 @@ export interface UpdateAddressPayload extends AddressFormData {
 
 // ── API response shapes ───────────────────────────────────────
 
-import type { MobileUser } from '../../../types/auth';
+import type { MobileUser } from "../../../types/auth";
 
 export interface MeResponseData {
   user: MobileUser & { address_count: number };

@@ -728,6 +728,8 @@ model MasterMedicineVariant {
   @@index([sku_id])
   @@index([brand])
   @@index([name])
+  @@index([manufacturer])
+  @@index([marketer])
   @@map("master_medicine_variants")
 }
 
@@ -1754,6 +1756,10 @@ model CureliMobileUser {
   deleted_at             DateTime? @db.Timestamptz(6)
   deletion_reason        String?   @db.VarChar(500)
 
+  // ── Account Deletion OTP ──────────────────────────────────
+  delete_otp_hash        String?
+  delete_otp_expires     DateTime? @db.Timestamptz(6)
+
   // ── OTP State (login) ─────────────────────────────────────
   // Mirrors the proven pattern from ERP User.login_otp_*
   login_otp_hash         String?
@@ -1854,6 +1860,37 @@ model CureliMobileAddress {
   @@map("cureli_mobile_addresses")
 }
 
+model CureliMobileDeletedAccount {
+  id                   String    @id @default(uuid()) @db.Uuid
+
+  // ── Original identity ─────────────────────────────────────
+  // original_user_id is preserved for linking future order/transaction data.
+  // It is NOT a foreign key — the user row no longer exists.
+  original_user_id     String    @db.Uuid
+
+  // Phone is SHA-256 hashed — NOT plaintext.
+  // Reason: the same phone can register again as a fresh account.
+  // We need to know "a deleted account existed for this phone"
+  // without creating a collision risk with a new live user.
+  // SHA-256 (not bcrypt) because we need to hash-and-lookup,
+  // not hash-and-verify. Deterministic hash is required here.
+  phone_hash           String    @db.VarChar(64)
+
+  // Profile snapshot at time of deletion — kept for order context.
+  full_name            String?   @db.VarChar(200)
+  email                String?   @db.VarChar(255)
+
+  // Metadata
+  deletion_reason      String    @default("user_requested") @db.VarChar(50)
+  account_created_at   DateTime  @db.Timestamptz(6)
+  address_count        Int       @default(0)
+  deleted_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([original_user_id])
+  @@index([phone_hash])
+  @@index([deleted_at])
+  @@map("cureli_mobile_deleted_accounts")
+}
 
 
 // ══════════════════════════════════════════════════════════════

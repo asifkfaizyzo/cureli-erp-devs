@@ -8,6 +8,8 @@ import {
   updateMobileAddress,
   setDefaultMobileAddress,
   deleteMobileAddress,
+  sendDeleteAccountOtp,
+  confirmDeleteAccount,
 } from "./mobile.users.service.js";
 
 // ── Profile ───────────────────────────────────────────────────
@@ -65,7 +67,7 @@ export async function handleUpdateAddress(req, res) {
     const address = await updateMobileAddress(
       req.mobileUser.id,
       req.params.id,
-      req.body
+      req.body,
     );
     return success(res, { address }, "Address updated");
   } catch (err) {
@@ -81,7 +83,7 @@ export async function handleSetDefaultAddress(req, res) {
   try {
     const address = await setDefaultMobileAddress(
       req.mobileUser.id,
-      req.params.id
+      req.params.id,
     );
     return success(res, { address }, "Default address updated");
   } catch (err) {
@@ -100,5 +102,38 @@ export async function handleDeleteAddress(req, res) {
   } catch (err) {
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
     return fail(res, err.message, 400);
+  }
+}
+/**
+ * POST /mobile/users/account/delete/send-otp
+ */
+export async function handleSendDeleteOtp(req, res) {
+  try {
+    const result = await sendDeleteAccountOtp(req.mobileUser.id);
+    return success(res, result, "OTP sent to your registered phone number");
+  } catch (err) {
+    const statusMap = {
+      NOT_FOUND: 404,
+      ACCOUNT_INACTIVE: 403,
+    };
+    return fail(res, err.message, statusMap[err.code] || 500);
+  }
+}
+
+/**
+ * POST /mobile/users/account/delete/confirm
+ */
+export async function handleConfirmDeleteAccount(req, res) {
+  try {
+    await confirmDeleteAccount(req.mobileUser.id, req.body.otp);
+    return success(res, {}, "Account permanently deleted");
+  } catch (err) {
+    const statusMap = {
+      NOT_FOUND: 404,
+      NO_OTP: 400,
+      OTP_EXPIRED: 400,
+      OTP_INVALID: 400,
+    };
+    return fail(res, err.message, statusMap[err.code] || 500);
   }
 }

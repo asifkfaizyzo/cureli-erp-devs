@@ -96,4 +96,26 @@ export const StorageService = {
   setOnboardingComplete(): void {
     storage.set(KEYS.ONBOARDING_COMPLETE, true);
   },
+
+    // ── Theme preference ──────────────────────────────────────
+
+  getThemePreference(): 'light' | 'dark' | 'system' {
+    const val = storage.getString('app.theme_preference');
+    if (val === 'light' || val === 'dark' || val === 'system') return val;
+    return 'system';
+  },
+
+  setThemePreference(pref: 'light' | 'dark' | 'system'): void {
+    storage.set('app.theme_preference', pref);
+  },
+
+  getDarkVariant(): 'pure' | 'navy' | 'neutral' {
+    const val = storage.getString('app.dark_variant');
+    if (val === 'pure' || val === 'navy' || val === 'neutral') return val;
+    return 'navy';
+  },
+
+  setDarkVariant(variant: 'pure' | 'navy' | 'neutral'): void {
+    storage.set('app.dark_variant', variant);
+  },
 };

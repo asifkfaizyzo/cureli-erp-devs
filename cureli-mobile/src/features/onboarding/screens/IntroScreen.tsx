@@ -1,10 +1,4 @@
 // src/features/onboarding/screens/IntroScreen.tsx
-//
-// Three-slide intro carousel shown to first-time app openers.
-// After viewing (or tapping Get Started), marks intro as seen
-// and navigates to login. Never shown again.
-//
-// To show it again for testing: clear 'onboarding.intro_seen' from MMKV.
 
 import { useRef, useState } from 'react';
 import {
@@ -19,15 +13,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { StorageService } from '../../../services/storage';
-import { Colors } from '../../../theme/colors';
-import { Typography } from '../../../theme/typography';
-import { Spacing } from '../../../theme/spacing';
+import { useTheme } from '../../../theme/ThemeContext';
 
 const { width } = Dimensions.get('window');
-
-// ── Slide definitions ─────────────────────────────────────────
 
 interface Slide {
   id: string;
@@ -44,7 +33,7 @@ const SLIDES: Slide[] = [
     title: 'Medicine at your door',
     subtitle:
       'Order from trusted pharmacies near you and get medicines delivered fast — no queues, no waiting.',
-    accent: '#3b2fd4',
+    accent: '#6b44dc',
   },
   {
     id: '2',
@@ -52,7 +41,7 @@ const SLIDES: Slide[] = [
     title: 'Track every order live',
     subtitle:
       'Real-time updates from the moment your order is placed to the moment it arrives at your door.',
-    accent: '#0a0280',
+    accent: '#3b2fd4',
   },
   {
     id: '3',
@@ -60,13 +49,12 @@ const SLIDES: Slide[] = [
     title: 'Trusted & safe always',
     subtitle:
       'Every pharmacy is verified. Every medicine is genuine. Your health is our only priority.',
-    accent: '#05015A',
+    accent: '#090025',
   },
 ];
 
-// ── Component ─────────────────────────────────────────────────
-
 export function IntroScreen() {
+  const { colors, isDark } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
@@ -95,20 +83,25 @@ export function IntroScreen() {
     },
   ).current;
 
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
 
   const isLast = activeIndex === SLIDES.length - 1;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      {/* Skip button */}
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top', 'bottom']}
+    >
       {!isLast && (
         <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={[styles.skipText, { color: colors.text.muted }]}>
+            Skip
+          </Text>
         </TouchableOpacity>
       )}
 
-      {/* Slides */}
       <FlatList
         ref={flatListRef}
         data={SLIDES}
@@ -119,42 +112,74 @@ export function IntroScreen() {
         bounces={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
-        renderItem={({ item }) => (
-          <View style={styles.slide}>
-            {/* Illustration area */}
-            <View style={[styles.illustrationRing, { backgroundColor: item.accent + '18' }]}>
-              <View style={[styles.illustrationInner, { backgroundColor: item.accent + '28' }]}>
-                <MaterialIcons name={item.icon} size={72} color={item.accent} />
+        renderItem={({ item }) => {
+          const accentColor = isDark ? colors.brand.accent : item.accent;
+          return (
+            <View style={styles.slide}>
+              <View
+                style={[
+                  styles.illustrationRing,
+                  { backgroundColor: accentColor + '18' },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.illustrationInner,
+                    { backgroundColor: accentColor + '28' },
+                  ]}
+                >
+                  <MaterialIcons
+                    name={item.icon}
+                    size={72}
+                    color={accentColor}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.textBlock}>
+                <Text
+                  style={[styles.slideTitle, { color: colors.text.primary }]}
+                >
+                  {item.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.slideSubtitle,
+                    { color: colors.text.muted },
+                  ]}
+                >
+                  {item.subtitle}
+                </Text>
               </View>
             </View>
-
-            {/* Text */}
-            <View style={styles.textBlock}>
-              <Text style={styles.slideTitle}>{item.title}</Text>
-              <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
-            </View>
-          </View>
-        )}
+          );
+        }}
       />
 
-      {/* Bottom area: dots + button */}
       <View style={styles.bottom}>
-        {/* Dot indicators */}
         <View style={styles.dots}>
           {SLIDES.map((_, index) => (
             <View
               key={index}
               style={[
                 styles.dot,
-                index === activeIndex ? styles.dotActive : styles.dotInactive,
+                index === activeIndex
+                  ? [styles.dotActive, { backgroundColor: colors.brand.primary }]
+                  : [styles.dotInactive, { backgroundColor: colors.border.default }],
               ]}
             />
           ))}
         </View>
 
-        {/* CTA button */}
         <TouchableOpacity
-          style={styles.button}
+          style={[
+            styles.button,
+            {
+              backgroundColor: isDark
+                ? colors.brand.accent
+                : colors.brand.primary,
+            },
+          ]}
           onPress={handleNext}
           activeOpacity={0.85}
         >
@@ -168,8 +193,7 @@ export function IntroScreen() {
           />
         </TouchableOpacity>
 
-        {/* Legal note */}
-        <Text style={styles.legal}>
+        <Text style={[styles.legal, { color: colors.text.faint }]}>
           By continuing you agree to our Terms of Service and Privacy Policy
         </Text>
       </View>
@@ -177,12 +201,9 @@ export function IntroScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   skipButton: {
     alignSelf: 'flex-end',
@@ -192,7 +213,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: Colors.text.muted,
   },
   slide: {
     width,
@@ -224,14 +244,12 @@ const styles = StyleSheet.create({
   slideTitle: {
     fontSize: 26,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text.primary,
     textAlign: 'center',
     lineHeight: 34,
   },
   slideSubtitle: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.muted,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -252,11 +270,9 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: Colors.brand.dark,
   },
   dotInactive: {
     width: 8,
-    backgroundColor: Colors.border.default,
   },
   button: {
     flexDirection: 'row',
@@ -264,7 +280,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     width: '100%',
-    backgroundColor: Colors.brand.dark,
     paddingVertical: 16,
     borderRadius: 14,
   },
@@ -276,7 +291,6 @@ const styles = StyleSheet.create({
   legal: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.faint,
     textAlign: 'center',
     lineHeight: 17,
   },

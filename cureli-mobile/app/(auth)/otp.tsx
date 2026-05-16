@@ -1,14 +1,4 @@
 // app/(auth)/otp.tsx
-//
-// OTP SCREEN — 6-digit code entry
-//
-// Receives: phone (as route param from login screen)
-//
-// Flow:
-//   Auto-focus → user types 6 digits → auto-submit on 6th digit
-//   Success → navigate to /(tabs)/home, replace history
-//   Failure → show error, allow retry
-//   Resend → cooldown timer, then allow re-send
 
 import {
   View,
@@ -19,20 +9,25 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-} from "react-native";
-import { useState, useEffect, useRef } from "react";
-import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuthStore } from "../../src/store/authStore";
+  ScrollView,
+} from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useAuthStore } from '../../src/store/authStore';
 import { StorageService } from '../../src/services/storage';
+import { useTheme } from '../../src/theme/ThemeContext';
+
 const OTP_LENGTH = 6;
-const RESEND_COOLDOWN = 30; // seconds
+const RESEND_COOLDOWN = 30;
 
 export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { login, sendOtp } = useAuthStore();
+  const { colors, isDark } = useTheme();
 
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
@@ -41,11 +36,9 @@ export default function OtpScreen() {
   const inputRef = useRef<TextInput>(null);
 
   // ── Cooldown Timer ────────────────────────────────────────
-  // Counts down from 30 to 0. When 0, resend button becomes active.
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
-
     const timer = setInterval(() => {
       setResendCooldown((prev) => {
         if (prev <= 1) {
@@ -55,11 +48,10 @@ export default function OtpScreen() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // ── Auto-submit when 6 digits entered ─────────────────────
+  // ── Auto-submit ───────────────────────────────────────────
 
   useEffect(() => {
     if (otp.length === OTP_LENGTH) {
@@ -71,7 +63,7 @@ export default function OtpScreen() {
 
   async function handleVerify(code: string) {
     if (!phone) {
-      setError("Phone number missing. Please go back and try again.");
+      setError('Phone number missing. Please go back and try again.');
       return;
     }
     if (code.length !== OTP_LENGTH) return;
@@ -81,17 +73,15 @@ export default function OtpScreen() {
 
     try {
       const { isNewUser } = await login(phone, code);
-
       const onboardingDone = StorageService.isOnboardingComplete();
       if (isNewUser && !onboardingDone) {
-        router.replace("/onboarding/name");
+        router.replace('/onboarding/name');
       } else {
-        router.replace("/(tabs)/home");
+        router.replace('/(tabs)/home');
       }
     } catch (err: unknown) {
-      setOtp(""); // clear the input on failure
+      setOtp('');
       setError(extractErrorMessage(err));
-      // Re-focus the input so user can try again immediately
       setTimeout(() => inputRef.current?.focus(), 100);
     } finally {
       setLoading(false);
@@ -102,10 +92,9 @@ export default function OtpScreen() {
 
   async function handleResend() {
     if (resendCooldown > 0 || !phone) return;
-
     setResending(true);
     setError(null);
-    setOtp("");
+    setOtp('');
 
     try {
       await sendOtp(phone);
@@ -120,21 +109,18 @@ export default function OtpScreen() {
   // ── OTP Input Handler ─────────────────────────────────────
 
   function handleOtpChange(text: string) {
-    const digits = text.replace(/\D/g, "").slice(0, OTP_LENGTH);
+    const digits = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
     setOtp(digits);
     if (error) setError(null);
   }
 
-  // ── Render OTP Boxes ──────────────────────────────────────
-  // Visual trick: one hidden TextInput captures the actual input.
-  // We render 6 styled boxes on top that read from the otp state string.
-  // This gives full control over the appearance of each digit cell.
+  // ── OTP Boxes ─────────────────────────────────────────────
 
   function renderOtpBoxes() {
     return (
       <View style={styles.otpBoxRow}>
         {Array.from({ length: OTP_LENGTH }).map((_, index) => {
-          const char = otp[index] ?? "";
+          const char = otp[index] ?? '';
           const isCurrent = index === otp.length && !loading;
           const isFilled = index < otp.length;
 
@@ -143,16 +129,42 @@ export default function OtpScreen() {
               key={index}
               style={[
                 styles.otpBox,
-                isFilled && styles.otpBoxFilled,
-                isCurrent && styles.otpBoxActive,
-                error && styles.otpBoxError,
+                {
+                  backgroundColor: colors.background.input,
+                  borderColor: colors.border.input,
+                },
+                isFilled && {
+                  borderColor: colors.brand.accent,
+                  backgroundColor: colors.background.tint,
+                },
+                isCurrent && {
+                  borderColor: colors.brand.accent,
+                  borderWidth: 2,
+                  backgroundColor: colors.background.card,
+                },
+                error
+                  ? {
+                      borderColor: colors.status.error,
+                      backgroundColor: colors.status.errorBg,
+                    }
+                  : null,
               ]}
               onPress={() => inputRef.current?.focus()}
               activeOpacity={1}
             >
-              <Text style={styles.otpChar}>{char}</Text>
-              {/* Blinking cursor on the active box */}
-              {isCurrent && <View style={styles.cursor} />}
+              <Text
+                style={[styles.otpChar, { color: colors.text.primary }]}
+              >
+                {char}
+              </Text>
+              {isCurrent && (
+                <View
+                  style={[
+                    styles.cursor,
+                    { backgroundColor: colors.brand.accent },
+                  ]}
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -161,32 +173,71 @@ export default function OtpScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
-          {/* ── Back Button ──────────────────────────────── */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Back button */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
             disabled={loading}
           >
-            <Text style={styles.backText}>← Change number</Text>
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={colors.text.muted}
+            />
+            <Text
+              style={[styles.backText, { color: colors.text.muted }]}
+            >
+              Change number
+            </Text>
           </TouchableOpacity>
 
-          {/* ── Header ──────────────────────────────────── */}
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Enter OTP</Text>
-            <Text style={styles.subtitle}>
-              Sent to <Text style={styles.phoneHighlight}>+91 {phone}</Text>
+            <View
+              style={[
+                styles.otpIconWrapper,
+                { backgroundColor: colors.background.tint },
+              ]}
+            >
+              <MaterialIcons
+                name="lock-outline"
+                size={28}
+                color={colors.brand.accent}
+              />
+            </View>
+
+            <Text style={[styles.title, { color: colors.text.primary }]}>
+              Verification code
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
+              We sent a 6-digit code to{'\n'}
+              <Text
+                style={[
+                  styles.phoneHighlight,
+                  { color: colors.text.primary },
+                ]}
+              >
+                +91 {phone}
+              </Text>
             </Text>
           </View>
 
-          {/* ── OTP Input (hidden) + Visual Boxes ────────── */}
+          {/* OTP Input */}
           <View style={styles.otpSection}>
-            {/* Hidden input — captures actual keyboard input */}
             <TextInput
               ref={inputRef}
               value={otp}
@@ -198,189 +249,236 @@ export default function OtpScreen() {
               style={styles.hiddenInput}
               editable={!loading}
             />
-
-            {/* Visual OTP boxes rendered on top */}
             {renderOtpBoxes()}
           </View>
 
-          {/* ── Error ────────────────────────────────────── */}
-          {error && <Text style={styles.errorText}>{error}</Text>}
-
-          {/* ── Loading indicator ─────────────────────────── */}
-          {loading && (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color="#05015A" size="small" />
-              <Text style={styles.loadingText}>Verifying...</Text>
+          {/* Error */}
+          {error ? (
+            <View style={styles.errorRow}>
+              <MaterialIcons
+                name="error-outline"
+                size={14}
+                color={colors.status.error}
+              />
+              <Text
+                style={[styles.errorText, { color: colors.status.error }]}
+              >
+                {error}
+              </Text>
             </View>
-          )}
+          ) : null}
 
-          {/* ── Resend ───────────────────────────────────── */}
+          {/* Loading */}
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator
+                color={colors.brand.accent}
+                size="small"
+              />
+              <Text
+                style={[
+                  styles.loadingText,
+                  { color: colors.brand.accent },
+                ]}
+              >
+                Verifying…
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Resend */}
           <View style={styles.resendRow}>
-            <Text style={styles.resendLabel}>Didn't receive the OTP?</Text>
+            <Text
+              style={[styles.resendLabel, { color: colors.text.muted }]}
+            >
+              Didn't receive the code?
+            </Text>
             <TouchableOpacity
               onPress={handleResend}
               disabled={resendCooldown > 0 || resending || loading}
             >
               {resending ? (
-                <ActivityIndicator color="#05015A" size="small" />
+                <ActivityIndicator
+                  color={colors.brand.accent}
+                  size="small"
+                />
               ) : resendCooldown > 0 ? (
-                <Text style={styles.resendCooldown}>
+                <Text
+                  style={[
+                    styles.resendCooldown,
+                    { color: colors.text.faint },
+                  ]}
+                >
                   Resend in {resendCooldown}s
                 </Text>
               ) : (
-                <Text style={styles.resendActive}>Resend OTP</Text>
+                <Text
+                  style={[
+                    styles.resendActive,
+                    { color: colors.brand.accent },
+                  ]}
+                >
+                  Resend OTP
+                </Text>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === "object" && "response" in err) {
+  if (err && typeof err === 'object' && 'response' in err) {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
     const status = axiosErr.response?.status;
     const message = axiosErr.response?.data?.message;
-
-    if (status === 429) return message ?? "Too many attempts. Please wait.";
-    if (status === 403) return message ?? "Account suspended. Contact support.";
+    if (status === 429) return message ?? 'Too many attempts. Please wait.';
+    if (status === 403)
+      return message ?? 'Account suspended. Contact support.';
     if (message) return message;
   }
-  return "Verification failed. Please try again.";
+  return 'Verification failed. Please try again.';
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#ffffff",
   },
-  keyboardView: {
+  flex: {
     flex: 1,
   },
-  container: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-    gap: 28,
+    gap: 24,
   },
+
+  // ── Back ──
   backButton: {
-    alignSelf: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
     paddingVertical: 8,
   },
   backText: {
     fontSize: 14,
-    color: "#64748b",
-    fontWeight: "500",
+    fontFamily: 'Inter_500Medium',
   },
+
+  // ── Header ──
   header: {
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 16,
+  },
+  otpIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#0f172a",
+    fontSize: 26,
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
-    color: "#64748b",
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
     lineHeight: 22,
   },
   phoneHighlight: {
-    color: "#05015A",
-    fontWeight: "700",
+    fontFamily: 'Inter_600SemiBold',
   },
+
+  // ── OTP ──
   otpSection: {
-    alignItems: "center",
-    position: "relative",
+    alignItems: 'center',
+    position: 'relative',
+    marginTop: 8,
   },
   hiddenInput: {
-    position: "absolute",
+    position: 'absolute',
     opacity: 0,
     width: 1,
     height: 1,
   },
   otpBoxRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 10,
   },
   otpBox: {
     width: 48,
     height: 58,
     borderWidth: 1.5,
-    borderColor: "#e2e8f0",
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f8fafc",
-    position: "relative",
-  },
-  otpBoxFilled: {
-    borderColor: "#05015A",
-    backgroundColor: "#eef2ff",
-  },
-  otpBoxActive: {
-    borderColor: "#05015A",
-    borderWidth: 2,
-    backgroundColor: "#ffffff",
-  },
-  otpBoxError: {
-    borderColor: "#ef4444",
-    backgroundColor: "#fff5f5",
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   otpChar: {
     fontSize: 22,
-    fontWeight: "700",
-    color: "#0f172a",
+    fontFamily: 'Inter_700Bold',
   },
   cursor: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 10,
     width: 2,
     height: 22,
-    backgroundColor: "#05015A",
     borderRadius: 1,
+  },
+
+  // ── Error ──
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   errorText: {
     fontSize: 13,
-    color: "#ef4444",
-    fontWeight: "500",
-    textAlign: "center",
-    marginTop: -12,
+    fontFamily: 'Inter_500Medium',
   },
+
+  // ── Loading ──
   loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    marginTop: -12,
   },
   loadingText: {
     fontSize: 14,
-    color: "#05015A",
-    fontWeight: "500",
+    fontFamily: 'Inter_500Medium',
   },
+
+  // ── Resend ──
   resendRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    justifyContent: "center",
+    justifyContent: 'center',
+    paddingBottom: 32,
   },
   resendLabel: {
     fontSize: 14,
-    color: "#64748b",
+    fontFamily: 'Inter_400Regular',
   },
   resendCooldown: {
     fontSize: 14,
-    color: "#94a3b8",
-    fontWeight: "600",
+    fontFamily: 'Inter_600SemiBold',
   },
   resendActive: {
     fontSize: 14,
-    color: "#05015A",
-    fontWeight: "700",
+    fontFamily: 'Inter_700Bold',
   },
 });

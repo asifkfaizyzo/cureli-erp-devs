@@ -1,54 +1,54 @@
 // app/splash.tsx
-//
-// Animated splash screen shown after the JS bundle loads.
-// Sequence:
-//   1. Logo icon fades + scales in        (500ms)
-//   2. Wordmark fades in below            (400ms, starts at 300ms)
-//   3. Hold                               (700ms)
-//   4. Everything fades out together      (400ms)
-//   5. Routes to next screen
-//
-// Uses react-native-reanimated (already installed).
-// Total visible duration: ~1.8 seconds.
 
-import { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withDelay,
+  withSpring,
   withSequence,
   runOnJS,
   Easing,
+  interpolate,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { StorageService } from '../src/services/storage';
 import { useAuthStore } from '../src/store/authStore';
 
-const { width } = Dimensions.get('window');
-const LOGO_SIZE = width * 0.22;
-const WORDMARK_WIDTH = width * 0.48;
+const { width, height } = Dimensions.get('window');
+const LOGO_WIDTH = width * 0.52;
+const TAGLINE = 'Medicine delivered to your door';
 
 export default function SplashScreenPage() {
-  const { status } = useAuthStore();
+  const status = useAuthStore((s) => s.status);
 
-  // ── Animated values ───────────────────────────────────────
-  const logoOpacity   = useSharedValue(0);
-  const logoScale     = useSharedValue(0.6);
-  const wordmarkOpacity = useSharedValue(0);
+  // ── Shared values ─────────────────────────────────────────
+  const glowScale        = useSharedValue(0.4);
+  const glowOpacity      = useSharedValue(0);
+  const logoScale        = useSharedValue(0.3);
+  const logoOpacity      = useSharedValue(0);
+  const lineWidth        = useSharedValue(0);
+  const lineOpacity      = useSharedValue(0);
+  const taglineOpacity   = useSharedValue(0);
   const containerOpacity = useSharedValue(1);
+  const exitScale        = useSharedValue(1);
 
-  // ── Navigate after animation ──────────────────────────────
+  // Accent dots get their own shared value — no .value reads in JSX
+  const dotsProgress = useSharedValue(0);
+
+  // ── Typewriter state ──────────────────────────────────────
+  const [visibleChars, setVisibleChars] = useState(0);
+
+  // ── Navigation ────────────────────────────────────────────
   function navigateNext() {
     const introSeen = StorageService.isIntroSeen();
-
     if (!introSeen) {
       router.replace('/intro');
       return;
     }
-
     if (status === 'authenticated') {
       router.replace('/(tabs)/home');
     } else {
@@ -58,73 +58,147 @@ export default function SplashScreenPage() {
 
   // ── Animation sequence ────────────────────────────────────
   useEffect(() => {
-    const easingIn  = Easing.out(Easing.cubic);
-    const easingOut = Easing.in(Easing.cubic);
+    const easeOut = Easing.out(Easing.cubic);
+    const easeIn  = Easing.in(Easing.cubic);
 
-    // Step 1 — logo icon fades + scales in
-    logoOpacity.value = withTiming(1, { duration: 500, easing: easingIn });
-    logoScale.value   = withTiming(1, { duration: 500, easing: easingIn });
+    // Glow
+    glowOpacity.value = withTiming(0.6, { duration: 600, easing: easeOut });
+    glowScale.value   = withTiming(1,   { duration: 800, easing: easeOut });
 
-    // Step 2 — wordmark fades in after 300ms delay
-    wordmarkOpacity.value = withDelay(
-      300,
-      withTiming(1, { duration: 400, easing: easingIn }),
-    );
+    // Logo spring
+    logoOpacity.value = withDelay(100, withTiming(1, { duration: 400, easing: easeOut }));
+    logoScale.value   = withDelay(100, withSpring(1, { damping: 12, stiffness: 180, mass: 0.8 }));
 
-    // Step 3 — hold 700ms then fade everything out
-    containerOpacity.value = withSequence(
-      withDelay(1400, withTiming(0, { duration: 400, easing: easingOut })),
-    );
+    // Accent dots progress (drives all three dots via useAnimatedStyle)
+    dotsProgress.value = withDelay(100, withTiming(1, { duration: 700, easing: easeOut }));
 
-    // Step 4 — navigate after full sequence completes (~1800ms)
-    const timer = setTimeout(() => {
-      runOnJS(navigateNext)();
-    }, 1850);
+    // Lines sweep
+    lineOpacity.value = withDelay(400, withTiming(0.4, { duration: 300, easing: easeOut }));
+    lineWidth.value   = withDelay(400, withTiming(1,   { duration: 500, easing: easeOut }));
 
-    return () => clearTimeout(timer);
+    // Tagline fade
+    taglineOpacity.value = withDelay(800, withTiming(1, { duration: 200 }));
+
+    // Typewriter
+    const typewriterStart = 850;
+    const charDelay = 20;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let i = 0; i <= TAGLINE.length; i++) {
+      timers.push(setTimeout(() => setVisibleChars(i), typewriterStart + i * charDelay));
+    }
+
+    // Exit
+    exitScale.value        = withDelay(2100, withTiming(1.15, { duration: 400, easing: easeIn }));
+    containerOpacity.value = withDelay(2100, withTiming(0,    { duration: 400, easing: easeIn }));
+
+    // Navigate
+    const navTimer = setTimeout(() => runOnJS(navigateNext)(), 2550);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(navTimer);
+    };
   }, []);
 
   // ── Animated styles ───────────────────────────────────────
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+    transform: [{ scale: glowScale.value }],
+  }));
+
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
     transform: [{ scale: logoScale.value }],
   }));
 
-  const wordmarkStyle = useAnimatedStyle(() => ({
-    opacity: wordmarkOpacity.value,
+  // Each dot gets its own opacity/scale derived from dotsProgress
+  // No .value reads in JSX — all inside useAnimatedStyle
+  const dot0Style = useAnimatedStyle(() => ({
+    opacity: interpolate(dotsProgress.value, [0, 1], [0, 0.15]),
+    transform: [{ scale: interpolate(dotsProgress.value, [0, 1], [0.5, 1]) }],
+  }));
+
+  const dot1Style = useAnimatedStyle(() => ({
+    opacity: interpolate(dotsProgress.value, [0, 1], [0, 0.23]),
+    transform: [{ scale: interpolate(dotsProgress.value, [0, 1], [0.5, 1]) }],
+  }));
+
+  const dot2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(dotsProgress.value, [0, 1], [0, 0.31]),
+    transform: [{ scale: interpolate(dotsProgress.value, [0, 1], [0.5, 1]) }],
+  }));
+
+  const leftLineStyle = useAnimatedStyle(() => ({
+    opacity: lineOpacity.value,
+    width: interpolate(lineWidth.value, [0, 1], [0, width * 0.25]),
+  }));
+
+  const rightLineStyle = useAnimatedStyle(() => ({
+    opacity: lineOpacity.value,
+    width: interpolate(lineWidth.value, [0, 1], [0, width * 0.25]),
+  }));
+
+  const taglineStyle = useAnimatedStyle(() => ({
+    opacity: taglineOpacity.value,
   }));
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: containerOpacity.value,
+    transform: [{ scale: exitScale.value }],
   }));
+
+  // ── Render ────────────────────────────────────────────────
 
   return (
     <Animated.View style={[styles.container, containerStyle]}>
-      {/* Logo icon */}
+      {/* Background glow */}
+      <Animated.View style={[styles.glow, glowStyle]} />
+
+      {/* Accent dots — each has its own animated style, no .value in JSX */}
+      <View style={styles.dotsTop}>
+        <Animated.View style={[styles.accentDot, dot0Style]} />
+        <Animated.View style={[styles.accentDot, dot1Style]} />
+        <Animated.View style={[styles.accentDot, dot2Style]} />
+      </View>
+
+      {/* Logo */}
       <Animated.View style={[styles.logoWrapper, logoStyle]}>
         <Image
-          source={require('../assets/images/cureliwhitenew.png')}
-          style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
-          contentFit="contain"
-        />
-      </Animated.View>
-
-      {/* Wordmark — "Cureli" text logo */}
-      <Animated.View style={[styles.wordmarkWrapper, wordmarkStyle]}>
-        <Image
           source={require('../assets/images/cureliwhitewithtext.png')}
-          style={{ width: WORDMARK_WIDTH, height: WORDMARK_WIDTH * 0.35 }}
+          style={styles.logoImage}
           contentFit="contain"
         />
       </Animated.View>
 
-      {/* Tagline */}
-      <Animated.Text style={[styles.tagline, wordmarkStyle]}>
-        Medicine delivered to your door
-      </Animated.Text>
+      {/* Decorative lines */}
+      <View style={styles.linesRow}>
+        <Animated.View style={[styles.line, styles.lineLeft, leftLineStyle]} />
+        <View style={styles.lineDot} />
+        <Animated.View style={[styles.line, styles.lineRight, rightLineStyle]} />
+      </View>
+
+      {/* Tagline typewriter */}
+      <Animated.View style={[styles.taglineWrapper, taglineStyle]}>
+        <Text style={styles.tagline}>
+          {TAGLINE.slice(0, visibleChars)}
+          {visibleChars < TAGLINE.length && (
+            <Text style={styles.cursor}>|</Text>
+          )}
+        </Text>
+      </Animated.View>
+
+      {/* Bottom branding */}
+      <Animated.View style={[styles.bottomBrand, taglineStyle]}>
+        <View style={styles.bottomLine} />
+        <Text style={styles.bottomText}>by Cureli Health</Text>
+        <View style={styles.bottomLine} />
+      </Animated.View>
     </Animated.View>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -132,20 +206,87 @@ const styles = StyleSheet.create({
     backgroundColor: '#05015A',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
+  },
+  glow: {
+    position: 'absolute',
+    width: width * 0.9,
+    height: width * 0.9,
+    borderRadius: width * 0.45,
+    backgroundColor: 'rgba(58, 47, 212, 0.15)',
+  },
+  dotsTop: {
+    position: 'absolute',
+    top: height * 0.12,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  accentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   logoWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 24,
   },
-  wordmarkWrapper: {
+  logoImage: {
+    width: LOGO_WIDTH,
+    height: LOGO_WIDTH * 0.4,
+  },
+  linesRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
+  },
+  line: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  lineLeft: {
+    marginRight: 12,
+  },
+  lineRight: {
+    marginLeft: 12,
+  },
+  lineDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  taglineWrapper: {
+    alignItems: 'center',
+    minHeight: 24,
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: 'rgba(255,255,255,0.50)',
-    letterSpacing: 0.3,
-    marginTop: 4,
+    color: 'rgba(255, 255, 255, 0.55)',
+    letterSpacing: 0.8,
+  },
+  cursor: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontWeight: '100',
+  },
+  bottomBrand: {
+    position: 'absolute',
+    bottom: height * 0.08,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bottomLine: {
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  bottomText: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255, 255, 255, 0.25)',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
 });

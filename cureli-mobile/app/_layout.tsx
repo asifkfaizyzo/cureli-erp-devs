@@ -14,11 +14,11 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/store/authStore';
 import { authEventEmitter } from '../src/services/api';
+import { ThemeProvider } from '../src/theme/ThemeContext';
+import { DialogProvider } from '../src/components/Dialog/DialogProvider';
 
-// ── Prevent native splash from hiding until fonts are ready ──
 SplashScreen.preventAutoHideAsync();
 
-// ── QueryClient — module level, never recreated ───────────────
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,21 +37,19 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
+    Amulya: require('../assets/fonts/Amulya-Variable.ttf'),
   });
 
-  // Hide native splash once fonts are ready
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
-  // Initialize auth state once on app open
   useEffect(() => {
     initialize();
   }, []);
 
-  // Listen for forced logout events from the API interceptor
   useEffect(() => {
     const unsubscribe = authEventEmitter.on('logout', () => {
       logout();
@@ -60,36 +58,34 @@ export default function RootLayout() {
     return unsubscribe;
   }, [logout]);
 
-  // Don't render anything until fonts are loaded.
-  // Native splash is still showing during this time.
   if (!fontsLoaded) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack>
-        <Stack.Screen name="index"          options={{ headerShown: false }} />
-        <Stack.Screen name="splash"         options={{ headerShown: false, animation: 'none' }} />
-        <Stack.Screen name="intro"          options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="(auth)/login"   options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)/otp"     options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)"         options={{ headerShown: false }} />
-        <Stack.Screen name="search"         options={{ headerShown: false }} />
-        <Stack.Screen name="product/[id]"   options={{ headerShown: false }} />
-        <Stack.Screen name="cart"           options={{ headerShown: false }} />
-        <Stack.Screen name="checkout"       options={{ headerShown: false }} />
-        <Stack.Screen name="splash"         options={{ headerShown: false }} />
-        <Stack.Screen name="intro"          options={{ headerShown: false }} />
-
-        {/* ── Onboarding ── */}
-        <Stack.Screen name="onboarding/name"  options={{ headerShown: false, animation: 'slide_from_right' }} />
-        <Stack.Screen name="onboarding/email" options={{ headerShown: false, animation: 'slide_from_right' }} />
-
-        {/* ── Profile stack ── */}
-        <Stack.Screen name="profile/edit"          options={{ headerShown: false }} />
-        <Stack.Screen name="profile/addresses"     options={{ headerShown: false }} />
-        <Stack.Screen name="profile/address/new"   options={{ headerShown: false }} />
-        <Stack.Screen name="profile/address/[id]"  options={{ headerShown: false }} />
-      </Stack>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <DialogProvider>
+          <Stack>
+            <Stack.Screen name="index"                  options={{ headerShown: false }} />
+            <Stack.Screen name="splash"                 options={{ headerShown: false, animation: 'none' }} />
+            <Stack.Screen name="intro"                  options={{ headerShown: false, animation: 'fade' }} />
+            <Stack.Screen name="(auth)/login"           options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)/otp"             options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)"                 options={{ headerShown: false }} />
+            <Stack.Screen name="search"                 options={{ headerShown: false }} />
+            <Stack.Screen name="product/[id]"           options={{ headerShown: false }} />
+            <Stack.Screen name="cart"                   options={{ headerShown: false }} />
+            <Stack.Screen name="checkout"               options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding/name"        options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="onboarding/email"       options={{ headerShown: false, animation: 'slide_from_right' }} />
+            <Stack.Screen name="profile/edit"           options={{ headerShown: false }} />
+            <Stack.Screen name="profile/addresses"      options={{ headerShown: false }} />
+            <Stack.Screen name="profile/address/new"    options={{ headerShown: false }} />
+            <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
+            <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
+            <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
+          </Stack>
+        </DialogProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

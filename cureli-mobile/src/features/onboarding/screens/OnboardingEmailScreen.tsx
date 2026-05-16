@@ -1,8 +1,4 @@
 // src/features/onboarding/screens/OnboardingEmailScreen.tsx
-//
-// Step 2 of post-login onboarding.
-// Collects email — optional. User can skip.
-// On complete: marks onboarding done, routes to home.
 
 import { useState } from 'react';
 import {
@@ -21,13 +17,14 @@ import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useUpdateProfile } from '../../profile/hooks/useUpdateProfile';
 import { StorageService } from '../../../services/storage';
-import { Colors } from '../../../theme/colors';
+import { useTheme } from '../../../theme/ThemeContext';
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 export function OnboardingEmailScreen() {
+  const { colors, isDark } = useTheme();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { updateProfile, isPending } = useUpdateProfile({
@@ -42,7 +39,6 @@ export function OnboardingEmailScreen() {
   async function handleFinish() {
     const trimmed = email.trim();
 
-    // If field is empty, treat as skip
     if (!trimmed) {
       finishOnboarding();
       return;
@@ -56,16 +52,10 @@ export function OnboardingEmailScreen() {
     setError(null);
 
     updateProfile(
-      { full_name: '', email: trimmed },
+      { email: trimmed },
       {
-        onSuccess: () => {
-          finishOnboarding();
-        },
-        onError: () => {
-          // Even if email update fails, let user proceed
-          // They can update it later from profile
-          finishOnboarding();
-        },
+        onSuccess: () => finishOnboarding(),
+        onError: () => finishOnboarding(),
       },
     );
   }
@@ -75,7 +65,10 @@ export function OnboardingEmailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top', 'bottom']}
+    >
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -87,15 +80,29 @@ export function OnboardingEmailScreen() {
         >
           {/* Progress */}
           <View style={styles.progressRow}>
-            <View style={styles.progressDone} />
-            <View style={styles.progressActive} />
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+              ]}
+            />
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+              ]}
+            />
           </View>
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.stepLabel}>Step 2 of 2</Text>
-            <Text style={styles.title}>Stay in the loop</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.stepLabel, { color: colors.text.faint }]}>
+              Step 2 of 2
+            </Text>
+            <Text style={[styles.title, { color: colors.text.primary }]}>
+              Stay in the loop
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text.muted }]}>
               Get order confirmations and health tips straight to your inbox.
               Totally optional.
             </Text>
@@ -103,19 +110,28 @@ export function OnboardingEmailScreen() {
 
           {/* Input */}
           <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
               Email address{' '}
-              <Text style={styles.optional}>(optional)</Text>
+              <Text style={{ color: colors.text.faint }}>(optional)</Text>
             </Text>
             <TextInput
-              style={[styles.input, error ? styles.inputError : null]}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.background.input,
+                  borderColor: error
+                    ? colors.status.error
+                    : colors.border.input,
+                  color: colors.text.primary,
+                },
+              ]}
               value={email}
               onChangeText={(v) => {
                 setEmail(v);
                 if (error) setError(null);
               }}
               placeholder="you@example.com"
-              placeholderTextColor={Colors.text.faint}
+              placeholderTextColor={colors.text.faint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -125,13 +141,23 @@ export function OnboardingEmailScreen() {
               onSubmitEditing={handleFinish}
             />
             {error ? (
-              <Text style={styles.fieldError}>{error}</Text>
+              <Text style={[styles.fieldError, { color: colors.status.error }]}>
+                {error}
+              </Text>
             ) : null}
           </View>
 
           {/* Finish button */}
           <TouchableOpacity
-            style={[styles.button, isPending && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              {
+                backgroundColor: isDark
+                  ? colors.brand.accent
+                  : colors.brand.primary,
+              },
+              isPending && styles.buttonDisabled,
+            ]}
             onPress={handleFinish}
             disabled={isPending}
             activeOpacity={0.85}
@@ -140,7 +166,11 @@ export function OnboardingEmailScreen() {
               <ActivityIndicator size={18} color="#ffffff" />
             ) : null}
             <Text style={styles.buttonText}>
-              {isPending ? 'Saving…' : email.trim() ? 'Finish Setup' : 'Skip for now'}
+              {isPending
+                ? 'Saving…'
+                : email.trim()
+                ? 'Finish Setup'
+                : 'Skip for now'}
             </Text>
             {!isPending && (
               <MaterialIcons name="check" size={18} color="#ffffff" />
@@ -150,7 +180,7 @@ export function OnboardingEmailScreen() {
           {/* Skip link */}
           {email.trim().length === 0 && (
             <TouchableOpacity onPress={handleSkip} style={styles.skipLink}>
-              <Text style={styles.skipText}>
+              <Text style={[styles.skipText, { color: colors.text.faint }]}>
                 I'll add this later from my profile
               </Text>
             </TouchableOpacity>
@@ -164,7 +194,6 @@ export function OnboardingEmailScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   flex: {
     flex: 1,
@@ -180,17 +209,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  progressDone: {
+  progressBar: {
     flex: 1,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.brand.dark,
-  },
-  progressActive: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.brand.dark,
   },
   header: {
     gap: 10,
@@ -198,20 +220,17 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text.faint,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   title: {
     fontSize: 30,
     fontFamily: 'Inter_700Bold',
-    color: Colors.text.primary,
     lineHeight: 38,
   },
   subtitle: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.muted,
     lineHeight: 23,
   },
   inputBlock: {
@@ -220,43 +239,29 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
-    color: Colors.text.secondary,
-  },
-  optional: {
-    fontFamily: 'Inter_400Regular',
-    color: Colors.text.faint,
   },
   input: {
-    backgroundColor: Colors.background.page,
     borderWidth: 1.5,
-    borderColor: Colors.border.default,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 15,
     fontSize: 17,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.primary,
-  },
-  inputError: {
-    borderColor: Colors.status.error,
-    backgroundColor: Colors.status.errorBg,
   },
   fieldError: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
-    color: Colors.status.error,
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.brand.dark,
     paddingVertical: 16,
     borderRadius: 14,
   },
   buttonDisabled: {
-    backgroundColor: Colors.text.disabled,
+    opacity: 0.45,
   },
   buttonText: {
     fontSize: 16,
@@ -270,7 +275,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 13,
     fontFamily: 'Inter_400Regular',
-    color: Colors.text.faint,
     textDecorationLine: 'underline',
   },
 });

@@ -1,8 +1,20 @@
 // src/modules/mobile/users/mobile.users.service.js
 
 import prisma from "../../../config/prisma.js";
+import crypto from "crypto";
+import { generateOtp, hashOtp, verifyOtp } from "../../../utils/otp.js";
+import {
+  msg91SendSms,
+  formatPhoneNumber,
+} from "../../../providers/msg91/sendSms.js";
+
+const DELETE_OTP_EXPIRY_MINUTES = 10;
 
 const MAX_ADDRESSES = 10;
+
+function hashPhoneForTombstone(phone) {
+  return crypto.createHash("sha256").update(phone).digest("hex");
+}
 
 // ── Profile ───────────────────────────────────────────────────
 
@@ -32,7 +44,9 @@ export async function updateMobileProfile(userId, fields) {
     });
 
     if (existing) {
-      const err = new Error("This email is already associated with another account.");
+      const err = new Error(
+        "This email is already associated with another account.",
+      );
       err.code = "EMAIL_TAKEN";
       throw err;
     }
@@ -76,10 +90,7 @@ export async function listMobileAddresses(userId) {
       user_id: userId,
       deleted_at: null,
     },
-    orderBy: [
-      { is_default: "desc" },
-      { created_at: "asc" },
-    ],
+    orderBy: [{ is_default: "desc" }, { created_at: "asc" }],
   });
 }
 
@@ -99,7 +110,7 @@ export async function createMobileAddress(userId, data) {
 
   if (count >= MAX_ADDRESSES) {
     const err = new Error(
-      `You can save a maximum of ${MAX_ADDRESSES} addresses.`
+      `You can save a maximum of ${MAX_ADDRESSES} addresses.`,
     );
     err.code = "ADDRESS_LIMIT";
     throw err;
@@ -258,5 +269,150 @@ export async function deleteMobileAddress(userId, addressId) {
         });
       }
     }
+  });
+}
+
+export async function sendDeleteAccountOtp(userId) {
+  const user = await prisma.cureliMobileUser.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      phone: true,
+      status: true,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found.");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (user.status !== "active") {
+    const err = new Error("Account is not active.");
+    err.code = "ACCOUNT_INACTIVE";
+    throw err;
+  }
+
+  const otp = generateOtp(6);
+  const otpHash = await hashOtp(otp);
+  const expiresAt = new Date(
+    Date.now() + DELETE_OTP_EXPIRY_MINUTES * 60 * 1000,
+  );
+
+  // Store OTP hash on user row
+  await prisma.cureliMobileUser.update({
+    where: { id: userId },
+    data: {
+      delete_otp_hash: otpHash,
+      delete_otp_expires: expiresAt,
+    },
+  });
+
+  const mobile = formatPhoneNumber(user.phone);
+  await msg91SendSms({
+    templateId: process.env.MSG91_ACC_DEL_TEMPLATE,
+    mobile,
+    variables: { number: otp },
+  });
+
+  return { expiresIn: DELETE_OTP_EXPIRY_MINUTES * 60 };
+}
+
+/**
+ * Verify the deletion OTP and permanently delete the account.
+ *
+ * Flow (all in one transaction):
+ *   1. Verify OTP against stored hash
+ *   2. Count addresses for metadata
+ *   3. Create tombstone record in CureliMobileDeletedAccount
+ *   4. Hard delete CureliMobileUser
+ *      → cascades: CureliMobileSession, CureliMobileAddress
+ *
+ * @param {string} userId
+ * @param {string} otp - Plain OTP entered by user
+ * @returns {Promise<void>}
+ */
+export async function confirmDeleteAccount(userId, otp) {
+  const user = await prisma.cureliMobileUser.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      phone: true,
+      full_name: true,
+      email: true,
+      status: true,
+      created_at: true,
+      delete_otp_hash: true,
+      delete_otp_expires: true,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found.");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  // ── OTP checks ────────────────────────────────────────────
+
+  if (!user.delete_otp_hash || !user.delete_otp_expires) {
+    const err = new Error("No deletion OTP found. Please request a new one.");
+    err.code = "NO_OTP";
+    throw err;
+  }
+
+  if (new Date() > user.delete_otp_expires) {
+    // Clear expired OTP
+    await prisma.cureliMobileUser.update({
+      where: { id: userId },
+      data: { delete_otp_hash: null, delete_otp_expires: null },
+    });
+    const err = new Error("OTP has expired. Please request a new one.");
+    err.code = "OTP_EXPIRED";
+    throw err;
+  }
+
+  // Dev bypass
+  const isDev = process.env.NODE_ENV === "development";
+  const isDevBypass = isDev && otp === "000000";
+
+  if (!isDevBypass) {
+    const valid = await verifyOtp(otp, user.delete_otp_hash);
+    if (!valid) {
+      const err = new Error("Incorrect OTP. Please try again.");
+      err.code = "OTP_INVALID";
+      throw err;
+    }
+  }
+
+  // ── Delete in transaction ─────────────────────────────────
+
+  await prisma.$transaction(async (tx) => {
+    // Count addresses for tombstone metadata
+    const addressCount = await tx.cureliMobileAddress.count({
+      where: { user_id: userId },
+    });
+
+    // Create tombstone — survives the user deletion permanently
+    await tx.cureliMobileDeletedAccount.create({
+      data: {
+        original_user_id: user.id,
+        phone_hash: hashPhoneForTombstone(user.phone),
+        full_name: user.full_name ?? null,
+        email: user.email ?? null,
+        deletion_reason: "user_requested",
+        account_created_at: user.created_at,
+        address_count: addressCount,
+      },
+    });
+
+    // Hard delete the user row.
+    // Cascades automatically delete:
+    //   - CureliMobileSession (onDelete: Cascade)
+    //   - CureliMobileAddress (onDelete: Cascade)
+    await tx.cureliMobileUser.delete({
+      where: { id: userId },
+    });
   });
 }

@@ -1,18 +1,18 @@
 // src/features/profile/components/EmptyAddressState.tsx
-//
-// Shown when the user has no saved addresses.
-// Illustration placeholder + clear CTA.
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTheme } from '../../../theme/ThemeContext';
 
 interface EmptyAddressStateProps {
   onAddPress?: () => void;
 }
 
 export function EmptyAddressState({ onAddPress }: EmptyAddressStateProps) {
+  const { colors, isDark } = useTheme();
+
   const handlePress = () => {
     if (onAddPress) {
       onAddPress();
@@ -23,23 +23,38 @@ export function EmptyAddressState({ onAddPress }: EmptyAddressStateProps) {
 
   return (
     <View style={styles.container}>
-      {/* Illustration placeholder */}
-      <View style={styles.illustration}>
-        <MaterialIcons name="location-off" size={48} color="#cbd5e1" />
+      <View
+        style={[
+          styles.illustration,
+          { backgroundColor: colors.background.tint },
+        ]}
+      >
+        <MaterialIcons
+          name="location-off"
+          size={48}
+          color={colors.text.disabled}
+        />
       </View>
 
-      <Text style={styles.title}>No saved addresses</Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.title, { color: colors.text.primary, fontFamily: 'Inter_700Bold' }]}>
+        No saved addresses
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.text.faint, fontFamily: 'Inter_400Regular' }]}>
         Save your delivery addresses for faster checkout
       </Text>
 
       <TouchableOpacity
-        style={styles.button}
+        style={[
+          styles.button,
+          { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+        ]}
         onPress={handlePress}
         activeOpacity={0.8}
       >
         <MaterialIcons name="add-location-alt" size={18} color="#ffffff" />
-        <Text style={styles.buttonText}>Add your first address</Text>
+        <Text style={[styles.buttonText, { fontFamily: 'Inter_600SemiBold' }]}>
+          Add your first address
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -55,20 +70,16 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   title: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 13,
-    color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -77,14 +88,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#05015A',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
   },
   buttonText: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#ffffff',
   },
 });

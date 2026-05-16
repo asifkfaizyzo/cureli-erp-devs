@@ -1,7 +1,4 @@
 // src/features/profile/screens/AddressesScreen.tsx
-//
-// Full address list with edit, delete, and set-default actions.
-// Add new address navigates to /profile/address/new.
 
 import React, { useState } from 'react';
 import {
@@ -11,7 +8,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -21,42 +17,48 @@ import { useAddressMutations } from '../hooks/useAddressMutations';
 import { AddressCard } from '../components/AddressCard';
 import { EmptyAddressState } from '../components/EmptyAddressState';
 import { extractErrorMessage } from '../api/profile.api';
+import { useTheme } from '../../../theme/ThemeContext';
+import { useDialog } from '../../../components/Dialog/DialogProvider';
 import type { Address } from '../types/profile.types';
 
 export function AddressesScreen() {
+  const { colors, isDark } = useTheme();
+  const { confirm, alert } = useDialog();
   const { addresses, isLoading, isError, refetch } = useAddresses();
   const { deleteAddress, setDefaultAddress } = useAddressMutations();
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
 
-  const handleEdit = (id: string) => {
-    router.push(`/profile/address/${id}`);
-  };
+  const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
-  const handleDelete = (id: string) => {
-    Alert.alert(
-      'Remove address',
-      'Are you sure you want to remove this address?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(id);
-            try {
-              await deleteAddress(id);
-            } catch (error) {
-              Alert.alert('Error', extractErrorMessage(error));
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+  const handleEdit = (id: string) => router.push(`/profile/address/${id}`);
+
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirm({
+      title: 'Remove address',
+      message: 'Are you sure you want to remove this address?',
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      icon: 'delete-outline',
+    });
+
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      await deleteAddress(id);
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: extractErrorMessage(error),
+        confirmLabel: 'OK',
+        icon: 'error-outline',
+      });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSetDefault = async (id: string) => {
@@ -64,85 +66,81 @@ export function AddressesScreen() {
     try {
       await setDefaultAddress(id);
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error));
+      await alert({
+        title: 'Error',
+        message: extractErrorMessage(error),
+        confirmLabel: 'OK',
+        icon: 'error-outline',
+      });
     } finally {
       setSettingDefaultId(null);
     }
   };
 
-  // ── Loading ───────────────────────────────────────────────
+  const Header = () => (
+    <View
+      style={[
+        styles.header,
+        {
+          backgroundColor: colors.background.card,
+          borderBottomColor: colors.border.default,
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={() => router.back()}
+        style={styles.backButton}
+        activeOpacity={0.7}
+      >
+        <MaterialIcons name="arrow-back" size={22} color={colors.text.primary} />
+      </TouchableOpacity>
+      <Text style={[styles.headerTitle, { color: colors.text.primary, fontFamily: 'Inter_700Bold' }]}>
+        Saved Addresses
+      </Text>
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: colors.background.tint }]}
+        onPress={() => router.push('/profile/address/new')}
+        activeOpacity={0.7}
+      >
+        <MaterialIcons name="add" size={22} color={brandColor} />
+      </TouchableOpacity>
+    </View>
+  );
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="arrow-back" size={22} color="#0f172a" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Addresses</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.page }]} edges={['top']}>
+        <Header />
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#05015A" />
+          <ActivityIndicator size="large" color={brandColor} />
         </View>
       </SafeAreaView>
     );
   }
-
-  // ── Error ─────────────────────────────────────────────────
 
   if (isError) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="arrow-back" size={22} color="#0f172a" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Saved Addresses</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.page }]} edges={['top']}>
+        <Header />
         <View style={styles.centered}>
-          <MaterialIcons name="wifi-off" size={48} color="#cbd5e1" />
-          <Text style={styles.errorTitle}>Couldn't load addresses</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryText}>Retry</Text>
+          <MaterialIcons name="wifi-off" size={48} color={colors.text.disabled} />
+          <Text style={[styles.errorTitle, { color: colors.text.primary, fontFamily: 'Inter_700Bold' }]}>
+            Couldn't load addresses
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: brandColor }]}
+            onPress={() => refetch()}
+          >
+            <Text style={[styles.retryText, { fontFamily: 'Inter_600SemiBold' }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── Main render ───────────────────────────────────────────
-
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="arrow-back" size={22} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Saved Addresses</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => router.push('/profile/address/new')}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="add" size={22} color="#05015A" />
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background.page }]} edges={['top']}>
+      <Header />
       <FlatList
         data={addresses}
         keyExtractor={(item: Address) => item.id}
@@ -150,21 +148,27 @@ export function AddressesScreen() {
           addresses.length === 0 ? styles.emptyContainer : styles.listContent
         }
         ListEmptyComponent={
-          <EmptyAddressState
-            onAddPress={() => router.push('/profile/address/new')}
-          />
+          <EmptyAddressState onAddPress={() => router.push('/profile/address/new')} />
         }
         ListFooterComponent={
           addresses.length > 0 ? (
             <TouchableOpacity
-              style={styles.addAddressRow}
+              style={[
+                styles.addAddressRow,
+                {
+                  backgroundColor: colors.background.card,
+                  borderColor: colors.border.default,
+                },
+              ]}
               onPress={() => router.push('/profile/address/new')}
               activeOpacity={0.7}
             >
-              <View style={styles.addAddressIcon}>
-                <MaterialIcons name="add" size={20} color="#05015A" />
+              <View style={[styles.addAddressIcon, { backgroundColor: colors.background.tint }]}>
+                <MaterialIcons name="add" size={20} color={brandColor} />
               </View>
-              <Text style={styles.addAddressText}>Add new address</Text>
+              <Text style={[styles.addAddressText, { color: brandColor, fontFamily: 'Inter_600SemiBold' }]}>
+                Add new address
+              </Text>
             </TouchableOpacity>
           ) : null
         }
@@ -185,19 +189,14 @@ export function AddressesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   backButton: {
     width: 36,
@@ -206,21 +205,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
   },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  headerRight: {
-    width: 36,
-  },
+  headerTitle: { fontSize: 17 },
   addButton: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: '#f0f4ff',
   },
   centered: {
     flex: 1,
@@ -229,30 +220,15 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 32,
   },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
+  errorTitle: { fontSize: 17 },
   retryButton: {
     paddingHorizontal: 28,
     paddingVertical: 11,
-    backgroundColor: '#05015A',
     borderRadius: 10,
   },
-  retryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  listContent: {
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
+  retryText: { fontSize: 14, color: '#ffffff' },
+  listContent: { paddingTop: 16, paddingBottom: 32 },
+  emptyContainer: { flex: 1, justifyContent: 'center' },
   addAddressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -260,23 +236,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 8,
     padding: 16,
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
     borderStyle: 'dashed',
   },
   addAddressIcon: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f0f4ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addAddressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#05015A',
-  },
+  addAddressText: { fontSize: 14 },
 });

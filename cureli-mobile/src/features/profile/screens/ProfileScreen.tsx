@@ -1,7 +1,4 @@
 // src/features/profile/screens/ProfileScreen.tsx
-//
-// Phase 1A — main profile screen.
-// Assembles ProfileHeader, address section, account section, and logout.
 
 import React, { useState } from 'react';
 import {
@@ -11,7 +8,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -30,46 +26,60 @@ import { useAddresses } from '../hooks/useAddresses';
 import { profileApi, extractErrorMessage } from '../api/profile.api';
 import { QUERY_KEYS } from '../constants/profile.constants';
 import { useAuthStore } from '../../../store/authStore';
+import { useTheme } from '../../../theme/ThemeContext';
+import { useDialog } from '../../../components/Dialog/DialogProvider';
 
 export function ProfileScreen() {
+  const { colors, isDark } = useTheme();
+  const { confirm, alert } = useDialog();
   const queryClient = useQueryClient();
-  const { user, isLoading: profileLoading, isFetching, isError: profileError, refetch } = useProfile();
+  const {
+    user,
+    isLoading: profileLoading,
+    isFetching,
+    isError: profileError,
+    refetch,
+  } = useProfile();
   const { addresses, isLoading: addressesLoading } = useAddresses();
 
-  // Track which address action is in-flight
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
 
-  // ── Address handlers ─────────────────────────────────────
+  const logout = useAuthStore((state) => state.logout);
+  const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
+
+  // ── Address handlers ──────────────────────────────────────
 
   const handleEditAddress = (id: string) => {
     router.push(`/profile/address/${id}`);
   };
 
-  const handleDeleteAddress = (id: string) => {
-    Alert.alert(
-      'Remove address',
-      'Are you sure you want to remove this address?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingId(id);
-            try {
-              await profileApi.deleteAddress(id);
-              queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADDRESSES });
-            } catch (error) {
-              Alert.alert('Error', extractErrorMessage(error));
-            } finally {
-              setDeletingId(null);
-            }
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+  const handleDeleteAddress = async (id: string) => {
+    const confirmed = await confirm({
+      title: 'Remove address',
+      message: 'Are you sure you want to remove this address?',
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      icon: 'delete-outline',
+    });
+
+    if (!confirmed) return;
+
+    setDeletingId(id);
+    try {
+      await profileApi.deleteAddress(id);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADDRESSES });
+    } catch (error) {
+      await alert({
+        title: 'Error',
+        message: extractErrorMessage(error),
+        confirmLabel: 'OK',
+        icon: 'error-outline',
+      });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSetDefault = async (id: string) => {
@@ -78,62 +88,74 @@ export function ProfileScreen() {
       await profileApi.setDefaultAddress(id);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADDRESSES });
     } catch (error) {
-      Alert.alert('Error', extractErrorMessage(error));
+      await alert({
+        title: 'Error',
+        message: extractErrorMessage(error),
+        confirmLabel: 'OK',
+        icon: 'error-outline',
+      });
     } finally {
       setSettingDefaultId(null);
     }
   };
 
-  // ── Logout all devices handler ────────────────────────────
+  const handleLogoutAll = async () => {
+    const confirmed = await confirm({
+      title: 'Log out of all devices',
+      message:
+        'This will end all active sessions across every device. You will need to log in again on this device.',
+      confirmLabel: 'Log out everywhere',
+      cancelLabel: 'Cancel',
+      destructive: true,
+      icon: 'devices',
+    });
 
-  const logout = useAuthStore((state) => state.logout);
+    if (!confirmed) return;
 
-  const handleLogoutAll = () => {
-    Alert.alert(
-      'Log out of all devices',
-      'This will end all active sessions across every device. You will need to log in again on this device.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log out everywhere',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await profileApi.logoutAllDevices();
-            } catch {
-              // Even if the API call fails, we clear locally
-            }
-            await logout();
-            router.replace('/(auth)/login');
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+    try {
+      await profileApi.logoutAllDevices();
+    } catch {
+      // Clear locally even if API fails
+    }
+    await logout();
+    router.replace('/(auth)/login');
   };
 
-  // ── Loading state ─────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────
 
   if (profileLoading && !user) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background.page }]}
+        edges={['top']}
+      >
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#05015A" />
+          <ActivityIndicator size="large" color={brandColor} />
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── Error state ───────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────
 
   if (profileError && !user) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background.page }]}
+        edges={['top']}
+      >
         <View style={styles.centered}>
-          <MaterialIcons name="wifi-off" size={48} color="#cbd5e1" />
-          <Text style={styles.errorTitle}>Couldn't load profile</Text>
-          <Text style={styles.errorSubtitle}>Check your connection and try again</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+          <MaterialIcons name="wifi-off" size={48} color={colors.text.disabled} />
+          <Text style={[styles.errorTitle, { color: colors.text.primary }]}>
+            Couldn't load profile
+          </Text>
+          <Text style={[styles.errorSubtitle, { color: colors.text.faint }]}>
+            Check your connection and try again
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: brandColor }]}
+            onPress={() => refetch()}
+          >
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -141,38 +163,53 @@ export function ProfileScreen() {
     );
   }
 
-  // ── Main render ───────────────────────────────────────────
+  // ── Main ──────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background.page }]}
+      edges={['top']}
+    >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile header */}
         <ProfileHeader user={user} isFetching={isFetching} />
 
-        {/* Saved Addresses section */}
+        {/* Addresses section header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>SAVED ADDRESSES</Text>
+          <Text
+            style={[
+              styles.sectionTitle,
+              { color: colors.text.muted, fontFamily: 'Inter_700Bold' },
+            ]}
+          >
+            SAVED ADDRESSES
+          </Text>
           <TouchableOpacity
             onPress={() => router.push('/profile/addresses')}
             activeOpacity={0.7}
           >
-            <Text style={styles.sectionAction}>Manage all</Text>
+            <Text
+              style={[
+                styles.sectionAction,
+                { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+              ]}
+            >
+              Manage all
+            </Text>
           </TouchableOpacity>
         </View>
 
         {addressesLoading ? (
           <View style={styles.addressLoadingWrapper}>
-            <ActivityIndicator size="small" color="#05015A" />
+            <ActivityIndicator size="small" color={brandColor} />
           </View>
         ) : addresses.length === 0 ? (
           <EmptyAddressState />
         ) : (
           <>
-            {/* Show up to 2 addresses on the profile screen */}
             {addresses.slice(0, 2).map((address) => (
               <AddressCard
                 key={address.id}
@@ -184,17 +221,21 @@ export function ProfileScreen() {
                 isSettingDefault={settingDefaultId === address.id}
               />
             ))}
-
             {addresses.length > 2 && (
               <TouchableOpacity
                 style={styles.viewAllAddresses}
                 onPress={() => router.push('/profile/addresses')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.viewAllText}>
+                <Text
+                  style={[
+                    styles.viewAllText,
+                    { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+                  ]}
+                >
                   View all {addresses.length} addresses
                 </Text>
-                <MaterialIcons name="chevron-right" size={16} color="#05015A" />
+                <MaterialIcons name="chevron-right" size={16} color={brandColor} />
               </TouchableOpacity>
             )}
           </>
@@ -209,6 +250,12 @@ export function ProfileScreen() {
             label="Log out of all devices"
             onPress={handleLogoutAll}
             destructive
+            showSeparator
+          />
+          <ProfileMenuItem
+            icon="settings"
+            label="App Settings"
+            onPress={() => router.push('/profile/settings')}
             showSeparator
           />
           <ProfileMenuItem
@@ -231,12 +278,27 @@ export function ProfileScreen() {
           />
         </ProfileSection>
 
-        {/* App version */}
-        <Text style={styles.version}>Cureli v1.0.0</Text>
+        {/* Danger zone */}
+        <ProfileSection title="Danger Zone">
+          <ProfileMenuItem
+            icon="delete-forever"
+            label="Delete Account"
+            onPress={() => router.push('/profile/delete-account')}
+            destructive
+            showSeparator={false}
+          />
+        </ProfileSection>
 
-        {/* Logout button */}
+        <Text
+          style={[
+            styles.version,
+            { color: colors.text.disabled, fontFamily: 'Inter_400Regular' },
+          ]}
+        >
+          Cureli v1.0.0
+        </Text>
+
         <LogoutButton />
-
         <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
@@ -244,16 +306,9 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 24,
-  },
+  safe: { flex: 1 },
+  scroll: { flex: 1 },
+  content: { paddingBottom: 24 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -263,25 +318,21 @@ const styles = StyleSheet.create({
   },
   errorTitle: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#0f172a',
     marginTop: 8,
   },
   errorSubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
     textAlign: 'center',
   },
   retryButton: {
     marginTop: 8,
     paddingHorizontal: 28,
     paddingVertical: 11,
-    backgroundColor: '#05015A',
     borderRadius: 10,
   },
   retryText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     color: '#ffffff',
   },
   sectionHeader: {
@@ -294,15 +345,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
     letterSpacing: 1,
-    color: '#64748b',
     textTransform: 'uppercase',
   },
   sectionAction: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#05015A',
   },
   addressLoadingWrapper: {
     paddingVertical: 32,
@@ -317,21 +364,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 4,
   },
-  viewAllText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#05015A',
-  },
-  spacer: {
-    height: 24,
-  },
+  viewAllText: { fontSize: 13 },
+  spacer: { height: 24 },
   version: {
     textAlign: 'center',
     fontSize: 11,
-    color: '#cbd5e1',
     marginBottom: 16,
   },
-  bottomPad: {
-    height: 32,
-  },
+  bottomPad: { height: 32 },
 });
