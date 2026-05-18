@@ -146,7 +146,7 @@ const SetupReviewPage = () => {
         completeSetup();
         // Clear the persisted setup data
         localStorage.removeItem("cureli-setup-storage");
-        navigate("/dashboard", { replace: true });
+        navigate("/erp/dashboard", { replace: true });
       }, 2000);
     } catch (err) {
       console.error("Setup submission failed:", err);

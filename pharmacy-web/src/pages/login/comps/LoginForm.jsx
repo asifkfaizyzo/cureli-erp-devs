@@ -9,7 +9,7 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 import { loginUser } from "../../../api/auth";
 import LoginOtpVerification from "./LoginOtpVerification";
 import { useToast } from "../../../components/common/Toast";
-
+const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
 const LoginForm = ({ onRegisterClick }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -187,7 +187,7 @@ const LoginForm = ({ onRegisterClick }) => {
           </p>
 
           <button
-            onClick={() => navigate("/contact")}
+            onClick={() => { window.location.href = `${LANDING_PAGE_URL}/contact`; }}
             className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-[#000060] text-white rounded-xl font-semibold hover:bg-[#000080] transition-colors"
           >
             Contact Support

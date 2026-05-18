@@ -192,7 +192,7 @@ const SalesBillingPage = () => {
         "Access Denied",
         "Only Super Admin can edit confirmed invoices.",
       );
-      navigate("/sales/invoice");
+      navigate("/erp/sales-invoice");
     }
   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
@@ -337,7 +337,7 @@ const SalesBillingPage = () => {
             "Load Failed",
             "Failed to load confirmed invoice for editing.",
           );
-          navigate("/sales/invoice");
+          navigate("/erp/sales-invoice");
         }
       }
     };
@@ -638,7 +638,7 @@ const SalesBillingPage = () => {
           closeConfirmDialog();
 
           if (invoiceId) {
-            navigate("/sales/billing");
+            navigate("/erp/sales-billing");
           }
 
           toast.success("New Bill", "Ready to create a new sales bill.");
@@ -658,7 +658,7 @@ const SalesBillingPage = () => {
       });
 
       if (invoiceId) {
-        navigate("/sales/billing");
+        navigate("/erp/sales-billing");
       }
 
       toast.success("New Bill", "Ready to create a new sales bill.");
@@ -1016,7 +1016,7 @@ const SalesBillingPage = () => {
             </div>
 
             <button
-              onClick={() => navigate("/sales/invoice")}
+              onClick={() => navigate("/erp/sales-invoice")}
               className="shrink-0 flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors"
             >
               <ArrowLeft size={16} />

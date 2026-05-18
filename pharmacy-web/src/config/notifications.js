@@ -340,53 +340,53 @@ export const NOTIFICATION_ICON_CONFIG = {
 
 export const NOTIFICATION_ROUTES = {
   // Inventory
-  [NOTIFICATION_EVENTS.LOW_STOCK_ALERT]: "/inventory",
-  [NOTIFICATION_EVENTS.OUT_OF_STOCK_ALERT]: "/inventory",
-  [NOTIFICATION_EVENTS.NEAR_EXPIRY_ALERT]: "/inventory",
-  [NOTIFICATION_EVENTS.EXPIRED_STOCK_ALERT]: "/inventory",
+  [NOTIFICATION_EVENTS.LOW_STOCK_ALERT]: "/erp/inventory",
+  [NOTIFICATION_EVENTS.OUT_OF_STOCK_ALERT]: "/erp/inventory",
+  [NOTIFICATION_EVENTS.NEAR_EXPIRY_ALERT]: "/erp/inventory",
+  [NOTIFICATION_EVENTS.EXPIRED_STOCK_ALERT]: "/erp/inventory",
 
-  // Security - Stay on current page
+  // Security - Stay on current page (null = no navigation)
   [NOTIFICATION_EVENTS.PASSWORD_CHANGED]: null,
   [NOTIFICATION_EVENTS.PASSWORD_RESET_BY_ADMIN]: null,
   [NOTIFICATION_EVENTS.EMAIL_CHANGED]: null,
   [NOTIFICATION_EVENTS.PHONE_CHANGED]: null,
   [NOTIFICATION_EVENTS.ROLE_CHANGED]: null,
-  [NOTIFICATION_EVENTS.BRANCH_CHANGED]: "/dashboard",
+  [NOTIFICATION_EVENTS.BRANCH_CHANGED]: "/erp/dashboard",
 
   // User Management
-  [NOTIFICATION_EVENTS.USER_CREATED]: "/settings/users",
-  [NOTIFICATION_EVENTS.USER_DEACTIVATED]: "/settings/users",
-  [NOTIFICATION_EVENTS.USER_REACTIVATED]: "/settings/users",
+  [NOTIFICATION_EVENTS.USER_CREATED]: "/erp/settings/users",
+  [NOTIFICATION_EVENTS.USER_DEACTIVATED]: "/erp/settings/users",
+  [NOTIFICATION_EVENTS.USER_REACTIVATED]: "/erp/settings/users",
 
   // Shop & Verification
-  [NOTIFICATION_EVENTS.SHOP_VERIFIED]: "/dashboard",
-  [NOTIFICATION_EVENTS.DOCUMENT_REJECTED]: "/verification",
-  [NOTIFICATION_EVENTS.DOCUMENT_PARTIALLY_REJECTED]: "/verification",
+  [NOTIFICATION_EVENTS.SHOP_VERIFIED]: "/erp/dashboard",
+  [NOTIFICATION_EVENTS.DOCUMENT_REJECTED]: "/verification",       // ← intentional, pre-auth flow
+  [NOTIFICATION_EVENTS.DOCUMENT_PARTIALLY_REJECTED]: "/verification", // ← intentional
 
   // Subscription
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_ACTIVATED]: "/settings/profile",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRED]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: "/settings/profile",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_RENEWED]: "/settings/profile",
-  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: "/settings/upgrade",
-  [NOTIFICATION_EVENTS.PLAN_UPGRADED]: "/settings/profile",
-  [NOTIFICATION_EVENTS.PLAN_DOWNGRADED]: "/settings/profile",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_ACTIVATED]: "/erp/settings/profile",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRED]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_EXTENDED]: "/erp/settings/profile",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_SUSPENDED]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_RENEWED]: "/erp/settings/profile",
+  [NOTIFICATION_EVENTS.SUBSCRIPTION_PAYMENT_REMINDER]: "/erp/settings/upgrade",
+  [NOTIFICATION_EVENTS.PLAN_UPGRADED]: "/erp/settings/profile",
+  [NOTIFICATION_EVENTS.PLAN_DOWNGRADED]: "/erp/settings/profile",
 
   // Payments
-  [NOTIFICATION_EVENTS.PAYMENT_SUCCESS]: "/settings/profile",
-  [NOTIFICATION_EVENTS.PAYMENT_FAILED]: "/settings/upgrade",
+  [NOTIFICATION_EVENTS.PAYMENT_SUCCESS]: "/erp/settings/profile",
+  [NOTIFICATION_EVENTS.PAYMENT_FAILED]: "/erp/settings/upgrade",
 
   // Tickets
-  [NOTIFICATION_EVENTS.TICKET_CREATED]: "/tickets",
-  [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]: "/tickets",
+  [NOTIFICATION_EVENTS.TICKET_CREATED]: "/erp/tickets",
+  [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]: "/erp/tickets",
 
-  // Broadcast - Check for action_url in context
-  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: null, // Dynamic - uses context.action_url
+  // Broadcast — dynamic, uses context.action_url
+  [NOTIFICATION_EVENTS.BROADCAST_INAPP]: null,
 };
 
 // ============================================

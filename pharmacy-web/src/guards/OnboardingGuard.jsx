@@ -22,7 +22,7 @@ import { useAuthStore } from "../store/useAuthStore";
  *   - Allow access to continue onboarding
  *
  * CASE 3: Fully verified user trying to access /onboarding
- *   - Redirect to /dashboard
+ *   - Redirect to /erp/dashboard
  *
  * CASE 4: No pending_id AND no token
  *   - Redirect to /login (or home)
@@ -171,7 +171,7 @@ const OnboardingGuard = ({ children }) => {
   }
 
   if (accessDecision === "redirect-dashboard") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/erp/dashboard" replace />;
   }
 
   // Allow access

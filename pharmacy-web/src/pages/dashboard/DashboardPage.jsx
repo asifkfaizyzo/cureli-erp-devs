@@ -1,4 +1,4 @@
-// src/pages/dashboard/DashboardPage.jsx
+// src/pages/erp/dashboard/erp/dashboardPage.jsx
 
 import React, {
   useState,
@@ -784,17 +784,14 @@ const DashboardPage = () => {
         // Sales Stats - Backend returns: { totalInvoices, totalSalesAmount, totalReceivedAmount, totalOutstandingAmount, todaySalesAmount, todayInvoiceCount }
         const salesData = extractData(results[0], {});
         setSalesStats(salesData);
-      
 
         // Purchase Stats - Backend returns: { totalInvoices, totalAmount, unpaidAmount }
         const purchaseData = extractData(results[1], {});
         setPurchaseStats(purchaseData);
-       
 
         // Inventory Summary - Backend returns: { totalItems, totalStockQuantity, lowStockCount, outOfStockCount, expiringSoonCount, expiredCount }
         const inventoryData = extractData(results[2], {});
         setInventorySummary(inventoryData);
-       
 
         //  FIXED: Low Stock Items - Backend returns array directly, not { items: [...] }
         const lowStockData = extractData(results[3], []);
@@ -803,7 +800,6 @@ const DashboardPage = () => {
             ? lowStockData
             : lowStockData?.items || [],
         );
-       
 
         //  FIXED: Expiring Items - Backend returns array directly
         const expiringData = extractData(results[4], []);
@@ -812,7 +808,6 @@ const DashboardPage = () => {
             ? expiringData
             : expiringData?.items || [],
         );
-       
 
         // Notifications - Backend returns: { total, by_priority: { critical, high, normal, low }, has_critical, has_high }
         const notifData = extractData(results[5], {});
@@ -1049,10 +1044,10 @@ const DashboardPage = () => {
         return;
       }
       const routes = {
-        "new-sale": "/Sales-billing",
-        "new-purchase": "/purchase-billing",
-        inventory: "/inventory",
-        reports: "/reports-sales",
+        "new-sale": "/erp/sales-billing",
+        "new-purchase": "/erp/purchase-billing",
+        inventory: "/erp/inventory",
+        reports: "/erp/reports-sales",
       };
       if (routes[action]) navigate(routes[action]);
     },
@@ -1218,7 +1213,7 @@ const DashboardPage = () => {
                   title="Low Stock"
                   count={lowStockItems.length}
                   icon={AlertTriangle}
-                  onClick={() => navigate("/inventory?filter=lowstock")}
+                  onClick={() => navigate("/erp/inventory?filter=lowstock")}
                 />
               )}
               {expiringItems.length > 0 && (
@@ -1227,7 +1222,7 @@ const DashboardPage = () => {
                   title="Expiring"
                   count={expiringItems.length}
                   icon={Clock}
-                  onClick={() => navigate("/inventory?filter=expiring")}
+                  onClick={() => navigate("/erp/inventory?filter=expiring")}
                 />
               )}
               {notifications.critical > 0 && (
@@ -1236,7 +1231,7 @@ const DashboardPage = () => {
                   title="Critical"
                   count={notifications.critical}
                   icon={Bell}
-                  onClick={() => navigate("/notifications?priority=critical")}
+                  onClick={() => navigate("/erp/notifications?priority=critical")}
                 />
               )}
               {pendingReturnCount > 0 && (
@@ -1245,7 +1240,7 @@ const DashboardPage = () => {
                   title="Returns"
                   count={pendingReturnCount}
                   icon={RotateCcw}
-                  onClick={() => navigate("/sales/returns")}
+                  onClick={() => navigate("/erp/sales/returns")}
                 />
               )}
               {isSuperAdmin && subscription?.days_remaining < 30 && (
@@ -1254,7 +1249,7 @@ const DashboardPage = () => {
                   title={`Plan: ${subscription.days_remaining}d`}
                   count={subscription.days_remaining}
                   icon={CreditCard}
-                  onClick={() => navigate("/settings/plans")}
+                  onClick={() => navigate("/erp/settings/plans")}
                 />
               )}
             </>
@@ -1271,7 +1266,7 @@ const DashboardPage = () => {
             trend={(salesStats?.growthPercentage || 0) >= 0 ? "up" : "down"}
             icon={DollarSign}
             gradient="green"
-            onClick={() => navigate("/sales-invoice")}
+            onClick={() => navigate("/erp/sales-invoice")}
             loading={loading}
             delay={0}
           />
@@ -1283,7 +1278,7 @@ const DashboardPage = () => {
             trend={(purchaseStats?.growthPercentage || 0) >= 0 ? "up" : "down"}
             icon={Truck}
             gradient="blue"
-            onClick={() => navigate("/purchase-invoices")}
+            onClick={() => navigate("/erp/purchase-invoices")}
             loading={loading}
             delay={1}
           />
@@ -1293,7 +1288,7 @@ const DashboardPage = () => {
             sub={`${formatNumber(inventorySummary?.totalStockQuantity || 0)} units`}
             icon={Package}
             gradient="purple"
-            onClick={() => navigate("/inventory")}
+            onClick={() => navigate("/erp/inventory")}
             loading={loading}
             delay={2}
           />
@@ -1307,7 +1302,7 @@ const DashboardPage = () => {
             gradient={
               (inventorySummary?.lowStockCount || 0) > 10 ? "red" : "amber"
             }
-            onClick={() => navigate("/inventory?filter=lowstock")}
+            onClick={() => navigate("/erp/inventory?filter=lowstock")}
             loading={loading}
             delay={3}
           />
@@ -1323,7 +1318,7 @@ const DashboardPage = () => {
             label="Outstanding"
             color="amber"
             value={formatCurrency(salesStats?.totalOutstandingAmount || 0)}
-            onClick={() => navigate("/sales-invoice?status=pending")}
+            onClick={() => navigate("/erp/sales-invoice?status=pending")}
             loading={loading}
           />
           <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
@@ -1335,7 +1330,7 @@ const DashboardPage = () => {
               inventorySummary?.expiringSoonCount || expiringItems.length || 0,
             )}
             badge="30d"
-            onClick={() => navigate("/inventory?filter=expiring")}
+            onClick={() => navigate("/erp/inventory?filter=expiring")}
             loading={loading}
           />
           <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
@@ -1345,7 +1340,7 @@ const DashboardPage = () => {
             color="green"
             value={formatCurrency(salesStats?.todaySalesAmount || 0)}
             badge={`${salesStats?.todayInvoiceCount || 0} bills`}
-            onClick={() => navigate("/sales-invoice")}
+            onClick={() => navigate("/erp/sales-invoice")}
             loading={loading}
           />
           <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
@@ -1355,7 +1350,7 @@ const DashboardPage = () => {
             color="pink"
             value={formatNumber(salesReturns.length)}
             badge={`${salesReturns.filter((r) => r.return_approval_status === "PENDING_APPROVAL").length} pending`}
-            onClick={() => navigate("/sales-returns")}
+            onClick={() => navigate("/erp/sales-returns")}
             loading={loading}
           />
           <div className="h-3.5 w-px bg-gray-200 mx-0.5 flex-shrink-0" />
@@ -1369,7 +1364,7 @@ const DashboardPage = () => {
                 ? `${notifications.critical} critical`
                 : null
             }
-            onClick={() => navigate("/notifications")}
+            onClick={() => navigate("/erp/notifications")}
             loading={loading}
           />
         </div>
@@ -1480,7 +1475,7 @@ const DashboardPage = () => {
                 <SectionHeader
                   title="Stock Distribution"
                   icon={PieChartIcon}
-                  action={() => navigate("/inventory")}
+                  action={() => navigate("/erp/inventory")}
                   actionLabel="Manage"
                 />
                 {stockStatusData.length > 0 ? (
@@ -1568,7 +1563,7 @@ const DashboardPage = () => {
                   title="Top Products"
                   subtitle="By revenue"
                   icon={Sparkles}
-                  action={() => navigate("/reports-sales")}
+                  action={() => navigate("/erp/reports-sales")}
                 />
                 {topProducts.length > 0 ? (
                   <div className="space-y-0.5">
@@ -1613,7 +1608,7 @@ const DashboardPage = () => {
                   title="Recent Transactions"
                   subtitle="Sales & purchases"
                   icon={FileText}
-                  action={() => navigate("/sales/invoice")}
+                  action={() => navigate("/erp/sales-invoice")}
                 />
                 {recentTransactions.length > 0 ? (
                   <div
@@ -1627,8 +1622,8 @@ const DashboardPage = () => {
                         onClick={() =>
                           navigate(
                             tx.type === "SALE"
-                              ? "/sales/invoice"
-                              : "/purchase/invoice",
+                              ? "/erp/sales-invoice"
+                              : "/erp/purchase-invoice",
                           )
                         }
                       />
@@ -1661,7 +1656,7 @@ const DashboardPage = () => {
                   icon={AlertTriangle}
                   action={
                     lowStockItems.length > 0
-                      ? () => navigate("/inventory?filter=lowstock")
+                      ? () => navigate("/erp/inventory?filter=lowstock")
                       : undefined
                   }
                   actionLabel={
@@ -1681,7 +1676,7 @@ const DashboardPage = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        onClick={() => navigate("/inventory?filter=lowstock")}
+                        onClick={() => navigate("/erp/inventory?filter=lowstock")}
                         className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gradient-to-r from-amber-50/60 
                           to-orange-50/40 border border-amber-100/80 hover:border-amber-200 
                           hover:shadow-sm cursor-pointer transition-all group"

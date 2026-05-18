@@ -16,15 +16,15 @@ import { useAuthStore } from "../../store/useAuthStore";
  * Add any page that isn't navigated to via sidebar here
  */
 const NON_SIDEBAR_ROUTES = {
-  "/notifications": {
+  "/erp/notifications": {
     breadcrumbs: ["Dashboard","Notifications"],
     menuId: null, // No sidebar item to highlight
   },
-  "/tickets": {
+  "/erp/tickets": {
     breadcrumbs: ["Dashboard", "Support Tickets"],
     menuId: null, // No sidebar item to highlight
   },
-  "/settings/upgrade": {
+  "/erp/settings/upgrade": {
     breadcrumbs: ["Settings", "Profile", "Plans"],
     menuId: "settings-profile",
   },

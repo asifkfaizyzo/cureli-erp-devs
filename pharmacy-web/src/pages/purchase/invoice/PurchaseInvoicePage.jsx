@@ -611,7 +611,7 @@ const PurchaseInvoicePage = () => {
                 Refresh
               </button>
               <button
-                onClick={() => navigate("/purchase-billing")}
+                onClick={() => navigate("/erp/purchase-billing")}
                 disabled={isGlobalMode}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm ${
                   isGlobalMode

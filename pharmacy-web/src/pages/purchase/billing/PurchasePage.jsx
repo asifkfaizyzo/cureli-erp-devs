@@ -240,7 +240,7 @@ const PurchasePage = () => {
         "Access Denied",
         "Only Super Admin can edit confirmed invoices.",
       );
-      navigate("/purchase/invoice");
+      navigate("/erp/purchase-invoices");
     }
   }, [isEditingConfirmed, isSuperAdmin, navigate, toast]);
 
@@ -311,7 +311,7 @@ const PurchasePage = () => {
             "Load Failed",
             "Failed to load confirmed invoice for editing.",
           );
-          navigate("/purchase/invoice");
+          navigate("/erp/purchase-invoices");
         }
       }
     };
@@ -488,7 +488,7 @@ const PurchasePage = () => {
           remarks: null,
         });
         if (invoiceId) {
-          navigate("/purchase/billing");
+          navigate("/erp/purchase-billing");
         }
         toast.success("New Invoice", "Ready to create a new purchase invoice.");
       }
@@ -582,7 +582,7 @@ const PurchasePage = () => {
           closeConfirmDialog();
 
           if (invoiceId) {
-            navigate("/purchase/billing");
+            navigate("/erp/purchase-billing");
           }
 
           toast.success(
@@ -609,7 +609,7 @@ const PurchasePage = () => {
       });
 
       if (invoiceId) {
-        navigate("/purchase/billing");
+        navigate("/erp/purchase-billing");
       }
 
       toast.success("New Invoice", "Ready to create a new purchase invoice.");
@@ -648,11 +648,11 @@ const PurchasePage = () => {
         confirmText: "Leave Anyway",
         onConfirm: () => {
           closeConfirmDialog();
-          navigate("/purchase/invoice");
+          navigate("/erp/purchase-invoices");
         },
       });
     } else {
-      navigate("/purchase/invoice");
+      navigate("/erp/purchase-invoices");
     }
   }, [hasUnsavedData, navigate, closeConfirmDialog]);
 
@@ -789,7 +789,7 @@ const PurchasePage = () => {
               `Confirmed invoice ${savedInvoice.invoice_number} has been updated. Stock levels adjusted.`,
             );
             setTimeout(() => {
-              navigate("/purchase/invoice");
+              navigate("/erp/purchase-invoices");
             }, 1500);
           }
 

@@ -106,8 +106,8 @@ const LoginOtpVerification = ({
   const determineDestination = useCallback(
     async (role) => {
       if (role === "staff" || role === "branch_admin") {
-        console.log(`📍 ${role} → /dashboard`);
-        return "/dashboard";
+        console.log(`📍 ${role} → /erp/dashboard`);
+        return "/erp/dashboard";
       }
 
       try {
@@ -125,8 +125,8 @@ const LoginOtpVerification = ({
           const setupData = setupRes.data?.data;
 
           if (setupData?.is_complete) {
-            console.log("📍 Setup complete → /dashboard");
-            return "/dashboard";
+            console.log("📍 Setup complete → /erp/dashboard");
+            return "/erp/dashboard";
           } else {
             console.log("📍 Setup incomplete → /setup");
             return "/setup";

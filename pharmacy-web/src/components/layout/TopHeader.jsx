@@ -22,7 +22,7 @@ import {
   Layers,
 } from "lucide-react";
 import logo from "../../assets/icons/curelinew.svg";
-
+import { useAppMode, useAppModeStore } from "../../store/useAppModeStore";
 import {
   useAuthStore,
   selectBranchContext,
@@ -30,6 +30,7 @@ import {
   selectIsGlobalMode,
   BRANCH_MODE,
 } from "../../store/useAuthStore";
+import { useMenuStore } from "../../store/useMenuStore";
 import { usePermission } from "../../hooks/usePermission";
 import { PERMISSIONS } from "../../config/permissions";
 import { logoutUser } from "../../api/auth";
@@ -48,7 +49,7 @@ import { NotificationDropdown } from "../common/notifications";
 import { useSSENotifications } from "../../hooks/useSSENotifications";
 
 // Routes that require BRANCH mode (not All-Branches)
-const WRITE_ROUTES = ["/Salesbilling", "/purchase-billing"];
+const WRITE_ROUTES = ["/erp/sales-billing", "/erp/purchase-billing"];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inner component — only rendered when the user IS authenticated.
@@ -89,6 +90,26 @@ const AuthenticatedTopHeader = () => {
   const userRole = user?.role || null;
 
   const { hasPermission } = usePermission();
+
+  // ── App mode ─────────────────────────────────────────────────────────────
+  const { appMode, isERP, isMarketplace } = useAppMode();
+  const setAppMode = useAppModeStore((s) => s.setAppMode);
+  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
+
+  const handleSwitchToERP = () => {
+    setAppMode("ERP");
+    setActiveMenu("dashboard");
+    setBreadcrumbs(["Dashboard"]);
+    navigate("/erp/dashboard");
+  };
+
+  const handleSwitchToMarketplace = () => {
+    setAppMode("MARKETPLACE");
+    setActiveMenu("marketplace-dashboard");
+    setBreadcrumbs(["Marketplace", "Dashboard"]);
+    navigate("/marketplace/dashboard");
+  };
 
   // ── Local UI state ───────────────────────────────────────────────────────
   const [dateTime, setDateTime] = useState({ time: "", date: "", day: "" });
@@ -244,7 +265,7 @@ const AuthenticatedTopHeader = () => {
   const handleSelectAllBranches = () => {
     setShowBranchSelector(false);
     if (isOnWriteRoute) {
-      navigate("/dashboard");
+      navigate("/erp/dashboard");
       setGlobalBranch();
       toast.info(
         "Switched to All Branches",
@@ -299,7 +320,7 @@ const AuthenticatedTopHeader = () => {
     const isUrgent = daysRemaining <= 7 || isInGrace;
     return (
       <button
-        onClick={() => navigate("/settings/upgrade")}
+        onClick={() => navigate("/erp/settings/upgrade")}
         className={`
           flex items-center gap-2 h-10 px-3 rounded-lg
           border transition-all duration-150 font-medium text-sm
@@ -372,7 +393,39 @@ const AuthenticatedTopHeader = () => {
           </div>
 
           {/* ── RIGHT ── */}
+
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mode Switcher — NEW */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={handleSwitchToERP}
+                className={`
+        px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
+        ${
+          isERP
+            ? "bg-white text-[#05015A] shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }
+      `}
+              >
+                ERP
+              </button>
+              <button
+                onClick={handleSwitchToMarketplace}
+                className={`
+        px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
+        ${
+          isMarketplace
+            ? "bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white shadow-sm"
+            : "text-gray-500 hover:text-gray-700"
+        }
+      `}
+              >
+                Marketplace
+              </button>
+            </div>
+
+            <div className="w-px h-8 bg-gray-200" />
             {/* Branch selector */}
             {canSwitchBranches && (
               <div className="relative" ref={branchRef}>
@@ -684,7 +737,7 @@ const AuthenticatedTopHeader = () => {
                     {hasPermission(PERMISSIONS.TICKETS_VIEW) && (
                       <button
                         onClick={() => {
-                          navigate("/tickets");
+                          navigate("/erp/tickets");
                           setShowProfileMenu(false);
                         }}
                         className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"

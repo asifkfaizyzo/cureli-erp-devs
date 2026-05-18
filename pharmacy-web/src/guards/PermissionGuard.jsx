@@ -15,7 +15,7 @@ const PermissionGuard = ({
   children, 
   permission, 
   permissions = [], 
-  fallback = "/dashboard",
+  fallback = "/erp/dashboard",
   showAccessDenied = true,
 }) => {
   const location = useLocation();

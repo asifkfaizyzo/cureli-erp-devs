@@ -95,7 +95,7 @@ const SubscriptionCard = ({ subscription }) => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => navigate("/settings/upgrade")}
+            onClick={() => navigate("/erp/settings/upgrade")}
             className="flex items-center gap-2 px-6 py-3 bg-[#000060] text-white rounded-lg font-medium hover:bg-[#000080] transition-colors"
           >
             <Zap size={18} />
@@ -232,7 +232,7 @@ const SubscriptionCard = ({ subscription }) => {
           {/* ⚠️ NEW: Show Renew button when needed */}
           {needsRenewal ? (
             <button
-              onClick={() => navigate("/settings/upgrade")}
+              onClick={() => navigate("/erp/settings/upgrade")}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 isUrgent
                   ? "bg-red-600 text-white hover:bg-red-700"
@@ -244,7 +244,7 @@ const SubscriptionCard = ({ subscription }) => {
             </button>
           ) : (
             <button
-              onClick={() => navigate("/settings/upgrade")}
+              onClick={() => navigate("/erp/settings/upgrade")}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[#000060] hover:bg-[#000060]/10 rounded-lg transition-colors"
             >
               Upgrade

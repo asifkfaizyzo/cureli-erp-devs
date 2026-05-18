@@ -126,7 +126,7 @@ const VerificationSuccess = ({ isFirstVerification = true }) => {
    * Priority:
    * 1. No subscription → /plan-selection
    * 2. Has subscription but setup incomplete → /setup
-   * 3. Has subscription and setup complete → /dashboard
+   * 3. Has subscription and setup complete → /erp/dashboard
    */
   const handleGetStarted = async () => {
     setLoading(true);
@@ -150,8 +150,8 @@ const VerificationSuccess = ({ isFirstVerification = true }) => {
         const setupData = setupRes.data?.data;
 
         if (setupData?.is_complete) {
-          console.log("📍 Setup complete → /dashboard");
-          navigate("/dashboard", { replace: true });
+          console.log("📍 Setup complete → /erp/dashboard");
+          navigate("/erp/dashboard", { replace: true });
         } else {
           console.log("📍 Setup incomplete → /setup");
           navigate("/setup", { replace: true });

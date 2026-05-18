@@ -33,10 +33,10 @@
     {
       "label": "Backend tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/backend/src"
+        "cwd": "${workspaceFolder}/backend"
       },
       "presentation": {
         "panel": "new"
@@ -45,10 +45,10 @@
     {
       "label": "ERP tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/pharmacy-web/src"
+        "cwd": "${workspaceFolder}/pharmacy-web"
       },
       "presentation": {
         "panel": "new"
@@ -57,10 +57,10 @@
     {
       "label": "cAdmin tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/cadmin-web/src"
+        "cwd": "${workspaceFolder}/cadmin-web"
       },
       "presentation": {
         "panel": "new"
@@ -69,10 +69,10 @@
     {
       "label": "Landing tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/landing-web/src"
+        "cwd": "${workspaceFolder}/landing-web"
       },
       "presentation": {
         "panel": "new"

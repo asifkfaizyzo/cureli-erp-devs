@@ -1,4 +1,4 @@
-// pharmacy-web/src/App.jsx
+// src/App.jsx
 
 import {
   BrowserRouter as Router,
@@ -44,9 +44,13 @@ import VerificationPage from "./pages/verification/VerificationPage.jsx";
 import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 
 // ============================================
-// PROTECTED PAGES (ERP)
+// LAYOUT
 // ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
+
+// ============================================
+// ERP PAGES
+// ============================================
 import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/SalesBillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/SalesInvoicePage.jsx";
@@ -54,12 +58,11 @@ import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.js
 import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage";
 import SalesReturnsPage from "./pages/sales/returns/SalesReturnsPage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
-import ReportPage from "./pages/report/sales/SalesReportPage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
 // ============================================
-// SETTINGS PAGES
+// ERP — SETTINGS PAGES
 // ============================================
 import UsersPage from "./pages/settings/users/UsersPage.jsx";
 import BranchesPage from "./pages/settings/branches/BranchesPage.jsx";
@@ -67,17 +70,10 @@ import ProfilePage from "./pages/settings/profile/ProfilePage.jsx";
 import UpgradePlanPage from "./pages/settings/plans/UpgradePlanPage.jsx";
 
 // ============================================
-// ORDER PAGES
-// ============================================
-import OrdersPage from "./pages/orders/OrdersPage";
-import OrderSessionsPage from "./pages/orders/OrderSessionsPage";
-import PendingOrdersPage from "./pages/orders/PendingOrdersPage";
-import CompletedOrdersPage from "./pages/orders/CompletedOrdersPage";
-
-// ============================================
-// SUPPORT PAGES
+// ERP — SUPPORT & NOTIFICATIONS
 // ============================================
 import TicketsPage from "./pages/tickets/TicketsPage.jsx";
+import NotificationsPage from "./pages/notifications/NotificationsPage.jsx";
 
 // ============================================
 // SETUP PAGES (3-step wizard)
@@ -89,9 +85,12 @@ import SetupUsersPage from "./pages/setup/SetupUsersPage.jsx";
 import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
 
 // ============================================
-// NOTIFICATIONS
+// MARKETPLACE PAGES
 // ============================================
-import NotificationsPage from "./pages/notifications/NotificationsPage.jsx";
+import MarketplaceDashboardPage from "./pages/marketplace-dashboard/MarketplaceDashboardPage.jsx";
+import MarketplaceOrdersPage from "./pages/marketplace-orders/MarketplaceOrdersPage.jsx";
+import MarketplaceListingsPage from "./pages/marketplace-listings/MarketplaceListingsPage.jsx";
+import MarketplaceStorefrontPage from "./pages/marketplace-storefront/MarketplaceStorefrontPage.jsx";
 
 import "./index.css";
 
@@ -149,16 +148,14 @@ const MaintenanceCheck = ({ children }) => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#000060]"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#000060]" />
           <p className="text-gray-500 text-sm">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (isMaintenanceMode) {
-    return null;
-  }
+  if (isMaintenanceMode) return null;
 
   return children;
 };
@@ -195,9 +192,7 @@ const App = () => {
         e.preventDefault();
       }
     };
-    const disablePinch = (e) => {
-      e.preventDefault();
-    };
+    const disablePinch = (e) => e.preventDefault();
 
     window.addEventListener("wheel", disableZoomScroll, { passive: false });
     window.addEventListener("keydown", disableKeyZoom);
@@ -217,325 +212,206 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        {/* ============================================ */}
-        {/* MAINTENANCE PAGE (Always accessible - no check) */}
-        {/* ============================================ */}
+        {/* ── MAINTENANCE (always accessible) ── */}
         <Route path="/maintenance" element={<MaintenancePage />} />
 
-        {/* ============================================ */}
-        {/* ALL OTHER ROUTES - Wrapped in MaintenanceCheck */}
-        {/* ============================================ */}
+        {/* ── ALL OTHER ROUTES ── */}
         <Route
           path="/*"
           element={
             <MaintenanceCheck>
               <AuthInitializer>
                 <Routes>
-                  {/* ============================================ */}
-                  {/* ROOT REDIRECT */}
-                  {/* ============================================ */}
+                  {/* ── ROOT REDIRECT ── */}
                   <Route path="/" element={<Navigate to="/login" replace />} />
 
-                  {/* ============================================ */}
-                  {/* PUBLIC ROUTES (No auth required) */}
-                  {/* ============================================ */}
+                  {/* ── PUBLIC ROUTES ── */}
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route
-                    path="/forgot-password"
-                    element={<ForgotPasswordPage />}
-                  />
-                  <Route
-                    path="/reset-password"
-                    element={<ResetPasswordPage />}
-                  />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-                  {/* ============================================ */}
-                  {/* ONBOARDING ROUTES (Special guard) */}
-                  {/* ============================================ */}
+                  {/* ── ONBOARDING ROUTES ── */}
                   <Route element={<OnboardingGuard />}>
                     <Route path="/onboarding" element={<OnboardingPage />} />
-                    <Route
-                      path="/verification"
-                      element={<VerificationPage />}
-                    />
+                    <Route path="/verification" element={<VerificationPage />} />
                   </Route>
 
-                  {/* ============================================ */}
-                  {/* POST-VERIFICATION ROUTES (Token required) */}
-                  {/* ============================================ */}
+                  {/* ── POST-VERIFICATION (token required, pre-setup) ── */}
                   <Route element={<AuthGuard />}>
-                    <Route
-                      path="/plan-selection"
-                      element={<PlanSelectionPage />}
-                    />
-                    {/* Setup Routes */}
+                    <Route path="/plan-selection" element={<PlanSelectionPage />} />
                     <Route path="/setup" element={<SetupRouter />} />
                     <Route element={<SetupLayout />}>
-                      <Route
-                        path="/setup/branches"
-                        element={<SetupBranchesPage />}
-                      />
+                      <Route path="/setup/branches" element={<SetupBranchesPage />} />
                       <Route path="/setup/users" element={<SetupUsersPage />} />
-                      <Route
-                        path="/setup/review"
-                        element={<SetupReviewPage />}
-                      />
+                      <Route path="/setup/review" element={<SetupReviewPage />} />
                     </Route>
                   </Route>
+
+                  {/* ── DEV TOOL ── */}
                   <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
-                  {/* ============================================ */}
-                  {/* PROTECTED ERP ROUTES */}
-                  {/* ============================================ */}
+                  {/* ════════════════════════════════════════════════
+                      ERP ROUTES  →  /erp/*
+                  ════════════════════════════════════════════════ */}
                   <Route element={<AuthGuard />}>
                     <Route element={<SetupGuard />}>
                       <Route element={<AppLayout />}>
-                        {/* Dashboard - Read only, works in GLOBAL mode */}
+
+                        {/* Dashboard */}
                         <Route
-                          path="/dashboard"
+                          path="/erp/dashboard"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.DASHBOARD_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.DASHBOARD_VIEW}>
                               <DashboardPage />
                             </PermissionGuard>
                           }
                         />
 
-                        {/* ============================================ */}
-                        {/* SALES ROUTES */}
-                        {/* ============================================ */}
-
-                        {/* Sales Billing - WRITE ROUTE, requires BRANCH mode */}
+                        {/* ── SALES ── */}
                         <Route
-                          path="/Sales-billing"
+                          path="/erp/sales-billing"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_CREATE}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.BILLING_CREATE}>
                               <BranchRequiredGuard>
                                 <BillingPage />
                               </BranchRequiredGuard>
                             </PermissionGuard>
                           }
                         />
-
-                        {/* Sales Invoices - Read only, works in GLOBAL mode */}
                         <Route
-                          path="/Sales-invoice"
+                          path="/erp/sales-invoice"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
                               <InvoicePage />
                             </PermissionGuard>
                           }
                         />
                         <Route
-                          path="/Sales-returns"
+                          path="/erp/sales-returns"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
                               <SalesReturnsPage />
                             </PermissionGuard>
                           }
                         />
 
-                        {/* ============================================ */}
-                        {/* PURCHASE ROUTES */}
-                        {/* ============================================ */}
-
-                        {/* Purchase Billing - WRITE ROUTE, requires BRANCH mode */}
+                        {/* ── PURCHASE ── */}
                         <Route
-                          path="/purchase-billing"
+                          path="/erp/purchase-billing"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.PURCHASE_CREATE}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.PURCHASE_CREATE}>
                               <BranchRequiredGuard>
                                 <PurchasePage />
                               </BranchRequiredGuard>
                             </PermissionGuard>
                           }
                         />
-
-                        {/* Purchase Invoices - Read only, works in GLOBAL mode */}
                         <Route
-                          path="/purchase-invoices"
+                          path="/erp/purchase-invoices"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.PURCHASE_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
                               <PurchaseInvoicePage />
                             </PermissionGuard>
                           }
                         />
-
-                        {/* Purchase Returns - Read only, works in GLOBAL mode */}
                         <Route
-                          path="/purchase-returns"
+                          path="/erp/purchase-returns"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.PURCHASE_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
                               <PurchaseReturnsPage />
                             </PermissionGuard>
                           }
                         />
 
-                        {/* ============================================ */}
-                        {/* INVENTORY & SUPPLIERS */}
-                        {/* ============================================ */}
-
-                        {/* Inventory - Read in GLOBAL, CRUD in BRANCH */}
+                        {/* ── INVENTORY ── */}
                         <Route
-                          path="/inventory"
+                          path="/erp/inventory"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.INVENTORY_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.INVENTORY_VIEW}>
                               <InventoryPage />
                             </PermissionGuard>
                           }
                         />
 
-                        {/* Suppliers - Read in GLOBAL, CRUD in BRANCH */}
+                        {/* ── SUPPLIERS ── */}
                         <Route
-                          path="/suppliers"
+                          path="/erp/suppliers"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.SUPPLIERS_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.SUPPLIERS_VIEW}>
                               <SupplierPage />
                             </PermissionGuard>
                           }
                         />
 
-                        {/* ============================================ */}
-                        {/* REPORTS - All read-only, work in GLOBAL mode */}
-                        {/* ============================================ */}
-                        {/* <Route
-                          path="/reports-sales"
-                          element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.REPORTS_SALES}
-                            >
-                              <ReportPage />
-                            </PermissionGuard>
-                          }
-                        /> */}
-
-                        {/* ============================================ */}
-                        {/* ORDER ROUTES */}
-                        {/* ============================================ */}
-
+                        {/* ── SETTINGS ── */}
                         <Route
-                          path="/orders"
+                          path="/erp/settings/users"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
-                              <OrdersPage />
-                            </PermissionGuard>
-                          }
-                        />
-
-                        <Route
-                          path="/orders-sessions"
-                          element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
-                              <OrderSessionsPage />
-                            </PermissionGuard>
-                          }
-                        />
-
-                        <Route
-                          path="/orders-pending"
-                          element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
-                              <PendingOrdersPage />
-                            </PermissionGuard>
-                          }
-                        />
-
-                        <Route
-                          path="/orders-completed"
-                          element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BILLING_VIEW}
-                            >
-                              <CompletedOrdersPage />
-                            </PermissionGuard>
-                          }
-                        />
-
-                        {/* ============================================ */}
-                        {/* SETTINGS ROUTES */}
-                        {/* ============================================ */}
-                        <Route
-                          path="/settings/users"
-                          element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.USERS_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.USERS_VIEW}>
                               <UsersPage />
                             </PermissionGuard>
                           }
                         />
                         <Route
-                          path="/settings/branches"
+                          path="/erp/settings/branches"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.BRANCHES_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.BRANCHES_VIEW}>
                               <BranchesPage />
                             </PermissionGuard>
                           }
                         />
                         <Route
-                          path="/settings/profile"
+                          path="/erp/settings/profile"
                           element={<ProfilePage />}
                         />
                         <Route
-                          path="/settings/upgrade"
+                          path="/erp/settings/upgrade"
                           element={<UpgradePlanPage />}
                         />
 
-                        {/* ============================================ */}
-                        {/* NOTIFICATIONS */}
-                        {/* ============================================ */}
+                        {/* ── NOTIFICATIONS ── */}
                         <Route
-                          path="/notifications"
+                          path="/erp/notifications"
                           element={<NotificationsPage />}
                         />
 
-                        {/* ============================================ */}
-                        {/* SUPPORT ROUTES */}
-                        {/* ============================================ */}
+                        {/* ── SUPPORT ── */}
                         <Route
-                          path="/tickets"
+                          path="/erp/tickets"
                           element={
-                            <PermissionGuard
-                              permission={PERMISSIONS.TICKETS_VIEW}
-                            >
+                            <PermissionGuard permission={PERMISSIONS.TICKETS_VIEW}>
                               <TicketsPage />
                             </PermissionGuard>
                           }
                         />
+
+                        {/* ════════════════════════════════════════════════
+                            MARKETPLACE ROUTES  →  /marketplace/*
+                        ════════════════════════════════════════════════ */}
+                        <Route
+                          path="/marketplace/dashboard"
+                          element={<MarketplaceDashboardPage />}
+                        />
+                        <Route
+                          path="/marketplace/orders"
+                          element={<MarketplaceOrdersPage />}
+                        />
+                        <Route
+                          path="/marketplace/listings"
+                          element={<MarketplaceListingsPage />}
+                        />
+                        <Route
+                          path="/marketplace/storefront"
+                          element={<MarketplaceStorefrontPage />}
+                        />
+
                       </Route>
                     </Route>
                   </Route>
 
-                  {/* ============================================ */}
-                  {/* ERROR PAGES */}
-                  {/* ============================================ */}
+                  {/* ── ERROR PAGES ── */}
                   <Route path="/error" element={<ErrorPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>

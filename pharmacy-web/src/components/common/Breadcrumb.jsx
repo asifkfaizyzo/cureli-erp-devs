@@ -1,55 +1,48 @@
-// src/components/layout/Breadcrumb.jsx
+// src/components/common/Breadcrumb.jsx
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Home } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 
-/**
- * Complete breadcrumb path mapping
- * Derived from App.jsx routes and Sidebar.jsx menu structure
- */
 const BREADCRUMB_PATHS = {
-  // ── Has real hub page = clickable ──
-  Dashboard: "/dashboard",
-  Inventory: "/inventory",
-  Suppliers: "/suppliers",
-  Notifications: "/notifications",
-  "Support Tickets": "/tickets",
+  // ── ERP hub pages ──
+  Dashboard: "/erp/dashboard",
+  Inventory: "/erp/inventory",
+  Suppliers: "/erp/suppliers",
+  Notifications: "/erp/notifications",
+  "Support Tickets": "/erp/tickets",
 
-  // ── Settings sub-pages = clickable ──
-  Users: "/settings/users",
-  Branches: "/settings/branches",
-  Profile: "/settings/profile",
-  Plans: "/settings/upgrade",
+  // ── Settings sub-pages ──
+  Users: "/erp/settings/users",
+  Branches: "/erp/settings/branches",
+  Profile: "/erp/settings/profile",
+  Plans: "/erp/settings/upgrade",
 
-  // ── Reports sub-pages ──
-  "Sales Report": "/reports-sales",
-  "Purchase Report": "/reports-purchase",
-  "Inventory Report": "/reports-inventory",
-  "Finance Report": "/reports-finance",
+  // ── Reports sub-pages (commented out in sidebar but keep paths ready) ──
+  "Sales Report": "/erp/reports-sales",
+  "Purchase Report": "/erp/reports-purchase",
+  "Inventory Report": "/erp/reports-inventory",
+  "Finance Report": "/erp/reports-finance",
 
-  // ── NO ENTRY for: Settings, Sales, Purchase, Orders, Reports ──
-  // These have no hub page → getBreadcrumbPath returns null → non-clickable automatically
+  // ── Marketplace hub pages ──
+  Marketplace: "/marketplace/dashboard",
 };
 
 const CONTEXT_PATHS = {
   Billing: {
-    Sales: "/Sales-billing",
-    Purchase: "/purchase-billing",
+    Sales: "/erp/sales-billing",
+    Purchase: "/erp/purchase-billing",
   },
   Invoices: {
-    Sales: "/Sales-invoice",
-    Purchase: "/purchase-invoices",
+    Sales: "/erp/sales-invoice",
+    Purchase: "/erp/purchase-invoices",
   },
   Returns: {
-    Sales: "/sales-returns",
-    Purchase: "/purchase-returns",
+    Sales: "/erp/sales-returns",
+    Purchase: "/erp/purchase-returns",
   },
-  "All Orders": { Orders: "/orders" },
-  Pending: { Orders: "/orders-pending" },
-  Completed: { Orders: "/orders-completed" },
-  Sessions: { Orders: "/orders-sessions" },
+  // Orders entries removed — moving to Marketplace
 };
 
 const getBreadcrumbPath = (crumb, allCrumbs, index) => {
@@ -62,7 +55,7 @@ const getBreadcrumbPath = (crumb, allCrumbs, index) => {
     }
   }
 
-  return null; // → non-clickable
+  return null;
 };
 
 const Breadcrumb = () => {
@@ -87,14 +80,13 @@ const Breadcrumb = () => {
       className="text-sm flex items-center gap-1.5 mb-3"
       aria-label="Breadcrumb"
     >
-      {/* Home icon — decorative only, no click */}
       <Home size={14} className="text-gray-400 flex-shrink-0" />
       <span className="text-gray-300 select-none">›</span>
 
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         const path = getBreadcrumbPath(crumb, crumbs, index);
-        const isClickable = !isLast && path; // null path = non-clickable automatically
+        const isClickable = !isLast && path;
 
         return (
           <span key={index} className="flex items-center gap-1.5">

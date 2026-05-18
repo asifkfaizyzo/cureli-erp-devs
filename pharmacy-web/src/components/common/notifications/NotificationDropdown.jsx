@@ -102,7 +102,7 @@ const NotificationDropdown = () => {
     setHoveredNotification(null);
 
     // Navigate to notifications page with the selected notification ID
-    navigate("/notifications", {
+    navigate("/erp/notifications", {
       state: { selectedNotificationId: notification.notification_id },
     });
   };
@@ -144,7 +144,7 @@ const NotificationDropdown = () => {
   const handleViewAll = () => {
     setIsOpen(false);
     setHoveredNotification(null);
-    navigate("/notifications");
+    navigate("/erp/notifications");
   };
 
   // ============================================

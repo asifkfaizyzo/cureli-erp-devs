@@ -84,7 +84,7 @@ const VerificationPage = () => {
       if (shopStatus === "verified") {
         if (userStatus === "verified" && firstLogin) {
         
-          navigate("/dashboard");
+          navigate("/erp/dashboard");
           return;
         } else {
         

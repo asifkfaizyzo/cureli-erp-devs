@@ -44,7 +44,7 @@ const SetupLayout = () => {
 
         if (statusData?.is_complete) {
           completeSetup();
-          navigate("/dashboard", { replace: true });
+          navigate("/erp/dashboard", { replace: true });
           return;
         }
       } catch (err) {

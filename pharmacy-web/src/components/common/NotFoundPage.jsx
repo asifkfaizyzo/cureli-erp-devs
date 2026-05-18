@@ -91,7 +91,7 @@ const NotFoundPage = () => {
         {/* HELPFUL LINKS — Contact goes to /tickets in the ERP */}
         <div className="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-blue-200/60">
           <Link
-            to="/tickets"
+            to="/erp/tickets"
             className="hover:text-white hover:underline underline-offset-4 decoration-white/30 transition-colors"
           >
             Contact Support

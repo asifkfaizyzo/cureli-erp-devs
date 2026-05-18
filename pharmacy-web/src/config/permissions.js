@@ -192,42 +192,48 @@ export const ROLE_PERMISSIONS = {
 
 export const ROUTE_PERMISSIONS = {
   // Dashboard
-  "/dashboard": [PERMISSIONS.DASHBOARD_VIEW],
+  "/erp/dashboard": [PERMISSIONS.DASHBOARD_VIEW],
   
   // Sales
-  "/Salesbilling": [PERMISSIONS.BILLING_CREATE],
-  "/Salesinvoice": [PERMISSIONS.BILLING_VIEW],
+  "/erp/sales-billing": [PERMISSIONS.BILLING_CREATE],
+  "/erp/sales-invoice": [PERMISSIONS.BILLING_VIEW],
   
   // Purchase
-  "/purchase-billing": [PERMISSIONS.PURCHASE_CREATE],
-  "/purchase-invoices": [PERMISSIONS.PURCHASE_VIEW],
+  "/erp/purchase-billing": [PERMISSIONS.PURCHASE_CREATE],
+  "/erp/purchase-invoices": [PERMISSIONS.PURCHASE_VIEW],
   
   // Inventory
-  "/inventory": [PERMISSIONS.INVENTORY_VIEW],
+  "/erp/inventory": [PERMISSIONS.INVENTORY_VIEW],
   
   // Suppliers
-  "/suppliers": [PERMISSIONS.SUPPLIERS_VIEW],
+  "/erp/suppliers": [PERMISSIONS.SUPPLIERS_VIEW],
   
   // Reports
-  "/reports-sales": [PERMISSIONS.REPORTS_SALES],
-  "/reports-purchase": [PERMISSIONS.REPORTS_PURCHASE],
-  "/reports-inventory": [PERMISSIONS.REPORTS_INVENTORY],
-  "/reports-finance": [PERMISSIONS.REPORTS_FINANCIAL],
+  "/erp/reports-sales": [PERMISSIONS.REPORTS_SALES],
+  "/erp/reports-purchase": [PERMISSIONS.REPORTS_PURCHASE],
+  "/erp/reports-inventory": [PERMISSIONS.REPORTS_INVENTORY],
+  "/erp/reports-finance": [PERMISSIONS.REPORTS_FINANCIAL],
   
   // Settings
-  "/settings/users": [PERMISSIONS.USERS_VIEW],
-  "/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
-  "/settings/profile": [], // No permission required
-  "/settings/upgrade": [], // No permission required
+  "/erp/settings/users": [PERMISSIONS.USERS_VIEW],
+  "/erp/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
+  "/erp/settings/profile": [], // No permission required
+  "/erp/settings/upgrade": [], // No permission required
   
   // Tickets
-  "/tickets": [PERMISSIONS.TICKETS_VIEW],
+  "/erp/tickets": [PERMISSIONS.TICKETS_VIEW],
 
   // Notifications - empty array means all authenticated users can access
-  "/notifications": [],
+  "/erp/notifications": [],
   
   // Legacy
-  "/pending-users": [PERMISSIONS.USERS_MANAGE],
+  "/erp/pending-users": [PERMISSIONS.USERS_MANAGE],
+
+    // ── Marketplace routes (open to all authenticated users for now) ──
+  "/marketplace/dashboard": [],
+  "/marketplace/orders": [],
+  "/marketplace/listings": [],
+  "/marketplace/storefront": [],
 };
 
 /**

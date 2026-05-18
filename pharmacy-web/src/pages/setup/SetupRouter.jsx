@@ -67,7 +67,7 @@ const SetupRouter = () => {
           
           completeSetup();
           hasRouted.current = true;
-          navigate("/dashboard", { replace: true });
+          navigate("/erp/dashboard", { replace: true });
           return;
         }
 

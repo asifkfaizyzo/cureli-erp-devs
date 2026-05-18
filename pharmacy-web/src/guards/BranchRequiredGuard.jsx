@@ -76,7 +76,7 @@ const BranchRedirect = ({ navigate, toast, hasRedirected }) => {
     );
     
     // Redirect to dashboard
-    navigate("/dashboard", { replace: true });
+    navigate("/erp/dashboard", { replace: true });
   }, [navigate, toast, hasRedirected]);
 
   // Show a brief loading state while redirecting

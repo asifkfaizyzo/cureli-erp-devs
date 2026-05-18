@@ -390,7 +390,7 @@ const UpgradePlanPage = () => {
   // ============================================
 
   const handleBackToProfile = () => {
-    navigate("/settings/profile");
+    navigate("/erp/settings/profile");
   };
 
   // ============================================
