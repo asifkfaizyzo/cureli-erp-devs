@@ -74,3 +74,22 @@ body {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
+
+/* src/index.css  (add at the bottom) */
+
+/* ─── Breadcrumb theme tokens ─── */
+/* ERP (default / light) */
+[data-theme="erp"] .breadcrumb-home        { color: #9ca3af; }          /* gray-400 */
+[data-theme="erp"] .breadcrumb-separator    { color: #d1d5db; }          /* gray-300 */
+[data-theme="erp"] .breadcrumb-link        { color: #9ca3af; }          /* gray-400 */
+[data-theme="erp"] .breadcrumb-link:hover  { color: #000060; }
+[data-theme="erp"] .breadcrumb-current     { color: #374151; font-weight: 500; } /* gray-700 */
+[data-theme="erp"] .breadcrumb-inactive    { color: #9ca3af; }          /* gray-400 */
+
+/* Marketplace (dark) */
+[data-theme="marketplace"] .breadcrumb-home        { color: rgba(160, 11, 11, 0.4); }
+[data-theme="marketplace"] .breadcrumb-separator    { color: rgba(181, 19, 19, 0.15); }
+[data-theme="marketplace"] .breadcrumb-link        { color: rgba(159, 7, 7, 0.5); }
+[data-theme="marketplace"] .breadcrumb-link:hover  { color: #cb0f0f; }
+[data-theme="marketplace"] .breadcrumb-current     { color: #be0909; font-weight: 500; }
+[data-theme="marketplace"] .breadcrumb-inactive    { color: rgba(184, 16, 16, 0.35); }

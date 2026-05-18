@@ -10,19 +10,16 @@ import Breadcrumb from "../common/Breadcrumb";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useSubscriptionStore } from "../../store/useSubscriptionStore";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useAppMode } from "../../store/useAppModeStore";
 
-/**
- * Route-to-breadcrumb mapping for pages NOT in the sidebar
- * Add any page that isn't navigated to via sidebar here
- */
 const NON_SIDEBAR_ROUTES = {
   "/erp/notifications": {
-    breadcrumbs: ["Dashboard","Notifications"],
-    menuId: null, // No sidebar item to highlight
+    breadcrumbs: ["Dashboard", "Notifications"],
+    menuId: null,
   },
   "/erp/tickets": {
     breadcrumbs: ["Dashboard", "Support Tickets"],
-    menuId: null, // No sidebar item to highlight
+    menuId: null,
   },
   "/erp/settings/upgrade": {
     breadcrumbs: ["Settings", "Profile", "Plans"],
@@ -32,50 +29,63 @@ const NON_SIDEBAR_ROUTES = {
 
 const AppLayout = () => {
   const location = useLocation();
+  const { isMarketplace } = useAppMode();
 
   const user = useAuthStore((state) => state.user);
-  const loadSubscriptionStatus = useSubscriptionStore((s) => s.loadSubscriptionStatus);
+  const loadSubscriptionStatus = useSubscriptionStore(
+    (s) => s.loadSubscriptionStatus,
+  );
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
 
   const pageVariants = {
     initial: { opacity: 0, x: 60 },
-    animate: { opacity: 1, x: 0, transition: { duration: 0.35, ease: "easeOut" } },
-    exit: { opacity: 0, x: -40, transition: { duration: 0.25, ease: "easeIn" } },
+    animate: {
+      opacity: 1,
+      x: 0,
+      transition: { duration: 0.35, ease: "easeOut" },
+    },
+    exit: {
+      opacity: 0,
+      x: -40,
+      transition: { duration: 0.25, ease: "easeIn" },
+    },
   };
 
-  // Load subscription status on mount
   useEffect(() => {
     if (user?.role === "super_admin") {
       loadSubscriptionStatus();
     }
   }, [user?.role, loadSubscriptionStatus]);
 
-  // Auto-set breadcrumbs for non-sidebar routes
   useEffect(() => {
     const routeConfig = NON_SIDEBAR_ROUTES[location.pathname];
-    
     if (routeConfig) {
-      // Set breadcrumbs for non-sidebar routes
       setBreadcrumbs(routeConfig.breadcrumbs);
-      
-      // Only update active menu if explicitly set (not null)
       if (routeConfig.menuId !== null) {
         setActiveMenu(routeConfig.menuId);
       }
-      // If menuId is null, we DON'T call setActiveMenu at all
-      // This preserves any existing state and prevents potential issues
     }
   }, [location.pathname, setBreadcrumbs, setActiveMenu]);
 
   return (
-    <div className="h-screen w-full flex bg-gray-50 overflow-hidden">
+    // ↓ "group" enables group-data-* variants on all descendants
+    <div
+      data-theme={isMarketplace ? "marketplace" : "erp"}
+      className={`group h-screen w-full flex overflow-hidden ${
+        isMarketplace ? "bg-[#010015]" : "bg-gray-50"
+      }`}
+    >
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         <TopHeader />
 
-        <main className="flex-1 pt-20 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-y-auto">
+        <main
+          className={`flex-1 pt-20 px-2 sm:px-4 md:px-6 lg:px-8 pb-4 overflow-y-auto ${
+            isMarketplace ? "bg-[#010015]" : ""
+          }`}
+        >
           <Breadcrumb />
 
           <AnimatePresence mode="wait">

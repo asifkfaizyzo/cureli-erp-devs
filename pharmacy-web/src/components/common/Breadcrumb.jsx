@@ -19,7 +19,7 @@ const BREADCRUMB_PATHS = {
   Profile: "/erp/settings/profile",
   Plans: "/erp/settings/upgrade",
 
-  // ── Reports sub-pages (commented out in sidebar but keep paths ready) ──
+  // ── Reports sub-pages ──
   "Sales Report": "/erp/reports-sales",
   "Purchase Report": "/erp/reports-purchase",
   "Inventory Report": "/erp/reports-inventory",
@@ -27,6 +27,9 @@ const BREADCRUMB_PATHS = {
 
   // ── Marketplace hub pages ──
   Marketplace: "/marketplace/dashboard",
+  Orders: "/marketplace/orders",
+  "Medicine Listings": "/marketplace/listings",
+  Storefront: "/marketplace/storefront",
 };
 
 const CONTEXT_PATHS = {
@@ -42,7 +45,6 @@ const CONTEXT_PATHS = {
     Sales: "/erp/sales-returns",
     Purchase: "/erp/purchase-returns",
   },
-  // Orders entries removed — moving to Marketplace
 };
 
 const getBreadcrumbPath = (crumb, allCrumbs, index) => {
@@ -80,8 +82,26 @@ const Breadcrumb = () => {
       className="text-sm flex items-center gap-1.5 mb-3"
       aria-label="Breadcrumb"
     >
-      <Home size={14} className="text-gray-400 flex-shrink-0" />
-      <span className="text-gray-300 select-none">›</span>
+      {/* Home icon — gray in ERP, white/40 in marketplace */}
+      <Home
+        size={14}
+        className="
+          flex-shrink-0
+          text-gray-400
+          group-data-[theme=marketplace]:text-white/40
+        "
+      />
+
+      {/* First separator */}
+      <span
+        className="
+          select-none
+          text-gray-300
+          group-data-[theme=marketplace]:text-white/20
+        "
+      >
+        ›
+      </span>
 
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
@@ -93,20 +113,40 @@ const Breadcrumb = () => {
             {isClickable ? (
               <button
                 onClick={() => handleCrumbClick(crumb, index)}
-                className="text-gray-400 hover:text-[#000060] transition-colors duration-150"
+                className="
+                  transition-colors duration-150
+                  text-gray-400 hover:text-[#000060]
+                  group-data-[theme=marketplace]:text-white/50
+                  group-data-[theme=marketplace]:hover:text-white
+                "
               >
                 {crumb}
               </button>
             ) : (
               <span
                 className={
-                  isLast ? "text-gray-700 font-medium" : "text-gray-400"
+                  isLast
+                    ? // Current / last crumb
+                      "text-gray-700 font-medium group-data-[theme=marketplace]:text-white"
+                    : // Inactive middle crumb
+                      "text-gray-400 group-data-[theme=marketplace]:text-white/40"
                 }
               >
                 {crumb}
               </span>
             )}
-            {!isLast && <span className="text-gray-300 select-none">›</span>}
+
+            {!isLast && (
+              <span
+                className="
+                  select-none
+                  text-gray-300
+                  group-data-[theme=marketplace]:text-white/20
+                "
+              >
+                ›
+              </span>
+            )}
           </span>
         );
       })}

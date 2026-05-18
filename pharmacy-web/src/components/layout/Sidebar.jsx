@@ -284,8 +284,8 @@ const MarketplaceMenuItem = ({
           transition-colors duration-200
           ${
             isActive
-              ? "bg-white/15 text-white shadow-lg shadow-black/20"
-              : "text-white/60 hover:bg-white/10 hover:text-white"
+              ? "bg-white/[0.12] text-white shadow-lg shadow-black/30"
+              : "text-white/50 hover:bg-white/[0.07] hover:text-white/90"
           }
         `}
         whileHover={{ scale: 1.02 }}
@@ -308,7 +308,7 @@ const MarketplaceMenuItem = ({
             className="absolute right-3"
             animate={{ opacity: isExpanded ? 1 : 0, rotate: isOpen ? 180 : 0 }}
           >
-            <ChevronDown size={16} className="text-white/60" />
+            <ChevronDown size={16} className="text-white/40" />
           </motion.div>
         )}
       </motion.button>
@@ -320,7 +320,7 @@ const MarketplaceMenuItem = ({
             initial="hidden"
             animate="visible"
             exit="hidden"
-            className="ml-4 mt-1 pl-4 border-l border-white/20 flex flex-col gap-1"
+            className="ml-4 mt-1 pl-4 border-l border-white/10 flex flex-col gap-1"
           >
             {item.submenu.map((sub) => {
               const SubIcon = sub.icon;
@@ -337,8 +337,8 @@ const MarketplaceMenuItem = ({
                     flex items-center h-9 px-3 rounded-lg text-sm
                     ${
                       isSubActive
-                        ? "bg-white/15 text-white"
-                        : "text-white/50 hover:bg-white/10 hover:text-white"
+                        ? "bg-white/[0.12] text-white"
+                        : "text-white/40 hover:bg-white/[0.07] hover:text-white/80"
                     }
                   `}
                   whileHover={{ x: 4 }}
@@ -361,7 +361,9 @@ const Sidebar = () => {
   const [openMenuId, setOpenMenuId] = useState("");
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
 
+  // ── Refs ──
   const isManualToggle = useRef(false);
+  const isModeSwitch = useRef(false);
 
   const activeMenu = useMenuStore((s) => s.activeMenu);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
@@ -405,7 +407,9 @@ const Sidebar = () => {
     if (isSuperAdmin) {
       interval = setInterval(loadPendingReturnsCount, 30000);
     }
-    return () => { if (interval) clearInterval(interval); };
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isSuperAdmin, isMarketplace]);
 
   useEffect(() => {
@@ -594,10 +598,9 @@ const Sidebar = () => {
   /* ─────────── Active menu set based on mode ─────────── */
   const allMenuItems = isMarketplace ? marketplaceMenuItems : erpMenuItems;
 
-  /* ─────────── Permission filtering (ERP only) ─────────── */
+  /* ─────────── Permission filtering ─────────── */
   const visibleMenuItems = useMemo(() => {
     if (isMarketplace) {
-      // Marketplace: show all items (RBAC to be added later)
       return marketplaceMenuItems.filter((item) => {
         const p = permissions[item.permissionKey];
         return p?.visible !== false;
@@ -623,7 +626,7 @@ const Sidebar = () => {
       .filter(Boolean);
   }, [isMarketplace, erpMenuItems, marketplaceMenuItems, permissions]);
 
-  /* ─────────── Accessible items (for active state detection) ─────────── */
+  /* ─────────── Accessible items ─────────── */
   const allAccessibleItems = useMemo(() => {
     if (isMarketplace) return marketplaceMenuItems;
 
@@ -650,7 +653,8 @@ const Sidebar = () => {
       if (isDisabled) {
         toast.warning(
           "Branch Required",
-          disabledReason || "Please select a specific branch to access this feature",
+          disabledReason ||
+            "Please select a specific branch to access this feature",
         );
         return;
       }
@@ -664,7 +668,9 @@ const Sidebar = () => {
   const handleToggleSubmenu = useCallback((id) => {
     isManualToggle.current = true;
     setOpenMenuId((prev) => (prev === id ? "" : id));
-    setTimeout(() => { isManualToggle.current = false; }, 100);
+    setTimeout(() => {
+      isManualToggle.current = false;
+    }, 100);
   }, []);
 
   /* ─────────── Sync active menu from URL ─────────── */
@@ -703,15 +709,27 @@ const Sidebar = () => {
   useEffect(() => {
     const isValid =
       allAccessibleItems.some((m) => m.id === activeMenu) ||
-      allAccessibleItems.some((m) => m.submenu?.some((s) => s.id === activeMenu));
+      allAccessibleItems.some((m) =>
+        m.submenu?.some((s) => s.id === activeMenu),
+      );
 
     if (!isValid && allAccessibleItems.length > 0) {
-      // Only auto-navigate if we're actually on a page in this mode's namespace
       const isOnCorrectNamespace = isMarketplace
         ? location.pathname.startsWith("/marketplace")
         : location.pathname.startsWith("/erp");
 
       if (!isOnCorrectNamespace) return;
+
+      const activeMenuIsFromERP = erpMenuItems.some(
+        (m) =>
+          m.id === activeMenu || m.submenu?.some((s) => s.id === activeMenu),
+      );
+      const activeMenuIsFromMarketplace = marketplaceMenuItems.some(
+        (m) => m.id === activeMenu,
+      );
+
+      if (isMarketplace && activeMenuIsFromERP) return;
+      if (!isMarketplace && activeMenuIsFromMarketplace) return;
 
       const defaultId = isMarketplace ? "marketplace-dashboard" : "dashboard";
       const fallbackItem =
@@ -739,6 +757,8 @@ const Sidebar = () => {
     setBreadcrumbs,
     isMarketplace,
     location.pathname,
+    erpMenuItems,
+    marketplaceMenuItems,
   ]);
 
   /* ─────────── Render ─────────── */
@@ -749,26 +769,27 @@ const Sidebar = () => {
       className={`
         h-screen mt-16
         border-r overflow-hidden flex flex-col flex-shrink-0 will-change-[width]
-        ${isMarketplace
-          ? "bg-gradient-to-b from-[#05015A] to-[#0a0280] border-white/10"
-          : "bg-white border-gray-200"
+        ${
+          isMarketplace
+            ? "bg-[#010015] border-white/[0.06]"
+            : "bg-white border-gray-200"
         }
       `}
       animate={{ width: isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH }}
       transition={SIDEBAR_TRANSITION}
     >
-      {/* Marketplace mode label (collapsed shows icon, expanded shows text) */}
+      {/* Marketplace mode label */}
       {isMarketplace && (
         <div className="px-2 pt-4 pb-2">
           <motion.div
-            className="flex items-center h-8 rounded-lg bg-white/10 overflow-hidden"
+            className="flex items-center h-8 rounded-lg bg-white/[0.06] overflow-hidden"
             animate={{ opacity: 1 }}
           >
             <div className="w-[56px] flex justify-center flex-shrink-0">
-              <Store size={14} className="text-white/60" />
+              <Store size={14} className="text-white/40" />
             </div>
             <motion.span
-              className="text-[10px] font-bold text-white/50 uppercase tracking-widest whitespace-nowrap"
+              className="text-[10px] font-bold text-white/30 uppercase tracking-widest whitespace-nowrap"
               animate={{ opacity: isExpanded ? 1 : 0 }}
               transition={SIDEBAR_TRANSITION}
             >

@@ -1,6 +1,4 @@
-// ============================================
-// pharmacy-web\src\components\common\notifications\NotificationItem.jsx
-// ============================================
+// pharmacy-web/src/components/common/notifications/NotificationItem.jsx
 
 import React from "react";
 import { ChevronRight } from "lucide-react";
@@ -10,16 +8,6 @@ import {
   getPriorityConfig,
 } from "../../../config/notifications";
 
-/**
- * NotificationItem - Single notification display
- *
- * @param {Object} notification - Notification data
- * @param {Function} onClick - Click handler
- * @param {Function} onHover - Hover handler (for side panel)
- * @param {boolean} isSelected - Whether this item is selected
- * @param {boolean} showArrow - Show right arrow (default: true)
- * @param {string} variant - 'compact' | 'default' (default: 'default')
- */
 const NotificationItem = ({
   notification,
   onClick,
@@ -28,6 +16,7 @@ const NotificationItem = ({
   isSelected = false,
   showArrow = true,
   variant = "default",
+  isMarketplace = false,
 }) => {
   const {
     notification_id,
@@ -42,6 +31,38 @@ const NotificationItem = ({
   const priorityConfig = getPriorityConfig(priority);
   const isCompact = variant === "compact";
 
+  // ── Theme tokens ──────────────────────────────────────────────────────────
+  const selectedBg = isMarketplace
+    ? "bg-white/10 border-l-white/60"
+    : "bg-[#000060]/5 border-l-[#000060]";
+
+  const readBg = isMarketplace
+    ? "border-l-transparent hover:bg-white/5"
+    : "border-l-transparent hover:bg-gray-50";
+
+  const unreadBg = isMarketplace
+    ? `bg-white/[0.04] ${priorityConfig.borderColor} hover:bg-white/[0.07]`
+    : `${priorityConfig.bgColor} ${priorityConfig.borderColor} hover:bg-gray-50`;
+
+  const titleColor = isMarketplace
+    ? is_read
+      ? "text-white/60"
+      : "text-white"
+    : is_read
+      ? "text-gray-700"
+      : "text-gray-900";
+
+  const messageColor = isMarketplace ? "text-white/40" : "text-gray-500";
+  const timeColor = isMarketplace ? "text-white/25" : "text-gray-400";
+
+  const arrowColor = isSelected
+    ? isMarketplace
+      ? "text-white/80"
+      : "text-[#000060]"
+    : isMarketplace
+      ? "text-white/20"
+      : "text-gray-300";
+
   return (
     <button
       onClick={() => onClick?.(notification)}
@@ -51,61 +72,38 @@ const NotificationItem = ({
         w-full text-left transition-all duration-150
         ${isCompact ? "px-3 py-2.5" : "px-4 py-3"}
         flex items-start gap-3
-        border-l-3
-        ${
-          isSelected
-            ? "bg-[#000060]/5 border-l-[#000060]"
-            : is_read
-              ? "border-l-transparent hover:bg-gray-50"
-              : `${priorityConfig.bgColor} ${priorityConfig.borderColor} hover:bg-gray-50`
-        }
+        border-l-[3px]
+        ${isSelected ? selectedBg : is_read ? readBg : unreadBg}
       `}
     >
       {/* Icon */}
-      <NotificationIcon eventType={event_type} size={isCompact ? "sm" : "md"} />
+      <NotificationIcon
+        eventType={event_type}
+        size={isCompact ? "sm" : "md"}
+        isMarketplace={isMarketplace}
+      />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Title Row */}
         <div className="flex items-center gap-2">
-          <p
-            className={`
-            font-medium truncate
-            ${isCompact ? "text-sm" : "text-sm"}
-            ${is_read ? "text-gray-700" : "text-gray-900"}
-          `}
-          >
+          <p className={`font-medium truncate text-sm ${titleColor}`}>
             {title}
           </p>
-
-          {/* Unread indicator */}
           {!is_read && (
             <span
-              className={`
-              w-2 h-2 rounded-full flex-shrink-0
-              ${priorityConfig.dotColor}
-            `}
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${priorityConfig.dotColor}`}
             />
           )}
         </div>
 
         {/* Message */}
-        <p
-          className={`
-          text-gray-500 mt-0.5 line-clamp-2
-          ${isCompact ? "text-xs" : "text-sm"}
-        `}
-        >
+        <p className={`mt-0.5 line-clamp-2 ${messageColor} ${isCompact ? "text-xs" : "text-sm"}`}>
           {message}
         </p>
 
         {/* Timestamp */}
-        <p
-          className={`
-          text-gray-400 mt-1
-          ${isCompact ? "text-[10px]" : "text-xs"}
-        `}
-        >
+        <p className={`mt-1 ${timeColor} ${isCompact ? "text-[10px]" : "text-xs"}`}>
           {formatNotificationTime(created_at)}
         </p>
       </div>
@@ -114,10 +112,7 @@ const NotificationItem = ({
       {showArrow && (
         <ChevronRight
           size={isCompact ? 14 : 16}
-          className={`
-            flex-shrink-0 mt-1 transition-colors
-            ${isSelected ? "text-[#000060]" : "text-gray-300"}
-          `}
+          className={`flex-shrink-0 mt-1 transition-colors ${arrowColor}`}
         />
       )}
     </button>

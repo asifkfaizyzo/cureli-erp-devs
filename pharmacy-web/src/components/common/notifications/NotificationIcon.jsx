@@ -5,13 +5,9 @@ import { Megaphone } from "lucide-react";
 import {
   getNotificationIconConfig,
   isBroadcastNotification,
-  NOTIFICATION_EVENTS,
 } from "../../../config/notifications";
 
-/**
- * NotificationIcon - Renders appropriate icon for notification type
- */
-const NotificationIcon = ({ eventType, size = "md", className = "" }) => {
+const NotificationIcon = ({ eventType, size = "md", className = "", isMarketplace = false }) => {
   const config = getNotificationIconConfig(eventType);
   const Icon = config.icon;
   const isBroadcast = isBroadcastNotification(eventType);
@@ -22,27 +18,26 @@ const NotificationIcon = ({ eventType, size = "md", className = "" }) => {
     lg: "w-12 h-12",
   };
 
-  const iconSizes = {
-    sm: 14,
-    md: 18,
-    lg: 22,
-  };
+  const iconSizes = { sm: 14, md: 18, lg: 22 };
 
-  // Special styling for broadcast notifications
+  // In marketplace dark mode, swap coloured light backgrounds for
+  // subtle white-alpha circles so icons stay readable on dark panels.
+  const bgClass = isMarketplace ? "bg-white/10" : config.bgColor;
+  const ringClass = isMarketplace ? "ring-white/10" : "ring-indigo-200/50";
+
   if (isBroadcast) {
     return (
       <div
         className={`
-        ${sizeClasses[size]} 
-        rounded-full 
-        bg-gradient-to-br from-indigo-100 to-purple-100
-        flex items-center justify-center 
-        flex-shrink-0
-        ring-2 ring-indigo-200/50
-        ${className}
-      `}
+          ${sizeClasses[size]} rounded-full flex items-center justify-center flex-shrink-0
+          ${isMarketplace ? "bg-indigo-500/20 ring-2 ring-indigo-500/20" : "bg-gradient-to-br from-indigo-100 to-purple-100 ring-2 ring-indigo-200/50"}
+          ${className}
+        `}
       >
-        <Megaphone size={iconSizes[size]} className="text-indigo-600" />
+        <Megaphone
+          size={iconSizes[size]}
+          className={isMarketplace ? "text-indigo-300" : "text-indigo-600"}
+        />
       </div>
     );
   }
@@ -50,15 +45,15 @@ const NotificationIcon = ({ eventType, size = "md", className = "" }) => {
   return (
     <div
       className={`
-      ${sizeClasses[size]} 
-      rounded-full 
-      ${config.bgColor} 
-      flex items-center justify-center 
-      flex-shrink-0
-      ${className}
-    `}
+        ${sizeClasses[size]} rounded-full flex items-center justify-center flex-shrink-0
+        ${bgClass}
+        ${className}
+      `}
     >
-      <Icon size={iconSizes[size]} className={config.iconColor} />
+      <Icon
+        size={iconSizes[size]}
+        className={isMarketplace ? "text-white/60" : config.iconColor}
+      />
     </div>
   );
 };
