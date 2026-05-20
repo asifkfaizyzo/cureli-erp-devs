@@ -11,10 +11,10 @@ const PLATFORMS_DATA = [
   {
     id: 1,
     icon: Truck,
-    title: "Cureli Pulse",
+    title: "Cureli Mobile",
     subtitle: "Medicine Delivery Marketplace Platform",
     description:
-      "Create and operate a multi-vendor-based medicine delivery marketplace. Cureli Pulse empowers you with complete control and visibility of pharmacy partners, delivery staff, and the customer experience.",
+      "Create and operate a multi-vendor-based medicine delivery marketplace. Cureli Mobile empowers you with complete control and visibility of pharmacy partners, delivery staff, and the customer experience.",
     features: [
       "Geo-based discovery of pharmacies for customers",
       "Live stock availability, pricing, and alternative medicine suggestions",

@@ -10,24 +10,30 @@ import { Quote } from "lucide-react";
 const TESTIMONIALS_DATA = [
   {
     id: 1,
-    name: "Victoria Thompson",
-    role: "CEO and Co-founder of ABC Company",
-    image: "https://i.pravatar.cc/150?img=5",
-    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+    name: "Arjun Nair",
+    role: "Owner, Nair Medicals",
+    image:
+      "https://cureli-prod-assets.s3.ap-south-1.amazonaws.com/public-website/testimonial-avatr/testimonial-avatar-1.jpg",
+    text:
+      "Cureli helped us modernize our pharmacy operations completely. Billing, inventory, and customer management are now much faster and more organized.",
   },
   {
     id: 2,
-    name: "Michael Chen",
-    role: "CEO and Co-founder of ABC Company",
-    image: "https://i.pravatar.cc/150?img=6",
-    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+    name: "Priya Menon",
+    role: "Managing Partner, Medix Pharmacy",
+    image:
+      "https://cureli-prod-assets.s3.ap-south-1.amazonaws.com/public-website/testimonial-avatr/testimonial-avatar-2.jpg",
+    text:
+      "The ERP is extremely easy for our staff to use. We reduced manual errors significantly and now manage stock much more efficiently.",
   },
   {
     id: 3,
-    name: "Sarah Johnson",
-    role: "CEO and Co-founder of ABC Company",
-    image: "https://i.pravatar.cc/150?img=7",
-    text: "Their ability to capture our brand essence in every project is unparalleled - an invaluable creative collaborator.",
+    name: "Rahul Krishnan",
+    role: "Director, CarePlus Pharma",
+    image:
+      "https://cureli-prod-assets.s3.ap-south-1.amazonaws.com/public-website/testimonial-avatr/testimonial-avatar-3.jpg",
+    text:
+      "What stood out for us was the speed and simplicity. Cureli gave our pharmacy a proper digital workflow without making things complicated.",
   },
 ];
 
