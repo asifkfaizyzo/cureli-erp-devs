@@ -34,7 +34,7 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 
 /* =====================================================
    HELPER: Build Sort Order for Prisma
-   Maps frontend column keys to Prisma orderBy clauses
+   Maps pharmacy-web column keys to Prisma orderBy clauses
 ===================================================== */
 function buildSortOrder(sortBy, sortOrder) {
   const direction = sortOrder === "desc" ? "desc" : "asc";
@@ -1016,8 +1016,6 @@ class InventoryService {
   }
 
   async updateInventory(inventoryId, shopId, branchId, data, userId) {
-   
-
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
@@ -1089,8 +1087,6 @@ class InventoryService {
 
       let updatedMedicine = inventory.medicine;
       if (Object.keys(medicineUpdateData).length > 0) {
-       
-
         if (medicineUpdateData.name || medicineUpdateData.manufacturer) {
           const newName = medicineUpdateData.name || inventory.medicine.name;
           const newMfac =
@@ -1182,8 +1178,6 @@ class InventoryService {
       }
 
       if (Object.keys(inventoryUpdateData).length > 0) {
-       
-
         await tx.inventory.update({
           where: { inventory_id: inventoryId },
           data: inventoryUpdateData,
@@ -1229,8 +1223,6 @@ class InventoryService {
         finalInventory.expiry_date,
       );
 
-     
-
       return {
         inventory_id: finalInventory.inventory_id,
         medicine_id: finalInventory.medicine_id,
@@ -1265,8 +1257,6 @@ class InventoryService {
   }
 
   async deleteInventory(inventoryId, shopId, branchId, userId) {
-   
-
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
@@ -1310,8 +1300,6 @@ class InventoryService {
         where: { inventory_id: inventoryId },
         data: { is_active: false },
       });
-
-      
 
       return {
         inventory_id: inventoryId,

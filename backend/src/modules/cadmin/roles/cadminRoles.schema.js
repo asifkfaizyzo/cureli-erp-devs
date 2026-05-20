@@ -20,12 +20,11 @@ const roleDescriptionSchema = z
   .trim()
   .max(200, "Description must be at most 200 characters");
 
-const permissionKeySchema = z.string().refine(
-  (value) => ALL_CADMIN_PERMISSION_KEYS.includes(value),
-  {
+const permissionKeySchema = z
+  .string()
+  .refine((value) => ALL_CADMIN_PERMISSION_KEYS.includes(value), {
     message: "One or more permissions are invalid",
-  }
-);
+  });
 
 const permissionsSchema = z
   .array(permissionKeySchema, {
@@ -62,16 +61,17 @@ export const updateRoleSchema = z
     description: roleDescriptionSchema.optional(),
     permissions: permissionsSchema.optional(),
   })
-  .refine(
-    (data) => Object.values(data).some((value) => value !== undefined),
-    {
-      message: "At least one field must be provided",
-    }
-  );
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "At least one field must be provided",
+  });
 
 export const listRolesQuerySchema = z.object({
   include_deleted: queryBooleanSchema.default(false),
-  search: z.string().trim().max(100, "Search must be at most 100 characters").optional(),
+  search: z
+    .string()
+    .trim()
+    .max(100, "Search must be at most 100 characters")
+    .optional(),
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,9 +80,7 @@ export const listRolesQuerySchema = z.object({
 
 export const assignRolesSchema = z
   .object({
-    role_ids: z
-      .array(uuidSchema)
-      .default([]),
+    role_ids: z.array(uuidSchema).default([]),
 
     primary_role_id: z
       .string()
@@ -118,7 +116,7 @@ export const assignRolesSchema = z
 
 export const deleteRoleSchema = z.object({
   // Required when deleting a role that has active admins assigned
-  // Frontend sends this after SUPER_CADMIN confirms reassignment flow
+  // pharmacy-web sends this after SUPER_CADMIN confirms reassignment flow
   // If omitted, backend will check and reject if admins are still assigned
   confirm: z
     .boolean()

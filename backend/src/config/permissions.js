@@ -4,10 +4,10 @@
  * ============================================
  * PERMISSION CONSTANTS
  * ============================================
- * 
+ *
  * Naming convention: RESOURCE_ACTION
  * Format: "resource:action"
- * 
+ *
  * To add a new permission:
  * 1. Add constant here
  * 2. Add to appropriate role(s) in ROLE_PERMISSIONS
@@ -238,47 +238,47 @@ export function getPermissionsForRole(role) {
  * ============================================
  * ROUTE → PERMISSION MAPPING
  * ============================================
- * 
- * Maps frontend routes to required permissions.
- * Used for sidebar visibility and frontend guards.
+ *
+ * Maps pharmacy-web routes to required permissions.
+ * Used for sidebar visibility and pharmacy-web guards.
  */
 
 export const ROUTE_PERMISSIONS = {
   // Dashboard
   "/dashboard": [PERMISSIONS.DASHBOARD_VIEW],
-  
+
   // Sales
   "/Salesbilling": [PERMISSIONS.BILLING_CREATE],
   "/Salesinvoice": [PERMISSIONS.BILLING_VIEW],
-  
+
   // Purchase
   "/purchase-billing": [PERMISSIONS.PURCHASE_CREATE],
   "/purchase-invoices": [PERMISSIONS.PURCHASE_VIEW],
-  
+
   // Inventory
   "/inventory": [PERMISSIONS.INVENTORY_VIEW],
-  
+
   // Suppliers
   "/suppliers": [PERMISSIONS.SUPPLIERS_VIEW],
-  
+
   // Reports
   "/reports-sales": [PERMISSIONS.REPORTS_SALES],
   "/reports-purchase": [PERMISSIONS.REPORTS_PURCHASE],
   "/reports-inventory": [PERMISSIONS.REPORTS_INVENTORY],
   "/reports-finance": [PERMISSIONS.REPORTS_FINANCIAL],
-  
+
   // Settings - Users (SA + BA)
   "/settings/users": [PERMISSIONS.USERS_VIEW],
-  
+
   // Settings - Branches (SA only for full access, BA for view)
   "/settings/branches": [PERMISSIONS.BRANCHES_VIEW],
-  
+
   // Settings - Profile (no specific permission, just auth)
   "/settings/profile": [],
-  
+
   // Settings - Upgrade (SA only - handled by role check)
   "/settings/upgrade": [],
-  
+
   // Legacy routes
   "/pending-users": [PERMISSIONS.USERS_MANAGE],
 };
@@ -291,4 +291,3 @@ export const ROUTE_PERMISSIONS = {
 export function getRoutePermissions(route) {
   return ROUTE_PERMISSIONS[route] || [];
 }
-

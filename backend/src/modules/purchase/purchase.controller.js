@@ -7,7 +7,7 @@ import * as audit from "../audit/index.js";
 
 /**
  * Extract branch context from request headers
- * Frontend sends: X-Branch-Mode and X-Branch-Id headers
+ * pharmacy-web sends: X-Branch-Mode and X-Branch-Id headers
  */
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";
@@ -41,8 +41,6 @@ export async function createPurchaseInvoiceController(req, res) {
     const { branchId, branchMode } = extractBranchContext(req);
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
-
-   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -140,8 +138,6 @@ export async function getPurchaseInvoicesController(req, res) {
     const role = req.user.role;
     const { branchId, branchMode } = extractBranchContext(req);
 
-   
-
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
     }
@@ -215,8 +211,6 @@ export async function updatePurchaseInvoiceController(req, res) {
     const { branchId, branchMode } = extractBranchContext(req);
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
-
-   
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -443,8 +437,6 @@ export async function createPurchaseReturnController(req, res) {
     const { branchId } = extractBranchContext(req);
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
-
-    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
@@ -705,8 +697,6 @@ export async function cancelApprovedReturnController(req, res) {
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
 
-    
-
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);
     }
@@ -759,8 +749,6 @@ export async function revertReturnToPendingController(req, res) {
     const { branchId } = extractBranchContext(req);
     const data = req.validated;
     const auditContext = audit.extractRequestContext(req);
-
-    
 
     if (!shopId) {
       return fail(res, "No shop associated with your account", 400);

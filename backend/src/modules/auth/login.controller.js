@@ -73,7 +73,7 @@ export async function updateOnboardingStepController(req, res) {
       return success(
         res,
         { onboarding_step: user.onboarding_step },
-        "Step already completed"
+        "Step already completed",
       );
     }
 
@@ -133,7 +133,7 @@ export async function loginController(req, res) {
         return fail(
           res,
           "Your signup was not completed. Please restart the signup process.",
-          400
+          400,
         );
       }
 
@@ -145,7 +145,7 @@ export async function loginController(req, res) {
         res,
         "Your account has been suspended. Please contact Cureli support for assistance.",
         403,
-        { code: "ACCOUNT_SUSPENDED" }
+        { code: "ACCOUNT_SUSPENDED" },
       );
     }
 
@@ -163,7 +163,7 @@ export async function loginController(req, res) {
     const tempToken = jwt.sign(
       { user_id: user.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" },
     );
 
     return success(
@@ -175,7 +175,7 @@ export async function loginController(req, res) {
           : null,
         message: "OTP sent to your registered phone number",
       },
-      "OTP sent"
+      "OTP sent",
     );
   } catch (err) {
     console.error(err);
@@ -184,11 +184,11 @@ export async function loginController(req, res) {
       return fail(
         res,
         "No phone number registered. Please contact support.",
-        400
+        400,
       );
     }
 
-    // FIX: Pass waitTime in the response data so the frontend
+    // FIX: Pass waitTime in the response data so the pharmacy-web
     // can show the correct countdown timer instead of a generic message
     if (err.code === "OTP_COOLDOWN") {
       return fail(res, err.message, 429, { waitTime: err.waitTime });
@@ -231,7 +231,7 @@ export async function resendLoginOtpController(req, res) {
     const newTempToken = jwt.sign(
       { user_id: decoded.user_id, purpose: "login_otp" },
       TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" },
     );
 
     return success(
@@ -243,7 +243,7 @@ export async function resendLoginOtpController(req, res) {
           : null,
         message: "OTP resent successfully",
       },
-      "OTP resent"
+      "OTP resent",
     );
   } catch (err) {
     console.error("Resend OTP error:", err);
@@ -252,7 +252,7 @@ export async function resendLoginOtpController(req, res) {
       return fail(
         res,
         "No phone number registered. Please contact support.",
-        400
+        400,
       );
     }
 
@@ -340,7 +340,7 @@ export async function verifyLoginOtpController(req, res) {
         session_id: sessionToken,
       },
       REFRESH_SECRET,
-      { expiresIn: REFRESH_EXPIRES }
+      { expiresIn: REFRESH_EXPIRES },
     );
 
     res.cookie("refresh_token", refreshToken, {
@@ -359,18 +359,12 @@ export async function verifyLoginOtpController(req, res) {
       if (user.status === "pending_setup") {
         nextStep = user.onboarding_step || 4;
       } else if (user.status === "pending_verification") {
-        if (
-          shopStatus === "partially_rejected" ||
-          shopStatus === "rejected"
-        ) {
+        if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
           nextStep = 14;
         } else {
           nextStep = 12;
         }
-      } else if (
-        user.status === "verified" ||
-        user.status === "active"
-      ) {
+      } else if (user.status === "verified" || user.status === "active") {
         if (!user.first_login_after_verification) {
           nextStep = 15;
         } else {
@@ -392,7 +386,7 @@ export async function verifyLoginOtpController(req, res) {
         role: user.role,
         user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
       },
-      "Login successful"
+      "Login successful",
     );
   } catch (err) {
     console.error(err);
@@ -434,7 +428,7 @@ export async function refreshTokenController(req, res) {
     if (decoded.session_id) {
       const session = await validateUserSession(
         decoded.user_id,
-        decoded.session_id
+        decoded.session_id,
       );
 
       if (!session) {
@@ -448,7 +442,7 @@ export async function refreshTokenController(req, res) {
           res,
           "Session expired or logged in from another device",
           401,
-          { code: "SESSION_INVALIDATED" }
+          { code: "SESSION_INVALIDATED" },
         );
       }
     }
@@ -484,7 +478,7 @@ export async function refreshTokenController(req, res) {
         session_id: decoded.session_id,
       },
       ACCESS_SECRET,
-      { expiresIn: ACCESS_EXPIRES }
+      { expiresIn: ACCESS_EXPIRES },
     );
 
     const newRefreshToken = jwt.sign(
@@ -494,7 +488,7 @@ export async function refreshTokenController(req, res) {
         session_id: decoded.session_id,
       },
       REFRESH_SECRET,
-      { expiresIn: REFRESH_EXPIRES }
+      { expiresIn: REFRESH_EXPIRES },
     );
 
     res.cookie("refresh_token", newRefreshToken, {

@@ -54,7 +54,7 @@ const strictEnquiryLimiter = rateLimit({
 // No auth required — anyone can submit an enquiry
 // ─────────────────────────────────────────────────────────────────────────────
 router.post(
-  "/",
+  "/enquiries",
   strictEnquiryLimiter,
   enquirySubmitLimiter,
   validate(createEnquirySchema, "body"),
@@ -66,7 +66,7 @@ router.post(
 // All require: authenticated CAdmin + specific permission
 // ─────────────────────────────────────────────────────────────────────────────
 router.get(
-  "/admin/list",
+  "/enquiries/admin/list",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
   validate(listEnquiriesSchema, "query"),
@@ -74,14 +74,14 @@ router.get(
 );
 
 router.get(
-  "/admin/stats",
+  "/enquiries/admin/stats",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_STATS),
   getEnquiryStats
 );
 
 router.get(
-  "/admin/:enquiryId",
+  "/enquiries/admin/:enquiryId",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_DETAIL),
   validate(enquiryIdParamSchema, "params"),
@@ -89,7 +89,7 @@ router.get(
 );
 
 router.post(
-  "/admin/:enquiryId/reply",
+  "/enquiries/admin/:enquiryId/reply",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_REPLY),
   validate(enquiryIdParamSchema, "params"),
@@ -98,7 +98,7 @@ router.post(
 );
 
 router.patch(
-  "/admin/:enquiryId/status",
+  "/enquiries/admin/:enquiryId/status",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_UPDATE_STATUS),
   validate(enquiryIdParamSchema, "params"),
@@ -107,7 +107,7 @@ router.patch(
 );
 
 router.delete(
-  "/admin/:enquiryId",
+  "/enquiries/admin/:enquiryId",
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_DELETE),
   validate(enquiryIdParamSchema, "params"),

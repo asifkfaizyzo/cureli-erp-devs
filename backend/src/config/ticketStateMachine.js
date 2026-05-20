@@ -11,19 +11,19 @@
 export const TICKET_TRANSITIONS = {
   PENDING: {
     IN_PROGRESS: ["CADMIN"],
-    CANCELLED:   ["ERP_USER", "CADMIN"],
+    CANCELLED: ["ERP_USER", "CADMIN"],
   },
   IN_PROGRESS: {
-    RESOLVED:    ["CADMIN"],
-    PENDING:     ["CADMIN"],           // push back
-    CANCELLED:   ["ERP_USER", "CADMIN"],
+    RESOLVED: ["CADMIN"],
+    PENDING: ["CADMIN"], // push back
+    CANCELLED: ["ERP_USER", "CADMIN"],
   },
   RESOLVED: {
-    CLOSED:      ["CADMIN", "SYSTEM"],
-    PENDING:     ["ERP_USER", "CADMIN"], // reopen
+    CLOSED: ["CADMIN", "SYSTEM"],
+    PENDING: ["ERP_USER", "CADMIN"], // reopen
   },
   CLOSED: {
-    PENDING:     ["ERP_USER", "CADMIN"], // reopen
+    PENDING: ["ERP_USER", "CADMIN"], // reopen
   },
   CANCELLED: {
     // terminal — nothing allowed
@@ -64,7 +64,7 @@ export function getAllowedTransitions(fromStatus, actorType) {
 
 /**
  * Calculate priority from reopen count.
- * Used on both frontend and backend.
+ * Used on both pharmacy-web and backend.
  */
 export function calculatePriority(reopenCount) {
   if (reopenCount === 0) return "LOW";
@@ -78,10 +78,15 @@ export function calculatePriority(reopenCount) {
  */
 export function priorityToReopenFilter(priority) {
   switch (priority) {
-    case "LOW":      return { equals: 0 };
-    case "MEDIUM":   return { gte: 1, lte: 2 };
-    case "HIGH":     return { gte: 3, lte: 4 };
-    case "CRITICAL": return { gte: 5 };
-    default:         return undefined;
+    case "LOW":
+      return { equals: 0 };
+    case "MEDIUM":
+      return { gte: 1, lte: 2 };
+    case "HIGH":
+      return { gte: 3, lte: 4 };
+    case "CRITICAL":
+      return { gte: 5 };
+    default:
+      return undefined;
   }
 }

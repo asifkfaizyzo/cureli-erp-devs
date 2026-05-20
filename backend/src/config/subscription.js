@@ -4,15 +4,15 @@
  * Subscription Status Constants
  */
 export const SubscriptionStatus = Object.freeze({
-  PENDING: 'PENDING',   // Created, awaiting payment
-  ACTIVE: 'ACTIVE',     // Paid and within subscription period
-  EXPIRED: 'EXPIRED',   // End date has passed
+  PENDING: "PENDING", // Created, awaiting payment
+  ACTIVE: "ACTIVE", // Paid and within subscription period
+  EXPIRED: "EXPIRED", // End date has passed
 });
 
 export const PaymentStatus = Object.freeze({
-  PENDING: 'PENDING',
-  PAID: 'PAID',
-  FAILED: 'FAILED',
+  PENDING: "PENDING",
+  PAID: "PAID",
+  FAILED: "FAILED",
 });
 
 /**
@@ -29,23 +29,23 @@ export const GRACE_PERIOD_DAYS = 20;
  */
 export function canAccessApp(subscription) {
   if (!subscription) return false;
-  
+
   const now = new Date();
   const endDate = new Date(subscription.end_date);
-  
+
   // ACTIVE and not past end date
   if (subscription.status === SubscriptionStatus.ACTIVE && endDate > now) {
     return true;
   }
-  
+
   // EXPIRED but within grace period
   if (subscription.status === SubscriptionStatus.EXPIRED || endDate <= now) {
     const gracePeriodEnd = new Date(endDate);
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + GRACE_PERIOD_DAYS);
-    
+
     return now <= gracePeriodEnd;
   }
-  
+
   return false;
 }
 
@@ -54,17 +54,17 @@ export function canAccessApp(subscription) {
  */
 export function isInGracePeriod(subscription) {
   if (!subscription) return false;
-  
+
   const now = new Date();
   const endDate = new Date(subscription.end_date);
-  
+
   // Not expired yet
   if (endDate > now) return false;
-  
+
   // Check if within grace period
   const gracePeriodEnd = new Date(endDate);
   gracePeriodEnd.setDate(gracePeriodEnd.getDate() + GRACE_PERIOD_DAYS);
-  
+
   return now <= gracePeriodEnd;
 }
 
@@ -73,10 +73,10 @@ export function isInGracePeriod(subscription) {
  */
 export function getDaysRemaining(subscription) {
   if (!subscription) return 0;
-  
+
   const now = new Date();
   const endDate = new Date(subscription.end_date);
-  
+
   return Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
 }
 
@@ -85,72 +85,72 @@ export function getDaysRemaining(subscription) {
  */
 export function getGraceDaysRemaining(subscription) {
   if (!subscription) return 0;
-  
+
   const now = new Date();
   const endDate = new Date(subscription.end_date);
-  
+
   // Not expired yet
   if (endDate > now) return GRACE_PERIOD_DAYS;
-  
+
   const gracePeriodEnd = new Date(endDate);
   gracePeriodEnd.setDate(gracePeriodEnd.getDate() + GRACE_PERIOD_DAYS);
-  
+
   const remaining = Math.ceil((gracePeriodEnd - now) / (1000 * 60 * 60 * 24));
   return Math.max(0, remaining);
 }
 
 /**
- * Get subscription state for frontend display
+ * Get subscription state for pharmacy-web display
  */
 export function getSubscriptionState(subscription) {
   if (!subscription) {
     return {
-      state: 'NONE',
+      state: "NONE",
       canAccess: false,
-      message: 'No subscription',
+      message: "No subscription",
     };
   }
-  
+
   const daysRemaining = getDaysRemaining(subscription);
   const graceDaysRemaining = getGraceDaysRemaining(subscription);
   const inGracePeriod = isInGracePeriod(subscription);
-  
+
   // Active and plenty of time
   if (daysRemaining > 30) {
     return {
-      state: 'ACTIVE',
+      state: "ACTIVE",
       canAccess: true,
       daysRemaining,
       message: `${daysRemaining} days remaining`,
     };
   }
-  
+
   // Active but expiring soon (within 30 days)
   if (daysRemaining > 0) {
     return {
-      state: 'EXPIRING_SOON',
+      state: "EXPIRING_SOON",
       canAccess: true,
       daysRemaining,
       message: `Expiring in ${daysRemaining} days`,
       showWarning: true,
     };
   }
-  
+
   // Expired but in grace period
   if (inGracePeriod) {
     return {
-      state: 'GRACE_PERIOD',
+      state: "GRACE_PERIOD",
       canAccess: true,
       graceDaysRemaining,
       message: `Subscription expired! ${graceDaysRemaining} days left to renew`,
       showUrgentWarning: true,
     };
   }
-  
+
   // Fully expired, no access
   return {
-    state: 'BLOCKED',
+    state: "BLOCKED",
     canAccess: false,
-    message: 'Subscription expired. Please renew to continue.',
+    message: "Subscription expired. Please renew to continue.",
   };
 }

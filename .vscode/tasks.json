@@ -4,7 +4,18 @@
   "tasks": [
     {
       "label": "start-cureli",
-      "dependsOn": ["Backend", "cAdmin", "ERP","Landing","Prisma","Backend tree","Landing tree","ERP tree","cAdmin tree","Git"],
+      "dependsOn": [
+        "Backend",
+        "cAdmin",
+        "ERP",
+        "Landing",
+        "Prisma",
+        "Backend tree",
+        "Landing tree",
+        "ERP tree",
+        "cAdmin tree",
+        "Git"
+      ],
       "dependsOrder": "parallel"
     },
     {
@@ -22,10 +33,10 @@
     {
       "label": "Backend tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/backend/src"
+        "cwd": "${workspaceFolder}/backend"
       },
       "presentation": {
         "panel": "new"
@@ -34,10 +45,10 @@
     {
       "label": "ERP tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/frontend/src"
+        "cwd": "${workspaceFolder}/pharmacy-web"
       },
       "presentation": {
         "panel": "new"
@@ -46,10 +57,10 @@
     {
       "label": "cAdmin tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/cureli-admin/src"
+        "cwd": "${workspaceFolder}/cadmin-web"
       },
       "presentation": {
         "panel": "new"
@@ -58,10 +69,10 @@
     {
       "label": "Landing tree",
       "type": "shell",
-      "command": "tree /f; powershell",
+      "command": "ls; cd src; tree /f; powershell",
       "isBackground": true,
       "options": {
-        "cwd": "${workspaceFolder}/landing/src"
+        "cwd": "${workspaceFolder}/landing-web"
       },
       "presentation": {
         "panel": "new"
@@ -72,7 +83,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/cureli-admin"
+        "cwd": "${workspaceFolder}/cadmin-web"
       },
       "isBackground": true,
       "presentation": {
@@ -84,7 +95,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}/pharmacy-web"
       },
       "isBackground": true,
       "presentation": {
@@ -96,7 +107,7 @@
       "type": "shell",
       "command": "npm run dev",
       "options": {
-        "cwd": "${workspaceFolder}/landing"
+        "cwd": "${workspaceFolder}/landing-web"
       },
       "isBackground": true,
       "presentation": {
@@ -126,6 +137,38 @@
       "presentation": {
         "panel": "new"
       }
-    }
+    },
+    {
+  "label": "start-cureli-mobile",
+  "dependsOn": [
+    "Backend Mobile Tree",
+    "Mobile Tree"
+  ],
+  "dependsOrder": "parallel"
+},
+{
+  "label": "Backend Mobile Tree",
+  "type": "shell",
+  "command": "ls; cd src; tree /f; powershell",
+  "options": {
+    "cwd": "${workspaceFolder}/backend"
+  },
+  "isBackground": true,
+  "presentation": {
+    "panel": "new"
+  }
+},
+{
+  "label": "Mobile Tree",
+  "type": "shell",
+  "command": "ls; cd assets; tree /f; cd ..; cd src; tree /f; cd ..; cd app; tree /f; powershell",
+  "options": {
+    "cwd": "${workspaceFolder}/cureli-mobile"
+  },
+  "isBackground": true,
+  "presentation": {
+    "panel": "new"
+  }
+}
   ]
 }

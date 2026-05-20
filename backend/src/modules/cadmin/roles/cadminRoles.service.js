@@ -324,7 +324,7 @@ export async function deleteRoleService(role_id, auditContext = {}) {
       `Cannot delete role. ${activeAssignments.length} active admin(s) are assigned to it. ` +
         `Reassign or deactivate them first.`,
       409,
-      // Pass the list so the frontend can show who needs reassignment
+      // Pass the list so the pharmacy-web can show who needs reassignment
     );
   }
 
@@ -433,10 +433,16 @@ export async function assignRolesService(cadmin_id, data, auditContext = {}) {
   // Only validate roles if we're actually assigning some
   if (role_ids.length > 0) {
     if (!primary_role_id) {
-      throw createError("primary_role_id is required when role_ids are provided", 400);
+      throw createError(
+        "primary_role_id is required when role_ids are provided",
+        400,
+      );
     }
     if (!role_ids.includes(primary_role_id)) {
-      throw createError("primary_role_id must be one of the role_ids provided", 400);
+      throw createError(
+        "primary_role_id must be one of the role_ids provided",
+        400,
+      );
     }
 
     const roles = await prisma.cAdminCustomRole.findMany({
@@ -537,7 +543,7 @@ export async function removeAllRolesService(cadmin_id, auditContext = {}) {
 
 /**
  * Get admins that would be affected if a role is deleted
- * Used by frontend to show the reassignment warning modal
+ * Used by pharmacy-web to show the reassignment warning modal
  */
 export async function getRoleDeletionImpactService(role_id) {
   const role = await prisma.cAdminCustomRole.findUnique({
