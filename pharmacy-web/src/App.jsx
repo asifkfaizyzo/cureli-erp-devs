@@ -1,4 +1,4 @@
-// src/App.jsx
+// pharmacy-web\src\App.jsx
 
 import {
   BrowserRouter as Router,
@@ -6,7 +6,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 // ============================================
 // AUTH INITIALIZATION
@@ -222,7 +222,6 @@ const App = () => {
         <Route
           path="/*"
           element={
-            <MaintenanceCheck>
               <AuthInitializer>
                 <Routes>
                   {/* ── ROOT REDIRECT ── */}
@@ -478,7 +477,6 @@ const App = () => {
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </AuthInitializer>
-            </MaintenanceCheck>
           }
         />
       </Routes>

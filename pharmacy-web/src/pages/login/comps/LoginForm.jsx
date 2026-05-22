@@ -265,7 +265,7 @@ const LoginForm = ({ onRegisterClick }) => {
               type="text"
               placeholder="Enter your username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.trim())}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -300,7 +300,7 @@ const LoginForm = ({ onRegisterClick }) => {
               placeholder="Enter your password"
               value={password}
               ref={passwordRef}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value.trim())}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();

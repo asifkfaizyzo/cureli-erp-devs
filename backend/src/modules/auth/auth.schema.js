@@ -6,19 +6,20 @@ const passwordFormatRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za
 
 // Login: Only check fields exist (don't validate format - let controller handle auth)
 export const loginSchema = z.object({
-  username: z.string().min(1, "Username required"),
-  password: z.string().min(1, "Password required"),
+  username: z.string().min(1, "Username required").trim(),
+  password: z.string().min(1, "Password required").trim(),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Invalid email address").trim(),
 });
 
 // Password reset: Validate format (user is setting NEW password)
 export const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Token required"),
+  token: z.string().min(1, "Token required").trim(),
   password: z
     .string()
+    .trim()
     .min(8, "Password must be at least 8 characters")
     .regex(
       passwordFormatRegex,

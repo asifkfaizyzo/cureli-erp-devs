@@ -133,11 +133,7 @@ API.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const res = await axios.post(
-          `${import.meta.env.VITE_API_URL}/api/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
+        const res = await API.post("/auth/refresh", {});
 
         const newToken = res.data?.data?.access_token;
 

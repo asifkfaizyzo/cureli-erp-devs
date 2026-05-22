@@ -21,9 +21,8 @@ function isTokenExpired(token) {
 // Helper to refresh token
 async function refreshAccessToken() {
   try {
-    const response = await axios.get(`${API_URL}/cadmin/refresh`, {
-      withCredentials: true,
-    });
+    
+const response = await CAdminAPI.get("/refresh");
     const newToken = response.data?.data?.access_token;
     if (newToken) {
       localStorage.setItem("cadmin_access_token", newToken);
