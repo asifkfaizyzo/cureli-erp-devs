@@ -1,4 +1,4 @@
-// src/pages/marketplace/listings/MarketplaceListingsPage.jsx
+// src/pages/marketplace-listings/MarketplaceListingsPage.jsx
 
 import { Pill } from "lucide-react";
 

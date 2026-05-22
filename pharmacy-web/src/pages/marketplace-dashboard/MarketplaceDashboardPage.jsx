@@ -1,4 +1,4 @@
-// src/pages/marketplace/dashboard/MarketplaceDashboardPage.jsx
+// src/pages/marketplace-dashboard/MarketplaceDashboardPage.jsx
 
 import { LayoutGrid } from "lucide-react";
 

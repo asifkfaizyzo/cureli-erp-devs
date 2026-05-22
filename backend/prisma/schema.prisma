@@ -285,6 +285,7 @@ model Shop {
   suppliers               Supplier[]           @relation("ShopSuppliers")
   tickets                 Ticket[]             @relation("ShopTickets")
   users                   User[]               @relation("UsersInShop")
+  marketplaceProfile      MarketplaceProfile?
 
   @@map("shops")
 }
@@ -306,10 +307,7 @@ model Branch {
   updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
   shop             Shop              @relation(fields: [shop_id], references: [shop_id])
-  
-  //  ADD THIS LINE
   suppliers        SupplierBranch[]  @relation("BranchSuppliers")
-  
   customerCredits  CustomerCredit[]  @relation("BranchCustomerCredits")
   customers        Customer[]        @relation("BranchCustomers")
   inventory        Inventory[]       @relation("BranchInventory")
@@ -320,6 +318,7 @@ model Branch {
   stockLedger      StockLedger[]     @relation("BranchStockLedger")
   tickets          Ticket[]          @relation("BranchTickets")
   users            User[]
+  marketplaceSettings BranchMarketplaceSettings?
 
   @@map("branches")
 }
@@ -1724,6 +1723,71 @@ model OtpDailyLimit {
   @@map("otp_daily_limits")
 }
 
+model MarketplaceProfile {
+  marketplace_profile_id String            @id @default(uuid()) @db.Uuid
+  shop_id                String            @unique @db.Uuid
+  
+  // Storefront Identity
+  storefront_name        String?           @db.VarChar(200)
+  storefront_description String?           @db.Text
+  support_phone          String?           @db.VarChar(20)
+  logo_url               String?           @db.VarChar(500)
+  banner_url             String?           @db.VarChar(500)
+
+  // Lifecycle
+  marketplace_status     MarketplaceStatus @default(NOT_STARTED)
+  onboarding_completed   Boolean           @default(false)
+  is_live                Boolean           @default(false)
+  
+  // Draft Persistence
+  onboarding_draft       Json?             // { currentStep, storefrontData, branchSelection }
+
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime          @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  shop                   Shop              @relation(fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branchSettings         BranchMarketplaceSettings[]
+
+  @@index([shop_id])
+  @@index([marketplace_status])
+  @@map("marketplace_profiles")
+}
+
+model BranchMarketplaceSettings {
+  branch_marketplace_id  String   @id @default(uuid()) @db.Uuid
+  branch_id              String   @unique @db.Uuid
+  marketplace_profile_id String   @db.Uuid
+
+  marketplace_enabled    Boolean  @default(false)
+
+  // Geolocation
+  latitude               Decimal? @db.Decimal(10, 8)
+  longitude              Decimal? @db.Decimal(11, 8)
+  google_place_id        String?  @db.VarChar(500)
+  formatted_address      String?  @db.VarChar(500)
+
+  // Timings
+  opening_time           String?  @db.VarChar(5) // "09:00"
+  closing_time           String?  @db.VarChar(5) // "21:00"
+  is_24_hours            Boolean  @default(false)
+
+  // Fulfillment
+  pickup_enabled         Boolean  @default(false)
+  delivery_enabled       Boolean  @default(false)
+  contact_override       String?  @db.VarChar(20)
+
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  branch                 Branch             @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  marketplaceProfile     MarketplaceProfile @relation(fields: [marketplace_profile_id], references: [marketplace_profile_id], onDelete: Cascade)
+
+  @@index([marketplace_profile_id])
+  @@index([branch_id])
+  @@map("branch_marketplace_settings")
+}
 
 // ══════════════════════════════════════════════════════════════
 // CURELI MOBILE — CUSTOMER AUTH FOUNDATION
@@ -1902,6 +1966,12 @@ enum LinkStatus {
   SUGGESTED     // Needs manual confirmation
   MANUAL_LINKED // Manually confirmed by user
   UNLINKED      // Intentionally kept separate
+}
+enum MarketplaceStatus {
+  NOT_STARTED
+  DRAFT
+  LIVE
+  SUSPENDED
 }
 
 enum MedicineType {

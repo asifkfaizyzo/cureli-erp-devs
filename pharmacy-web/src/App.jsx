@@ -21,6 +21,7 @@ import SetupGuard from "./guards/SetupGuard";
 import PermissionGuard from "./guards/PermissionGuard";
 import OnboardingGuard from "./guards/OnboardingGuard";
 import BranchRequiredGuard from "./guards/BranchRequiredGuard";
+import MarketplaceOnboardingGuard from "./guards/MarketplaceOnboardingGuard.jsx";
 
 // ============================================
 // PERMISSIONS CONFIG
@@ -47,6 +48,7 @@ import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 // LAYOUT
 // ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
+import OnboardingShellLayout from "./components/layout/OnboardingShellLayout.jsx"; // ← NEW
 
 // ============================================
 // ERP PAGES
@@ -87,6 +89,7 @@ import SetupReviewPage from "./pages/setup/SetupReviewPage.jsx";
 // ============================================
 // MARKETPLACE PAGES
 // ============================================
+import MarketplaceOnboardingPage from "./pages/marketplace-onboarding/MarketplaceOnboardingPage.jsx";
 import MarketplaceDashboardPage from "./pages/marketplace-dashboard/MarketplaceDashboardPage.jsx";
 import MarketplaceOrdersPage from "./pages/marketplace-orders/MarketplaceOrdersPage.jsx";
 import MarketplaceListingsPage from "./pages/marketplace-listings/MarketplaceListingsPage.jsx";
@@ -229,23 +232,41 @@ const App = () => {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                  <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
+                  />
 
                   {/* ── ONBOARDING ROUTES ── */}
                   <Route element={<OnboardingGuard />}>
                     <Route path="/onboarding" element={<OnboardingPage />} />
-                    <Route path="/verification" element={<VerificationPage />} />
+                    <Route
+                      path="/verification"
+                      element={<VerificationPage />}
+                    />
                   </Route>
 
                   {/* ── POST-VERIFICATION (token required, pre-setup) ── */}
                   <Route element={<AuthGuard />}>
-                    <Route path="/plan-selection" element={<PlanSelectionPage />} />
+                    <Route
+                      path="/plan-selection"
+                      element={<PlanSelectionPage />}
+                    />
                     <Route path="/setup" element={<SetupRouter />} />
                     <Route element={<SetupLayout />}>
-                      <Route path="/setup/branches" element={<SetupBranchesPage />} />
+                      <Route
+                        path="/setup/branches"
+                        element={<SetupBranchesPage />}
+                      />
                       <Route path="/setup/users" element={<SetupUsersPage />} />
-                      <Route path="/setup/review" element={<SetupReviewPage />} />
+                      <Route
+                        path="/setup/review"
+                        element={<SetupReviewPage />}
+                      />
                     </Route>
                   </Route>
 
@@ -253,17 +274,34 @@ const App = () => {
                   <Route path="/yzo-dev" element={<DeveloperStamp />} />
 
                   {/* ════════════════════════════════════════════════
+                      MARKETPLACE ONBOARDING  →  /marketplace/onboarding
+                      Header only — no sidebar, no breadcrumb
+                  ════════════════════════════════════════════════ */}
+                  <Route element={<AuthGuard />}>
+                    <Route element={<SetupGuard />}>
+                      <Route element={<OnboardingShellLayout />}>
+                        <Route
+                          path="/marketplace/onboarding"
+                          element={<MarketplaceOnboardingPage />}
+                        />
+                      </Route>
+                    </Route>
+                  </Route>
+
+                  {/* ════════════════════════════════════════════════
                       ERP ROUTES  →  /erp/*
+                      + MARKETPLACE POST-ONBOARDING  →  /marketplace/*
                   ════════════════════════════════════════════════ */}
                   <Route element={<AuthGuard />}>
                     <Route element={<SetupGuard />}>
                       <Route element={<AppLayout />}>
-
                         {/* Dashboard */}
                         <Route
                           path="/erp/dashboard"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.DASHBOARD_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.DASHBOARD_VIEW}
+                            >
                               <DashboardPage />
                             </PermissionGuard>
                           }
@@ -273,7 +311,9 @@ const App = () => {
                         <Route
                           path="/erp/sales-billing"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BILLING_CREATE}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_CREATE}
+                            >
                               <BranchRequiredGuard>
                                 <BillingPage />
                               </BranchRequiredGuard>
@@ -283,7 +323,9 @@ const App = () => {
                         <Route
                           path="/erp/sales-invoice"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
                               <InvoicePage />
                             </PermissionGuard>
                           }
@@ -291,7 +333,9 @@ const App = () => {
                         <Route
                           path="/erp/sales-returns"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BILLING_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BILLING_VIEW}
+                            >
                               <SalesReturnsPage />
                             </PermissionGuard>
                           }
@@ -301,7 +345,9 @@ const App = () => {
                         <Route
                           path="/erp/purchase-billing"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.PURCHASE_CREATE}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_CREATE}
+                            >
                               <BranchRequiredGuard>
                                 <PurchasePage />
                               </BranchRequiredGuard>
@@ -311,7 +357,9 @@ const App = () => {
                         <Route
                           path="/erp/purchase-invoices"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_VIEW}
+                            >
                               <PurchaseInvoicePage />
                             </PermissionGuard>
                           }
@@ -319,7 +367,9 @@ const App = () => {
                         <Route
                           path="/erp/purchase-returns"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.PURCHASE_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.PURCHASE_VIEW}
+                            >
                               <PurchaseReturnsPage />
                             </PermissionGuard>
                           }
@@ -329,7 +379,9 @@ const App = () => {
                         <Route
                           path="/erp/inventory"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.INVENTORY_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
                               <InventoryPage />
                             </PermissionGuard>
                           }
@@ -339,7 +391,9 @@ const App = () => {
                         <Route
                           path="/erp/suppliers"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.SUPPLIERS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.SUPPLIERS_VIEW}
+                            >
                               <SupplierPage />
                             </PermissionGuard>
                           }
@@ -349,7 +403,9 @@ const App = () => {
                         <Route
                           path="/erp/settings/users"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.USERS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.USERS_VIEW}
+                            >
                               <UsersPage />
                             </PermissionGuard>
                           }
@@ -357,7 +413,9 @@ const App = () => {
                         <Route
                           path="/erp/settings/branches"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.BRANCHES_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.BRANCHES_VIEW}
+                            >
                               <BranchesPage />
                             </PermissionGuard>
                           }
@@ -381,32 +439,36 @@ const App = () => {
                         <Route
                           path="/erp/tickets"
                           element={
-                            <PermissionGuard permission={PERMISSIONS.TICKETS_VIEW}>
+                            <PermissionGuard
+                              permission={PERMISSIONS.TICKETS_VIEW}
+                            >
                               <TicketsPage />
                             </PermissionGuard>
                           }
                         />
 
                         {/* ════════════════════════════════════════════════
-                            MARKETPLACE ROUTES  →  /marketplace/*
+                            MARKETPLACE POST-ONBOARDING  →  /marketplace/*
+                            Gated by MarketplaceOnboardingGuard
                         ════════════════════════════════════════════════ */}
-                        <Route
-                          path="/marketplace/dashboard"
-                          element={<MarketplaceDashboardPage />}
-                        />
-                        <Route
-                          path="/marketplace/orders"
-                          element={<MarketplaceOrdersPage />}
-                        />
-                        <Route
-                          path="/marketplace/listings"
-                          element={<MarketplaceListingsPage />}
-                        />
-                        <Route
-                          path="/marketplace/storefront"
-                          element={<MarketplaceStorefrontPage />}
-                        />
-
+                        <Route element={<MarketplaceOnboardingGuard />}>
+                          <Route
+                            path="/marketplace/dashboard"
+                            element={<MarketplaceDashboardPage />}
+                          />
+                          <Route
+                            path="/marketplace/orders"
+                            element={<MarketplaceOrdersPage />}
+                          />
+                          <Route
+                            path="/marketplace/listings"
+                            element={<MarketplaceListingsPage />}
+                          />
+                          <Route
+                            path="/marketplace/storefront"
+                            element={<MarketplaceStorefrontPage />}
+                          />
+                        </Route>
                       </Route>
                     </Route>
                   </Route>

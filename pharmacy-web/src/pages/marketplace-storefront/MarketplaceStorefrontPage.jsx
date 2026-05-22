@@ -1,4 +1,4 @@
-// src/pages/marketplace/storefront/MarketplaceStorefrontPage.jsx
+// src/pages/marketplace-storefront/MarketplaceStorefrontPage.jsx
 
 import { Store } from "lucide-react";
 

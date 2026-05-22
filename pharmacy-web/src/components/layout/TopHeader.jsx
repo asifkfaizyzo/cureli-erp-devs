@@ -89,14 +89,15 @@ const AuthenticatedTopHeader = () => {
     setAppMode("ERP");
     setActiveMenu("dashboard");
     setBreadcrumbs(["Dashboard"]);
-    navigate("/erp/dashboard");
+    // Small delay lets the overlay flash start before navigation
+    setTimeout(() => navigate("/erp/dashboard"), 50);
   };
 
   const handleSwitchToMarketplace = () => {
     setAppMode("MARKETPLACE");
     setActiveMenu("marketplace-dashboard");
     setBreadcrumbs(["Marketplace", "Dashboard"]);
-    navigate("/marketplace/dashboard");
+    setTimeout(() => navigate("/marketplace/dashboard"), 50);
   };
 
   const [dateTime, setDateTime] = useState({ time: "", date: "", day: "" });
@@ -399,7 +400,7 @@ const AuthenticatedTopHeader = () => {
                 <span
                   className={`text-[10px] font-medium -mt-0.5 ${textMuted}`}
                 >
-                  Business Suite
+                  {isMarketplace ? "Mobile Delivery" : "Pharmacy ERP"}
                 </span>
               </div>
             </div>
@@ -423,39 +424,33 @@ const AuthenticatedTopHeader = () => {
                 className={isMarketplace ? "text-white/50" : "text-[#000060]"}
               />
               <span
-                className={`text-sm font-medium max-w-[150px] truncate ${
+                className={`text-sm font-medium max-w-[320px] truncate ${
                   isMarketplace ? "text-white/70" : "text-gray-700"
                 }`}
               >
                 {displayShopName}
               </span>
             </div>
-
-            <div
-              className={`hidden lg:block w-px h-8 ${
-                isMarketplace ? "bg-white/10" : "bg-gray-200"
-              }`}
-            />
-
-            {/* Date / Time */}
-            <div className="hidden md:flex items-center gap-3">
-              <div className={`flex items-center gap-1.5 ${textSecondary}`}>
-                <Calendar size={14} />
-                <span className="text-sm font-medium">{dateTime.date}</span>
-              </div>
-              <div className={`flex items-center gap-1.5 ${textSecondary}`}>
-                <Clock size={14} />
-                <span className="text-sm font-medium tabular-nums">
-                  {dateTime.time}
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* ── RIGHT ── */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Date / Time */}
+            <div className="items-center gap-2">
+              <div className={`flex items-center gap-1 ${textSecondary}`}>
+                <Calendar size={12} />
+                <span className="text-xs font-normal">{dateTime.date}</span>
+              </div>
+
+              <div className={`flex items-center gap-1 ${textSecondary}`}>
+                <Clock size={12} />
+                <span className="text-xs font-normal tabular-nums">
+                  {dateTime.time}
+                </span>
+              </div>
+            </div>
             {/* Mode Switcher */}
-            {/* <div
+            <div
               className={`flex items-center rounded-lg p-0.5 gap-0.5 ${
                 isMarketplace ? "bg-white/10" : "bg-gray-100"
               }`}
@@ -490,7 +485,7 @@ const AuthenticatedTopHeader = () => {
               >
                 Marketplace
               </button>
-            </div> */}
+            </div>
 
             <Divider />
 

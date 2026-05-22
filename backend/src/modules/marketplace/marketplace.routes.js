@@ -1,0 +1,117 @@
+// backend/src/modules/marketplace/marketplace.routes.js
+
+import { Router } from "express";
+import { requireAuth } from "../../middleware/auth.js";
+import { requireRole } from "../../middleware/rbac.js";
+import { validate } from "../../middleware/validate.js";
+import * as Controller from "./marketplace.controller.js";
+import {
+  storefrontSchema,
+  branchSelectionSchema,
+  branchConfigSchema,
+  draftSchema,
+} from "./marketplace.schema.js";
+
+const router = Router();
+
+// ─────────────────────────────────────────────
+// All marketplace routes require authentication
+// ─────────────────────────────────────────────
+router.use(requireAuth);
+
+// ─────────────────────────────────────────────
+// STATUS (any authenticated role)
+// ─────────────────────────────────────────────
+router.get("/status", Controller.getStatus);
+
+// ─────────────────────────────────────────────
+// PLACES PROXY (any authenticated role)
+// ─────────────────────────────────────────────
+router.get("/places/search", Controller.getPlacesSearch);
+router.get("/places/details", Controller.getPlaceDetails);
+
+// ─────────────────────────────────────────────
+// UPLOAD (super_admin only)
+// POST /api/marketplace/upload/:type
+// ─────────────────────────────────────────────
+router.post(
+  "/upload/:type",
+  requireRole("super_admin"),
+  Controller.postUpload
+);
+
+// ─────────────────────────────────────────────
+// ONBOARDING ROUTES (super_admin only)
+// ─────────────────────────────────────────────
+router.post(
+  "/onboarding/draft",
+  requireRole("super_admin"),
+  validate(draftSchema),
+  Controller.postDraft
+);
+
+router.post(
+  "/onboarding/storefront",
+  requireRole("super_admin"),
+  validate(storefrontSchema),
+  Controller.postStorefront
+);
+
+router.post(
+  "/onboarding/branches",
+  requireRole("super_admin"),
+  validate(branchSelectionSchema),
+  Controller.postBranchSelections
+);
+
+router.post(
+  "/onboarding/branch-config/:branch_id",
+  requireRole("super_admin", "branch_admin"),
+  validate(branchConfigSchema),
+  Controller.postBranchConfig
+);
+
+router.post(
+  "/onboarding/go-live",
+  requireRole("super_admin"),
+  Controller.postGoLive
+);
+
+// ─────────────────────────────────────────────
+// POST-ONBOARDING MANAGEMENT ROUTES
+// ─────────────────────────────────────────────
+router.get("/storefront", Controller.getStorefront);
+
+router.patch(
+  "/storefront",
+  requireRole("super_admin"),
+  validate(storefrontSchema),
+  Controller.patchStorefront
+);
+
+router.get(
+  "/branches",
+  requireRole("super_admin", "branch_admin"),
+  Controller.getBranches
+);
+
+router.patch(
+  "/branches/:branch_id",
+  requireRole("super_admin", "branch_admin"),
+  validate(branchConfigSchema),
+  Controller.patchBranch
+);
+
+router.post(
+  "/suspend",
+  requireRole("super_admin"),
+  Controller.postSuspend
+);
+
+router.post(
+  "/resume",
+  requireRole("super_admin"),
+  Controller.postResume
+);
+
+export default router;
