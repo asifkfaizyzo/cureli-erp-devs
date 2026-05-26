@@ -437,7 +437,7 @@ const AuthenticatedTopHeader = () => {
             </div>
 
             {/* Mode Switcher */}
-            <div
+            {/* <div
               className={`flex items-center rounded-lg p-0.5 gap-0.5 ${
                 isMarketplace ? "bg-white/10" : "bg-gray-100"
               }`}
@@ -472,7 +472,7 @@ const AuthenticatedTopHeader = () => {
               >
                 Marketplace
               </button>
-            </div>
+            </div> */}
 
             <Divider />
 
