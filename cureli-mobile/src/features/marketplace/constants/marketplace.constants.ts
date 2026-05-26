@@ -29,3 +29,57 @@ export const DEMO_LOCATION = {
   area: "Kakkanad",
   addressLine: "Kochi, Kerala 682030",
 } as const;
+
+// ── Hero Carousel ─────────────────────────────────────────────
+// Static slides for the home screen carousel.
+// Replace imageUrl with a real CDN URL when available.
+// gradient: [start, end] — top-to-bottom on the card background.
+
+export interface HeroBannerSlide {
+  id: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  ctaRoute: string;
+  /** CDN image URL. null = show branded placeholder icon. */
+  imageUrl: string | null;
+  gradient: [string, string];
+  /** Ionicons name shown when imageUrl is null. */
+  placeholderIcon: string;
+}
+
+export const HERO_BANNERS: HeroBannerSlide[] = [
+  {
+    id: "welcome",
+    title: "Welcome to Cureli",
+    subtitle: "Order medicines from trusted\npharmacias near you",
+    ctaLabel: "Let's Start",
+    ctaRoute: "/search",
+    imageUrl: null,
+    gradient: ["#05015A", "#3b2fd4"],
+    placeholderIcon: "medkit-outline",
+  },
+  {
+    id: "fast-delivery",
+    title: "Delivered in 10 Minutes",
+    subtitle: "Nearby pharmacies fulfil\nyour order in real time",
+    ctaLabel: "Order Now",
+    ctaRoute: "/search",
+    imageUrl: null,
+    gradient: ["#0a0280", "#6366f1"],
+    placeholderIcon: "bicycle-outline",
+  },
+  {
+    id: "prescription",
+    title: "Have a Prescription?",
+    subtitle: "Upload once and we handle\nthe rest for you",
+    ctaLabel: "Upload Now",
+    ctaRoute: "/prescription/upload",
+    imageUrl: null,
+    gradient: ["#16044d", "#7c3aed"],
+    placeholderIcon: "document-text-outline",
+  },
+];
+
+export const HERO_CAROUSEL_HEIGHT = 180;
+export const HERO_AUTO_SLIDE_INTERVAL_MS = 3500;

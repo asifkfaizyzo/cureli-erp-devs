@@ -1,7 +1,7 @@
 // src/pages/login/LoginPage.jsx
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 import bgImage from "../../assets/images/login-background_result.webp";
 import logo from "../../assets/icons/Artboard 24.svg";
@@ -11,9 +11,16 @@ import CreateAccount from "./comps/CreateAccount";
 import OtpVerify from "./comps/OtpVerify";
 import ReCaptchaWrapper from "../../components/common/ReCaptchaWrapper";
 
+import { useAuthStore } from "../../store/useAuthStore";
+import { determineAuthDestination } from "../../utils/authRouting";
+
 const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
 
-//  Helper to get initial session message from URL (runs once, outside component)
+// ─────────────────────────────────────────────────────────────────────────────
+// Session message helper
+// Reads ?reason= from URL and returns a typed message object once.
+// Runs outside component so it never causes a re-render on its own.
+// ─────────────────────────────────────────────────────────────────────────────
 const getInitialSessionMessage = (searchParams) => {
   const reason = searchParams.get("reason");
 
@@ -34,39 +41,146 @@ const getInitialSessionMessage = (searchParams) => {
   return null;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LoginPage
+// ─────────────────────────────────────────────────────────────────────────────
 const LoginPage = () => {
-  const [showOtp, setShowOtp] = useState(false);
-  const [showRegister, setShowRegister] = useState(false);
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  //  Initialize state directly from URL params (no effect needed for initial value)
-  const [sessionMessage, setSessionMessage] = useState(() =>
-    getInitialSessionMessage(searchParams),
+  // ── Auth store reads ───────────────────────────────────────────────────────
+  // Read all three independently so the component only re-renders when
+  // something it actually cares about changes.
+  const isInitialized   = useAuthStore((s) => s.isInitialized);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user            = useAuthStore((s) => s.user);
+
+  // ── Local UI state ─────────────────────────────────────────────────────────
+  const [showOtp, setShowOtp]           = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [sessionMessage, setSessionMessage] = useState(
+    () => getInitialSessionMessage(searchParams),
   );
 
-  //  Track if we've already cleaned the URL
+  // ── Redirect state ─────────────────────────────────────────────────────────
+  // Tracks whether we are currently computing the destination for an
+  // already-authenticated user. While true we show a neutral loading screen
+  // instead of flashing the login form.
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Prevents the redirect effect from firing twice in React StrictMode or
+  // if the component somehow re-mounts while the async lookup is in flight.
+  const redirectAttempted = useRef(false);
+
+  // ── URL cleanup ────────────────────────────────────────────────────────────
+  // Replace ?reason=... from the URL after we've captured the message.
+  // Done with a short delay so the replaceState happens after paint.
   const hasCleanedUrl = useRef(false);
 
-  //  Only clean URL after mount (no setState, just URL cleanup)
   useEffect(() => {
     const reason = searchParams.get("reason");
-
     if (reason && !hasCleanedUrl.current) {
       hasCleanedUrl.current = true;
-      // Use setTimeout to avoid synchronous state-like updates
       setTimeout(() => {
         window.history.replaceState({}, "", "/login");
       }, 0);
     }
   }, [searchParams]);
 
+  // ── Authenticated redirect ─────────────────────────────────────────────────
+  //
+  // Gate: do NOT run until isInitialized is true.
+  // Before initialization completes, isAuthenticated is unreliable — it may
+  // read as false even though a valid token exists in localStorage, because
+  // the initialize() call in AuthInitializer (App.jsx) hasn't finished yet.
+  //
+  // Flow:
+  //   1. Wait for isInitialized === true
+  //   2. If not authenticated → do nothing, let login form render normally
+  //   3. If authenticated → call determineAuthDestination(role)
+  //      Show loading UI while the async check runs
+  //      Then navigate to the resolved destination
+  //
+  // redirectAttempted ref: prevents double-firing in StrictMode and guards
+  // against the effect re-running if user/role changes mid-flight (shouldn't
+  // happen but defensive).
+  // ──────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    // Not ready yet — auth store hasn't finished hydrating from localStorage
+    if (!isInitialized) return;
+
+    // Not authenticated — render login form normally
+    if (!isAuthenticated) return;
+
+    // Already attempted (StrictMode double-mount guard)
+    if (redirectAttempted.current) return;
+
+    redirectAttempted.current = true;
+
+    const role = user?.role;
+
+    const redirect = async () => {
+      setIsRedirecting(true);
+
+      try {
+        const destination = await determineAuthDestination(role);
+        navigate(destination, { replace: true });
+      } catch (err) {
+        // determineAuthDestination handles its own fallbacks internally,
+        // so reaching here means something unexpected happened.
+        // Fail open: let the login page render so user can re-authenticate.
+        console.error(
+          "[LoginPage] Unexpected error during redirect resolution:",
+          err,
+        );
+        setIsRedirecting(false);
+        redirectAttempted.current = false; // allow retry on next render
+      }
+    };
+
+    redirect();
+  }, [isInitialized, isAuthenticated, user, navigate]);
+
+  // ── Loading screens ────────────────────────────────────────────────────────
+  //
+  // Two distinct loading states, each with a different reason:
+  //
+  // 1. !isInitialized
+  //    Auth store hasn't finished reading from localStorage yet.
+  //    We must not render the login form because if the user IS
+  //    authenticated, showing the form even briefly is incorrect UX
+  //    and can cause a visible flicker before the redirect fires.
+  //
+  // 2. isRedirecting
+  //    Auth is confirmed. We're awaiting the async API calls inside
+  //    determineAuthDestination. Show a "redirecting" indicator so
+  //    the user gets feedback instead of a frozen blank screen.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!isInitialized || isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#000060]" />
+          <p className="text-gray-500 text-sm font-poppins">
+            {isRedirecting ? "Redirecting you…" : "Loading…"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal login page render ───────────────────────────────────────────────
+  // Only reached when:
+  //   - isInitialized === true
+  //   - isAuthenticated === false  (or token is expired)
+  //   - isRedirecting === false
   return (
     <ReCaptchaWrapper>
       {/* Disable scroll globally */}
       <style>{`body { overflow: hidden; }`}</style>
 
       <div className="relative flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-white">
-        {/* LEFT SIDE (Hero with image) */}
+        {/* ── LEFT SIDE (Hero with image) ───────────────────────────────── */}
         <div className="relative w-full md:w-3/5 h-64 sm:h-80 md:h-auto">
           {/* Background image */}
           <div className="absolute inset-0 w-full h-full overflow-hidden">
@@ -91,9 +205,6 @@ const LoginPage = () => {
                 alt="Cureli ERP"
                 className="h-8 sm:h-10 md:h-12 w-auto"
               />
-              {/* <span className="hidden sm:inline-block text-lg md:text-xl lg:text-2xl font-bold text-white font-manrope drop-shadow-md">
-                Cureli
-              </span> */}
             </a>
           </div>
 
@@ -110,7 +221,7 @@ const LoginPage = () => {
           </div>
         </div>
 
-        {/* RIGHT SIDE (Form) */}
+        {/* ── RIGHT SIDE (Form) ─────────────────────────────────────────── */}
         <div className="relative w-full md:w-2/5 bg-white px-6 py-10 sm:px-10 sm:py-12 flex items-center justify-center font-poppins">
           {/* Skewed white strip only for medium+ screens */}
           <div className="hidden md:block absolute left-[-115px] top-0 h-full w-[200px] lg:w-[220px] bg-white transform -skew-x-[12deg]" />

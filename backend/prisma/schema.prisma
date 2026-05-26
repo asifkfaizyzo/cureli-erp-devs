@@ -285,6 +285,8 @@ model Shop {
   suppliers               Supplier[]           @relation("ShopSuppliers")
   tickets                 Ticket[]             @relation("ShopTickets")
   users                   User[]               @relation("UsersInShop")
+  marketplaceListings     MarketplaceListing[]       @relation("ShopMarketplaceListings")
+  categoryVisibility      BranchCategoryVisibility[] @relation("ShopCategoryVisibility")
   marketplaceProfile      MarketplaceProfile?
 
   @@map("shops")
@@ -317,6 +319,9 @@ model Branch {
   stockAdjustments StockAdjustment[] @relation("BranchStockAdjustments")
   stockLedger      StockLedger[]     @relation("BranchStockLedger")
   tickets          Ticket[]          @relation("BranchTickets")
+  marketplaceListings     MarketplaceListing[]       @relation("BranchMarketplaceListings")
+  categoryVisibility      BranchCategoryVisibility[] @relation("BranchCategoryVisibility")
+
   users            User[]
   marketplaceSettings BranchMarketplaceSettings?
 
@@ -722,6 +727,8 @@ model MasterMedicineVariant {
   // Relations
   master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
   linkedMedicines  Medicine[] @relation("MedicineVariantLink")
+  marketplaceListings     MarketplaceListing[]       @relation("VariantMarketplaceListings")
+
   // Indexes
   @@index([master_medicine_id])
   @@index([sku_id])
@@ -810,7 +817,8 @@ model Medicine {
   salesItems       SalesInvoiceItem[]    @relation("SalesMedicineItems")
   stockAdjustments StockAdjustment[]     @relation("MedicineStockAdjustments")
   stockLedger      StockLedger[]         @relation("MedicineStockLedger")
-   linkedVariant    MasterMedicineVariant? @relation("MedicineVariantLink", fields: [linked_variant_id], references: [variant_id])
+  linkedVariant    MasterMedicineVariant? @relation("MedicineVariantLink", fields: [linked_variant_id], references: [variant_id])
+  marketplaceListings     MarketplaceListing[]        @relation("MedicineMarketplaceListing")
 
   // ═══════════════════════════════════════════════════════
   // INDEXES & CONSTRAINTS - LAST
@@ -1722,7 +1730,12 @@ model OtpDailyLimit {
   @@index([date])
   @@map("otp_daily_limits")
 }
-
+// ══════════════════════════════════════════════════════════════
+// ERP MARKETPLACE
+// 
+// 
+//
+// ══════════════════════════════════════════════════════════════
 model MarketplaceProfile {
   marketplace_profile_id String            @id @default(uuid()) @db.Uuid
   shop_id                String            @unique @db.Uuid
@@ -1789,6 +1802,51 @@ model BranchMarketplaceSettings {
   @@map("branch_marketplace_settings")
 }
 
+model MarketplaceListing {
+  listing_id          String                 @id @default(uuid()) @db.Uuid
+  shop_id             String                 @db.Uuid
+  branch_id           String                 @db.Uuid
+  medicine_id         String                 @db.Uuid
+  linked_variant_id   String                 @db.Uuid
+
+  is_visible          Boolean                @default(false)
+  stock_status        MarketplaceStockStatus @default(IN_STOCK)
+  marketplace_price   Decimal?               @db.Decimal(10, 2)
+
+  created_at          DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime               @updatedAt @db.Timestamptz(6)
+
+  shop                Shop                   @relation("ShopMarketplaceListings", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch              Branch                 @relation("BranchMarketplaceListings", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  medicine            Medicine               @relation("MedicineMarketplaceListing", fields: [medicine_id], references: [medicine_id], onDelete: Cascade)
+  linkedVariant       MasterMedicineVariant  @relation("VariantMarketplaceListings", fields: [linked_variant_id], references: [variant_id])
+
+  @@unique([medicine_id, branch_id])
+  @@index([shop_id, branch_id])
+  @@index([branch_id, is_visible])
+  @@index([linked_variant_id])
+  @@index([shop_id, branch_id, is_visible, stock_status])
+  @@map("marketplace_listings")
+}
+
+model BranchCategoryVisibility {
+  id            String   @id @default(uuid()) @db.Uuid
+  branch_id     String   @db.Uuid
+  shop_id       String   @db.Uuid
+  category_name String   @db.VarChar(150)
+  is_enabled    Boolean  @default(true)
+
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  branch        Branch   @relation("BranchCategoryVisibility", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  shop          Shop     @relation("ShopCategoryVisibility", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+
+  @@unique([branch_id, category_name])
+  @@index([branch_id])
+  @@index([shop_id, branch_id])
+  @@map("branch_category_visibility")
+}
 // ══════════════════════════════════════════════════════════════
 // CURELI MOBILE — CUSTOMER AUTH FOUNDATION
 // Completely isolated from ERP User / Customer / UserSession.
@@ -2124,4 +2182,9 @@ enum TicketActivityType {
   REOPENED         // convenience alias (also sets status back to PENDING)
   CANCELLED        // user or admin cancelled
   ATTACHMENT_ADDED // file uploaded post-creation
+}
+
+enum MarketplaceStockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
 }

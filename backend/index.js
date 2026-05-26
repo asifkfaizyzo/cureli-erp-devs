@@ -39,6 +39,7 @@ import salesRoutes from "./src/modules/sales/sales.routes.js";
 import customerRoutes from "./src/modules/customers/customer.routes.js";
 import excelRoutes from "./src/modules/excel/excel.routes.js";
 import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
+import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.js";
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -204,6 +205,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
+app.use("/api/marketplace", listingsRoutes);  
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);

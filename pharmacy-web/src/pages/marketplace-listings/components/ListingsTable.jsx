@@ -1,15 +1,15 @@
 // src/pages/marketplace-listings/components/ListingsTable.jsx
 
-import { useState } from "react";
-import { Package } from "lucide-react";
-import MedicineRow from "./MedicineRow";
+import { Package, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const ROWS_PER_PAGE = 10;
+import MedicineRow from "./MedicineRow";
+import UnlinkedRow from "./UnlinkedRow";
 
 const ListingsTable = ({
-  medicines,
+  listings,
   selectedIds,
+  allSelected,
+  someSelected,
   onToggleSelectAll,
   onToggleSelectOne,
   onToggleVisibility,
@@ -17,112 +17,167 @@ const ListingsTable = ({
   onSetPrice,
   onOpenDrawer,
   globalEnabled,
+  isLoading,
+  updatingIds,
+  activeTab,
+  currentPage,
+  totalPages,
+  totalResults,
+  onPageChange,
+  pageSize,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const totalPages = Math.ceil(medicines.length / ROWS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-  const paginated = medicines.slice(startIndex, startIndex + ROWS_PER_PAGE);
-
-  const allSelected =
-    medicines.length > 0 && selectedIds.size === medicines.length;
-  const someSelected = selectedIds.size > 0 && !allSelected;
-
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] overflow-hidden ">
-      {/* ── Table ── */}
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.01] overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse" style={{ tableLayout: "fixed", minWidth: "1100px" }}>
-          {/* Colgroup */}
-          <colgroup>
-            <col style={{ width: "40px" }} />
-            <col style={{ width: "240px" }} />
-            <col style={{ width: "100px" }} />
-            <col style={{ width: "96px" }} />
-            <col style={{ width: "140px" }} />
-            <col style={{ width: "120px" }} />
-            <col style={{ width: "130px" }} />
-            <col style={{ width: "100px" }} />
-          </colgroup>
-
-          {/* ── Header ── */}
-          <thead>
-            <tr className="bg-gradient-to-r from-[#05015A] to-[#0d0b3a] border-b border-white/[0.08] h-10">
-              {/* Checkbox */}
-              <th className="px-3 border-r border-white/[0.07]">
-                <div className="flex items-center justify-center">
-                  <CheckboxCell
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    onChange={onToggleSelectAll}
-                  />
-                </div>
-              </th>
-              <HeaderCell label="Medicine" align="left" />
-              <HeaderCell label="ERP Stock" align="center" />
-              <HeaderCell label="Visible" align="center" />
-              <HeaderCell label="Stock Status" align="center" />
-              <HeaderCell label="Mkt Price" align="center" />
-              <HeaderCell label="Branch Status" align="center" />
-              <HeaderCell label="Actions" align="center" />
-            </tr>
-          </thead>
-
-          {/* ── Body ── */}
-          <tbody>
-            <AnimatePresence mode="popLayout">
-              {paginated.length > 0 ? (
-                paginated.map((medicine, index) => (
-                  <MedicineRow
-                    key={medicine.id}
-                    medicine={medicine}
-                    index={index}
-                    isSelected={selectedIds.has(medicine.id)}
-                    onToggleSelect={() => onToggleSelectOne(medicine.id)}
-                    onToggleVisibility={() => onToggleVisibility(medicine.id)}
-                    onSetStockStatus={(status) => onSetStockStatus(medicine.id, status)}
-                    onSetPrice={(price) => onSetPrice(medicine.id, price)}
-                    onView={() => onOpenDrawer(medicine)}
-                    onEdit={() => onOpenDrawer(medicine)}
-                    globalEnabled={globalEnabled}
-                  />
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="py-20">
-                    <EmptyState />
-                  </td>
+        <table
+          className="w-full border-collapse"
+          style={{ tableLayout: "fixed", minWidth: activeTab === "linked" ? "1000px" : "600px" }}
+        >
+          {activeTab === "linked" ? (
+            <>
+              <colgroup>
+                <col style={{ width: "40px" }} />
+                <col style={{ width: "240px" }} />
+                <col style={{ width: "100px" }} />
+                <col style={{ width: "96px" }} />
+                <col style={{ width: "160px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "100px" }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-gradient-to-r from-[#05015A] to-[#0d0b3a] border-b border-white/[0.08] h-10">
+                  <th className="px-3 border-r border-white/[0.07]">
+                    <div className="flex items-center justify-center">
+                      <CheckboxCell
+                        checked={allSelected}
+                        indeterminate={someSelected}
+                        onChange={onToggleSelectAll}
+                      />
+                    </div>
+                  </th>
+                  <HeaderCell label="Medicine" align="left" />
+                  <HeaderCell label="ERP Stock" align="center" />
+                  <HeaderCell label="Visible" align="center" />
+                  <HeaderCell label="Stock Status" align="center" />
+                  <HeaderCell label="Mkt Price" align="center" />
+                  <HeaderCell label="Actions" align="center" />
                 </tr>
-              )}
-            </AnimatePresence>
+              </thead>
+            </>
+          ) : (
+            <>
+              <colgroup>
+                <col style={{ width: "300px" }} />
+                <col style={{ width: "200px" }} />
+                <col style={{ width: "120px" }} />
+                <col style={{ width: "120px" }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-gradient-to-r from-[#05015A] to-[#0d0b3a] border-b border-white/[0.08] h-10">
+                  <HeaderCell label="Medicine (ERP Name)" align="left" />
+                  <HeaderCell label="Manufacturer" align="left" />
+                  <HeaderCell label="Link Status" align="center" />
+                  <HeaderCell label="ERP Stock" align="center" />
+                </tr>
+              </thead>
+            </>
+          )}
+
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={activeTab === "linked" ? 7 : 4} className="py-20">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 size={24} className="text-white/20 animate-spin" />
+                    <p className="text-sm text-white/25">Loading medicines...</p>
+                  </div>
+                </td>
+              </tr>
+            ) : listings.length === 0 ? (
+              <tr>
+                <td colSpan={activeTab === "linked" ? 7 : 4} className="py-20">
+                  <EmptyState activeTab={activeTab} />
+                </td>
+              </tr>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {listings.map((item, index) =>
+                  activeTab === "linked" ? (
+                    <MedicineRow
+                      key={item.listing_id}
+                      listing={item}
+                      index={index}
+                      isSelected={selectedIds.has(item.listing_id)}
+                      onToggleSelect={() => onToggleSelectOne(item.listing_id)}
+                      onToggleVisibility={() =>
+                        onToggleVisibility(item.listing_id)
+                      }
+                      onSetStockStatus={(status) =>
+                        onSetStockStatus(item.listing_id, status)
+                      }
+                      onSetPrice={(price) =>
+                        onSetPrice(item.listing_id, price)
+                      }
+                      onView={() => onOpenDrawer(item)}
+                      globalEnabled={globalEnabled}
+                      isUpdating={updatingIds.has(item.listing_id)}
+                    />
+                  ) : (
+                    <UnlinkedRow key={item.medicine_id} medicine={item} index={index} />
+                  )
+                )}
+              </AnimatePresence>
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* ── Pagination ── */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-5 py-3 border-t border-white/[0.06] bg-white/[0.01]">
           <p className="text-[11px] text-white/25">
-            Showing {startIndex + 1}–{Math.min(startIndex + ROWS_PER_PAGE, medicines.length)} of{" "}
-            {medicines.length} medicines
+            Showing{" "}
+            {Math.min((currentPage - 1) * pageSize + 1, totalResults)}–
+            {Math.min(currentPage * pageSize, totalResults)} of {totalResults}{" "}
+            medicines
           </p>
           <div className="flex items-center gap-1">
             <PageButton
               label="←"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => onPageChange((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
             />
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <PageButton
-                key={page}
-                label={String(page)}
-                onClick={() => setCurrentPage(page)}
-                active={page === currentPage}
-              />
-            ))}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (p) =>
+                  p === 1 ||
+                  p === totalPages ||
+                  Math.abs(p - currentPage) <= 1
+              )
+              .reduce((acc, p, i, arr) => {
+                if (i > 0 && p - arr[i - 1] > 1) {
+                  acc.push("ellipsis-" + p);
+                }
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p) =>
+                typeof p === "string" ? (
+                  <span key={p} className="w-7 text-center text-white/20 text-xs">
+                    …
+                  </span>
+                ) : (
+                  <PageButton
+                    key={p}
+                    label={String(p)}
+                    onClick={() => onPageChange(p)}
+                    active={p === currentPage}
+                  />
+                )
+              )}
             <PageButton
               label="→"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => onPageChange((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
             />
           </div>
@@ -132,12 +187,8 @@ const ListingsTable = ({
   );
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 const HeaderCell = ({ label, align = "left" }) => (
-  <th
-    className={`px-3 py-2.5 text-[11px] font-semibold text-white/50 uppercase tracking-wider border-r border-white/[0.07] last:border-r-0 text-${align}`}
-  >
+  <th className={`px-3 py-2.5 text-[11px] font-semibold text-white/50 uppercase tracking-wider border-r border-white/[0.07] last:border-r-0 text-${align}`}>
     {label}
   </th>
 );
@@ -178,14 +229,22 @@ const PageButton = ({ label, onClick, disabled, active }) => (
   </button>
 );
 
-const EmptyState = () => (
+const EmptyState = ({ activeTab }) => (
   <div className="flex flex-col items-center justify-center gap-3">
     <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
       <Package size={22} className="text-white/20" />
     </div>
     <div className="text-center">
-      <p className="text-sm font-medium text-white/30">No medicines found</p>
-      <p className="text-xs text-white/15 mt-1">Try adjusting your search or filters</p>
+      <p className="text-sm font-medium text-white/30">
+        {activeTab === "linked"
+          ? "No linked medicines found"
+          : "No unlinked medicines"}
+      </p>
+      <p className="text-xs text-white/15 mt-1">
+        {activeTab === "linked"
+          ? "Try adjusting your search or filters"
+          : "All medicines in this branch are linked to the catalog"}
+      </p>
     </div>
   </div>
 );
