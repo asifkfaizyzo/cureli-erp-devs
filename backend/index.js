@@ -6,7 +6,7 @@ import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 import { initializeCronJobs } from "./src/cron/jobs.js";
-
+import { ensureIndexes } from "./src/config/ensureIndexes.js";
 // ============================================
 // MIDDLEWARE IMPORTS
 // ============================================
@@ -272,7 +272,12 @@ function printStartupBanner(port) {
   lines.forEach((line) => process.stdout.write(line + "\n"));
 }
 
-app.listen(PORT, () => {
-  printStartupBanner(PORT);
-  initializeCronJobs();
-});
+(async () => {
+  console.log("\n🔍 Checking performance indexes...");
+  await ensureIndexes();
+
+  app.listen(PORT, () => {
+    printStartupBanner(PORT);
+    initializeCronJobs();
+  });
+})();
