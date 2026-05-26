@@ -1,10 +1,14 @@
 // src/features/marketplace/components/SectionHeader.tsx
 //
-// Lightweight titled header for feed sections (e.g. "Popular near you").
-// Optional right-aligned subtitle/hint. Presentational only.
+// Titled section header with optional clickable right-side hint.
 
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
@@ -12,9 +16,14 @@ import { Spacing } from "../../../theme/spacing";
 interface SectionHeaderProps {
   title: string;
   hint?: string;
+  onPressHint?: () => void;
 }
 
-function SectionHeaderBase({ title, hint }: SectionHeaderProps) {
+function SectionHeaderBase({
+  title,
+  hint,
+  onPressHint,
+}: SectionHeaderProps) {
   const { colors } = useTheme();
 
   return (
@@ -22,8 +31,24 @@ function SectionHeaderBase({ title, hint }: SectionHeaderProps) {
       <Text style={[styles.title, { color: colors.text.primary }]}>
         {title}
       </Text>
+
       {hint ? (
-        <Text style={[styles.hint, { color: colors.text.muted }]}>{hint}</Text>
+        onPressHint ? (
+          <TouchableOpacity
+            onPress={onPressHint}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={hint}
+          >
+            <Text style={[styles.hint, { color: colors.text.brand }]}>
+              {hint}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={[styles.hint, { color: colors.text.muted }]}>
+            {hint}
+          </Text>
+        )
       ) : null}
     </View>
   );
@@ -40,9 +65,11 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.h3,
+    flex: 1,
+    paddingRight: Spacing.sm,
   },
   hint: {
-    ...Typography.small,
+    ...Typography.smallMedium,
   },
 });
 

@@ -1,28 +1,59 @@
 // src/features/marketplace/components/SearchBar.tsx
 //
-// Large, prominent search entry point. Medicine apps are search-heavy, so this
-// is visually weighty. It is NOT a live input here — tapping navigates to the
-// dedicated /search screen (handler via prop). A camera icon is shown as a
-// placeholder affordance (prescription scan), non-functional for the showcase.
+// Search entry point. Two visual variants:
+//   "default" — original light card (for non-header use if needed later).
+//   "header"  — frosted semi-transparent style for use inside GradientHeader.
+//
+// Tapping navigates to /search (handler via prop). Camera icon = prescription
+// scan affordance (non-functional for showcase). Presentational + memoised.
 
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
 
+// ── Props ─────────────────────────────────────────────────────
+
 interface SearchBarProps {
   onPress?: () => void;
   placeholder?: string;
+  /** "default" = themed card. "header" = frosted for gradient header. */
+  variant?: "default" | "header";
 }
+
+// ── Component ─────────────────────────────────────────────────
 
 function SearchBarBase({
   onPress,
-  placeholder = "Search medicines, brands, compositions",
+  placeholder = "Search medicines, brands…",
+  variant = "default",
 }: SearchBarProps) {
   const { colors } = useTheme();
+
+  const isHeader = variant === "header";
+
+  const containerStyle = isHeader
+    ? {
+        backgroundColor: "rgba(255,255,255,0.18)",
+        borderColor: "rgba(255,255,255,0.28)",
+      }
+    : {
+        backgroundColor: colors.background.card,
+        borderColor: colors.border.default,
+      };
+
+  const iconColor = isHeader ? "rgba(255,255,255,0.70)" : colors.text.muted;
+  const cameraColor = isHeader ? "rgba(255,255,255,0.90)" : colors.text.brand;
+  const placeholderColor = isHeader
+    ? "rgba(255,255,255,0.65)"
+    : colors.text.muted;
+  const dividerColor = isHeader
+    ? "rgba(255,255,255,0.25)"
+    : colors.border.default;
 
   return (
     <TouchableOpacity
@@ -30,37 +61,30 @@ function SearchBarBase({
       onPress={onPress}
       accessibilityRole="search"
       accessibilityLabel="Search medicines"
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background.card,
-          borderColor: colors.border.default,
-        },
-      ]}
+      style={[styles.container, containerStyle]}
     >
-      <Ionicons name="search" size={20} color={colors.text.muted} />
+      <Ionicons name="search" size={18} color={iconColor} />
       <Text
-        style={[styles.placeholder, { color: colors.text.muted }]}
+        style={[styles.placeholder, { color: placeholderColor }]}
         numberOfLines={1}
       >
         {placeholder}
       </Text>
-      <View
-        style={[styles.divider, { backgroundColor: colors.border.default }]}
-      />
-      <Ionicons name="camera-outline" size={20} color={colors.text.brand} />
+      <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+      <Ionicons name="camera-outline" size={18} color={cameraColor} />
     </TouchableOpacity>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.md,
-    marginHorizontal: Spacing.base,
-    paddingHorizontal: Spacing.base,
-    height: 52,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    height: 44,
     borderRadius: Radius.lg,
     borderWidth: 1,
   },
@@ -70,7 +94,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     width: 1,
-    height: 22,
+    height: 20,
   },
 });
 
