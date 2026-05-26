@@ -1,6 +1,6 @@
 // app/splash.tsx
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
@@ -9,7 +9,6 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
-  withSequence,
   runOnJS,
   Easing,
   interpolate,
@@ -25,6 +24,15 @@ const TAGLINE = 'Medicine delivered to your door';
 export default function SplashScreenPage() {
   const status = useAuthStore((s) => s.status);
 
+  // Keep a ref so the animation timer closure always reads
+  // the LATEST status value, not the one captured at mount time.
+  // Without this, if initialize() finishes after the 2550ms timer
+  // fires, navigateNext would see 'checking' and route wrongly.
+  const statusRef = useRef(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
   // ── Shared values ─────────────────────────────────────────
   const glowScale        = useSharedValue(0.4);
   const glowOpacity      = useSharedValue(0);
@@ -35,21 +43,33 @@ export default function SplashScreenPage() {
   const taglineOpacity   = useSharedValue(0);
   const containerOpacity = useSharedValue(1);
   const exitScale        = useSharedValue(1);
-
-  // Accent dots get their own shared value — no .value reads in JSX
-  const dotsProgress = useSharedValue(0);
+  const dotsProgress     = useSharedValue(0);
 
   // ── Typewriter state ──────────────────────────────────────
   const [visibleChars, setVisibleChars] = useState(0);
 
   // ── Navigation ────────────────────────────────────────────
+  // Reads from statusRef so it always gets the current value
+  // even though it is called from inside a setTimeout closure
+  // that was created when status was still 'checking'.
   function navigateNext() {
+    const currentStatus = statusRef.current;
+
+    // Auth check still running — poll every 100ms until ready.
+    // This is a safety net for very slow devices or networks.
+    // In practice initialize() finishes well within 2550ms.
+    if (currentStatus === 'unknown' || currentStatus === 'checking') {
+      setTimeout(() => runOnJS(navigateNext)(), 100);
+      return;
+    }
+
     const introSeen = StorageService.isIntroSeen();
     if (!introSeen) {
       router.replace('/intro');
       return;
     }
-    if (status === 'authenticated') {
+
+    if (currentStatus === 'authenticated') {
       router.replace('/(tabs)/home');
     } else {
       router.replace('/(auth)/login');
@@ -69,7 +89,7 @@ export default function SplashScreenPage() {
     logoOpacity.value = withDelay(100, withTiming(1, { duration: 400, easing: easeOut }));
     logoScale.value   = withDelay(100, withSpring(1, { damping: 12, stiffness: 180, mass: 0.8 }));
 
-    // Accent dots progress (drives all three dots via useAnimatedStyle)
+    // Accent dots
     dotsProgress.value = withDelay(100, withTiming(1, { duration: 700, easing: easeOut }));
 
     // Lines sweep
@@ -84,21 +104,24 @@ export default function SplashScreenPage() {
     const charDelay = 20;
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (let i = 0; i <= TAGLINE.length; i++) {
-      timers.push(setTimeout(() => setVisibleChars(i), typewriterStart + i * charDelay));
+      timers.push(
+        setTimeout(() => setVisibleChars(i), typewriterStart + i * charDelay)
+      );
     }
 
-    // Exit
+    // Exit animation
     exitScale.value        = withDelay(2100, withTiming(1.15, { duration: 400, easing: easeIn }));
     containerOpacity.value = withDelay(2100, withTiming(0,    { duration: 400, easing: easeIn }));
 
-    // Navigate
+    // Navigate after animation — runOnJS because navigateNext
+    // touches router which must run on the JS thread
     const navTimer = setTimeout(() => runOnJS(navigateNext)(), 2550);
 
     return () => {
       timers.forEach(clearTimeout);
       clearTimeout(navTimer);
     };
-  }, []);
+  }, []); // empty — intentional, statusRef handles the stale closure
 
   // ── Animated styles ───────────────────────────────────────
 
@@ -112,8 +135,6 @@ export default function SplashScreenPage() {
     transform: [{ scale: logoScale.value }],
   }));
 
-  // Each dot gets its own opacity/scale derived from dotsProgress
-  // No .value reads in JSX — all inside useAnimatedStyle
   const dot0Style = useAnimatedStyle(() => ({
     opacity: interpolate(dotsProgress.value, [0, 1], [0, 0.15]),
     transform: [{ scale: interpolate(dotsProgress.value, [0, 1], [0.5, 1]) }],
@@ -155,7 +176,7 @@ export default function SplashScreenPage() {
       {/* Background glow */}
       <Animated.View style={[styles.glow, glowStyle]} />
 
-      {/* Accent dots — each has its own animated style, no .value in JSX */}
+      {/* Accent dots */}
       <View style={styles.dotsTop}>
         <Animated.View style={[styles.accentDot, dot0Style]} />
         <Animated.View style={[styles.accentDot, dot1Style]} />

@@ -43,7 +43,10 @@ const BranchConfigCard = ({
   useEffect(() => {
     if (isExpanded && cardRef.current) {
       setTimeout(() => {
-        cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        cardRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
       }, 100);
     }
   }, [isExpanded]);
@@ -65,16 +68,21 @@ const BranchConfigCard = ({
     setIsSaving(false);
   };
 
+  const isContactSet = !!config.contact_override?.trim();
+
   const isLocationSet =
     config.latitude && config.longitude && config.google_place_id;
   const isTimingValid =
     config.is_24_hours || (config.opening_time && config.closing_time);
   const isFulfillmentSet = config.pickup_enabled || config.delivery_enabled;
   const isConfigComplete =
-    !isEnabled || (isLocationSet && isTimingValid && isFulfillmentSet);
+    !isEnabled ||
+    (isLocationSet && isTimingValid && isFulfillmentSet && isContactSet);
 
   const completionSteps = isEnabled
-    ? [isLocationSet, isFulfillmentSet, isTimingValid].filter(Boolean).length
+    ? [isLocationSet, isFulfillmentSet, isTimingValid, isContactSet].filter(
+        Boolean,
+      ).length
     : 0;
 
   return (
@@ -82,11 +90,12 @@ const BranchConfigCard = ({
       ref={cardRef}
       className={`
         rounded-xl border transition-all duration-200
-        ${isExpanded
-          ? "bg-white/[0.04] border-white/15"
-          : isEnabled
-            ? "bg-white/[0.025] border-white/10 hover:border-white/15"
-            : "bg-white/[0.01] border-white/[0.06] hover:border-white/10"
+        ${
+          isExpanded
+            ? "bg-white/[0.04] border-white/15"
+            : isEnabled
+              ? "bg-white/[0.025] border-white/10 hover:border-white/15"
+              : "bg-white/[0.01] border-white/[0.06] hover:border-white/10"
         }
       `}
     >
@@ -125,7 +134,8 @@ const BranchConfigCard = ({
             </div>
             {branch.city && (
               <p className="text-[11px] text-white/20 truncate mt-0.5">
-                {branch.city}{branch.state && `, ${branch.state}`}
+                {branch.city}
+                {branch.state && `, ${branch.state}`}
               </p>
             )}
           </div>
@@ -144,7 +154,7 @@ const BranchConfigCard = ({
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-white/5 text-white/25">
-                  {completionSteps}/3
+                  {completionSteps}/4 {/* ← was /3 */}
                 </span>
               )}
             </>
@@ -158,12 +168,12 @@ const BranchConfigCard = ({
       </button>
 
       {/* Progress bar when collapsed */}
-      {!isExpanded && isEnabled && completionSteps < 3 && (
+      {!isExpanded && isEnabled && completionSteps < 4 && (
         <div className="px-4 pb-2.5 -mt-0.5">
           <div className="h-0.5 rounded-full bg-white/[0.04] overflow-hidden">
             <div
               className="h-full rounded-full bg-white/15 transition-all duration-300"
-              style={{ width: `${(completionSteps / 3) * 100}%` }}
+              style={{ width: `${(completionSteps / 4) * 100}%` }}
             />
           </div>
         </div>
@@ -175,7 +185,9 @@ const BranchConfigCard = ({
           {/* Enable toggle */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-white">Enable on Marketplace</p>
+              <p className="text-sm font-medium text-white">
+                Enable on Marketplace
+              </p>
               <p className="text-[11px] text-white/30 mt-0.5">
                 Customers can discover and order from this branch
               </p>
@@ -201,7 +213,12 @@ const BranchConfigCard = ({
           {isEnabled && (
             <div className="space-y-4">
               {/* Location */}
-              <Section icon={<MapPin size={12} />} title="Location" required done={!!isLocationSet}>
+              <Section
+                icon={<MapPin size={12} />}
+                title="Location"
+                required
+                done={!!isLocationSet}
+              >
                 <LocationPicker
                   value={{
                     google_place_id: config.google_place_id,
@@ -218,30 +235,46 @@ const BranchConfigCard = ({
               {/* Fulfillment + Hours — side by side on wide screens */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Fulfillment */}
-                <Section icon={<Truck size={12} />} title="Fulfillment" required done={!!isFulfillmentSet}>
+                <Section
+                  icon={<Truck size={12} />}
+                  title="Fulfillment"
+                  required
+                  done={!!isFulfillmentSet}
+                >
                   <div className="grid grid-cols-2 gap-2">
                     <ToggleChip
                       icon={<Truck size={12} />}
                       label="Pickup"
                       active={config.pickup_enabled}
-                      onClick={() => update({ pickup_enabled: !config.pickup_enabled })}
+                      onClick={() =>
+                        update({ pickup_enabled: !config.pickup_enabled })
+                      }
                     />
                     <ToggleChip
                       icon={<Truck size={12} />}
                       label="Delivery"
                       active={config.delivery_enabled}
-                      onClick={() => update({ delivery_enabled: !config.delivery_enabled })}
+                      onClick={() =>
+                        update({ delivery_enabled: !config.delivery_enabled })
+                      }
                     />
                   </div>
                 </Section>
 
                 {/* Hours */}
-                <Section icon={<Clock size={12} />} title="Hours" required done={!!isTimingValid}>
+                <Section
+                  icon={<Clock size={12} />}
+                  title="Hours"
+                  required
+                  done={!!isTimingValid}
+                >
                   <div className="space-y-2.5">
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
-                        onClick={() => update({ is_24_hours: !config.is_24_hours })}
+                        onClick={() =>
+                          update({ is_24_hours: !config.is_24_hours })
+                        }
                         className={`
                           relative inline-flex h-4 w-7 items-center rounded-full transition-colors
                           ${config.is_24_hours ? "bg-emerald-500" : "bg-white/10"}
@@ -260,7 +293,9 @@ const BranchConfigCard = ({
                     {!config.is_24_hours && (
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] text-white/25 mb-1">Opens</label>
+                          <label className="block text-[10px] text-white/25 mb-1">
+                            Opens
+                          </label>
                           <TimePicker
                             value={config.opening_time || ""}
                             onChange={(val) => update({ opening_time: val })}
@@ -268,7 +303,9 @@ const BranchConfigCard = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-white/25 mb-1">Closes</label>
+                          <label className="block text-[10px] text-white/25 mb-1">
+                            Closes
+                          </label>
                           <TimePicker
                             value={config.closing_time || ""}
                             onChange={(val) => update({ closing_time: val })}
@@ -282,22 +319,46 @@ const BranchConfigCard = ({
               </div>
 
               {/* Contact */}
-              <Section icon={<Phone size={12} />} title="Contact" subtitle="optional">
-                <input
-                  type="tel"
-                  value={config.contact_override || ""}
-                  onChange={(e) => update({ contact_override: e.target.value || null })}
-                  placeholder="+91 99999 99999"
-                  className="w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border border-white/10
-                    text-white placeholder-white/15 text-sm focus:outline-none
-                    focus:ring-2 focus:ring-white/20"
-                />
+              <Section
+                icon={<Phone size={12} />}
+                title="Contact"
+                required
+                done={!!isContactSet}
+              >
+                <div className="space-y-1.5">
+                  <input
+                    type="tel"
+                    value={config.contact_override || ""}
+                    onChange={(e) =>
+                      update({ contact_override: e.target.value || null })
+                    }
+                    placeholder="e.g. +91 98765 43210"
+                    maxLength={15}
+                    className={`
+        w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border text-white
+        placeholder-white/15 text-sm focus:outline-none focus:ring-2
+        focus:ring-white/20 transition-all
+        ${
+          isEnabled && !isContactSet && config.contact_override !== undefined
+            ? "border-red-500/30"
+            : "border-white/10"
+        }
+      `}
+                  />
+                  <p className="text-[10px] text-white/15">
+                    Required — customers will use this number to reach the
+                    branch
+                  </p>
+                </div>
               </Section>
 
               {/* Save error */}
               {saveError && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-                  <AlertCircle size={12} className="text-red-400 flex-shrink-0" />
+                  <AlertCircle
+                    size={12}
+                    className="text-red-400 flex-shrink-0"
+                  />
                   <p className="text-xs text-red-400">{saveError}</p>
                 </div>
               )}
@@ -310,18 +371,23 @@ const BranchConfigCard = ({
                 className={`
                   w-full py-2.5 rounded-xl text-sm font-semibold transition-all
                   flex items-center justify-center gap-2
-                  ${isSaved
-                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                    : isConfigComplete
-                      ? "bg-white text-[#010015] hover:bg-white/90"
-                      : "bg-white/[0.06] text-white/20 cursor-not-allowed"
+                  ${
+                    isSaved
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                      : isConfigComplete
+                        ? "bg-white text-[#010015] hover:bg-white/90"
+                        : "bg-white/[0.06] text-white/20 cursor-not-allowed"
                   }
                 `}
               >
                 {isSaving ? (
-                  <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Saving...
+                  </>
                 ) : isSaved ? (
-                  <><Check size={14} /> Saved</>
+                  <>
+                    <Check size={14} /> Saved
+                  </>
                 ) : (
                   "Save Configuration"
                 )}
@@ -344,7 +410,9 @@ const Section = ({ icon, title, subtitle, required, done, children }) => (
         {title}
         {required && <span className="text-red-400 ml-0.5">*</span>}
         {subtitle && (
-          <span className="ml-1 text-[10px] text-white/20 font-normal">{subtitle}</span>
+          <span className="ml-1 text-[10px] text-white/20 font-normal">
+            {subtitle}
+          </span>
         )}
       </p>
       {done && <Check size={10} className="text-emerald-400 ml-auto" />}
@@ -360,9 +428,10 @@ const ToggleChip = ({ icon, label, active, onClick }) => (
     className={`
       py-2 px-3 rounded-lg border text-xs font-medium transition-all
       flex items-center justify-center gap-1.5
-      ${active
-        ? "bg-white/10 border-white/20 text-white"
-        : "bg-white/[0.02] border-white/[0.06] text-white/30 hover:border-white/12"
+      ${
+        active
+          ? "bg-white/10 border-white/20 text-white"
+          : "bg-white/[0.02] border-white/[0.06] text-white/30 hover:border-white/12"
       }
     `}
   >

@@ -60,6 +60,7 @@ import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js"
 // ── Mobile App Routes ──────────────────────────────────────────
 import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
+import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
 
 // ============================================
 // APP SETUP
@@ -223,7 +224,7 @@ app.use("/cadmin", cadminMasterMedicinesRoutes);
 
 app.use("/mobile", mobileAuthRoutes);
 app.use("/mobile", mobileUsersRoutes);
-
+app.use("/mobile", mobileMedicinesRoutes);
 // ============================================
 // HEALTH CHECK
 // ============================================

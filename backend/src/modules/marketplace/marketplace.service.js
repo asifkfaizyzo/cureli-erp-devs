@@ -6,10 +6,6 @@ import prisma from "../../config/prisma.js";
 // HELPERS
 // ─────────────────────────────────────────────
 
-/**
- * Deep merge two plain objects (non-recursive arrays are replaced).
- * Used for patching onboarding_draft without losing existing keys.
- */
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -31,7 +27,6 @@ function deepMerge(target, source) {
 
 // ─────────────────────────────────────────────
 // GET OR CREATE PROFILE
-// Idempotent — safe to call on every status check.
 // ─────────────────────────────────────────────
 export const getOrCreateProfile = async (shop_id) => {
   let profile = await prisma.marketplaceProfile.findUnique({
@@ -80,13 +75,10 @@ export const getOrCreateProfile = async (shop_id) => {
 
 // ─────────────────────────────────────────────
 // GET ONBOARDING STATUS
-// Returns profile + all ERP branches for the shop
-// so frontend can show branch selection list.
 // ─────────────────────────────────────────────
 export const getMarketplaceStatus = async (shop_id) => {
   const profile = await getOrCreateProfile(shop_id);
 
-  // Fetch all active ERP branches for this shop
   const allBranches = await prisma.branch.findMany({
     where: { shop_id, is_active: true },
     select: {
@@ -117,9 +109,7 @@ export const getMarketplaceStatus = async (shop_id) => {
 };
 
 // ─────────────────────────────────────────────
-// SAVE DRAFT (autosave)
-// Merges patch into existing draft JSON.
-// Marks status as DRAFT if NOT_STARTED.
+// SAVE DRAFT
 // ─────────────────────────────────────────────
 export const saveDraft = async (shop_id, patch) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -131,9 +121,7 @@ export const saveDraft = async (shop_id, patch) => {
     },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
   const existingDraft =
     profile.onboarding_draft &&
@@ -147,7 +135,6 @@ export const saveDraft = async (shop_id, patch) => {
     where: { shop_id },
     data: {
       onboarding_draft: mergedDraft,
-      // Only upgrade from NOT_STARTED → DRAFT, never downgrade
       marketplace_status:
         profile.marketplace_status === "NOT_STARTED"
           ? "DRAFT"
@@ -163,7 +150,7 @@ export const saveDraft = async (shop_id, patch) => {
 };
 
 // ─────────────────────────────────────────────
-// SAVE STOREFRONT (Step 2)
+// SAVE STOREFRONT
 // ─────────────────────────────────────────────
 export const saveStorefront = async (shop_id, data) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -171,9 +158,7 @@ export const saveStorefront = async (shop_id, data) => {
     select: { marketplace_profile_id: true, marketplace_status: true },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
   return await prisma.marketplaceProfile.update({
     where: { shop_id },
@@ -202,9 +187,7 @@ export const saveStorefront = async (shop_id, data) => {
 };
 
 // ─────────────────────────────────────────────
-// SAVE BRANCH SELECTIONS (Step 3)
-// Creates BranchMarketplaceSettings rows for selected branches.
-// Does NOT delete deselected branches — sets marketplace_enabled = false.
+// SAVE BRANCH SELECTIONS
 // ─────────────────────────────────────────────
 export const saveBranchSelections = async (shop_id, branch_ids) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -212,11 +195,8 @@ export const saveBranchSelections = async (shop_id, branch_ids) => {
     select: { marketplace_profile_id: true },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
-  // Verify all branches belong to this shop
   const validBranches = await prisma.branch.findMany({
     where: { branch_id: { in: branch_ids }, shop_id, is_active: true },
     select: { branch_id: true },
@@ -226,12 +206,9 @@ export const saveBranchSelections = async (shop_id, branch_ids) => {
   const invalidIds = branch_ids.filter((id) => !validIds.includes(id));
 
   if (invalidIds.length > 0) {
-    throw new Error(
-      `Invalid or inactive branches: ${invalidIds.join(", ")}`
-    );
+    throw new Error(`Invalid or inactive branches: ${invalidIds.join(", ")}`);
   }
 
-  // Get all existing settings for this profile
   const existing = await prisma.branchMarketplaceSettings.findMany({
     where: { marketplace_profile_id: profile.marketplace_profile_id },
     select: { branch_id: true },
@@ -239,20 +216,18 @@ export const saveBranchSelections = async (shop_id, branch_ids) => {
 
   const existingIds = existing.map((e) => e.branch_id);
 
-  // Upsert each selected branch
   const upsertOps = branch_ids.map((branch_id) =>
     prisma.branchMarketplaceSettings.upsert({
       where: { branch_id },
       create: {
         branch_id,
         marketplace_profile_id: profile.marketplace_profile_id,
-        marketplace_enabled: false, // Default off — Step 4 enables it
+        marketplace_enabled: false,
       },
-      update: {}, // Don't overwrite existing config
+      update: {},
     })
   );
 
-  // Disable branches that were deselected
   const deselectedIds = existingIds.filter((id) => !branch_ids.includes(id));
 
   const disableOps = deselectedIds.map((branch_id) =>
@@ -264,29 +239,22 @@ export const saveBranchSelections = async (shop_id, branch_ids) => {
 
   await prisma.$transaction([...upsertOps, ...disableOps]);
 
-  return {
-    selected: branch_ids,
-    deselected: deselectedIds,
-  };
+  return { selected: branch_ids, deselected: deselectedIds };
 };
 
 // ─────────────────────────────────────────────
-// SAVE BRANCH CONFIG (Step 4)
-// Per-branch configuration.
-// branch_admin can only update their own branch.
+// SAVE BRANCH CONFIG
+// ── CHANGED: location fields restricted to super_admin
 // ─────────────────────────────────────────────
-export const saveBranchConfig = async (
-  shop_id,
-  branch_id,
-  data,
-  caller
-) => {
-  // Enforce branch_admin scope
-  if (caller.role === "branch_admin" && caller.branch_id !== branch_id) {
+export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
+  // Scope enforcement — branch_admin and staff can only touch their own branch
+  if (
+    caller.role !== "super_admin" &&
+    caller.branch_id !== branch_id
+  ) {
     throw new Error("You can only configure your own branch");
   }
 
-  // Verify the branch belongs to this shop
   const branch = await prisma.branch.findFirst({
     where: { branch_id, shop_id, is_active: true },
     select: { branch_id: true },
@@ -301,11 +269,9 @@ export const saveBranchConfig = async (
     select: { marketplace_profile_id: true },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
-  // Build the update payload
+  // ── Base fields — any allowed role can set these ──
   const updateData = {
     marketplace_enabled: data.marketplace_enabled,
     pickup_enabled: data.pickup_enabled ?? false,
@@ -314,20 +280,26 @@ export const saveBranchConfig = async (
     contact_override: data.contact_override ?? null,
   };
 
-  // Only set location/timing fields when enabling
+  // ── Timings — any allowed role can set these ──
   if (data.marketplace_enabled) {
-    updateData.latitude = data.latitude;
-    updateData.longitude = data.longitude;
-    updateData.google_place_id = data.google_place_id;
-    updateData.formatted_address = data.formatted_address;
-
     if (!data.is_24_hours) {
-      updateData.opening_time = data.opening_time;
-      updateData.closing_time = data.closing_time;
+      updateData.opening_time = data.opening_time ?? null;
+      updateData.closing_time = data.closing_time ?? null;
     } else {
       updateData.opening_time = null;
       updateData.closing_time = null;
     }
+  }
+
+  // ── Location — SUPER_ADMIN ONLY ──
+  // branch_admin and staff cannot modify location fields.
+  // We silently ignore location data from non-super_admin callers
+  // rather than throwing, to avoid breaking the modal submit on partial edits.
+  if (caller.role === "super_admin" && data.marketplace_enabled) {
+    updateData.latitude = data.latitude ?? null;
+    updateData.longitude = data.longitude ?? null;
+    updateData.google_place_id = data.google_place_id ?? null;
+    updateData.formatted_address = data.formatted_address ?? null;
   }
 
   return await prisma.branchMarketplaceSettings.upsert({
@@ -351,7 +323,6 @@ export const saveBranchConfig = async (
 
 // ─────────────────────────────────────────────
 // GET STOREFRONT
-// Used by storefront preview + post-onboarding management
 // ─────────────────────────────────────────────
 export const getStorefront = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -369,16 +340,14 @@ export const getStorefront = async (shop_id) => {
     },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
   return profile;
 };
 
 // ─────────────────────────────────────────────
 // GET BRANCH SETTINGS
-// All branch marketplace settings for this shop
+// ── CHANGED: staff now restricted to their branch (same as branch_admin)
 // ─────────────────────────────────────────────
 export const getBranchSettings = async (shop_id, caller) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -386,15 +355,14 @@ export const getBranchSettings = async (shop_id, caller) => {
     select: { marketplace_profile_id: true },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
-  // branch_admin only sees their branch
+  // super_admin → no filter (sees all branches)
+  // branch_admin / staff → scoped to their assigned branch only
   const branchFilter =
-    caller.role === "branch_admin"
-      ? { branch_id: caller.branch_id }
-      : {};
+    caller.role === "super_admin"
+      ? {}
+      : { branch_id: caller.branch_id };
 
   return await prisma.branchMarketplaceSettings.findMany({
     where: {
@@ -413,12 +381,15 @@ export const getBranchSettings = async (shop_id, caller) => {
         },
       },
     },
+    orderBy: [
+      { branch: { branch_type: "asc" } },
+      { branch: { branch_name: "asc" } },
+    ],
   });
 };
 
 // ─────────────────────────────────────────────
-// GO LIVE (Step 6)
-// Server-side validation of all requirements.
+// GO LIVE
 // ─────────────────────────────────────────────
 export const goLive = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
@@ -432,14 +403,10 @@ export const goLive = async (shop_id) => {
     },
   });
 
-  if (!profile) {
-    throw new Error("Marketplace profile not found");
-  }
+  if (!profile) throw new Error("Marketplace profile not found");
 
-  // Collect all validation errors before throwing
   const errors = [];
 
-  // — Storefront checks —
   if (!profile.storefront_name?.trim()) {
     errors.push({ field: "storefront_name", message: "Storefront name is required" });
   }
@@ -450,7 +417,6 @@ export const goLive = async (shop_id) => {
     errors.push({ field: "logo_url", message: "Logo is required" });
   }
 
-  // — Branch checks —
   const enabledBranches = profile.branchSettings.filter(
     (b) => b.marketplace_enabled
   );
@@ -512,14 +478,13 @@ export const goLive = async (shop_id) => {
     throw err;
   }
 
-  // All checks passed — go live
   return await prisma.marketplaceProfile.update({
     where: { shop_id },
     data: {
       marketplace_status: "LIVE",
       is_live: true,
       onboarding_completed: true,
-      onboarding_draft: null, // Clear draft — onboarding complete
+      onboarding_draft: null,
     },
     select: {
       marketplace_profile_id: true,
@@ -533,11 +498,15 @@ export const goLive = async (shop_id) => {
 
 // ─────────────────────────────────────────────
 // SUSPEND MARKETPLACE
+// ── CHANGED: now bulk-disables all enabled branches in same transaction
 // ─────────────────────────────────────────────
 export const suspendMarketplace = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
-    select: { marketplace_status: true },
+    select: {
+      marketplace_profile_id: true,
+      marketplace_status: true,
+    },
   });
 
   if (!profile) throw new Error("Marketplace profile not found");
@@ -546,28 +515,49 @@ export const suspendMarketplace = async (shop_id) => {
     throw new Error("Only a live marketplace can be suspended");
   }
 
-  return await prisma.marketplaceProfile.update({
-    where: { shop_id },
-    data: {
-      marketplace_status: "SUSPENDED",
-      is_live: false,
-    },
-    select: {
-      marketplace_profile_id: true,
-      marketplace_status: true,
-      is_live: true,
-      updated_at: true,
-    },
-  });
+  // Run both updates atomically:
+  // 1. Suspend the marketplace profile
+  // 2. Disable ALL currently-enabled branches
+  const [updatedProfile] = await prisma.$transaction([
+    prisma.marketplaceProfile.update({
+      where: { shop_id },
+      data: {
+        marketplace_status: "SUSPENDED",
+        is_live: false,
+      },
+      select: {
+        marketplace_profile_id: true,
+        marketplace_status: true,
+        is_live: true,
+        updated_at: true,
+      },
+    }),
+    prisma.branchMarketplaceSettings.updateMany({
+      where: {
+        marketplace_profile_id: profile.marketplace_profile_id,
+        marketplace_enabled: true,
+      },
+      data: {
+        marketplace_enabled: false,
+      },
+    }),
+  ]);
+
+  return updatedProfile;
 };
 
 // ─────────────────────────────────────────────
 // RESUME MARKETPLACE
+// No branch state is restored — branches stay disabled.
+// Branches must be manually re-enabled per-branch.
 // ─────────────────────────────────────────────
 export const resumeMarketplace = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
-    select: { marketplace_status: true, onboarding_completed: true },
+    select: {
+      marketplace_status: true,
+      onboarding_completed: true,
+    },
   });
 
   if (!profile) throw new Error("Marketplace profile not found");

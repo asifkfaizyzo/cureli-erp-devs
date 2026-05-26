@@ -1,18 +1,28 @@
 // src/pages/marketplace-onboarding/components/TimePicker.jsx
 
-import { useState, useRef, useEffect, useCallback, forwardRef } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+} from "react";
+import { createPortal } from "react-dom";
 import { Clock, ChevronUp, ChevronDown } from "lucide-react";
 
-const TimePicker = ({ value, onChange, label, placeholder = "Select time" }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [hours, setHours] = useState(9);
+const TimePicker = ({ value, onChange, placeholder = "Select time" }) => {
+  const [isOpen, setIsOpen]   = useState(false);
+  const [hours, setHours]     = useState(9);
   const [minutes, setMinutes] = useState(0);
-  const [period, setPeriod] = useState("AM");
-  const containerRef = useRef(null);
-  const hoursRef = useRef(null);
-  const minutesRef = useRef(null);
+  const [period, setPeriod]   = useState("AM");
 
-  // Parse incoming value (HH:mm 24h format) into 12h state
+  // Position of the dropdown portal
+  const [dropdownStyle, setDropdownStyle] = useState({});
+
+  const triggerRef   = useRef(null);
+  const dropdownRef  = useRef(null);
+
+  // ─── Parse incoming HH:mm (24h) → 12h state ─────────────────────
   useEffect(() => {
     if (!value) return;
     const [h, m] = value.split(":").map(Number);
@@ -22,60 +32,92 @@ const TimePicker = ({ value, onChange, label, placeholder = "Select time" }) => 
     setMinutes(m);
   }, [value]);
 
-  // Close on outside click
+  // ─── Calculate portal position from trigger element ──────────────
+  const calculatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setDropdownStyle({
+      position: "fixed",
+      top:      rect.bottom + 6,
+      left:     rect.left + rect.width / 2,
+      transform: "translateX(-50%)",
+      zIndex:   9999,
+    });
+  }, []);
+
+  // ─── Open / close ────────────────────────────────────────────────
+  const handleOpen = () => {
+    calculatePosition();
+    setIsOpen(true);
+  };
+
+  // ─── Close on outside click ──────────────────────────────────────
   useEffect(() => {
-    const handleClick = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+    if (!isOpen) return;
+    const handler = (e) => {
+      if (
+        triggerRef.current  && !triggerRef.current.contains(e.target) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target)
+      ) {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
-  // Convert 12h → 24h HH:mm and emit
+  // ─── Reposition on scroll / resize ──────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const update = () => calculatePosition();
+    window.addEventListener("scroll",  update, true);
+    window.addEventListener("resize",  update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [isOpen, calculatePosition]);
+
+  // ─── Emit 24h time string ────────────────────────────────────────
   const emit = useCallback(
     (h, m, p) => {
       let h24 = h;
       if (p === "AM" && h === 12) h24 = 0;
       else if (p === "PM" && h !== 12) h24 = h + 12;
-      const timeStr = `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-      onChange(timeStr);
+      onChange(
+        `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+      );
     },
     [onChange]
   );
 
+  // ─── Spin handlers ───────────────────────────────────────────────
   const incrementHours = () => {
     const next = hours >= 12 ? 1 : hours + 1;
     setHours(next);
     emit(next, minutes, period);
   };
-
   const decrementHours = () => {
     const next = hours <= 1 ? 12 : hours - 1;
     setHours(next);
     emit(next, minutes, period);
   };
-
   const incrementMinutes = () => {
     const next = minutes >= 55 ? 0 : minutes + 5;
     setMinutes(next);
     emit(hours, next, period);
   };
-
   const decrementMinutes = () => {
     const next = minutes <= 0 ? 55 : minutes - 5;
     setMinutes(next);
     emit(hours, next, period);
   };
-
   const togglePeriod = () => {
     const next = period === "AM" ? "PM" : "AM";
     setPeriod(next);
     emit(hours, minutes, next);
   };
 
-  // Scroll wheel support
   const handleWheel = (e, type) => {
     e.preventDefault();
     if (type === "hours") {
@@ -85,17 +127,94 @@ const TimePicker = ({ value, onChange, label, placeholder = "Select time" }) => 
     }
   };
 
-  // Format display
+  // ─── Display ─────────────────────────────────────────────────────
   const displayValue = value
     ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`
     : null;
 
+  // ─── Portal dropdown ─────────────────────────────────────────────
+  const dropdown = isOpen
+    ? createPortal(
+        <div
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className="rounded-xl border border-white/10 bg-[#0a0a1a]
+            shadow-2xl shadow-black/60"
+        >
+          {/* Picker body */}
+          <div className="flex items-center justify-center gap-2 px-4 py-4">
+            {/* Hours */}
+            <SpinColumn
+              value={hours}
+              onIncrement={incrementHours}
+              onDecrement={decrementHours}
+              onWheel={(e) => handleWheel(e, "hours")}
+            />
+
+            {/* Colon */}
+            <span className="text-white/30 text-lg font-bold leading-none select-none">
+              :
+            </span>
+
+            {/* Minutes */}
+            <SpinColumn
+              value={minutes}
+              onIncrement={incrementMinutes}
+              onDecrement={decrementMinutes}
+              onWheel={(e) => handleWheel(e, "minutes")}
+            />
+
+            {/* AM / PM */}
+            <div className="ml-1.5">
+              <button
+                type="button"
+                onClick={togglePeriod}
+                className="relative flex flex-col items-center w-12 rounded-lg
+                  border border-white/10 overflow-hidden"
+              >
+                {["AM", "PM"].map((p) => (
+                  <span
+                    key={p}
+                    className={`
+                      w-full text-center py-2 text-[10px] font-bold
+                      tracking-wider transition-all duration-150
+                      ${period === p
+                        ? "bg-white/10 text-white"
+                        : "bg-transparent text-white/20 hover:text-white/30"
+                      }
+                    `}
+                  >
+                    {p}
+                  </span>
+                ))}
+              </button>
+            </div>
+          </div>
+
+          {/* Done */}
+          <div className="border-t border-white/[0.06] px-3 py-2">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="w-full py-1.5 rounded-lg text-xs font-semibold
+                bg-white/[0.08] text-white/70 hover:bg-white/[0.12]
+                hover:text-white transition-all duration-150"
+            >
+              Done
+            </button>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
-    <div ref={containerRef} className="relative">
-      {/* Trigger Button */}
+    <div className="relative">
+      {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleOpen}
         className={`
           w-full flex items-center gap-2 px-2.5 py-2 rounded-lg
           border text-left transition-all duration-150
@@ -124,152 +243,48 @@ const TimePicker = ({ value, onChange, label, placeholder = "Select time" }) => 
         />
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
-        <div
-          className="
-            absolute z-50 mt-1.5
-            min-w-[200px] w-max
-            left-1/2 -translate-x-1/2
-            rounded-xl border border-white/10 bg-[#0a0a1a]
-            shadow-2xl shadow-black/60
-            overflow-visible
-          "
-        >
-          {/* Picker body */}
-          <div className="flex items-center justify-center gap-2 px-4 py-4">
-            {/* Hours column */}
-            <SpinColumn
-              ref={hoursRef}
-              value={hours}
-              onIncrement={incrementHours}
-              onDecrement={decrementHours}
-              onWheel={(e) => handleWheel(e, "hours")}
-              pad={2}
-            />
-
-            {/* Separator */}
-            <div className="flex flex-col items-center justify-center select-none">
-              <span className="text-white/30 text-lg font-bold leading-none">:</span>
-            </div>
-
-            {/* Minutes column */}
-            <SpinColumn
-              ref={minutesRef}
-              value={minutes}
-              onIncrement={incrementMinutes}
-              onDecrement={decrementMinutes}
-              onWheel={(e) => handleWheel(e, "minutes")}
-              pad={2}
-            />
-
-            {/* AM/PM toggle */}
-            <div className="ml-1.5">
-              <button
-                type="button"
-                onClick={togglePeriod}
-                className="
-                  relative flex flex-col items-center w-12 rounded-lg
-                  border border-white/10 overflow-hidden
-                "
-              >
-                <span
-                  className={`
-                    w-full text-center py-2 text-[10px] font-bold tracking-wider transition-all duration-150
-                    ${period === "AM"
-                      ? "bg-white/10 text-white"
-                      : "bg-transparent text-white/20 hover:text-white/30"
-                    }
-                  `}
-                >
-                  AM
-                </span>
-                <span className="w-full h-px bg-white/[0.06]" />
-                <span
-                  className={`
-                    w-full text-center py-2 text-[10px] font-bold tracking-wider transition-all duration-150
-                    ${period === "PM"
-                      ? "bg-white/10 text-white"
-                      : "bg-transparent text-white/20 hover:text-white/30"
-                    }
-                  `}
-                >
-                  PM
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Done button */}
-          <div className="border-t border-white/[0.06] px-3 py-2">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="
-                w-full py-1.5 rounded-lg text-xs font-semibold
-                bg-white/[0.08] text-white/70 hover:bg-white/[0.12] hover:text-white
-                transition-all duration-150
-              "
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Portal-rendered dropdown — escapes any overflow/clip parent */}
+      {dropdown}
     </div>
   );
 };
 
-/* ─── Spin Column ───────────────────────────────────────────── */
-
+// ─── Spin Column ──────────────────────────────────────────────────────────────
 const SpinColumn = forwardRef(
-  ({ value, onIncrement, onDecrement, onWheel, pad = 2 }, ref) => {
-    return (
-      <div
-        ref={ref}
-        onWheel={onWheel}
-        className="flex flex-col items-center gap-0.5 select-none"
+  ({ value, onIncrement, onDecrement, onWheel }, ref) => (
+    <div
+      ref={ref}
+      onWheel={onWheel}
+      className="flex flex-col items-center gap-0.5 select-none"
+    >
+      <button
+        type="button"
+        onClick={onIncrement}
+        className="w-11 h-7 flex items-center justify-center rounded-md
+          text-white/20 hover:text-white/50 hover:bg-white/[0.06]
+          transition-all duration-100 active:scale-90"
       >
-        {/* Up arrow */}
-        <button
-          type="button"
-          onClick={onIncrement}
-          className="
-            w-11 h-7 flex items-center justify-center rounded-md
-            text-white/20 hover:text-white/50 hover:bg-white/[0.06]
-            transition-all duration-100 active:scale-90
-          "
-        >
-          <ChevronUp size={14} />
-        </button>
+        <ChevronUp size={14} />
+      </button>
 
-        {/* Value */}
-        <div
-          className="
-            w-11 h-11 flex items-center justify-center rounded-lg
-            bg-white/[0.06] border border-white/10
-          "
-        >
-          <span className="text-white text-base font-mono font-semibold tabular-nums">
-            {String(value).padStart(pad, "0")}
-          </span>
-        </div>
-
-        {/* Down arrow */}
-        <button
-          type="button"
-          onClick={onDecrement}
-          className="
-            w-11 h-7 flex items-center justify-center rounded-md
-            text-white/20 hover:text-white/50 hover:bg-white/[0.06]
-            transition-all duration-100 active:scale-90
-          "
-        >
-          <ChevronDown size={14} />
-        </button>
+      <div className="w-11 h-11 flex items-center justify-center rounded-lg
+        bg-white/[0.06] border border-white/10">
+        <span className="text-white text-base font-mono font-semibold tabular-nums">
+          {String(value).padStart(2, "0")}
+        </span>
       </div>
-    );
-  }
+
+      <button
+        type="button"
+        onClick={onDecrement}
+        className="w-11 h-7 flex items-center justify-center rounded-md
+          text-white/20 hover:text-white/50 hover:bg-white/[0.06]
+          transition-all duration-100 active:scale-90"
+      >
+        <ChevronDown size={14} />
+      </button>
+    </div>
+  )
 );
 
 SpinColumn.displayName = "SpinColumn";
