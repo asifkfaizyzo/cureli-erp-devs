@@ -1,21 +1,6 @@
--- DropIndex
-DROP INDEX "idx_mmv_brand_trgm";
-
--- DropIndex
-DROP INDEX "idx_mmv_manufacturer_trgm";
-
--- DropIndex
-DROP INDEX "idx_mmv_marketer_trgm";
-
--- DropIndex
-DROP INDEX "idx_mmv_name_trgm";
-
--- DropIndex
-DROP INDEX "idx_mm_generic_name_trgm";
-
 -- AlterTable
-ALTER TABLE "cureli_mobile_users" ADD COLUMN     "delete_otp_expires" TIMESTAMPTZ(6),
-ADD COLUMN     "delete_otp_hash" TEXT;
+ALTER TABLE "cureli_mobile_users" ADD COLUMN "delete_otp_expires" TIMESTAMPTZ(6),
+ADD COLUMN "delete_otp_hash" TEXT;
 
 -- CreateTable
 CREATE TABLE "cureli_mobile_deleted_accounts" (
@@ -40,9 +25,3 @@ CREATE INDEX "cureli_mobile_deleted_accounts_phone_hash_idx" ON "cureli_mobile_d
 
 -- CreateIndex
 CREATE INDEX "cureli_mobile_deleted_accounts_deleted_at_idx" ON "cureli_mobile_deleted_accounts"("deleted_at");
-
--- CreateIndex
-CREATE INDEX "master_medicine_variants_manufacturer_idx" ON "master_medicine_variants"("manufacturer");
-
--- CreateIndex
-CREATE INDEX "master_medicine_variants_marketer_idx" ON "master_medicine_variants"("marketer");

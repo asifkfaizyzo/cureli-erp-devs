@@ -1,15 +1,16 @@
+// src/pages/login/comps/LoginOtpVerification.jsx
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { IoArrowBackOutline } from "react-icons/io5";
 import { verifyLoginOtp, resendLoginOtp } from "../../../api/auth";
-import { getMySubscription } from "../../../api/subscription";
-import { getSetupStatus } from "../../../api/setup";
 import { useNavigate } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 import { useAuthStore } from "../../../store/useAuthStore";
 import { useSetupStore } from "../../../store/useSetupStore";
 import { useToast } from "../../../components/common/Toast";
+import { determineAuthDestination } from "../../../utils/authRouting";
 
 // Constants
 const RESEND_TIMER_SECONDS = 60;
@@ -103,48 +104,6 @@ const LoginOtpVerification = ({
     setTimeout(() => setShake(false), 500);
   }, []);
 
-  const determineDestination = useCallback(async (role) => {
-    if (role === "staff" || role === "branch_admin") {
-      console.log(`📍 ${role} → /erp/dashboard`);
-      return "/erp/dashboard";
-    }
-
-    try {
-      const subRes = await getMySubscription();
-      const hasActive = subRes.data?.data?.has_active_subscription === true;
-
-      if (!hasActive) {
-        console.log("📍 No active subscription → /plan-selection");
-        return "/plan-selection";
-      }
-
-      try {
-        const setupRes = await getSetupStatus();
-        const setupData = setupRes.data?.data;
-
-        if (setupData?.is_complete) {
-          console.log("📍 Setup complete → /erp/dashboard");
-          return "/erp/dashboard";
-        } else {
-          console.log("📍 Setup incomplete → /setup");
-          return "/setup";
-        }
-      } catch (setupErr) {
-        console.warn(
-          "Setup status check failed, defaulting to /setup",
-          setupErr,
-        );
-        return "/setup";
-      }
-    } catch (err) {
-      console.warn(
-        "Subscription check failed, defaulting to /plan-selection",
-        err,
-      );
-      return "/plan-selection";
-    }
-  }, []);
-
   /**
    * FIX: handleVerify no longer takes otp from its closure.
    * It only accepts otpCode as an explicit argument.
@@ -152,6 +111,11 @@ const LoginOtpVerification = ({
    * preventing handleVerify from being recreated on every
    * keystroke, which was causing the auto-verify useEffect
    * to also re-run on every keystroke unnecessarily.
+   *
+   * determineDestination local copy also removed — replaced with
+   * the shared determineAuthDestination imported from authRouting.js.
+   * It is a stable module-level function, not a hook or reactive value,
+   * so it does not appear in the dependency array.
    */
   const handleVerify = useCallback(
     async (otpCode) => {
@@ -177,7 +141,7 @@ const LoginOtpVerification = ({
           shop_name,
           role,
           user_name,
-          username,      
+          username,
         } = res.data.data;
 
         setSuccess(true);
@@ -211,12 +175,12 @@ const LoginOtpVerification = ({
           role,
           user_name,
           username,
-          // no username here — login response doesn't include it
         });
 
         setTimeout(async () => {
           if (next_step === -1) {
-            const destination = await determineDestination(role);
+            // Use shared routing utility instead of local determineDestination
+            const destination = await determineAuthDestination(role);
             navigate(destination, { replace: true });
             return;
           }
@@ -251,7 +215,9 @@ const LoginOtpVerification = ({
         setLoading(false);
       }
     },
-    // FIX: otp removed from deps — otpCode is always passed explicitly
+    // determineAuthDestination intentionally omitted — it is a stable
+    // module-level function, not a reactive value. Adding it would be
+    // incorrect and would cause unnecessary re-creation of handleVerify.
     [
       loading,
       success,
@@ -259,7 +225,6 @@ const LoginOtpVerification = ({
       toast,
       resetSetup,
       setAuth,
-      determineDestination,
       navigate,
       triggerShake,
     ],

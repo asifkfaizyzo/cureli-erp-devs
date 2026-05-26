@@ -21,6 +21,7 @@
  */
 
 import prisma from "../../config/prisma.js";
+import { createListingForMedicine, handleMedicineUnlinked } from "../marketplace-listings/listings.service.js";
 
 // ══════════════════════════════════════════════════════════════
 // DEBUG LOGGER
@@ -1649,6 +1650,30 @@ export async function manuallyLinkMedicine(
     },
   });
 
+  // ── NEW: create marketplace listing ──────────────────────────
+  if (targetVariant?.variant_id) {
+    const med = await prisma.medicine.findUnique({
+      where: { medicine_id: medicineId },
+      select: { branch_id: true, shop_id: true },
+    });
+    if (med?.branch_id) {
+      try {
+        await createListingForMedicine(
+          medicineId,
+          med.branch_id,
+          med.shop_id,
+          targetVariant.variant_id
+        );
+      } catch (err) {
+        console.warn(
+          `[listings] Failed to create listing for medicine ${medicineId}:`,
+          err.message
+        );
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   return {
     success: true,
     medicine: updated,
@@ -1677,6 +1702,24 @@ export async function unlinkMedicine(medicineId, reject = false) {
       linked_by_type: null,
     },
   });
+
+  // ── NEW: hide marketplace listing ────────────────────────────
+  const med = await prisma.medicine.findUnique({
+    where: { medicine_id: medicineId },
+    select: { branch_id: true },
+  });
+  if (med?.branch_id) {
+    try {
+      await handleMedicineUnlinked(medicineId, med.branch_id);
+    } catch (err) {
+      console.warn(
+        `[listings] Failed to hide listing for unlinked medicine ${medicineId}:`,
+        err.message
+      );
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
+
   return {
     success: true,
     medicine: updated,
@@ -1699,6 +1742,7 @@ export async function bulkAutoLinkMedicines(shopId, branchId = null) {
       name: true,
       generic_name: true,
       manufacturer: true,
+      branch_id: true, // ← ADD branch_id to select
     },
   });
 
@@ -1713,6 +1757,7 @@ export async function bulkAutoLinkMedicines(shopId, branchId = null) {
   for (const medicine of pendingMedicines) {
     try {
       const linkResult = await checkSingleMedicine(medicine);
+
       if (linkResult.status === "AUTO_LINKED") {
         await prisma.medicine.update({
           where: { medicine_id: medicine.medicine_id },
@@ -1727,6 +1772,25 @@ export async function bulkAutoLinkMedicines(shopId, branchId = null) {
             suggestion_reason: linkResult.reason,
           },
         });
+
+        // ── NEW: create marketplace listing ──────────────────────
+        if (linkResult.matched_variant?.variant_id && medicine.branch_id) {
+          try {
+            await createListingForMedicine(
+              medicine.medicine_id,
+              medicine.branch_id,
+              shopId,
+              linkResult.matched_variant.variant_id
+            );
+          } catch (err) {
+            console.warn(
+              `[listings] Failed to create listing for medicine ${medicine.medicine_id}:`,
+              err.message
+            );
+          }
+        }
+        // ─────────────────────────────────────────────────────────
+
         results.autoLinked++;
       } else if (linkResult.status === "PENDING") {
         await prisma.medicine.update({
