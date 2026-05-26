@@ -8,9 +8,9 @@ import { checkSmsOtpLimit } from "../../utils/otpLimiter.js";
 const OTP_VALIDITY_SECONDS = 300; // 5 minutes
 const RESEND_COOLDOWN_SECONDS = 30;
 const INITIAL_COOLDOWN_SECONDS = 60;
-const MAX_ATTEMPTS_PER_OTP = 3;
+const MAX_ATTEMPTS_PER_OTP = 5;
 const MAX_FAILED_CYCLES = 5;
-const LOCKOUT_DURATION_MS = 60 * 60 * 1000; // 1 hour
+const LOCKOUT_DURATION_MS = 1 * 60 * 1000; // 1 hour
 
 /**
  * Send login OTP to user's phone

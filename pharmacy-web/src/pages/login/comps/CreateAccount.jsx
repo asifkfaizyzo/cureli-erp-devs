@@ -137,12 +137,12 @@ const CreateAccount = ({ onLoginClick }) => {
    
 
       const payload = {
-        first_name: form.first_name,
-        last_name: form.last_name,
-        email: form.email,
-        password: form.password,
-        recaptchaToken,
-      };
+  first_name: form.first_name.trim(),
+  last_name: form.last_name.trim(),
+  email: form.email.trim(),
+  password: form.password.trim(),   // trim only on submit
+  recaptchaToken,
+};
 
     
 
@@ -194,7 +194,7 @@ const CreateAccount = ({ onLoginClick }) => {
               errors.first_name ? "border-red-500" : "border-gray-300"
             }`}
             value={form.first_name}
-            onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+            onChange={(e) => setForm({ ...form, first_name: e.target.value.trim() })}
             onKeyDown={(e) => e.key === "Enter" && lastNameRef.current?.focus()}
           />
           {errors.first_name && (
@@ -212,7 +212,7 @@ const CreateAccount = ({ onLoginClick }) => {
               errors.last_name ? "border-red-500" : "border-gray-300"
             }`}
             value={form.last_name}
-            onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+            onChange={(e) => setForm({ ...form, last_name: e.target.value.trim() })}
             onKeyDown={(e) => e.key === "Enter" && emailRef.current?.focus()}
           />
           {errors.last_name && (
@@ -232,7 +232,7 @@ const CreateAccount = ({ onLoginClick }) => {
             errors.email ? "border-red-500" : "border-gray-300"
           }`}
           value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          onChange={(e) => setForm({ ...form, email: e.target.value.trim() })}
           onKeyDown={(e) => e.key === "Enter" && passwordRef.current?.focus()}
         />
         {errors.email && (
@@ -254,7 +254,7 @@ const CreateAccount = ({ onLoginClick }) => {
             placeholder="Create Password"
             className="w-full bg-transparent outline-none text-sm"
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={(e) => setForm({ ...form, password: e.target.value.trim() })}
             onKeyDown={(e) => e.key === "Enter" && handleCreateAccount()}
           />
           <button

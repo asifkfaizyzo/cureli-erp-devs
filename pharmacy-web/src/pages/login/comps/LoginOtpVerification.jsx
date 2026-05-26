@@ -103,51 +103,47 @@ const LoginOtpVerification = ({
     setTimeout(() => setShake(false), 500);
   }, []);
 
-  const determineDestination = useCallback(
-    async (role) => {
-      if (role === "staff" || role === "branch_admin") {
-        console.log(`📍 ${role} → /erp/dashboard`);
-        return "/erp/dashboard";
+  const determineDestination = useCallback(async (role) => {
+    if (role === "staff" || role === "branch_admin") {
+      console.log(`📍 ${role} → /erp/dashboard`);
+      return "/erp/dashboard";
+    }
+
+    try {
+      const subRes = await getMySubscription();
+      const hasActive = subRes.data?.data?.has_active_subscription === true;
+
+      if (!hasActive) {
+        console.log("📍 No active subscription → /plan-selection");
+        return "/plan-selection";
       }
 
       try {
-        const subRes = await getMySubscription();
-        const hasActive =
-          subRes.data?.data?.has_active_subscription === true;
+        const setupRes = await getSetupStatus();
+        const setupData = setupRes.data?.data;
 
-        if (!hasActive) {
-          console.log("📍 No active subscription → /plan-selection");
-          return "/plan-selection";
-        }
-
-        try {
-          const setupRes = await getSetupStatus();
-          const setupData = setupRes.data?.data;
-
-          if (setupData?.is_complete) {
-            console.log("📍 Setup complete → /erp/dashboard");
-            return "/erp/dashboard";
-          } else {
-            console.log("📍 Setup incomplete → /setup");
-            return "/setup";
-          }
-        } catch (setupErr) {
-          console.warn(
-            "Setup status check failed, defaulting to /setup",
-            setupErr
-          );
+        if (setupData?.is_complete) {
+          console.log("📍 Setup complete → /erp/dashboard");
+          return "/erp/dashboard";
+        } else {
+          console.log("📍 Setup incomplete → /setup");
           return "/setup";
         }
-      } catch (err) {
+      } catch (setupErr) {
         console.warn(
-          "Subscription check failed, defaulting to /plan-selection",
-          err
+          "Setup status check failed, defaulting to /setup",
+          setupErr,
         );
-        return "/plan-selection";
+        return "/setup";
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.warn(
+        "Subscription check failed, defaulting to /plan-selection",
+        err,
+      );
+      return "/plan-selection";
+    }
+  }, []);
 
   /**
    * FIX: handleVerify no longer takes otp from its closure.
@@ -181,6 +177,7 @@ const LoginOtpVerification = ({
           shop_name,
           role,
           user_name,
+          username,      
         } = res.data.data;
 
         setSuccess(true);
@@ -204,7 +201,6 @@ const LoginOtpVerification = ({
          */
         resetSetup();
         clearAllStaleData();
-
         setAuth({
           access_token,
           user_id,
@@ -214,6 +210,8 @@ const LoginOtpVerification = ({
           shop_name,
           role,
           user_name,
+          username,
+          // no username here — login response doesn't include it
         });
 
         setTimeout(async () => {
@@ -264,7 +262,7 @@ const LoginOtpVerification = ({
       determineDestination,
       navigate,
       triggerShake,
-    ]
+    ],
   );
 
   // Auto-verify when all 4 digits are entered
@@ -336,8 +334,7 @@ const LoginOtpVerification = ({
         temp_token: currentTempToken,
       });
 
-      const { temp_token: newToken, phone_hint: newPhoneHint } =
-        res.data.data;
+      const { temp_token: newToken, phone_hint: newPhoneHint } = res.data.data;
 
       setCurrentTempToken(newToken);
       if (newPhoneHint) {
@@ -351,7 +348,7 @@ const LoginOtpVerification = ({
       setResendSuccess(true);
       toast.success(
         "OTP Resent",
-        `New code sent to ${newPhoneHint || "your phone"}`
+        `New code sent to ${newPhoneHint || "your phone"}`,
       );
 
       setTimeout(() => setResendSuccess(false), 3000);
@@ -364,8 +361,7 @@ const LoginOtpVerification = ({
       console.error("Resend OTP error:", err);
 
       const status = err?.response?.status;
-      const msg =
-        err?.response?.data?.message || "Failed to resend OTP";
+      const msg = err?.response?.data?.message || "Failed to resend OTP";
       const waitTime = err?.response?.data?.data?.waitTime;
 
       if (status === 401) {
@@ -513,10 +509,7 @@ const LoginOtpVerification = ({
           <button
             onClick={() => handleVerify(otp.join(""))}
             disabled={
-              loading ||
-              otp.join("").length !== 4 ||
-              success ||
-              resending
+              loading || otp.join("").length !== 4 || success || resending
             }
             className={`w-[300px] py-3 rounded-xl font-semibold mt-4 transition-all duration-300
               ${

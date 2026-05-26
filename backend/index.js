@@ -6,12 +6,11 @@ import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 import { initializeCronJobs } from "./src/cron/jobs.js";
-
+import { ensureIndexes } from "./src/config/ensureIndexes.js";
 // ============================================
 // MIDDLEWARE IMPORTS
 // ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
-// CHANGED: added relaxedLimiter to import
 import { globalLimiter, cadminLimiter, relaxedLimiter, mobileLimiter } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
@@ -39,6 +38,7 @@ import inventoryRoutes from "./src/modules/inventory/inventory.routes.js";
 import salesRoutes from "./src/modules/sales/sales.routes.js";
 import customerRoutes from "./src/modules/customers/customer.routes.js";
 import excelRoutes from "./src/modules/excel/excel.routes.js";
+import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -60,6 +60,7 @@ import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js"
 // ── Mobile App Routes ──────────────────────────────────────────
 import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
+import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
 
 // ============================================
 // APP SETUP
@@ -75,14 +76,18 @@ const allowedOrigins = [
   process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-    exposedHeaders: ["X-Maintenance-Mode"],
-  })
-);
+// Shared CORS options — single source of truth
+const corsOptions = {
+  origin: allowedOrigins,
+  credentials: true,
+  exposedHeaders: ["X-Maintenance-Mode"],
+};
 
+// ============================================
+// GLOBAL MIDDLEWARE
+// ============================================
+
+// 1. Helmet first (security headers)
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
@@ -91,6 +96,15 @@ app.use(
   })
 );
 
+// 2. Preflight — must be before cors() middleware and everything else.
+//    Handles OPTIONS requests for ALL routes immediately with correct headers.
+//    Without this, preflight hits rate limiters / other middleware first.
+app.options("/{*path}", cors(corsOptions));
+
+// 3. CORS for all actual requests
+app.use(cors(corsOptions));
+
+// 4. Body parsing + cookies
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
@@ -101,41 +115,44 @@ app.use(cookieParser());
 // Routes mounted before globalLimiter are excluded from it.
 //
 // Exclusion order:
-//   1. maintenanceMiddleware   — always first, checks MAINTENANCE_MODE env
-//   2. /api/maintenance        — app startup check, must never be rate limited
+//   1. maintenanceMiddleware     — always first, checks MAINTENANCE_MODE env
+//   2. /api/maintenance          — app startup check, must never be rate limited
 //   3. /api/notifications/stream — SSE persistent connection, not a repeated
 //                                  request. Limiting it would disconnect users.
-//   4. Relaxed limits          — system-driven polling routes declared before
-//                                globalLimiter so they get their own bucket
-//   5. globalLimiter           — catches everything else under /api/*
-//   6. cadminLimiter           — catches everything under /cadmin/*
+//   4. Relaxed limits            — system-driven polling routes declared before
+//                                  globalLimiter so they get their own bucket
+//   5. globalLimiter             — catches everything else under /api/*
+//   6. cadminLimiter             — catches everything under /cadmin/*
+//
+// OPTIONS requests are already fully handled above by app.options("*").
+// The req.method === "OPTIONS" guards below are kept as a safety net only.
 // ============================================
 
 app.use(maintenanceMiddleware);
 
-// CHANGED: maintenance route mounted — was missing before, caused 404
 app.use("/api/maintenance", maintenanceRoutes);
 
-// CHANGED: SSE stream excluded from rate limiting entirely.
-// The route does its own inline JWT verification — unauthenticated
-// connections are rejected with 401 before any stream is opened.
-// Persistent connections must never count against a per-minute bucket.
 app.use("/api/notifications/stream", (req, res, next) => next());
 
-// CHANGED: relaxedLimiter applied to polling-heavy routes BEFORE globalLimiter.
-// These fire automatically (not user-driven) so they need a separate bucket.
-// Must be declared before app.use("/api", globalLimiter) or globalLimiter wins.
 app.use("/api/notifications/unread-count", relaxedLimiter);
 app.use("/api/notifications/recent", relaxedLimiter);
 app.use("/api/purchase/returns", relaxedLimiter);
 
-// Global limiter — catches all remaining /api/* routes
-app.use("/api", globalLimiter);
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  return globalLimiter(req, res, next);
+});
 
-// CAdmin limiter — now also per-user keyed
-app.use("/cadmin", cadminLimiter);
+app.use("/cadmin", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  return cadminLimiter(req, res, next);
+});
 
-app.use("/mobile", mobileLimiter);
+app.use("/mobile", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  return mobileLimiter(req, res, next);
+});
+
 // ============================================
 // FILE SERVING
 // ============================================
@@ -162,8 +179,6 @@ app.use(
 // ============================================
 // ROUTES
 // ============================================
-// No changes below this line — all route mounts unchanged
-// ============================================
 app.use("/api/files", filesRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/shop", shopRoutes);
@@ -187,6 +202,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
+app.use("/api/marketplace", marketplaceRoutes);
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);
@@ -208,7 +224,7 @@ app.use("/cadmin", cadminMasterMedicinesRoutes);
 
 app.use("/mobile", mobileAuthRoutes);
 app.use("/mobile", mobileUsersRoutes);
-
+app.use("/mobile", mobileMedicinesRoutes);
 // ============================================
 // HEALTH CHECK
 // ============================================
@@ -256,7 +272,12 @@ function printStartupBanner(port) {
   lines.forEach((line) => process.stdout.write(line + "\n"));
 }
 
-app.listen(PORT, () => {
-  printStartupBanner(PORT);
-  initializeCronJobs();
-});
+(async () => {
+  console.log("\n🔍 Checking performance indexes...");
+  await ensureIndexes();
+
+  app.listen(PORT, () => {
+    printStartupBanner(PORT);
+    initializeCronJobs();
+  });
+})();

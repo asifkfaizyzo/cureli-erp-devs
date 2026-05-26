@@ -1,22 +1,16 @@
-// Q:\YourZeroesAndOnes\cureli\curely_erp\pharmacy-web\src\pages\settings\profile\comps\BusinessInfoCard.jsx
+// src/pages/settings/profile/comps/BusinessInfoCard.jsx
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import {
   Building2,
   MapPin,
   FileText,
   Edit3,
-  Map,
-  Navigation,
+  Hash,
 } from "lucide-react";
 
 import EditBusinessModal from "./EditBusinessModal";
 
-/**
- * BusinessInfoCard
- * Displays business information with edit option - Horizontal Layout
- */
 const BusinessInfoCard = ({ shop, onUpdate }) => {
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -38,12 +32,9 @@ const BusinessInfoCard = ({ shop, onUpdate }) => {
     return parts.join(", ");
   };
 
-  // Info item component
-  const InfoItem = ({ icon: Icon, label, value, note, fullWidth = false }) => (
+  const InfoItem = ({ icon: Icon, label, value, note, className = "" }) => (
     <div
-      className={`flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors ${
-        fullWidth ? "md:col-span-2 lg:col-span-3" : ""
-      }`}
+      className={`flex items-start gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors ${className}`}
     >
       <div className="w-10 h-10 bg-[#000060]/10 rounded-lg flex items-center justify-center flex-shrink-0">
         <Icon size={18} className="text-[#000060]" />
@@ -87,39 +78,54 @@ const BusinessInfoCard = ({ shop, onUpdate }) => {
           </button>
         </div>
 
-        {/* Content - Horizontal Grid */}
+        {/* Content */}
         <div className="p-6 flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Shop Name */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Row 1: Shop Name (2 cols) + GST (2 cols) */}
             <InfoItem
               icon={Building2}
               label="Shop Name"
               value={shop.business_name}
+              className="lg:col-span-2"
             />
-
-            {/* GST Number - View Only */}
             <InfoItem
               icon={FileText}
               label="GST Number"
               value={shop.gst_number}
               note="Cannot be changed"
+              className="lg:col-span-2"
             />
 
-            {/* Pincode */}
-            <InfoItem icon={MapPin} label="Pincode" value={shop.pincode} />
+            {/* Row 2: Shop ID (2 cols) + Pincode (1 col) + City (1 col) */}
+            <InfoItem
+              icon={Hash}
+              label="Shop ID"
+              value={shop.shop_id}
+              note="Cannot be changed"
+              className="lg:col-span-2"
+            />
+            <InfoItem
+              icon={MapPin}
+              label="Pincode"
+              value={shop.pincode}
+            />
+            <InfoItem
+              icon={MapPin}
+              label="City"
+              value={shop.city}
+            />
 
-            {/* Full Address - Full Width */}
+            {/* Row 3: Full Address (full width) */}
             <InfoItem
               icon={MapPin}
               label="Complete Address"
               value={formatAddress()}
-              fullWidth
+              className="md:col-span-2 lg:col-span-4"
             />
           </div>
         </div>
       </div>
 
-      {/* Edit Modal */}
       {showEditModal && (
         <EditBusinessModal shop={shop} onClose={handleModalClose} />
       )}

@@ -1,7 +1,7 @@
 // app/_layout.tsx
 
 import { useEffect } from 'react';
-import { Stack, router } from 'expo-router';
+import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Inter_400Regular,
@@ -50,10 +50,14 @@ export default function RootLayout() {
     initialize();
   }, []);
 
+  // ── Token expiry logout ──────────────────────────────────
+  // Only call logout() here — do NOT navigate.
+  // index.tsx watches status and handles all navigation.
+  // Navigating here races with index.tsx and causes jitter + errors.
   useEffect(() => {
     const unsubscribe = authEventEmitter.on('logout', () => {
       logout();
-      router.replace('/(auth)/login');
+      // No router.replace here — index.tsx handles it
     });
     return unsubscribe;
   }, [logout]);

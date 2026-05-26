@@ -1,4 +1,4 @@
-// App.jsx
+// cadmin-web\src\App.jsx
 
 import {
   BrowserRouter as Router,

@@ -34,6 +34,7 @@ const ALLOWED_FOLDERS = [
   'broadcast_attachments',
   'email_attachments',
   'tickets',
+  'marketplace_assets',
 ];
 
 // File size limits (bytes)
@@ -42,6 +43,7 @@ const MAX_FILE_SIZES = {
   broadcast_attachments: 50 * 1024 * 1024,  // 50MB
   email_attachments: 10 * 1024 * 1024,      // 10MB
   tickets: 5 * 1024 * 1024,                 // 5MB
+  marketplace_assets: 5 * 1024 * 1024,
 };
 
 // Allowed MIME types per folder
@@ -97,6 +99,13 @@ const ALLOWED_MIME_TYPES = {
     'image/webp',
     'application/pdf',
   ],
+  marketplace_assets: [          // ADD THIS BLOCK
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+  ],
+
 };
 
 // Blocked extensions (security)

@@ -97,6 +97,8 @@ export default function OtpScreen() {
     setOtp('');
 
     try {
+      console.log("send otp");
+      
       await sendOtp(phone);
       setResendCooldown(RESEND_COOLDOWN);
     } catch (err: unknown) {

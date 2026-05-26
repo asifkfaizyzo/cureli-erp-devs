@@ -385,6 +385,7 @@ export async function verifyLoginOtpController(req, res) {
         shop_name: user.shop?.business_name || null,
         role: user.role,
         user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
+        username: user.username || null, // ← ADD THIS ONE LINE
       },
       "Login successful",
     );

@@ -1,4 +1,4 @@
-// src/pages/marketplace/orders/MarketplaceOrdersPage.jsx
+// src/pages/marketplace-orders/MarketplaceOrdersPage.jsx
 
 import { ShoppingBag } from "lucide-react";
 
