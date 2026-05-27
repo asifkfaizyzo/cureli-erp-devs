@@ -278,6 +278,7 @@ export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
     delivery_enabled: data.delivery_enabled ?? false,
     is_24_hours: data.is_24_hours ?? false,
     contact_override: data.contact_override ?? null,
+    shop_image_url:      data.shop_image_url   ?? null,
   };
 
   // ── Timings — any allowed role can set these ──

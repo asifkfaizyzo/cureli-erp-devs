@@ -64,6 +64,17 @@ export const uploadMarketplaceAsset = (type, file, onProgress) => {
   });
 };
 
+export const uploadBranchImage = (branch_id, file, onProgress) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return API.post(`/marketplace/upload/branch_image`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    onUploadProgress: onProgress
+      ? (e) => onProgress(Math.round((e.loaded * 100) / e.total))
+      : undefined,
+  });
+};
+
 // ─────────────────────────────────────────────
 // PLACES PROXY
 // ─────────────────────────────────────────────

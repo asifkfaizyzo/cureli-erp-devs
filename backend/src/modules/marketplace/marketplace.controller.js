@@ -201,9 +201,9 @@ export const getPlaceDetails = async (req, res) => {
 export const postUpload = (req, res) => {
   const { type } = req.params;
 
-  if (!["logo", "banner"].includes(type)) {
-    return fail(res, "Invalid upload type. Must be logo or banner", 400);
-  }
+  if (!["logo", "banner", "branch_image"].includes(type)) {   
+  return fail(res, "Invalid upload type. Must be logo, banner, or branch_image", 400);
+}
 
   marketplaceUpload(req, res, async (err) => {
     if (err) {

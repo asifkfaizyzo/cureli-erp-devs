@@ -12,10 +12,19 @@ import {
   Clock,
   Truck,
   Phone,
+  ImageIcon,
+  X,
 } from "lucide-react";
 import LocationPicker from "./LocationPicker";
 import TimePicker from "./TimePicker";
+import { uploadMarketplaceAsset } from "../../../api/marketplace";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
+
+const resolveImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${import.meta.env.VITE_API_URL}${url}`;
+};
 
 const BranchConfigCard = ({
   branch,
@@ -34,6 +43,12 @@ const BranchConfigCard = ({
   const [isSaved, setIsSaved] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const cardRef = useRef(null);
+
+  // ── Image upload state ────────────────────────────────────────
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [imageUploadError, setImageUploadError] = useState(null);
+  const imageInputRef = useRef(null);
 
   initBranchConfig(branch.branch_id);
   const config = branchConfigs[branch.branch_id] || {};
@@ -68,8 +83,31 @@ const BranchConfigCard = ({
     setIsSaving(false);
   };
 
-  const isContactSet = !!config.contact_override?.trim();
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setIsImageUploading(true);
+    setImageUploadProgress(0);
+    setImageUploadError(null);
+    try {
+      const res = await uploadMarketplaceAsset(
+        "branch_image",
+        file,
+        (pct) => setImageUploadProgress(pct),
+      );
+      const url = res.data?.data?.url;
+      if (!url) throw new Error("No URL returned");
+      update({ shop_image_url: url });
+    } catch (err) {
+      setImageUploadError(
+        err.response?.data?.message || err.message || "Upload failed",
+      );
+    } finally {
+      setIsImageUploading(false);
+      setImageUploadProgress(0);
+    }
+  };
 
+  const isContactSet = !!config.contact_override?.trim();
   const isLocationSet =
     config.latitude && config.longitude && config.google_place_id;
   const isTimingValid =
@@ -154,7 +192,7 @@ const BranchConfigCard = ({
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold bg-white/5 text-white/25">
-                  {completionSteps}/4 {/* ← was /3 */}
+                  {completionSteps}/4
                 </span>
               )}
             </>
@@ -212,7 +250,125 @@ const BranchConfigCard = ({
 
           {isEnabled && (
             <div className="space-y-4">
-              {/* Location */}
+              {/* ── Shop Image ─────────────────────────────────────── */}
+              <Section
+                icon={<ImageIcon size={12} />}
+                title="Branch Image"
+                subtitle="optional"
+                done={!!config.shop_image_url}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Preview / upload zone */}
+                  <div
+                    className={`
+                      relative w-24 h-24 rounded-xl border-2 border-dashed
+                      overflow-hidden flex-shrink-0 transition-colors
+                      ${
+                        config.shop_image_url
+                          ? "border-white/10"
+                          : "border-white/10 hover:border-white/20"
+                      }
+                    `}
+                  >
+                    {/* Existing image */}
+                    {config.shop_image_url && !isImageUploading && (
+                      <>
+                        <img
+                          src={resolveImageUrl(config.shop_image_url)}
+                          alt="Branch"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        {/* Hover overlay — re-upload */}
+                        <button
+                          type="button"
+                          onClick={() => imageInputRef.current?.click()}
+                          className="absolute inset-0 bg-black/50 opacity-0
+                            hover:opacity-100 transition-opacity flex items-center
+                            justify-center z-10"
+                        >
+                          <ImageIcon size={14} className="text-white/70" />
+                        </button>
+                        {/* Clear button */}
+                        <button
+                          type="button"
+                          onClick={() => update({ shop_image_url: null })}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full
+                            bg-black/60 flex items-center justify-center
+                            opacity-0 hover:opacity-100 transition-opacity z-20"
+                        >
+                          <X size={9} className="text-white" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Upload progress */}
+                    {isImageUploading && (
+                      <div
+                        className="absolute inset-0 bg-black/60 flex flex-col
+                          items-center justify-center gap-1.5 z-20"
+                      >
+                        <Loader2
+                          size={14}
+                          className="text-white/60 animate-spin"
+                        />
+                        <div className="w-14 h-1 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className="h-full bg-white/40 rounded-full transition-all duration-300"
+                            style={{ width: `${imageUploadProgress}%` }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-white/40">
+                          {imageUploadProgress}%
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Empty state */}
+                    {!config.shop_image_url && !isImageUploading && (
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        className="absolute inset-0 flex flex-col items-center
+                          justify-center gap-1 text-white/20 hover:text-white/40
+                          transition-colors"
+                      >
+                        <ImageIcon size={18} />
+                        <span className="text-[9px]">Upload</span>
+                      </button>
+                    )}
+
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+
+                  {/* Right-side hints */}
+                  <div className="flex-1 pt-1 space-y-1">
+                    <p className="text-[11px] text-white/30 leading-relaxed">
+                      Shown on your branch's marketplace page. Helps customers
+                      recognise your location.
+                    </p>
+                    <p className="text-[10px] text-white/15">
+                      JPG, PNG or WebP · Max 5 MB
+                    </p>
+                    {imageUploadError && (
+                      <p className="text-[11px] text-red-400 flex items-center gap-1 mt-1">
+                        <AlertCircle size={9} /> {imageUploadError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Section>
+
+              {/* ── Location ───────────────────────────────────────── */}
               <Section
                 icon={<MapPin size={12} />}
                 title="Location"
@@ -232,7 +388,7 @@ const BranchConfigCard = ({
                 />
               </Section>
 
-              {/* Fulfillment + Hours — side by side on wide screens */}
+              {/* ── Fulfillment + Hours ─────────────────────────────── */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Fulfillment */}
                 <Section
@@ -318,7 +474,7 @@ const BranchConfigCard = ({
                 </Section>
               </div>
 
-              {/* Contact */}
+              {/* ── Contact ────────────────────────────────────────── */}
               <Section
                 icon={<Phone size={12} />}
                 title="Contact"
@@ -335,15 +491,17 @@ const BranchConfigCard = ({
                     placeholder="e.g. +91 98765 43210"
                     maxLength={15}
                     className={`
-        w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border text-white
-        placeholder-white/15 text-sm focus:outline-none focus:ring-2
-        focus:ring-white/20 transition-all
-        ${
-          isEnabled && !isContactSet && config.contact_override !== undefined
-            ? "border-red-500/30"
-            : "border-white/10"
-        }
-      `}
+                      w-full px-3 py-2.5 rounded-lg bg-white/[0.04] border text-white
+                      placeholder-white/15 text-sm focus:outline-none focus:ring-2
+                      focus:ring-white/20 transition-all
+                      ${
+                        isEnabled &&
+                        !isContactSet &&
+                        config.contact_override !== undefined
+                          ? "border-red-500/30"
+                          : "border-white/10"
+                      }
+                    `}
                   />
                   <p className="text-[10px] text-white/15">
                     Required — customers will use this number to reach the
@@ -400,7 +558,7 @@ const BranchConfigCard = ({
   );
 };
 
-// ─── Sub-components ─────────────────────────────────────────────
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 const Section = ({ icon, title, subtitle, required, done, children }) => (
   <div className="space-y-2">

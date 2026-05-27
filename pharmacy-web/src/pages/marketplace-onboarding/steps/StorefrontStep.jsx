@@ -275,6 +275,7 @@ const StorefrontStep = ({ onNext, onBack }) => {
               <input
                 type="text"
                 value={storefront.storefront_name}
+                maxLength={200}
                 onChange={(e) => {
                   updateStorefront({ storefront_name: e.target.value });
                   if (errors.storefront_name)
@@ -298,6 +299,7 @@ const StorefrontStep = ({ onNext, onBack }) => {
               </label>
               <textarea
                 value={storefront.storefront_description}
+                maxLength={1000}
                 onChange={(e) => {
                   updateStorefront({ storefront_description: e.target.value });
                   if (errors.storefront_description)
@@ -324,13 +326,20 @@ const StorefrontStep = ({ onNext, onBack }) => {
                 type="tel"
                 value={storefront.support_phone}
                 onChange={(e) => {
-                  updateStorefront({ support_phone: e.target.value });
+                  // Strip anything that isn't digits, +, spaces, or hyphens
+                  const raw = e.target.value.replace(/[^\d+\s\-]/g, "");
+                  updateStorefront({ support_phone: raw });
                   if (errors.support_phone)
                     setErrors((p) => ({ ...p, support_phone: null }));
                 }}
                 placeholder="+91 99999 99999"
+                maxLength={15} // ← hard cap in the DOM
                 className={inputClass}
               />
+              {/* live counter */}
+              <p className="text-[10px] text-white/20 text-right mt-0.5">
+                {storefront.support_phone.length} / 15
+              </p>
               {errors.support_phone && (
                 <p className="mt-1 text-xs text-red-400">
                   {errors.support_phone}

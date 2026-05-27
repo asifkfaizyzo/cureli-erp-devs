@@ -12,13 +12,12 @@ import {
   ShieldCheck,
   Globe,
   ArrowRight,
-  Play,
   Eye,
 } from "lucide-react";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
 import GoLiveCelebration from "../components/GoLiveCelebration";
 
-const DEV_MODE = import.meta.env.DEV; // only shows in development
+const DEV_MODE = import.meta.env.DEV;
 
 const GoLiveStep = ({ onBack }) => {
   const navigate = useNavigate();
@@ -33,16 +32,31 @@ const GoLiveStep = ({ onBack }) => {
 
   const [showCelebration, setShowCelebration] = useState(false);
   const [devPreview, setDevPreview] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   const enabledBranches = allBranches.filter(
     (b) =>
       selectedBranchIds.includes(b.branch_id) &&
-      branchConfigs[b.branch_id]?.marketplace_enabled
+      branchConfigs[b.branch_id]?.marketplace_enabled,
   );
 
   const handleGoLive = async () => {
+    setSubmitError(null);
+
+    // API call FIRST — celebration only triggers on success
+    const result = await submitGoLive();
+
+    if (!result?.success) {
+      // submitGoLive already writes to goLiveErrors in the store,
+      // but if it returns a top-level failure we surface it here too
+      setSubmitError(
+        result?.error || "Something went wrong. Please try again.",
+      );
+      return;
+    }
+
+    // API succeeded — now show celebration
     setShowCelebration(true);
-    await submitGoLive();
   };
 
   const handleCelebrationComplete = () => {
@@ -52,8 +66,8 @@ const GoLiveStep = ({ onBack }) => {
       setDevPreview(false);
       return;
     }
+    // Real go-live — isLive is already true in the store at this point
     setShowCelebration(false);
-    // isLive should now be true from the store after submitGoLive
   };
 
   const handleDevPreview = () => {
@@ -84,13 +98,10 @@ const GoLiveStep = ({ onBack }) => {
             >
               <Check size={22} className="text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              You're Live
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-2">You're Live</h2>
             <p className="text-white/45 text-sm leading-relaxed mb-6 max-w-md">
-              Your pharmacy is now visible on the Cureli Mobile.
-              Customers in your area can discover your storefront and start
-              placing orders.
+              Your pharmacy is now visible on the Cureli Mobile. Customers in
+              your area can discover your storefront and start placing orders.
             </p>
 
             <div className="flex gap-3">
@@ -176,8 +187,8 @@ const GoLiveStep = ({ onBack }) => {
           </h2>
           <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-md">
             Once live, your storefront and all enabled branches will be visible
-            to customers on the Cureli Mobile. You can suspend or update
-            your listing at any time.
+            to customers on the Cureli Mobile. You can suspend or update your
+            listing at any time.
           </p>
 
           {/* What happens list */}
@@ -216,17 +227,14 @@ const GoLiveStep = ({ onBack }) => {
             ))}
           </div>
 
-          {/* Errors */}
+          {/* Store-level go-live errors (validation failures) */}
           {goLiveErrors.length > 0 && (
             <div
               className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
               border-red-500/20 space-y-1.5"
             >
               <div className="flex items-center gap-2">
-                <AlertCircle
-                  size={14}
-                  className="text-red-400 flex-shrink-0"
-                />
+                <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
                 <p className="text-sm font-medium text-red-400">
                   Fix the following before going live:
                 </p>
@@ -241,15 +249,27 @@ const GoLiveStep = ({ onBack }) => {
             </div>
           )}
 
+          {/* Top-level submit error (network / server failure) */}
+          {submitError && (
+            <div
+              className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
+              border-red-500/20 flex items-center gap-2"
+            >
+              <AlertCircle size={14} className="text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-400">{submitError}</p>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onBack}
+              disabled={isGoingLive}
               className="flex-1 py-2.5 rounded-xl border border-white/10
                 text-white/50 text-sm font-medium hover:border-white/20
-                hover:text-white/70 transition-all flex items-center
-                justify-center gap-2"
+                hover:text-white/70 disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all flex items-center justify-center gap-2"
             >
               <ArrowLeft size={14} /> Back
             </button>
@@ -372,7 +392,10 @@ const GoLiveStep = ({ onBack }) => {
                             )}
                           </div>
                         </div>
-                        <Check size={10} className="text-emerald-400/50 flex-shrink-0" />
+                        <Check
+                          size={10}
+                          className="text-emerald-400/50 flex-shrink-0"
+                        />
                       </div>
                     );
                   })}
@@ -381,12 +404,17 @@ const GoLiveStep = ({ onBack }) => {
             </div>
 
             {/* Reassurance */}
-            <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl
-              bg-white/[0.02] border border-white/[0.06]">
-              <ShieldCheck size={14} className="text-white/20 flex-shrink-0 mt-0.5" />
+            <div
+              className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl
+              bg-white/[0.02] border border-white/[0.06]"
+            >
+              <ShieldCheck
+                size={14}
+                className="text-white/20 flex-shrink-0 mt-0.5"
+              />
               <p className="text-[10px] text-white/25 leading-relaxed">
-                You can suspend your marketplace listing or edit any details
-                at any time from the dashboard.
+                You can suspend your marketplace listing or edit any details at
+                any time from the dashboard.
               </p>
             </div>
           </div>

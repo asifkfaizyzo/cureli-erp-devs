@@ -1083,22 +1083,23 @@ const PurchasePage = () => {
   // ============================================
   // BATCH PRODUCT IMPORT HANDLERS
   // ============================================
+  // In PurchasePage.jsx — replace ONLY handleBatchProductSave
+
   const handleBatchProductSave = useCallback(
     async (productsToSave) => {
-      setIsBatchSaving(true); // ← ADD
+      setIsBatchSaving(true);
       try {
         if (productsToSave.length > 0) {
           const productsWithLinking = productsToSave.map((product) => {
+            // Find the original import product by the name that was in the
+            // table row at import time (stored as _originalImportName)
+            const lookupName = product._originalImportName || product.name;
+
             const originalProduct = newProductsFromImport.find((imp) => {
-              const nameMatch =
+              return (
                 (imp.name || "").toLowerCase().trim() ===
-                (product.name || "").toLowerCase().trim();
-              const mfrMatch =
-                !imp.manufacturer ||
-                !product.manufacturer ||
-                (imp.manufacturer || imp.mfac || "").toLowerCase().trim() ===
-                  (product.manufacturer || "").toLowerCase().trim();
-              return nameMatch && mfrMatch;
+                (lookupName || "").toLowerCase().trim()
+              );
             });
 
             if (
@@ -1119,7 +1120,6 @@ const PurchasePage = () => {
                 },
               };
             }
-
             return product;
           });
 
@@ -1128,18 +1128,64 @@ const PurchasePage = () => {
           if (result?.created?.length > 0) {
             setRows((prev) => {
               const newRows = [...prev];
+
               result.created.forEach((createdMed) => {
-                const matchingRowIndex = newRows.findIndex(
+                // ── Find the matching row using THREE strategies, most reliable first ──
+
+                // Strategy 1: exact name match on rows that still have no medicine_id
+                let matchingRowIndex = newRows.findIndex(
                   (row) =>
                     row.name &&
                     !row.medicine_id &&
                     !row.isFreeItem &&
-                    row.name.toLowerCase() === createdMed.name.toLowerCase(),
+                    row.name.toLowerCase().trim() ===
+                      createdMed.name.toLowerCase().trim(),
                 );
+
+                // Strategy 2: the _originalImportName that was passed through
+                // (handles case where user renamed inside ProductMasterModal)
+                if (matchingRowIndex === -1) {
+                  const saved = productsToSave.find(
+                    (p) =>
+                      p.name.toLowerCase().trim() ===
+                      createdMed.name.toLowerCase().trim(),
+                  );
+                  const originalName = saved?._originalImportName;
+                  if (originalName) {
+                    matchingRowIndex = newRows.findIndex(
+                      (row) =>
+                        row.name &&
+                        !row.medicine_id &&
+                        !row.isFreeItem &&
+                        row.name.toLowerCase().trim() ===
+                          originalName.toLowerCase().trim(),
+                    );
+                  }
+                }
+
+                // Strategy 3: partial / includes match as last resort
+                if (matchingRowIndex === -1) {
+                  matchingRowIndex = newRows.findIndex(
+                    (row) =>
+                      row.name &&
+                      !row.medicine_id &&
+                      !row.isFreeItem &&
+                      (row.name
+                        .toLowerCase()
+                        .includes(createdMed.name.toLowerCase()) ||
+                        createdMed.name
+                          .toLowerCase()
+                          .includes(row.name.toLowerCase())),
+                  );
+                }
+
                 if (matchingRowIndex !== -1) {
                   newRows[matchingRowIndex] = {
                     ...newRows[matchingRowIndex],
                     medicine_id: createdMed.medicine_id,
+                    name: createdMed.name, // use the canonical DB name
+                    mfac:
+                      createdMed.manufacturer || newRows[matchingRowIndex].mfac,
                     hsn: createdMed.hsn_code || newRows[matchingRowIndex].hsn,
                     rack: createdMed.rack_no || newRows[matchingRowIndex].rack,
                     pack:
@@ -1154,21 +1200,28 @@ const PurchasePage = () => {
                   newRows[matchingRowIndex] = calculateRow(
                     newRows[matchingRowIndex],
                   );
+                } else {
+                  console.warn(
+                    "[BatchProductSave] Could not find matching row for:",
+                    createdMed.name,
+                  );
                 }
               });
+
               return newRows;
             });
           }
         }
+
         setBatchProductModalOpen(false);
         setNewProductsFromImport([]);
       } catch (error) {
         console.error("Batch product save error:", error);
       } finally {
-        setIsBatchSaving(false); // ← ADD
+        setIsBatchSaving(false);
       }
     },
-    [bulkCreateMedicines, setRows, newProductsFromImport],
+    [bulkCreateMedicines, setRows, newProductsFromImport, calculateRow],
   );
 
   const handleBatchProductSkip = useCallback(() => {

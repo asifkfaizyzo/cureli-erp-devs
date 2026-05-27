@@ -21,6 +21,7 @@ export const updateListingSchema = z
     is_visible: z.boolean().optional(),
     stock_status: z.enum(["IN_STOCK", "OUT_OF_STOCK"]).optional(),
     marketplace_price: z.number().min(0).optional(),
+    requires_prescription: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length >= 1, {
     message: "At least one field is required",
@@ -33,6 +34,7 @@ export const bulkUpdateSchema = z.object({
       is_visible: z.boolean().optional(),
       stock_status: z.enum(["IN_STOCK", "OUT_OF_STOCK"]).optional(),
       marketplace_price: z.number().min(0).optional(),
+      requires_prescription: z.boolean().optional(),
     })
     .refine((data) => Object.keys(data).length >= 1, {
       message: "At least one field in patch is required",
@@ -47,4 +49,8 @@ export const categoryVisibilitySchema = z.object({
 
 export const branchIdQuerySchema = z.object({
   branch_id: z.string().uuid().optional(),
+});
+
+export const listingIdParamSchema = z.object({
+  listing_id: z.string().uuid(),
 });

@@ -76,6 +76,28 @@ export const getListings = async (req, res) => {
   }
 };
 
+// GET /api/marketplace/listings/:listing_id/detail
+export const getListingDetail = async (req, res) => {
+  try {
+    const { listing_id } = req.params;
+    const data = await ListingsService.getListingDetail(
+      listing_id,
+      req.user.shop_id,
+      req.user
+    );
+    return success(res, data, "Listing detail retrieved");
+  } catch (error) {
+    console.error("[listings] getListingDetail error:", error);
+    const status =
+      error.message.includes("Access denied")
+        ? 403
+        : error.message.includes("not found")
+        ? 404
+        : 500;
+    return fail(res, error.message, status);
+  }
+};
+
 // PATCH /api/marketplace/listings/:listing_id
 export const updateListing = async (req, res) => {
   try {

@@ -162,6 +162,7 @@ export const useMarketplaceStore = create((set, get) => ({
       for (const bs of data.branch_settings || []) {
         savedConfigs[bs.branch_id] = {
           marketplace_enabled: bs.marketplace_enabled,
+          shop_image_url:      bs.shop_image_url || null,
           latitude: bs.latitude ? Number(bs.latitude) : null,
           longitude: bs.longitude ? Number(bs.longitude) : null,
           google_place_id: bs.google_place_id || null,
@@ -295,6 +296,7 @@ export const useMarketplaceStore = create((set, get) => ({
         ...state.branchConfigs,
         [branch_id]: {
           marketplace_enabled: false,
+          shop_image_url:      null,
           latitude: null,
           longitude: null,
           google_place_id: null,

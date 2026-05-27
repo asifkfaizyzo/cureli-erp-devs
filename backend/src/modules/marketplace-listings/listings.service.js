@@ -26,38 +26,32 @@ async function assertBranchBelongsToShop(branch_id, shop_id) {
     where: { branch_id, shop_id, is_active: true },
     select: { branch_id: true },
   });
-  if (!branch) throw new Error("Branch not found or does not belong to this shop");
+  if (!branch)
+    throw new Error("Branch not found or does not belong to this shop");
 }
 
 /**
- * Resolve the primary image URL for a master medicine variant.
- * Uses only the JSON images array on MasterMedicineVariant.
- * MasterMedicineImage links to MasterMedicine, not MasterMedicineVariant,
- * so it cannot be included in a variant select.
+ * Resolve image URL from a storage key or filename.
+ * Handles full paths and bare filenames (using sku_id to build path).
  */
 function resolveVariantImageUrl(variant) {
   if (!variant) return null;
 
   let imgs = variant.images;
-
   if (typeof imgs === "string") {
-    try { imgs = JSON.parse(imgs); } catch { imgs = []; }
+    try {
+      imgs = JSON.parse(imgs);
+    } catch {
+      imgs = [];
+    }
   }
 
   if (Array.isArray(imgs) && imgs.length > 0) {
     const first = imgs[0];
     if (!first) return null;
-
-    // Already a full storage path
-    if (first.startsWith("medicine_images/")) {
-      return resolveAssetUrl(first);
-    }
-
-    // Filename only — build path using sku_id
-    if (variant.sku_id) {
+    if (first.startsWith("medicine_images/")) return resolveAssetUrl(first);
+    if (variant.sku_id)
       return resolveAssetUrl(`medicine_images/${variant.sku_id}/${first}`);
-    }
-
     return resolveAssetUrl(first);
   }
 
@@ -119,6 +113,7 @@ export async function createListingForMedicine(
       is_visible: false,
       stock_status: "IN_STOCK",
       marketplace_price: defaultPrice,
+      requires_prescription: false,
     },
     select: { listing_id: true },
   });
@@ -343,24 +338,22 @@ async function getLinkedListings(shop_id, branch_id, filters) {
   const { page, limit, search, category, visibility, stock, sort } = filters;
   const skip = (page - 1) * limit;
 
-  // ── Base where ──────────────────────────────────────────
   const where = { shop_id, branch_id };
 
   if (visibility === "visible") where.is_visible = true;
-  if (visibility === "hidden")  where.is_visible = false;
-  if (stock === "in_stock")     where.stock_status = "IN_STOCK";
+  if (visibility === "hidden") where.is_visible = false;
+  if (stock === "in_stock") where.stock_status = "IN_STOCK";
   if (stock === "out_of_stock") where.stock_status = "OUT_OF_STOCK";
 
-  const categoryFilter =
-    category
-      ? {
-          linkedVariant: {
-            master: {
-              primary_category: { equals: category, mode: "insensitive" },
-            },
+  const categoryFilter = category
+    ? {
+        linkedVariant: {
+          master: {
+            primary_category: { equals: category, mode: "insensitive" },
           },
-        }
-      : {};
+        },
+      }
+    : {};
 
   const searchFilter =
     search.trim().length > 0
@@ -400,57 +393,48 @@ async function getLinkedListings(shop_id, branch_id, filters) {
 
   const combinedWhere = { ...where, ...categoryFilter, ...searchFilter };
 
-  // ── Order ────────────────────────────────────────────────
-  // stock_asc is handled post-query after ERP stock enrichment
   const orderByMap = {
-    name_asc:   { linkedVariant: { name: "asc" } },
-    name_desc:  { linkedVariant: { name: "desc" } },
-    price_asc:  { marketplace_price: "asc" },
+    name_asc: { linkedVariant: { name: "asc" } },
+    name_desc: { linkedVariant: { name: "desc" } },
+    price_asc: { marketplace_price: "asc" },
     price_desc: { marketplace_price: "desc" },
-    stock_asc:  { linkedVariant: { name: "asc" } },
+    stock_asc: { linkedVariant: { name: "asc" } },
   };
   const orderBy = orderByMap[sort] ?? { linkedVariant: { name: "asc" } };
 
-  // ── Include ──────────────────────────────────────────────
-  // IMPORTANT:
-  //   - Medicine model has NO selling_rate field — that is on Inventory
-  //   - MasterMedicineVariant has NO masterImages relation —
-  //     MasterMedicineImage links to MasterMedicine, not the variant
-  //   - Image resolution uses variant.images (JSON array of filenames)
   const includeClause = {
     medicine: {
       select: {
-        medicine_id:  true,
-        name:         true,
+        medicine_id: true,
+        name: true,
         manufacturer: true,
       },
     },
     linkedVariant: {
       select: {
-        variant_id:    true,
-        sku_id:        true,
-        name:          true,
-        brand:         true,
-        pack_size:     true,
-        manufacturer:  true,
+        variant_id: true,
+        sku_id: true,
+        name: true,
+        brand: true,
+        pack_size: true,
+        manufacturer: true,
         selling_price: true,
-        images:        true,
+        images: true,
         master: {
           select: {
             master_medicine_id: true,
-            generic_name:       true,
-            primary_category:   true,
-            form:               true,
+            generic_name: true,
+            primary_category: true,
+            form: true,
           },
         },
       },
     },
   };
 
-  // ── Query ────────────────────────────────────────────────
   const [rawListings, total] = await Promise.all([
     prisma.marketplaceListing.findMany({
-      where:   combinedWhere,
+      where: combinedWhere,
       include: includeClause,
       orderBy,
       skip,
@@ -459,44 +443,34 @@ async function getLinkedListings(shop_id, branch_id, filters) {
     prisma.marketplaceListing.count({ where: combinedWhere }),
   ]);
 
-  // ── Enrich with ERP stock ────────────────────────────────
   const enriched = await Promise.all(
     rawListings.map(async (listing) => {
       const erpStock = await getErpStock(listing.medicine_id, branch_id);
       const imageUrl = resolveVariantImageUrl(listing.linkedVariant);
 
       return {
-        listing_id:       listing.listing_id,
-        medicine_id:      listing.medicine_id,
-        branch_id:        listing.branch_id,
+        listing_id: listing.listing_id,
+        medicine_id: listing.medicine_id,
+        branch_id: listing.branch_id,
 
-        // Catalog identity — falls back to ERP name if variant missing
-        catalog_name:
-          listing.linkedVariant?.name ?? listing.medicine.name,
-        brand:
-          listing.linkedVariant?.brand ?? null,
-        generic_name:
-          listing.linkedVariant?.master?.generic_name ?? null,
+        catalog_name: listing.linkedVariant?.name ?? listing.medicine.name,
+        brand: listing.linkedVariant?.brand ?? null,
+        generic_name: listing.linkedVariant?.master?.generic_name ?? null,
         primary_category:
           listing.linkedVariant?.master?.primary_category ?? null,
-        pack_size:
-          listing.linkedVariant?.pack_size ?? null,
-        form:
-          listing.linkedVariant?.master?.form ?? null,
+        pack_size: listing.linkedVariant?.pack_size ?? null,
+        form: listing.linkedVariant?.master?.form ?? null,
         manufacturer:
           listing.linkedVariant?.manufacturer ?? listing.medicine.manufacturer,
         image_url: imageUrl,
 
-        // ERP identity
         erp_name: listing.medicine.name,
-
-        // ERP stock
-        erp_stock:    erpStock,
+        erp_stock: erpStock,
         is_low_stock: erpStock > 0 && erpStock <= LOW_STOCK_THRESHOLD,
 
-        // Marketplace controls
-        is_visible:        listing.is_visible,
-        stock_status:      listing.stock_status,
+        is_visible: listing.is_visible,
+        stock_status: listing.stock_status,
+        requires_prescription: listing.requires_prescription,
         marketplace_price:
           listing.marketplace_price != null
             ? Number(listing.marketplace_price)
@@ -513,8 +487,8 @@ async function getLinkedListings(shop_id, branch_id, filters) {
     items: enriched,
     meta: {
       total,
-      page:        Number(page),
-      limit:       Number(limit),
+      page: Number(page),
+      limit: Number(limit),
       total_pages: Math.ceil(total / Number(limit)),
     },
   };
@@ -546,11 +520,11 @@ async function getUnlinkedMedicines(shop_id, branch_id, filters) {
     prisma.medicine.findMany({
       where,
       select: {
-        medicine_id:  true,
-        name:         true,
+        medicine_id: true,
+        name: true,
         manufacturer: true,
-        link_status:  true,
-        category:     true,
+        link_status: true,
+        category: true,
       },
       orderBy: { name: "asc" },
       skip,
@@ -563,11 +537,11 @@ async function getUnlinkedMedicines(shop_id, branch_id, filters) {
     medicines.map(async (m) => {
       const erpStock = await getErpStock(m.medicine_id, branch_id);
       return {
-        medicine_id:  m.medicine_id,
-        erp_name:     m.name,
+        medicine_id: m.medicine_id,
+        erp_name: m.name,
         manufacturer: m.manufacturer,
-        link_status:  m.link_status,
-        erp_stock:    erpStock,
+        link_status: m.link_status,
+        erp_stock: erpStock,
       };
     })
   );
@@ -576,10 +550,250 @@ async function getUnlinkedMedicines(shop_id, branch_id, filters) {
     items: enriched,
     meta: {
       total,
-      page:        Number(page),
-      limit:       Number(limit),
+      page: Number(page),
+      limit: Number(limit),
       total_pages: Math.ceil(total / Number(limit)),
     },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET LISTING DETAIL — lazy loaded when drawer opens
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getListingDetail(listing_id, shop_id, caller) {
+  // Fetch the listing with all relations
+  const listing = await prisma.marketplaceListing.findUnique({
+    where: { listing_id },
+    include: {
+      medicine: {
+        select: {
+          medicine_id: true,
+          name: true,
+          generic_name: true,
+          manufacturer: true,
+          category: true,
+          sub_category: true,
+          schedule: true,
+          hsn_code: true,
+          pack_size: true,
+          unit_of_measure: true,
+          gst_percentage: true,
+          cgst_percentage: true,
+          sgst_percentage: true,
+          rack_no: true,
+          link_status: true,
+          linked_at: true,
+          linked_by_type: true,
+          link_confidence_score: true,
+        },
+      },
+      linkedVariant: {
+        select: {
+          variant_id: true,
+          sku_id: true,
+          name: true,
+          brand: true,
+          pack_size: true,
+          manufacturer: true,
+          marketer: true,
+          selling_price: true,
+          mrp: true,
+          strength_value: true,
+          strength_unit: true,
+          composition: true,
+          description: true,
+          images: true,
+          master: {
+            select: {
+              master_medicine_id: true,
+              master_key: true,
+              generic_name: true,
+              primary_category: true,
+              form: true,
+              type: true,
+              composition: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!listing) throw new Error("Listing not found");
+  if (listing.shop_id !== shop_id) throw new Error("Listing not found");
+
+  // Branch access check for non-SA
+  if (
+    caller.role !== "super_admin" &&
+    listing.branch_id !== caller.branch_id
+  ) {
+    throw new Error("Access denied to this listing");
+  }
+
+  // Fetch all images from MasterMedicineImage table using sku_id
+  // This is the proper source — ordered PRIMARY first then GALLERY
+  const variantImages = listing.linkedVariant?.sku_id
+    ? await prisma.masterMedicineImage.findMany({
+        where: { sku_id: listing.linkedVariant.sku_id },
+        orderBy: [{ type: "asc" }, { sequence: "asc" }],
+        select: {
+          image_id: true,
+          url: true,
+          type: true,
+          sequence: true,
+          source: true,
+        },
+      })
+    : [];
+
+  // Resolve all image URLs
+  const resolvedImages = variantImages.map((img) => ({
+    image_id: img.image_id,
+    url: resolveAssetUrl(img.url),
+    type: img.type,
+    sequence: img.sequence,
+    source: img.source,
+  }));
+
+  // If no images in MasterMedicineImage table, fall back to variant JSON array
+  let allImages = resolvedImages;
+  if (allImages.length === 0 && listing.linkedVariant?.images) {
+    let imgs = listing.linkedVariant.images;
+    if (typeof imgs === "string") {
+      try {
+        imgs = JSON.parse(imgs);
+      } catch {
+        imgs = [];
+      }
+    }
+    if (Array.isArray(imgs)) {
+      allImages = imgs
+        .filter(Boolean)
+        .map((filename, index) => {
+          const key = filename.startsWith("medicine_images/")
+            ? filename
+            : `medicine_images/${listing.linkedVariant.sku_id}/${filename}`;
+          return {
+            image_id: `json_${index}`,
+            url: resolveAssetUrl(key),
+            type: index === 0 ? "PRIMARY" : "GALLERY",
+            sequence: index,
+            source: "SCRAPED",
+          };
+        });
+    }
+  }
+
+  // Get ERP stock
+  const erpStock = await getErpStock(listing.medicine_id, listing.branch_id);
+
+  // Get inventory batches for additional context
+  const inventoryBatches = await prisma.inventory.findMany({
+    where: {
+      medicine_id: listing.medicine_id,
+      branch_id: listing.branch_id,
+      is_active: true,
+      is_expired: false,
+    },
+    select: {
+      batch_number: true,
+      expiry_date: true,
+      available_stock: true,
+      selling_rate: true,
+      mrp: true,
+    },
+    orderBy: { expiry_date: "asc" },
+    take: 5,
+  });
+
+  const variant = listing.linkedVariant;
+  const medicine = listing.medicine;
+
+  return {
+    // ── Listing controls ──
+    listing_id: listing.listing_id,
+    medicine_id: listing.medicine_id,
+    branch_id: listing.branch_id,
+    is_visible: listing.is_visible,
+    stock_status: listing.stock_status,
+    marketplace_price:
+      listing.marketplace_price != null
+        ? Number(listing.marketplace_price)
+        : null,
+    requires_prescription: listing.requires_prescription,
+    created_at: listing.created_at,
+    updated_at: listing.updated_at,
+
+    // ── Catalog identity ──
+    catalog: {
+      variant_id: variant?.variant_id ?? null,
+      sku_id: variant?.sku_id ?? null,
+      catalog_name: variant?.name ?? medicine.name,
+      brand: variant?.brand ?? null,
+      generic_name: variant?.master?.generic_name ?? null,
+      primary_category: variant?.master?.primary_category ?? null,
+      form: variant?.master?.form ?? null,
+      type: variant?.master?.type ?? null,
+      pack_size: variant?.pack_size ?? null,
+      manufacturer: variant?.manufacturer ?? medicine.manufacturer,
+      marketer: variant?.marketer ?? null,
+      strength:
+        variant?.strength_value != null
+          ? `${variant.strength_value}${variant.strength_unit ?? ""}`
+          : null,
+      composition: variant?.composition ?? variant?.master?.composition ?? null,
+      description: variant?.description ?? null,
+      catalog_mrp: variant?.mrp ? Number(variant.mrp) : null,
+      catalog_selling_price: variant?.selling_price
+        ? Number(variant.selling_price)
+        : null,
+      master_medicine_id: variant?.master?.master_medicine_id ?? null,
+      master_key: variant?.master?.master_key ?? null,
+    },
+
+    // ── All images ──
+    images: allImages,
+
+    // ── ERP medicine details ──
+    erp: {
+      erp_name: medicine.name,
+      generic_name: medicine.generic_name ?? null,
+      manufacturer: medicine.manufacturer,
+      category: medicine.category ?? null,
+      sub_category: medicine.sub_category ?? null,
+      schedule: medicine.schedule ?? null,
+      hsn_code: medicine.hsn_code ?? null,
+      pack_size: medicine.pack_size ?? null,
+      unit_of_measure: medicine.unit_of_measure,
+      gst_percentage: medicine.gst_percentage
+        ? Number(medicine.gst_percentage)
+        : null,
+      cgst_percentage: medicine.cgst_percentage
+        ? Number(medicine.cgst_percentage)
+        : null,
+      sgst_percentage: medicine.sgst_percentage
+        ? Number(medicine.sgst_percentage)
+        : null,
+      rack_no: medicine.rack_no ?? null,
+      link_status: medicine.link_status,
+      linked_at: medicine.linked_at,
+      linked_by_type: medicine.linked_by_type,
+      link_confidence_score: medicine.link_confidence_score
+        ? Number(medicine.link_confidence_score)
+        : null,
+    },
+
+    // ── ERP stock ──
+    erp_stock: erpStock,
+    is_low_stock: erpStock > 0 && erpStock <= LOW_STOCK_THRESHOLD,
+    inventory_batches: inventoryBatches.map((b) => ({
+      batch_number: b.batch_number,
+      expiry_date: b.expiry_date,
+      available_stock: Number(b.available_stock),
+      selling_rate: b.selling_rate ? Number(b.selling_rate) : null,
+      mrp: b.mrp ? Number(b.mrp) : null,
+    })),
   };
 }
 
@@ -612,6 +826,8 @@ export async function updateListing(shop_id, listing_id, patch, caller) {
     allowedPatch.is_visible = patch.is_visible;
   if (patch.stock_status !== undefined)
     allowedPatch.stock_status = patch.stock_status;
+  if (patch.requires_prescription !== undefined)
+    allowedPatch.requires_prescription = patch.requires_prescription;
   if (patch.marketplace_price !== undefined) {
     const price = Number(patch.marketplace_price);
     if (isNaN(price) || price < 0) throw new Error("Invalid marketplace_price");
@@ -626,11 +842,12 @@ export async function updateListing(shop_id, listing_id, patch, caller) {
     where: { listing_id },
     data: allowedPatch,
     select: {
-      listing_id:        true,
-      is_visible:        true,
-      stock_status:      true,
+      listing_id: true,
+      is_visible: true,
+      stock_status: true,
+      requires_prescription: true,
       marketplace_price: true,
-      updated_at:        true,
+      updated_at: true,
     },
   });
 
@@ -678,6 +895,8 @@ export async function bulkUpdateListings(shop_id, listing_ids, patch, caller) {
     allowedPatch.is_visible = patch.is_visible;
   if (patch.stock_status !== undefined)
     allowedPatch.stock_status = patch.stock_status;
+  if (patch.requires_prescription !== undefined)
+    allowedPatch.requires_prescription = patch.requires_prescription;
   if (patch.marketplace_price !== undefined) {
     const price = Number(patch.marketplace_price);
     if (isNaN(price) || price < 0) throw new Error("Invalid marketplace_price");
@@ -711,8 +930,8 @@ export async function syncInventory(shop_id, branch_id, caller) {
   const listings = await prisma.marketplaceListing.findMany({
     where: { shop_id, branch_id: effectiveBranchId },
     select: {
-      listing_id:   true,
-      medicine_id:  true,
+      listing_id: true,
+      medicine_id: true,
       stock_status: true,
     },
   });
@@ -753,9 +972,9 @@ export async function syncInventory(shop_id, branch_id, caller) {
       link_status: { in: ["AUTO_LINKED", "MANUAL_LINKED"] },
     },
     select: {
-      medicine_id:       true,
-      branch_id:         true,
-      shop_id:           true,
+      medicine_id: true,
+      branch_id: true,
+      shop_id: true,
       linked_variant_id: true,
     },
   });
@@ -777,8 +996,8 @@ export async function syncInventory(shop_id, branch_id, caller) {
 
   return {
     flipped_to_out_of_stock: flippedToOutOfStock,
-    flipped_to_in_stock:     flippedToInStock,
-    new_listings_created:    newListingsCreated,
-    total_listings:          listings.length + newListingsCreated,
+    flipped_to_in_stock: flippedToInStock,
+    new_listings_created: newListingsCreated,
+    total_listings: listings.length + newListingsCreated,
   };
 }

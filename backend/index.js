@@ -205,7 +205,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/marketplace", listingsRoutes);  
+app.use("/api/marketplace-listing", listingsRoutes);  
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);
