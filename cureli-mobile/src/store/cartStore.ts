@@ -188,14 +188,26 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   },
 
   // ── Decrement quantity ────────────────────────────────────
+  // FIX: Allow quantity to reach 0, then filter out the item.
+  // Previously had `i.quantity > 1` guard which prevented removal.
+  //
+  // Behavior:
+  //   quantity 3 → tap − → quantity 2  (stepper stays)
+  //   quantity 2 → tap − → quantity 1  (stepper stays)
+  //   quantity 1 → tap − → quantity 0  → item REMOVED from cart
+  //                                     → UI reverts to plain "ADD" button
 
   decrementItem: (variantId) => {
     const { items, currentUserId } = get();
-    const updated = items.map((i) =>
-      i.variantId === variantId && i.quantity > 1
-        ? { ...i, quantity: i.quantity - 1 }
-        : i,
-    );
+
+    const updated = items
+      .map((i) =>
+        i.variantId === variantId
+          ? { ...i, quantity: i.quantity - 1 }
+          : i,
+      )
+      .filter((i) => i.quantity > 0); // ← removes item when quantity hits 0
+
     persist(currentUserId, updated);
     set({ items: updated, cartCount: deriveCount(updated) });
   },
