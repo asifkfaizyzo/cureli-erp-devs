@@ -43,7 +43,7 @@ const MarketplaceListingsPage = () => {
               onClick={page.onRefresh}
               disabled={page.isListingsLoading}
             />
-            <HeaderButton icon={Download} label="Export" onClick={() => {}} />
+            
             <button
               onClick={page.onSyncInventory}
               disabled={page.isSyncing || !page.selectedBranch}

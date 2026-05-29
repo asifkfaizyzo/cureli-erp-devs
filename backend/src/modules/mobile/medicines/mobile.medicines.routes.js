@@ -3,23 +3,23 @@
 // PUBLIC mobile medicine discovery routes.
 //
 // IMPORTANT: Unlike mobile.users.routes.js, this router does NOT apply
-// `mobileAuth`. Medicine discovery is public for the showcase build — a
-// logged-out user can browse the catalog. (The /mobile mount in index.js
-// still applies mobileLimiter at the app level, so these stay rate-limited.)
+// mobileAuth. Medicine discovery is public for the showcase build — a
+// logged-out user can browse the catalog. The /mobile mount in index.js
+// still applies mobileLimiter at the app level, so these stay rate-limited.
 //
-// NOTE ON VALIDATION: your existing `validate` middleware is only ever used
-// to validate req.body (see mobile.users.routes.js). These endpoints validate
-// QUERY and PARAMS instead, so rather than assume validate() supports a
-// target argument, the controllers parse req.query / req.params directly with
-// the zod schemas. This keeps the module self-contained and avoids coupling
-// to validate()'s internal behaviour.
+// ROUTE ORDERING IS CRITICAL.
+// Express matches routes in declaration order. Static paths must be
+// declared before dynamic paths that would otherwise capture them.
 //
-// Route ordering: the static "/medicines/categories" path MUST be declared
-// before the dynamic "/medicines/:variantId", otherwise "categories" would
-// be captured as a variantId.
+// Correct order:
+//   1. /medicines/feed        — static, must be before /:variantId
+//   2. /medicines/categories  — static, must be before /:variantId
+//   3. /medicines             — no param segment, safe anywhere
+//   4. /medicines/:variantId  — dynamic, must be last
 
 import { Router } from "express";
 import {
+  handleGetFeed,
   handleListMedicines,
   handleListCategories,
   handleGetMedicine,
@@ -28,9 +28,10 @@ import {
 const router = Router();
 
 // ── Static routes first ───────────────────────────────────────
+router.get("/medicines/feed", handleGetFeed);
 router.get("/medicines/categories", handleListCategories);
 
-// ── Feed ──────────────────────────────────────────────────────
+// ── Paginated catalog (CategoryScreen) ───────────────────────
 router.get("/medicines", handleListMedicines);
 
 // ── Dynamic single variant (must be last) ─────────────────────

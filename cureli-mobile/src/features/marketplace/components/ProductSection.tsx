@@ -1,15 +1,31 @@
 // src/features/marketplace/components/ProductSection.tsx
 //
-// One horizontal product rail per marketplace category.
-// Spacing.lg bottom padding between sections.
-// Skeleton cards match the fixed 200px card height.
+// One horizontal product rail per home feed section.
+//
+// PHASE 3 CHANGE: ProductSection is now a pure rendering component.
+// It no longer fetches its own data. The home feed is assembled by
+// useHomeFeed() in HomeScreen and passed down as props.
+//
+// Why this change:
+//   The previous design called useMedicineFeed() internally, meaning
+//   HomeScreen fired one API request per category on every mount
+//   (10 categories = 10 simultaneous requests). The new design fetches
+//   all sections in a single GET /mobile/medicines/feed request via
+//   useHomeFeed(), then passes the pre-fetched medicines here.
+//
+// ProductCard is unchanged — it still receives EnrichedMedicine exactly
+// as before. The enrichment (generateMarketplaceData) now happens in
+// useHomeFeed() rather than useMedicineFeed(), but the card is unaware
+// of where the data came from.
+//
+// CategoryScreen is unaffected — it uses useMedicineFeed() directly
+// with its own FlatList and does not use ProductSection at all.
 
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
   FlatList,
-  ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
   TouchableOpacity,
@@ -25,7 +41,6 @@ import { Radius } from "../../../theme/radius";
 import { SectionHeader } from "./SectionHeader";
 import { ProductCard } from "./ProductCard";
 
-import { useMedicineFeed } from "../hooks/useMedicineFeed";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
 // ── Constants ─────────────────────────────────────────────────
@@ -37,7 +52,10 @@ const IMAGE_HEIGHT = 120;
 
 interface ProductSectionProps {
   title: string;
-  categoryKey: string;
+  medicines: EnrichedMedicine[];
+  isLoading: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
 // ── Skeleton ──────────────────────────────────────────────────
@@ -100,38 +118,23 @@ function ProductSkeletonCard({ width }: { width: number }) {
 
 // ── Component ─────────────────────────────────────────────────
 
-function ProductSectionBase({ title, categoryKey }: ProductSectionProps) {
+function ProductSectionBase({
+  title,
+  medicines,
+  isLoading,
+  isError = false,
+  onRetry,
+}: ProductSectionProps) {
   const { colors } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
 
   // ~3 cards visible in viewport.
-  const cardWidth = useMemo(() => {
-    const totalPadding = Spacing.base * 2;
-    const gaps = Spacing.sm * 2;
-    return Math.floor((screenWidth - totalPadding - gaps) / 3);
-  }, [screenWidth]);
-
-  const {
-    medicines,
-    isLoading,
-    isError,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useMedicineFeed({
-    category: categoryKey,
-  });
+  const cardWidth =
+    Math.floor((screenWidth - Spacing.base * 2 - Spacing.sm * 2) / 3);
 
   const handlePressProduct = useCallback((medicine: EnrichedMedicine) => {
     router.push(`/product/${medicine.skuId}` as any);
   }, []);
-
-  const handleEndReached = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const keyExtractor = useCallback(
     (item: EnrichedMedicine) => item.variantId,
@@ -149,25 +152,28 @@ function ProductSectionBase({ title, categoryKey }: ProductSectionProps) {
     [cardWidth, handlePressProduct],
   );
 
-  // Don't render section if empty after load.
-  if (!isLoading && !isError && medicines.length === 0) {
-    return null;
-  }
-
-  return (
-    <View style={styles.section}>
-      <SectionHeader title={title} />
-
-      {isLoading ? (
+  // ── Loading state ──────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <View style={styles.section}>
+        <SectionHeader title={title} />
         <View style={styles.loadingRow}>
           <ProductSkeletonCard width={cardWidth} />
           <ProductSkeletonCard width={cardWidth} />
           <ProductSkeletonCard width={cardWidth} />
         </View>
-      ) : isError ? (
+      </View>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────
+  if (isError) {
+    return (
+      <View style={styles.section}>
+        <SectionHeader title={title} />
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => refetch()}
+          onPress={onRetry}
           style={[
             styles.errorBox,
             {
@@ -188,31 +194,32 @@ function ProductSectionBase({ title, categoryKey }: ProductSectionProps) {
             Tap to retry
           </Text>
         </TouchableOpacity>
-      ) : (
-        <FlatList
-          horizontal
-          data={medicines}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={() => <View style={{ width: Spacing.sm }} />}
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.6}
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator
-                  size="small"
-                  color={colors.brand.primary}
-                />
-              </View>
-            ) : (
-              <View style={styles.footerSpacer} />
-            )
-          }
-        />
-      )}
+      </View>
+    );
+  }
+
+  // ── Empty state — render nothing ───────────────────────────
+  // useHomeFeed only includes sections with results, so this
+  // should not occur in practice. Guard is here for safety.
+  if (medicines.length === 0) {
+    return null;
+  }
+
+  // ── Medicines list ─────────────────────────────────────────
+  return (
+    <View style={styles.section}>
+      <SectionHeader title={title} />
+      <FlatList
+        horizontal
+        data={medicines}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={{ width: Spacing.sm }} />}
+        // The home rail shows 8 items and does not paginate.
+        // Infinite scroll lives in CategoryScreen, not here.
+      />
     </View>
   );
 }
@@ -221,7 +228,7 @@ function ProductSectionBase({ title, categoryKey }: ProductSectionProps) {
 
 const styles = StyleSheet.create({
   section: {
-    marginBottom: Spacing.lg, // Bottom padding between sections
+    marginBottom: Spacing.lg,
   },
   listContent: {
     paddingLeft: Spacing.base,
@@ -266,14 +273,13 @@ const styles = StyleSheet.create({
   retryText: {
     ...Typography.bodyMedium,
   },
-  footerLoader: {
-    width: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  footerSpacer: {
-    width: Spacing.sm,
-  },
 });
 
-export const ProductSection = React.memo(ProductSectionBase);
+export const ProductSection = React.memo(
+  ProductSectionBase,
+  (prev, next) =>
+    prev.title === next.title &&
+    prev.isLoading === next.isLoading &&
+    prev.isError === next.isError &&
+    prev.medicines === next.medicines,
+);
