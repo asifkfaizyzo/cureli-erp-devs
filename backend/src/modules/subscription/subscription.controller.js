@@ -81,6 +81,15 @@ export async function selectPlanController(req, res) {
       );
     }
 
+    // Get the plan first — needed for graceful recovery check below
+    const plan = await getActivePlan(plan_id);
+
+    // Check if effectively free (needed before the existing subscription check)
+    const isPriceZero = Number(plan.price) === 0;
+    const isPromoActive =
+      plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
+    const isEffectivelyFree = isPriceZero || isPromoActive;
+
     // Check if shop already has active subscription
     const existingSubscription = await prisma.shopSubscription.findFirst({
       where: {
@@ -92,22 +101,34 @@ export async function selectPlanController(req, res) {
     });
 
     if (existingSubscription) {
+      // ── GRACEFUL RECOVERY ─────────────────────────────────────────────
+      // Condition: selecting a free plan AND existing active subscription
+      // is the same plan AND that subscription is also free/promo.
+      // This handles the orphaned-retry case where createFreeSubscription
+      // succeeded but the controller crashed before returning a response.
+      if (isEffectivelyFree && existingSubscription.plan_id === plan_id) {
+        const existingPlan = await getActivePlan(existingSubscription.plan_id);
+        const existingIsFree =
+          Number(existingPlan.price) === 0 ||
+          (existingPlan.promo_free_until &&
+            new Date(existingPlan.promo_free_until) > new Date());
+
+        if (existingIsFree) {
+          return success(
+            res,
+            { is_free: true },
+            "Subscription already active. Proceeding to setup.",
+          );
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       return fail(res, "You already have an active subscription", 400);
     }
 
-    // Get the plan
-    const plan = await getActivePlan(plan_id);
-
-    // Get user details for Razorpay prefill
+    // Get user details for Razorpay prefill (paid plans only, but fetch once)
     const user = await getUserDetails(user_id);
 
-    // Check if plan is effectively free (price = 0 OR promo active)
-    const isPriceZero = Number(plan.price) === 0;
-    const isPromoActive =
-      plan.promo_free_until && new Date(plan.promo_free_until) > new Date();
-    const isEffectivelyFree = isPriceZero || isPromoActive;
-
-    //  Extract audit context (IP, user agent)
     const auditContext = audit.extractRequestContext(req);
 
     if (isEffectivelyFree) {
@@ -115,10 +136,10 @@ export async function selectPlanController(req, res) {
       const subscription = await createFreeSubscription({
         shop_id,
         plan,
-        user_id: req.user.user_id,
+        user_id,
         user_role: req.user.role,
         isPromoApplied: isPromoActive && !isPriceZero,
-        auditContext, //  Pass audit context
+        auditContext,
       });
 
       const message =
@@ -126,41 +147,7 @@ export async function selectPlanController(req, res) {
           ? "Promo plan activated! Enjoy free access until the promo period ends."
           : "Free plan activated successfully!";
 
-      return success(
-        res,
-        {
-          is_free: false,
-          // Whether intro pricing was applied to this charge
-          is_intro_charge: orderData.is_intro_charge || false,
-          subscription_id: orderData.subscription.subscription_id,
-          razorpay: {
-            key: orderData.razorpay_key,
-            order_id: orderData.razorpay_order_id,
-            amount: orderData.amount, // paisa - what Razorpay charges
-            currency: orderData.currency,
-            name: "Cureli ERP",
-            description: orderData.is_intro_charge
-              ? `${plan.name} - Intro Period`
-              : `${plan.name} - Annual Subscription`,
-            prefill: {
-              name: orderData.user_name || "",
-              email: orderData.user_email || "",
-              contact: orderData.user_phone || "",
-            },
-          },
-          plan: {
-            plan_id: plan.plan_id,
-            name: plan.name,
-            price: Number(plan.price), // regular price (for display)
-            intro_price: plan.intro_price ? Number(plan.intro_price) : null,
-            intro_trigger_type: plan.intro_trigger_type || null,
-            intro_duration_years: plan.intro_duration_years || null,
-            intro_end_date: plan.intro_end_date || null,
-            is_intro_active: orderData.is_intro_charge || false,
-          },
-        },
-        "Payment order created",
-      );
+      return success(res, { is_free: true }, message);
     }
 
     // PAID PLAN - Create Razorpay order
@@ -170,14 +157,17 @@ export async function selectPlanController(req, res) {
       res,
       {
         is_free: false,
+        is_intro_charge: orderData.is_intro_charge || false,
         subscription_id: orderData.subscription.subscription_id,
         razorpay: {
           key: orderData.razorpay_key,
           order_id: orderData.razorpay_order_id,
-          amount: orderData.amount, // In paisa for Razorpay SDK
+          amount: orderData.amount,
           currency: orderData.currency,
           name: "Cureli ERP",
-          description: `${plan.name} - Annual Subscription`,
+          description: orderData.is_intro_charge
+            ? `${plan.name} - Intro Period`
+            : `${plan.name} - Annual Subscription`,
           prefill: {
             name: orderData.user_name || "",
             email: orderData.user_email || "",
@@ -187,7 +177,12 @@ export async function selectPlanController(req, res) {
         plan: {
           plan_id: plan.plan_id,
           name: plan.name,
-          price: Number(plan.price), // In rupees for display
+          price: Number(plan.price),
+          intro_price: plan.intro_price ? Number(plan.intro_price) : null,
+          intro_trigger_type: plan.intro_trigger_type || null,
+          intro_duration_years: plan.intro_duration_years || null,
+          intro_end_date: plan.intro_end_date || null,
+          is_intro_active: orderData.is_intro_charge || false,
         },
       },
       "Payment order created",
@@ -391,7 +386,6 @@ export async function getMySubscription(req, res) {
       });
 
       sub.grace_period_until = gracePeriodUntil;
-      
     }
 
     const isValid =

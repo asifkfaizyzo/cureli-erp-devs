@@ -132,10 +132,14 @@ const MarketplaceListingsPage = () => {
       <ListingDetailsDrawer
         open={page.drawerOpen}
         listing={page.drawerListing}
+        detail={page.drawerDetail}
+        isDetailLoading={page.isDrawerDetailLoading}
+        detailError={page.drawerDetailError}
         onClose={page.onCloseDrawer}
         onToggleVisibility={page.onToggleVisibility}
         onSetStockStatus={page.onSetStockStatus}
         onSetPrice={page.onSetPrice}
+        onTogglePrescription={page.onTogglePrescription}
         isUpdating={
           page.drawerListing
             ? page.updatingIds.has(page.drawerListing.listing_id)

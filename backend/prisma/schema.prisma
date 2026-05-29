@@ -1773,6 +1773,7 @@ model BranchMarketplaceSettings {
   marketplace_profile_id String   @db.Uuid
 
   marketplace_enabled    Boolean  @default(false)
+  shop_image_url         String?  @db.VarChar(500)
 
   // Geolocation
   latitude               Decimal? @db.Decimal(10, 8)
@@ -1803,23 +1804,24 @@ model BranchMarketplaceSettings {
 }
 
 model MarketplaceListing {
-  listing_id          String                 @id @default(uuid()) @db.Uuid
-  shop_id             String                 @db.Uuid
-  branch_id           String                 @db.Uuid
-  medicine_id         String                 @db.Uuid
-  linked_variant_id   String                 @db.Uuid
+  listing_id            String                 @id @default(uuid()) @db.Uuid
+  shop_id               String                 @db.Uuid
+  branch_id             String                 @db.Uuid
+  medicine_id           String                 @db.Uuid
+  linked_variant_id     String                 @db.Uuid
 
-  is_visible          Boolean                @default(false)
-  stock_status        MarketplaceStockStatus @default(IN_STOCK)
-  marketplace_price   Decimal?               @db.Decimal(10, 2)
+  is_visible            Boolean                @default(false)
+  stock_status          MarketplaceStockStatus @default(IN_STOCK)
+  marketplace_price     Decimal?               @db.Decimal(10, 2)
+  requires_prescription Boolean                @default(false)   // ← ADD THIS
 
-  created_at          DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime               @updatedAt @db.Timestamptz(6)
+  created_at            DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime               @updatedAt @db.Timestamptz(6)
 
-  shop                Shop                   @relation("ShopMarketplaceListings", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  branch              Branch                 @relation("BranchMarketplaceListings", fields: [branch_id], references: [branch_id], onDelete: Cascade)
-  medicine            Medicine               @relation("MedicineMarketplaceListing", fields: [medicine_id], references: [medicine_id], onDelete: Cascade)
-  linkedVariant       MasterMedicineVariant  @relation("VariantMarketplaceListings", fields: [linked_variant_id], references: [variant_id])
+  shop                  Shop                   @relation("ShopMarketplaceListings", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch                Branch                 @relation("BranchMarketplaceListings", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  medicine              Medicine               @relation("MedicineMarketplaceListing", fields: [medicine_id], references: [medicine_id], onDelete: Cascade)
+  linkedVariant         MasterMedicineVariant  @relation("VariantMarketplaceListings", fields: [linked_variant_id], references: [variant_id])
 
   @@unique([medicine_id, branch_id])
   @@index([shop_id, branch_id])

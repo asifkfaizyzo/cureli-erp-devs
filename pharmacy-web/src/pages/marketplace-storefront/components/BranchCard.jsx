@@ -4,19 +4,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Building2, MapPin, Shield, ShoppingBag, Truck, Clock,
   Phone, AlertCircle, PlusCircle, Settings, Edit3, Loader2,
+  ImageIcon,
 } from "lucide-react";
 import Toggle from "./primitives/Toggle";
+
+const resolveImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${import.meta.env.VITE_API_URL}${url}`;
+};
 
 const BranchCard = ({ branch, canManage, isToggling, onToggle, onEdit }) => {
   const isConfigured = branch.is_configured;
 
-  // ── Toggle intercept ──────────────────────────────────────────
-  // Toggling ON an unconfigured branch would fail backend validation
-  // (location required when marketplace_enabled = true).
-  // Instead, open the configure modal so the user sets location first.
   const handleToggle = (newValue) => {
     if (newValue && !isConfigured) {
-      // Branch has no settings record yet — must configure first
       onEdit(branch);
       return;
     }
@@ -117,6 +119,28 @@ const BranchCard = ({ branch, canManage, isToggling, onToggle, onEdit }) => {
               {/* Configured + Enabled Content */}
               {isConfigured && branch.marketplace_enabled && (
                 <>
+                  {/* ── Branch Image ──────────────────────────── */}
+                  {branch.shop_image_url && (
+                    <div className="rounded-lg overflow-hidden border border-white/[0.06]">
+                      <div className="relative w-full h-32">
+                        <img
+                          src={resolveImageUrl(branch.shop_image_url)}
+                          alt={`${branch.branch_name} storefront`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        {/* Subtle gradient overlay at bottom for readability */}
+                        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/30 to-transparent" />
+                        {/* Image label */}
+                        <div className="absolute bottom-1.5 left-2 flex items-center gap-1">
+                          <ImageIcon size={9} className="text-white/50" />
+                          <span className="text-[9px] text-white/50 font-medium">
+                            Branch photo
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Address */}
                   {branch.formatted_address ? (
                     <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]">

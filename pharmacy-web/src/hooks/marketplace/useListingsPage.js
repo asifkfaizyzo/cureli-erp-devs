@@ -1,20 +1,18 @@
 // src/hooks/marketplace/useListingsPage.js
+// Full file — replace entirely
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getBranchSummary,
   getCategories,
   getListings,
+  getListingDetail as apiGetListingDetail,
   updateListing as apiUpdateListing,
   bulkUpdateListings as apiBulkUpdate,
   syncInventory as apiSyncInventory,
   updateCategoryVisibility as apiUpdateCategory,
 } from "../../api/listings";
 import { useAuthStore } from "../../store/useAuthStore";
-
-// ─────────────────────────────────────────────
-// DEBOUNCE HOOK
-// ─────────────────────────────────────────────
 
 function useDebounce(value, delay = 350) {
   const [debounced, setDebounced] = useState(value);
@@ -25,25 +23,21 @@ function useDebounce(value, delay = 350) {
   return debounced;
 }
 
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
-
 export function useListingsPage() {
   const user = useAuthStore((s) => s.user);
   const isSuperAdmin = user?.role === "super_admin";
 
-  // ── Branch state ──────────────────────────────────────────
+  // ── Branch ────────────────────────────────────────────────
   const [branchSummaries, setBranchSummaries] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState(null);
 
-  // ── Category state ────────────────────────────────────────
+  // ── Categories ────────────────────────────────────────────
   const [categories, setCategories] = useState([]);
   const [isCategoriesLoading, setIsCategoriesLoading] = useState(false);
 
-  // ── Filter state ──────────────────────────────────────────
+  // ── Filters ───────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterVisibility, setFilterVisibility] = useState("all");
@@ -53,34 +47,35 @@ export function useListingsPage() {
 
   const debouncedSearch = useDebounce(searchQuery, 350);
 
-  // ── Pagination state ──────────────────────────────────────
+  // ── Pagination ────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  // ── Listings state ────────────────────────────────────────
+  // ── Listings ──────────────────────────────────────────────
   const [listings, setListings] = useState([]);
   const [listingsMeta, setListingsMeta] = useState(null);
   const [isListingsLoading, setIsListingsLoading] = useState(false);
   const [listingsError, setListingsError] = useState(null);
 
-  // ── Selection state ───────────────────────────────────────
+  // ── Selection ─────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState(new Set());
 
-  // ── Drawer state ──────────────────────────────────────────
+  // ── Drawer ────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerListing, setDrawerListing] = useState(null);
+  const [drawerDetail, setDrawerDetail] = useState(null);
+  const [isDrawerDetailLoading, setIsDrawerDetailLoading] = useState(false);
+  const [drawerDetailError, setDrawerDetailError] = useState(null);
 
-  // ── Action loading states ─────────────────────────────────
+  // ── Action states ─────────────────────────────────────────
   const [updatingIds, setUpdatingIds] = useState(new Set());
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Prevent double-fetching on mount
   const summaryLoadedRef = useRef(false);
 
   // ─────────────────────────────────────────────────────────
   // LOAD BRANCH SUMMARY
-  // Called once on mount.
   // ─────────────────────────────────────────────────────────
   const loadBranchSummary = useCallback(async () => {
     if (summaryLoadedRef.current) return;
@@ -93,10 +88,6 @@ export function useListingsPage() {
       const res = await getBranchSummary();
       const summaries = res.data?.data ?? [];
       setBranchSummaries(summaries);
-
-      // Auto-select first branch
-      // For non-SA, backend returns only their branch — so summaries[0]
-      // is always the correct branch to show.
       if (summaries.length > 0 && !selectedBranch) {
         setSelectedBranch(summaries[0]);
       }
@@ -111,7 +102,6 @@ export function useListingsPage() {
 
   // ─────────────────────────────────────────────────────────
   // LOAD CATEGORIES
-  // Called when selected branch changes.
   // ─────────────────────────────────────────────────────────
   const loadCategories = useCallback(async (branch_id) => {
     if (!branch_id) return;
@@ -129,7 +119,6 @@ export function useListingsPage() {
 
   // ─────────────────────────────────────────────────────────
   // LOAD LISTINGS
-  // Called when branch, filters, or page changes.
   // ─────────────────────────────────────────────────────────
   const loadListings = useCallback(async () => {
     if (!selectedBranch?.branch_id) return;
@@ -176,26 +165,20 @@ export function useListingsPage() {
   // ─────────────────────────────────────────────────────────
   // EFFECTS
   // ─────────────────────────────────────────────────────────
-
-  // Initial load
   useEffect(() => {
     loadBranchSummary();
   }, [loadBranchSummary]);
 
-  // Load categories when branch changes
   useEffect(() => {
     if (selectedBranch?.branch_id) {
       loadCategories(selectedBranch.branch_id);
     }
   }, [selectedBranch?.branch_id, loadCategories]);
 
-  // Load listings when branch or any filter changes
-  // Reset to page 1 when filters change (but not when page itself changes)
   useEffect(() => {
     loadListings();
   }, [loadListings]);
 
-  // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedIds(new Set());
@@ -216,7 +199,6 @@ export function useListingsPage() {
     setSelectedBranch(branch);
     setSelectedIds(new Set());
     setCurrentPage(1);
-    // Reset filters when switching branch
     setFilterCategory("all");
     setFilterVisibility("all");
     setFilterStock("all");
@@ -226,7 +208,7 @@ export function useListingsPage() {
   }, []);
 
   // ─────────────────────────────────────────────────────────
-  // OPTIMISTIC SINGLE LISTING UPDATE
+  // OPTIMISTIC UPDATE HELPERS
   // ─────────────────────────────────────────────────────────
   const applyOptimisticUpdate = useCallback((listing_id, patch) => {
     setListings((prev) =>
@@ -234,8 +216,12 @@ export function useListingsPage() {
         item.listing_id === listing_id ? { ...item, ...patch } : item
       )
     );
-    // Keep drawer in sync
+    // Keep drawer listing summary in sync
     setDrawerListing((prev) =>
+      prev?.listing_id === listing_id ? { ...prev, ...patch } : prev
+    );
+    // Keep drawer detail in sync
+    setDrawerDetail((prev) =>
       prev?.listing_id === listing_id ? { ...prev, ...patch } : prev
     );
   }, []);
@@ -249,105 +235,83 @@ export function useListingsPage() {
     setDrawerListing((prev) =>
       prev?.listing_id === listing_id ? { ...prev, ...original } : prev
     );
+    setDrawerDetail((prev) =>
+      prev?.listing_id === listing_id ? { ...prev, ...original } : prev
+    );
   }, []);
 
   // ─────────────────────────────────────────────────────────
-  // TOGGLE VISIBILITY
+  // SINGLE ITEM ACTIONS (optimistic)
   // ─────────────────────────────────────────────────────────
+  const executeSingleUpdate = useCallback(
+    async (listing_id, patch) => {
+      const listing = listings.find((l) => l.listing_id === listing_id);
+      if (!listing) return;
+
+      const original = Object.fromEntries(
+        Object.keys(patch).map((k) => [k, listing[k]])
+      );
+
+      applyOptimisticUpdate(listing_id, patch);
+      setUpdatingIds((prev) => new Set(prev).add(listing_id));
+
+      try {
+        await apiUpdateListing(listing_id, patch);
+        refreshSummary();
+      } catch (err) {
+        revertOptimisticUpdate(listing_id, original);
+        console.error("[listings] update failed:", err.message);
+      } finally {
+        setUpdatingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(listing_id);
+          return next;
+        });
+      }
+    },
+    [listings, applyOptimisticUpdate, revertOptimisticUpdate]
+  );
+
   const toggleVisibility = useCallback(
-    async (listing_id) => {
+    (listing_id) => {
       const listing = listings.find((l) => l.listing_id === listing_id);
       if (!listing) return;
-
-      const original = { is_visible: listing.is_visible };
-      const patch = { is_visible: !listing.is_visible };
-
-      // Optimistic
-      applyOptimisticUpdate(listing_id, patch);
-      setUpdatingIds((prev) => new Set(prev).add(listing_id));
-
-      try {
-        await apiUpdateListing(listing_id, patch);
-        // Refresh summary counts in background (fire and forget)
-        refreshSummary();
-      } catch (err) {
-        revertOptimisticUpdate(listing_id, original);
-        console.error("[listings] toggleVisibility failed:", err.message);
-      } finally {
-        setUpdatingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(listing_id);
-          return next;
-        });
-      }
+      executeSingleUpdate(listing_id, { is_visible: !listing.is_visible });
     },
-    [listings, applyOptimisticUpdate, revertOptimisticUpdate]
+    [listings, executeSingleUpdate]
   );
 
-  // ─────────────────────────────────────────────────────────
-  // SET STOCK STATUS
-  // ─────────────────────────────────────────────────────────
   const setStockStatus = useCallback(
-    async (listing_id, stock_status) => {
+    (listing_id, stock_status) => {
       const listing = listings.find((l) => l.listing_id === listing_id);
-      if (!listing) return;
-      if (listing.stock_status === stock_status) return;
-
-      const original = { stock_status: listing.stock_status };
-      const patch = { stock_status };
-
-      applyOptimisticUpdate(listing_id, patch);
-      setUpdatingIds((prev) => new Set(prev).add(listing_id));
-
-      try {
-        await apiUpdateListing(listing_id, patch);
-        refreshSummary();
-      } catch (err) {
-        revertOptimisticUpdate(listing_id, original);
-        console.error("[listings] setStockStatus failed:", err.message);
-      } finally {
-        setUpdatingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(listing_id);
-          return next;
-        });
-      }
+      if (!listing || listing.stock_status === stock_status) return;
+      executeSingleUpdate(listing_id, { stock_status });
     },
-    [listings, applyOptimisticUpdate, revertOptimisticUpdate]
+    [listings, executeSingleUpdate]
   );
 
-  // ─────────────────────────────────────────────────────────
-  // SET PRICE
-  // ─────────────────────────────────────────────────────────
   const setPrice = useCallback(
-    async (listing_id, marketplace_price) => {
+    (listing_id, marketplace_price) => {
+      executeSingleUpdate(listing_id, {
+        marketplace_price: Number(marketplace_price),
+      });
+    },
+    [executeSingleUpdate]
+  );
+
+  const togglePrescription = useCallback(
+    (listing_id) => {
       const listing = listings.find((l) => l.listing_id === listing_id);
       if (!listing) return;
-
-      const original = { marketplace_price: listing.marketplace_price };
-      const patch = { marketplace_price: Number(marketplace_price) };
-
-      applyOptimisticUpdate(listing_id, patch);
-      setUpdatingIds((prev) => new Set(prev).add(listing_id));
-
-      try {
-        await apiUpdateListing(listing_id, patch);
-      } catch (err) {
-        revertOptimisticUpdate(listing_id, original);
-        console.error("[listings] setPrice failed:", err.message);
-      } finally {
-        setUpdatingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(listing_id);
-          return next;
-        });
-      }
+      executeSingleUpdate(listing_id, {
+        requires_prescription: !listing.requires_prescription,
+      });
     },
-    [listings, applyOptimisticUpdate, revertOptimisticUpdate]
+    [listings, executeSingleUpdate]
   );
 
   // ─────────────────────────────────────────────────────────
-  // SELECTION HELPERS
+  // SELECTION
   // ─────────────────────────────────────────────────────────
   const toggleSelectAll = useCallback(() => {
     setSelectedIds((prev) => {
@@ -366,13 +330,10 @@ export function useListingsPage() {
     });
   }, []);
 
-  const clearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
   // ─────────────────────────────────────────────────────────
   // BULK ACTIONS
-  // No optimistic update — wait for server, then refresh.
   // ─────────────────────────────────────────────────────────
   const executeBulk = useCallback(
     async (patch) => {
@@ -417,7 +378,6 @@ export function useListingsPage() {
     setIsSyncing(true);
     try {
       await apiSyncInventory(selectedBranch.branch_id);
-      // Full refresh after sync
       await loadListings();
       await loadCategories(selectedBranch.branch_id);
       refreshSummary();
@@ -438,7 +398,6 @@ export function useListingsPage() {
       const cat = categories.find((c) => c.category_name === category_name);
       const newEnabled = cat ? !cat.is_enabled : false;
 
-      // Optimistic update on categories list
       setCategories((prev) =>
         prev.map((c) =>
           c.category_name === category_name
@@ -454,7 +413,6 @@ export function useListingsPage() {
           is_enabled: newEnabled,
         });
       } catch (err) {
-        // Revert
         setCategories((prev) =>
           prev.map((c) =>
             c.category_name === category_name
@@ -469,17 +427,56 @@ export function useListingsPage() {
   );
 
   // ─────────────────────────────────────────────────────────
-  // DRAWER HANDLERS
+  // DRAWER — open fetches detail lazily
   // ─────────────────────────────────────────────────────────
-  const openDrawer = useCallback((listing) => {
+  const openDrawer = useCallback(async (listing) => {
+    // Set the summary listing immediately so drawer opens with basic info
     setDrawerListing(listing);
+    setDrawerDetail(null);
+    setDrawerDetailError(null);
     setDrawerOpen(true);
+
+    // Fetch full detail in background
+    setIsDrawerDetailLoading(true);
+    try {
+      const res = await apiGetListingDetail(listing.listing_id);
+      setDrawerDetail(res.data?.data ?? null);
+    } catch (err) {
+      setDrawerDetailError(
+        err.response?.data?.message ?? err.message ?? "Failed to load details"
+      );
+    } finally {
+      setIsDrawerDetailLoading(false);
+    }
   }, []);
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
-    setTimeout(() => setDrawerListing(null), 300);
+    setTimeout(() => {
+      setDrawerListing(null);
+      setDrawerDetail(null);
+      setDrawerDetailError(null);
+    }, 300);
   }, []);
+
+  // ─────────────────────────────────────────────────────────
+  // BACKGROUND SUMMARY REFRESH
+  // ─────────────────────────────────────────────────────────
+  const refreshSummary = useCallback(async () => {
+    try {
+      const res = await getBranchSummary();
+      const summaries = res.data?.data ?? [];
+      setBranchSummaries(summaries);
+      if (selectedBranch) {
+        const updated = summaries.find(
+          (s) => s.branch_id === selectedBranch.branch_id
+        );
+        if (updated) setSelectedBranch(updated);
+      }
+    } catch {
+      // Non-critical
+    }
+  }, [selectedBranch]);
 
   // ─────────────────────────────────────────────────────────
   // FILTER RESET
@@ -493,26 +490,6 @@ export function useListingsPage() {
   }, []);
 
   // ─────────────────────────────────────────────────────────
-  // BACKGROUND SUMMARY REFRESH (non-blocking)
-  // ─────────────────────────────────────────────────────────
-  const refreshSummary = useCallback(async () => {
-    try {
-      const res = await getBranchSummary();
-      const summaries = res.data?.data ?? [];
-      setBranchSummaries(summaries);
-      // Keep selectedBranch stats in sync
-      if (selectedBranch) {
-        const updated = summaries.find(
-          (s) => s.branch_id === selectedBranch.branch_id
-        );
-        if (updated) setSelectedBranch(updated);
-      }
-    } catch {
-      // Silently ignore — summary refresh is non-critical
-    }
-  }, [selectedBranch]);
-
-  // ─────────────────────────────────────────────────────────
   // DERIVED STATE
   // ─────────────────────────────────────────────────────────
   const hasActiveFilters =
@@ -523,22 +500,17 @@ export function useListingsPage() {
 
   const allSelected =
     listings.length > 0 && selectedIds.size === listings.length;
-
   const someSelected =
     selectedIds.size > 0 && selectedIds.size < listings.length;
 
-  // Build category toggles map for the toolbar
-  // { category_name: is_enabled }
   const categoryToggles = Object.fromEntries(
     categories.map((c) => [c.category_name, c.is_enabled])
   );
 
-  // globalEnabled = BranchMarketplaceSettings.marketplace_enabled
-  // Read from the selected branch summary
   const globalEnabled = selectedBranch?.marketplace_enabled ?? false;
 
   return {
-    // ── Branch ──
+    // Branch
     branchSummaries,
     selectedBranch,
     onBranchChange: handleBranchChange,
@@ -546,13 +518,13 @@ export function useListingsPage() {
     summaryError,
     isSuperAdmin,
 
-    // ── Categories ──
+    // Categories
     categories,
     categoryToggles,
     isCategoriesLoading,
     onCategoryToggle: toggleCategory,
 
-    // ── Filters ──
+    // Filters
     searchQuery,
     onSearchChange: setSearchQuery,
     filterCategory,
@@ -568,19 +540,19 @@ export function useListingsPage() {
     hasActiveFilters,
     onClearFilters: clearFilters,
 
-    // ── Pagination ──
+    // Pagination
     currentPage,
     onPageChange: setCurrentPage,
     totalPages: listingsMeta?.total_pages ?? 0,
     totalResults: listingsMeta?.total ?? 0,
 
-    // ── Listings ──
+    // Listings
     listings,
     isListingsLoading,
     listingsError,
     onRefresh: loadListings,
 
-    // ── Selection ──
+    // Selection
     selectedIds,
     allSelected,
     someSelected,
@@ -588,30 +560,34 @@ export function useListingsPage() {
     onToggleSelectOne: toggleSelectOne,
     onClearSelection: clearSelection,
 
-    // ── Single actions ──
+    // Single actions
     updatingIds,
     onToggleVisibility: toggleVisibility,
     onSetStockStatus: setStockStatus,
     onSetPrice: setPrice,
+    onTogglePrescription: togglePrescription,
 
-    // ── Bulk actions ──
+    // Bulk actions
     isBulkUpdating,
     onBulkShow: bulkShow,
     onBulkHide: bulkHide,
     onBulkOutOfStock: bulkOutOfStock,
     onBulkRestoreStock: bulkRestoreStock,
 
-    // ── Sync ──
+    // Sync
     isSyncing,
     onSyncInventory: syncInventory,
 
-    // ── Drawer ──
+    // Drawer
     drawerOpen,
     drawerListing,
+    drawerDetail,
+    isDrawerDetailLoading,
+    drawerDetailError,
     onOpenDrawer: openDrawer,
     onCloseDrawer: closeDrawer,
 
-    // ── Misc ──
+    // Misc
     globalEnabled,
     PAGE_SIZE,
   };

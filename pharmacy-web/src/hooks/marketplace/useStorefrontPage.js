@@ -1,6 +1,6 @@
 // src/hooks/marketplace/useStorefrontPage.js
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   getMarketplaceStatus,
   updateStorefront,
@@ -12,9 +12,6 @@ import {
 
 // ─────────────────────────────────────────────────────────────────
 // IMAGE URL RESOLVER
-// Mirrors PreviewStep.jsx — the established pattern in this codebase.
-// S3 URLs come back as full https:// from the upload controller.
-// Relative paths (legacy or proxy) get prefixed with VITE_API_URL.
 // ─────────────────────────────────────────────────────────────────
 export const resolveImageUrl = (url) => {
   if (!url) return null;
@@ -32,8 +29,6 @@ function normalizeStorefront(raw) {
     storefront_name:        raw.storefront_name        ?? "",
     storefront_description: raw.storefront_description ?? "",
     support_phone:          raw.support_phone          ?? "",
-    // Resolve image URLs at normalization time so every consumer gets
-    // a ready-to-use src string — no inline resolution needed in JSX.
     logo_url:               resolveImageUrl(raw.logo_url),
     banner_url:             resolveImageUrl(raw.banner_url),
     marketplace_status:     raw.marketplace_status     ?? "LIVE",
@@ -42,107 +37,83 @@ function normalizeStorefront(raw) {
   };
 }
 
-// Normalize a BranchMarketplaceSettings record that came with branch include
 function normalizeConfiguredBranch(bs) {
   return {
-    // Branch identity
-    branch_id:    bs.branch_id,
-    branch_name:  bs.branch?.branch_name    ?? "Unknown Branch",
-    branch_type:  bs.branch?.branch_type    ?? "branch",
-    city:         bs.branch?.city           ?? null,
-    state:        bs.branch?.state          ?? null,
-    contact_number: bs.branch?.contact_number ?? null,
+    branch_id:             bs.branch_id,
+    branch_name:           bs.branch?.branch_name    ?? "Unknown Branch",
+    branch_type:           bs.branch?.branch_type    ?? "branch",
+    city:                  bs.branch?.city           ?? null,
+    state:                 bs.branch?.state          ?? null,
+    contact_number:        bs.branch?.contact_number ?? null,
 
-    // Marketplace settings
-    branch_marketplace_id: bs.branch_marketplace_id ?? null,
-    is_configured:         true,   // has a BranchMarketplaceSettings row
-    marketplace_enabled:   bs.marketplace_enabled ?? false,
+    branch_marketplace_id: bs.branch_marketplace_id  ?? null,
+    is_configured:         true,
+    marketplace_enabled:   bs.marketplace_enabled    ?? false,
 
-    // Location
-    latitude:          bs.latitude  != null ? Number(bs.latitude)  : null,
-    longitude:         bs.longitude != null ? Number(bs.longitude) : null,
-    google_place_id:   bs.google_place_id   ?? null,
-    formatted_address: bs.formatted_address ?? null,
+    shop_image_url:        bs.shop_image_url         ?? null,
 
-    // Timings
-    opening_time: bs.opening_time ?? null,
-    closing_time: bs.closing_time ?? null,
-    is_24_hours:  bs.is_24_hours  ?? false,
+    latitude:              bs.latitude  != null ? Number(bs.latitude)  : null,
+    longitude:             bs.longitude != null ? Number(bs.longitude) : null,
+    google_place_id:       bs.google_place_id    ?? null,
+    formatted_address:     bs.formatted_address  ?? null,
 
-    // Fulfillment
-    pickup_enabled:   bs.pickup_enabled   ?? false,
-    delivery_enabled: bs.delivery_enabled ?? false,
+    opening_time:          bs.opening_time ?? null,
+    closing_time:          bs.closing_time ?? null,
+    is_24_hours:           bs.is_24_hours  ?? false,
 
-    // Contact
-    contact_override: bs.contact_override ?? null,
+    pickup_enabled:        bs.pickup_enabled   ?? false,
+    delivery_enabled:      bs.delivery_enabled ?? false,
+
+    contact_override:      bs.contact_override ?? null,
   };
 }
 
-// Normalize a raw Branch record that has NO marketplace settings yet
 function normalizeUnconfiguredBranch(b) {
   return {
-    // Branch identity
-    branch_id:     b.branch_id,
-    branch_name:   b.branch_name,
-    branch_type:   b.branch_type   ?? "branch",
-    city:          b.city          ?? null,
-    state:         b.state         ?? null,
-    contact_number: b.contact_number ?? null,
+    branch_id:             b.branch_id,
+    branch_name:           b.branch_name,
+    branch_type:           b.branch_type    ?? "branch",
+    city:                  b.city           ?? null,
+    state:                 b.state          ?? null,
+    contact_number:        b.contact_number ?? null,
 
-    // Marketplace settings — all defaults
     branch_marketplace_id: null,
-    is_configured:         false,  // no BranchMarketplaceSettings row yet
+    is_configured:         false,
     marketplace_enabled:   false,
 
-    // Location
-    latitude:          null,
-    longitude:         null,
-    google_place_id:   null,
-    formatted_address: null,
+    shop_image_url:        null,
 
-    // Timings
-    opening_time: null,
-    closing_time: null,
-    is_24_hours:  false,
+    latitude:              null,
+    longitude:             null,
+    google_place_id:       null,
+    formatted_address:     null,
 
-    // Fulfillment
-    pickup_enabled:   false,
-    delivery_enabled: false,
+    opening_time:          null,
+    closing_time:          null,
+    is_24_hours:           false,
 
-    // Contact
-    contact_override: null,
+    pickup_enabled:        false,
+    delivery_enabled:      false,
+
+    contact_override:      null,
   };
 }
 
 // ─────────────────────────────────────────────────────────────────
-// MERGE: all_branches + branch_settings → unified branch list
-//
-// For super_admin: shows ALL shop branches, configured or not.
-// For branch_admin/staff: the status endpoint already returns
-//   all_branches for the whole shop (it's informational), but
-//   branch_settings is scoped to their branch by the backend.
-//   We only show branches that appear in branch_settings for
-//   non-super-admin roles — handled by passing the caller's
-//   branch_id filter into the merge.
+// MERGE
 // ─────────────────────────────────────────────────────────────────
 function mergeBranches(allBranches, branchSettings, isSuperAdmin, callerBranchId) {
-  // Build a lookup map of configured branches
-  const settingsMap = new Map(
-    branchSettings.map((bs) => [bs.branch_id, bs])
-  );
+  const settingsMap = new Map(branchSettings.map((bs) => [bs.branch_id, bs]));
 
-  // For super_admin: merge all branches
-  // For branch_admin/staff: only show their assigned branch
   const branchesToShow = isSuperAdmin
     ? allBranches
     : allBranches.filter((b) => b.branch_id === callerBranchId);
 
   return branchesToShow.map((b) => {
     const settings = settingsMap.get(b.branch_id);
-    if (settings) {
-      return normalizeConfiguredBranch(settings);
-    }
-    return normalizeUnconfiguredBranch(b);
+    return settings
+      ? normalizeConfiguredBranch(settings)
+      : normalizeUnconfiguredBranch(b);
   });
 }
 
@@ -153,16 +124,17 @@ function buildBranchPayload(branch, overrides = {}) {
   const merged = { ...branch, ...overrides };
   return {
     marketplace_enabled:  merged.marketplace_enabled,
-    latitude:             merged.latitude             ?? null,
-    longitude:            merged.longitude            ?? null,
-    google_place_id:      merged.google_place_id      ?? null,
-    formatted_address:    merged.formatted_address    ?? null,
-    opening_time:         merged.opening_time         ?? null,
-    closing_time:         merged.closing_time         ?? null,
-    is_24_hours:          merged.is_24_hours          ?? false,
-    pickup_enabled:       merged.pickup_enabled       ?? false,
-    delivery_enabled:     merged.delivery_enabled     ?? false,
-    contact_override:     merged.contact_override     ?? null,
+    shop_image_url:       merged.shop_image_url    ?? null,
+    latitude:             merged.latitude          ?? null,
+    longitude:            merged.longitude         ?? null,
+    google_place_id:      merged.google_place_id   ?? null,
+    formatted_address:    merged.formatted_address ?? null,
+    opening_time:         merged.opening_time      ?? null,
+    closing_time:         merged.closing_time      ?? null,
+    is_24_hours:          merged.is_24_hours        ?? false,
+    pickup_enabled:       merged.pickup_enabled    ?? false,
+    delivery_enabled:     merged.delivery_enabled  ?? false,
+    contact_override:     merged.contact_override  ?? null,
   };
 }
 
@@ -170,91 +142,96 @@ function buildBranchPayload(branch, overrides = {}) {
 // HOOK
 // ─────────────────────────────────────────────────────────────────
 export function useStorefrontPage() {
-
   // ── Data ──────────────────────────────────
-  const [storefront, setStorefront] = useState(null);
-  const [branches, setBranches]     = useState([]);
+  const [storefront, setStorefront]           = useState(null);
+  const [branches,   setBranches]             = useState([]);
 
   // ── Loading ───────────────────────────────
-  const [isLoading,           setIsLoading]           = useState(false);
-  const [storefrontError,     setStorefrontError]     = useState(null);
-  const [branchesError,       setBranchesError]       = useState(null);
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [storefrontError, setStorefrontError] = useState(null);
+  const [branchesError,   setBranchesError]   = useState(null);
 
   // ── Action states ─────────────────────────
-  const [isSuspending,         setIsSuspending]         = useState(false);
-  const [isResuming,           setIsResuming]           = useState(false);
-  const [isUpdatingStorefront, setIsUpdatingStorefront] = useState(false);
-  const [togglingBranchId,     setTogglingBranchId]     = useState(null);
-  const [savingBranchId,       setSavingBranchId]       = useState(null);
-  const [isUploading,          setIsUploading]          = useState({});
-  const [uploadProgress,       setUploadProgress]       = useState({});
+  const [isSuspending,        setIsSuspending]        = useState(false);
+  const [isResuming,          setIsResuming]           = useState(false);
+  const [isUpdatingStorefront,setIsUpdatingStorefront] = useState(false);
+  const [togglingBranchId,    setTogglingBranchId]    = useState(null);
+  const [savingBranchId,      setSavingBranchId]      = useState(null);
+  const [isUploading,         setIsUploading]          = useState({});
+  const [uploadProgress,      setUploadProgress]       = useState({});
 
-  // ── Internal ──────────────────────────────
-  // Store caller info for branch merging
-  const callerRef    = useRef({ isSuperAdmin: false, branchId: null });
-  const hasLoaded    = useRef(false);
+  // ── Internal refs ─────────────────────────
+  const callerRef = useRef({ isSuperAdmin: false, branchId: null });
 
-  // ─────────────────────────────────────────
-  // LOAD
-  // Single call to /marketplace/status gives us:
-  //   - storefront identity fields
-  //   - marketplace_status / is_live
-  //   - all_branches (every active ERP branch)
-  //   - branch_settings (configured marketplace branches)
-  //
-  // We merge all_branches + branch_settings client-side to produce
-  // the unified branch list including unconfigured branches.
-  // ─────────────────────────────────────────
-  const load = useCallback(async ({ isSuperAdmin = false, branchId = null } = {}) => {
-    if (hasLoaded.current) return;
-    hasLoaded.current = true;
+  const loadIdRef = useRef(0);
 
-    // Store caller info for use in refresh
-    callerRef.current = { isSuperAdmin, branchId };
+  const isMounted = useRef(true);
 
-    setIsLoading(true);
-    setStorefrontError(null);
-    setBranchesError(null);
-
-    try {
-      const res  = await getMarketplaceStatus();
-      const data = res.data?.data;
-
-      if (!data) throw new Error("Invalid response from server");
-
-      // Storefront
-      setStorefront(normalizeStorefront(data));
-
-      // Branches
-      const allBranches     = data.all_branches    ?? [];
-      const branchSettings  = data.branch_settings ?? [];
-
-      const merged = mergeBranches(
-        allBranches,
-        branchSettings,
-        isSuperAdmin,
-        branchId
-      );
-      setBranches(merged);
-
-    } catch (err) {
-      const message = err.response?.data?.message ?? err.message ?? "Failed to load";
-      setStorefrontError(message);
-      setBranchesError(message);
-    } finally {
-      setIsLoading(false);
-    }
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
   // ─────────────────────────────────────────
+  // LOAD
+  // ─────────────────────────────────────────
+  const load = useCallback(
+    async ({ isSuperAdmin = false, branchId = null } = {}) => {
+      const myId = ++loadIdRef.current;
+
+      callerRef.current = { isSuperAdmin, branchId };
+
+      setIsLoading(true);
+      setStorefrontError(null);
+      setBranchesError(null);
+
+      try {
+        const res  = await getMarketplaceStatus();
+        const data = res.data?.data;
+
+        if (!data) throw new Error("Invalid response from server");
+
+        if (myId !== loadIdRef.current) return;
+        if (!isMounted.current) return;
+
+        setStorefront(normalizeStorefront(data));
+        setBranches(
+          mergeBranches(
+            data.all_branches    ?? [],
+            data.branch_settings ?? [],
+            isSuperAdmin,
+            branchId,
+          ),
+        );
+      } catch (err) {
+        if (myId !== loadIdRef.current || !isMounted.current) return;
+        const message =
+          err.response?.data?.message ?? err.message ?? "Failed to load";
+        setStorefrontError(message);
+        setBranchesError(message);
+      } finally {
+        if (myId === loadIdRef.current && isMounted.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  // ─────────────────────────────────────────
   // REFRESH
-  // Force re-fetch. Reuses stored caller info.
   // ─────────────────────────────────────────
   const refresh = useCallback(async () => {
     const { isSuperAdmin, branchId } = callerRef.current;
 
-    setStorefrontError(null);
-    setBranchesError(null);
+    const myId = ++loadIdRef.current;
+
+    if (isMounted.current) {
+      setStorefrontError(null);
+      setBranchesError(null);
+    }
 
     try {
       const res  = await getMarketplaceStatus();
@@ -262,31 +239,28 @@ export function useStorefrontPage() {
 
       if (!data) throw new Error("Invalid response from server");
 
+      if (myId !== loadIdRef.current || !isMounted.current) return;
+
       setStorefront(normalizeStorefront(data));
-
-      const allBranches    = data.all_branches    ?? [];
-      const branchSettings = data.branch_settings ?? [];
-
-      const merged = mergeBranches(
-        allBranches,
-        branchSettings,
-        isSuperAdmin,
-        branchId
+      setBranches(
+        mergeBranches(
+          data.all_branches    ?? [],
+          data.branch_settings ?? [],
+          isSuperAdmin,
+          branchId,
+        ),
       );
-      setBranches(merged);
-
     } catch (err) {
-      const message = err.response?.data?.message ?? err.message ?? "Failed to refresh";
+      if (myId !== loadIdRef.current || !isMounted.current) return;
+      const message =
+        err.response?.data?.message ?? err.message ?? "Failed to refresh";
       setStorefrontError(message);
       setBranchesError(message);
     }
   }, []);
 
   // ─────────────────────────────────────────
-  // TOGGLE BRANCH marketplace_enabled
-  // Optimistic UI with rollback on error.
-  // For unconfigured branches (is_configured: false),
-  // toggling ON will create the settings record via upsert.
+  // TOGGLE BRANCH
   // ─────────────────────────────────────────
   const toggleBranch = useCallback(
     async (branch_id, newValue) => {
@@ -295,13 +269,12 @@ export function useStorefrontPage() {
       const currentBranch = branches.find((b) => b.branch_id === branch_id);
       if (!currentBranch) return;
 
-      // Optimistic update
       setBranches((prev) =>
         prev.map((b) =>
           b.branch_id === branch_id
             ? { ...b, marketplace_enabled: newValue, is_configured: true }
-            : b
-        )
+            : b,
+        ),
       );
 
       setTogglingBranchId(branch_id);
@@ -311,28 +284,25 @@ export function useStorefrontPage() {
           marketplace_enabled: newValue,
         });
         await updateBranchSettings(branch_id, payload);
-        // After successful toggle, refresh to get server state
-        // (is_configured will now be true if it wasn't before)
         await refresh();
       } catch (err) {
-        // Roll back
         setBranches((prev) =>
           prev.map((b) =>
             b.branch_id === branch_id
               ? { ...b, marketplace_enabled: !newValue }
-              : b
-          )
+              : b,
+          ),
         );
         throw err;
       } finally {
         setTogglingBranchId(null);
       }
     },
-    [branches, togglingBranchId, refresh]
+    [branches, togglingBranchId, refresh],
   );
 
   // ─────────────────────────────────────────
-  // SAVE BRANCH CONFIG (from modal)
+  // SAVE BRANCH CONFIG
   // ─────────────────────────────────────────
   const saveBranchConfig = useCallback(
     async (branch_id, formData) => {
@@ -350,11 +320,11 @@ export function useStorefrontPage() {
         setSavingBranchId(null);
       }
     },
-    [refresh]
+    [refresh],
   );
 
   // ─────────────────────────────────────────
-  // SAVE STOREFRONT (from modal)
+  // SAVE STOREFRONT
   // ─────────────────────────────────────────
   const saveStorefrontData = useCallback(
     async (formData) => {
@@ -366,28 +336,30 @@ export function useStorefrontPage() {
       } catch (err) {
         return {
           success: false,
-          error: err.response?.data?.message ?? err.message ?? "Failed to update storefront",
+          error:
+            err.response?.data?.message ??
+            err.message ??
+            "Failed to update storefront",
         };
       } finally {
         setIsUpdatingStorefront(false);
       }
     },
-    [refresh]
+    [refresh],
   );
 
   // ─────────────────────────────────────────
   // UPLOAD ASSET
   // ─────────────────────────────────────────
   const uploadAsset = useCallback(async (type, file) => {
-    setIsUploading((prev)    => ({ ...prev, [type]: true  }));
-    setUploadProgress((prev) => ({ ...prev, [type]: 0     }));
+    setIsUploading((prev)     => ({ ...prev, [type]: true  }));
+    setUploadProgress((prev)  => ({ ...prev, [type]: 0     }));
     try {
       const res  = await uploadMarketplaceAsset(type, file, (pct) => {
         setUploadProgress((prev) => ({ ...prev, [type]: pct }));
       });
       const data = res.data?.data;
       if (!data?.url) throw new Error("Upload response missing URL");
-      // Resolve the URL immediately so the modal can use it in an <img>
       return { success: true, url: resolveImageUrl(data.url) };
     } catch (err) {
       return {
@@ -396,7 +368,7 @@ export function useStorefrontPage() {
       };
     } finally {
       setIsUploading((prev)    => ({ ...prev, [type]: false }));
-      setUploadProgress((prev) => ({ ...prev, [type]: 0     }));
+      setUploadProgress((prev) => ({ ...prev, [type]: 0    }));
     }
   }, []);
 
@@ -448,16 +420,13 @@ export function useStorefrontPage() {
   const isLive               = storefront?.marketplace_status === "LIVE";
 
   return {
-    // Data
     storefront,
     branches,
 
-    // Loading
     isLoading,
     storefrontError,
     branchesError,
 
-    // Action states
     isSuspending,
     isResuming,
     isUpdatingStorefront,
@@ -466,7 +435,6 @@ export function useStorefrontPage() {
     uploadProgress,
     isUploading,
 
-    // Derived
     enabledBranchCount,
     deliveryEnabledCount,
     pickupEnabledCount,
@@ -474,7 +442,6 @@ export function useStorefrontPage() {
     isLive,
     totalBranchCount: branches.length,
 
-    // Actions
     load,
     refresh,
     toggleBranch,
