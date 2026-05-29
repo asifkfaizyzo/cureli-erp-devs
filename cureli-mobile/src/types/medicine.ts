@@ -10,7 +10,6 @@
 //                 what the MedicineCard renders.
 
 // ── Composition ───────────────────────────────────────────────
-// variant.composition is a JSON array of { name, strength } from the catalog.
 
 export interface CompositionItem {
   name: string;
@@ -19,7 +18,7 @@ export interface CompositionItem {
 
 export type MedicineType = "DRUG" | "OTC";
 
-// ── REAL: feed item (GET /mobile/medicines) ───────────────────
+// ── REAL: feed item (GET /mobile/medicines, GET /mobile/medicines/feed) ──
 
 export interface MedicineVariant {
   variantId: string;
@@ -30,7 +29,7 @@ export interface MedicineVariant {
   strength: string | null;
   manufacturer: string | null;
   packSize: string | null;
-  /** First resolved CDN image URL, or null → frontend shows a placeholder. */
+  /** First resolved CDN image URL, or null → frontend shows placeholder. */
   image: string | null;
   // ── from master ──
   prescriptionRequired: boolean;
@@ -39,6 +38,13 @@ export interface MedicineVariant {
   category: string | null;
   genericName: string | null;
   type: MedicineType | null;
+  /**
+   * Production mode: true if at least one live branch has this variant
+   * listed, visible, and in stock.
+   * Demo mode: always true (backend skips the check).
+   * Absent from feed items — only present on the detail response.
+   */
+  availableNearYou?: boolean;
 }
 
 // ── REAL: pagination meta ─────────────────────────────────────
@@ -64,6 +70,8 @@ export interface MedicineVariantDetail extends MedicineVariant {
   description: string | null;
   /** Full resolved gallery (all images), not just the first. */
   images: string[];
+  /** Always present on the detail response. */
+  availableNearYou: boolean;
 }
 
 export interface MedicineDetailResponse {
@@ -72,7 +80,6 @@ export interface MedicineDetailResponse {
 }
 
 // ── REAL: category (GET /mobile/medicines/categories) ─────────
-// Backend curated list. `key` is the internal primary_category to filter by.
 
 export interface MedicineCategory {
   key: string;
@@ -104,10 +111,30 @@ export interface MarketplaceData {
   stockLabel: string;
 }
 
-// ── ENRICHED: what MedicineCard renders ───────────────────────
+// ── ENRICHED: what MedicineCard and the feed rail render ──────
 
 export interface EnrichedMedicine extends MedicineVariant {
   marketplace: MarketplaceData;
+}
+
+// ── ENRICHED DETAIL: what the product detail screen renders ───
+//
+// Extends EnrichedMedicine with the detail-only fields:
+//   - marketer, description, images (full gallery)
+//   - availableNearYou required (not optional) — the backend always
+//     sends it on the detail response; we enforce that here so the
+//     detail screen never needs to null-check it.
+//
+// This is distinct from EnrichedMedicine so the detail screen has
+// precise types without weakening the feed item types.
+
+export interface EnrichedMedicineDetail extends EnrichedMedicine {
+  marketer: string | null;
+  description: string | null;
+  /** Full resolved gallery — all images, not just the first. */
+  images: string[];
+  /** Non-optional here — always present on the detail response. */
+  availableNearYou: boolean;
 }
 
 // ── Feed query params ─────────────────────────────────────────

@@ -57,6 +57,13 @@ router.post(
   Controller.postStorefront
 );
 
+// marketplace.routes.js
+router.post(
+  "/upload/:type",
+  requireRole("super_admin"),
+  Controller.postUpload
+);
+
 router.post(
   "/onboarding/branches",
   requireRole("super_admin"),

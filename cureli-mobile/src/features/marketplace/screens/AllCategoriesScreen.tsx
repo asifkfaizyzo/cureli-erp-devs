@@ -1,17 +1,15 @@
-// src/features/marketplace/screens/AllCategoriesScreen.tsx
-
 import React, { useCallback, useMemo } from "react";
 import {
   View,
-  Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  Text,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
@@ -20,8 +18,6 @@ import { Spacing } from "../../../theme/spacing";
 import { useCategories } from "../hooks/useCategories";
 import { CategoryCard } from "../components/CategoryCard";
 import { CategoryGridSkeleton } from "../components/CategoryGridSkeleton";
-import { useMarketplaceFilterStore } from "../../../store/marketplaceFilterStore";
-import type { MedicineCategory } from "../types/marketplace.types";
 
 const COLUMNS = 3;
 const GAP = Spacing.sm;
@@ -41,38 +37,28 @@ export function AllCategoriesScreen() {
 
   const { categories, isLoading } = useCategories();
 
-  const selectedCategory = useMarketplaceFilterStore(
-    (state) => state.selectedCategory,
-  );
-  const setSelectedCategory = useMarketplaceFilterStore(
-    (state) => state.setSelectedCategory,
-  );
-
   const cardWidth =
     (screenWidth - HORIZONTAL_PADDING - GAP * (COLUMNS - 1)) / COLUMNS;
 
-  const rows = useMemo(
-    () => chunkIntoRows(categories, COLUMNS),
-    [categories],
-  );
+  const rows = useMemo(() => chunkIntoRows(categories, COLUMNS), [categories]);
 
   const handleBack = useCallback(() => {
     router.back();
   }, []);
 
-  const handleSelectCategory = useCallback(
-    (key: string) => {
-      setSelectedCategory(key);
-      router.back();
-    },
-    [setSelectedCategory],
-  );
+  const handleSelectCategory = useCallback((key: string) => {
+    router.push({
+      pathname: "/marketplace/category",
+      params: { category: key },
+    } as any);
+  }, []);
 
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top"]}
     >
+      {/* Custom header */}
       <View
         style={[
           styles.header,
@@ -82,7 +68,7 @@ export function AllCategoriesScreen() {
           },
         ]}
       >
-        {/* <TouchableOpacity
+        <TouchableOpacity
           onPress={handleBack}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -94,20 +80,13 @@ export function AllCategoriesScreen() {
             size={22}
             color={colors.text.primary}
           />
-        </TouchableOpacity> */}
+        </TouchableOpacity>
 
-        <Text
-  style={[
-    styles.headerTitle,
-    {
-      color: colors.text.primary,
-      paddingLeft: 155,
-    },
-  ]}
->
+        <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           All Categories
         </Text>
 
+        {/* spacer to keep title centered */}
         <View style={styles.headerSpacer} />
       </View>
 
@@ -129,14 +108,13 @@ export function AllCategoriesScreen() {
                     key={category.key}
                     item={{ type: "category", data: category }}
                     cardWidth={cardWidth}
-                    selected={selectedCategory === category.key}
+                    selected={false}
                     onPressCategory={handleSelectCategory}
                     onPressNext={() => {}}
                     onPressBack={() => {}}
                   />
                 ))}
 
-                {/* Fill incomplete last row so spacing stays correct */}
                 {row.length < COLUMNS
                   ? Array.from({ length: COLUMNS - row.length }).map((_, i) => (
                       <View

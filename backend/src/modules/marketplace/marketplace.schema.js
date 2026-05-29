@@ -61,6 +61,8 @@ export const branchSelectionSchema = z.object({
 export const branchConfigSchema = z
   .object({
     marketplace_enabled: z.boolean(),
+    
+    shop_image_url: assetUrlSchema.nullable().optional(),
 
     latitude: z.number().min(-90).max(90).nullable().optional(),
     longitude: z.number().min(-180).max(180).nullable().optional(),

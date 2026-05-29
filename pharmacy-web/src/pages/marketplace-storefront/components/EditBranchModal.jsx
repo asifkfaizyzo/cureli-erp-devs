@@ -1,6 +1,6 @@
 // src/pages/marketplace-storefront/components/EditBranchModal.jsx
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -15,12 +15,23 @@ import {
   Loader2,
   Lock,
   Shield,
+  ImageIcon,
 } from "lucide-react";
 
 import LocationPicker from "../../marketplace-onboarding/components/LocationPicker";
 import TimePicker from "../../marketplace-onboarding/components/TimePicker";
 import UnifiedBranchMap from "../../marketplace-onboarding/components/UnifiedBranchMap";
 import { useGoogleMaps } from "../../../hooks/useGoogleMaps";
+import { uploadMarketplaceAsset } from "../../../api/marketplace";
+
+// ─────────────────────────────────────────────────────────────────
+// IMAGE URL RESOLVER
+// ─────────────────────────────────────────────────────────────────
+const resolveImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${import.meta.env.VITE_API_URL}${url}`;
+};
 
 // ─────────────────────────────────────────────────────────────────
 // VALIDATION
@@ -45,7 +56,6 @@ function validateBranchForm(data, isSuperAdmin) {
     if (!data.closing_time) errors.closing_time = "Closing time is required";
   }
 
-  // ── Contact is now required ──────────────────────────────────
   const contact = data.contact_override?.trim();
   if (!contact) {
     errors.contact_override = "Contact number is required";
@@ -136,6 +146,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
 
   const [form, setForm] = useState({
     marketplace_enabled: false,
+    shop_image_url: null,
     latitude: null,
     longitude: null,
     google_place_id: null,
@@ -152,11 +163,18 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [submitErr, setSubmitErr] = useState(null);
 
+  // ── Image upload state ────────────────────────────────────────
+  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [imageUploadError, setImageUploadError] = useState(null);
+  const imageInputRef = useRef(null);
+
   // Seed form from branch on open
   useEffect(() => {
     if (!isOpen || !branch) return;
     setForm({
       marketplace_enabled: branch.marketplace_enabled ?? false,
+      shop_image_url: branch.shop_image_url ?? null,
       latitude: branch.latitude ?? null,
       longitude: branch.longitude ?? null,
       google_place_id: branch.google_place_id ?? null,
@@ -170,6 +188,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     });
     setErrors({});
     setSubmitErr(null);
+    setImageUploadError(null);
   }, [isOpen, branch]);
 
   // Lock body scroll
@@ -200,6 +219,31 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     }
   };
 
+  // ── Image upload handler ──────────────────────────────────────
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setIsImageUploading(true);
+    setImageUploadProgress(0);
+    setImageUploadError(null);
+    try {
+      const res = await uploadMarketplaceAsset(
+        "branch_image",
+        file,
+        (pct) => setImageUploadProgress(pct),
+      );
+      const url = res.data?.data?.url;
+      if (!url) throw new Error("No URL returned");
+      patch("shop_image_url", url);
+    } catch (err) {
+      setImageUploadError(
+        err.response?.data?.message || err.message || "Upload failed",
+      );
+    } finally {
+      setIsImageUploading(false);
+      setImageUploadProgress(0);
+    }
+  };
+
   // Location change from LocationPicker search
   const handleLocationChange = (locationData) => {
     setForm((prev) => ({
@@ -219,19 +263,16 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
   };
 
   // Location update from map pin drag
-  // UnifiedBranchMap calls this with { formatted_address, latitude, longitude }
   const handleLocationUpdate = (_branchId, locationData) => {
     setForm((prev) => ({
       ...prev,
       latitude: locationData.latitude,
       longitude: locationData.longitude,
       formatted_address: locationData.formatted_address,
-      // google_place_id stays — pin drag doesn't change the place_id
     }));
   };
 
-  // Build the branch list the map needs — one entry (the current branch)
-  // only when location is set and super_admin is editing
+  // Build the branch list the map needs
   const mapBranches = useMemo(() => {
     if (!isSuperAdmin || !form.latitude || !form.longitude) return [];
     return [
@@ -266,6 +307,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     setIsSaving(true);
     const payload = {
       marketplace_enabled: form.marketplace_enabled,
+      shop_image_url: form.shop_image_url,
       latitude: form.latitude,
       longitude: form.longitude,
       google_place_id: form.google_place_id,
@@ -371,11 +413,123 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden space-y-6"
                     >
+                      {/* ── Branch Image ─────────────────────── */}
+                      <Section title="Branch Image">
+                        <div className="flex items-start gap-3">
+                          {/* Preview / upload zone */}
+                          <div
+                            className={`
+                              relative w-24 h-24 rounded-xl border-2 border-dashed
+                              overflow-hidden flex-shrink-0 transition-colors
+                              ${
+                                form.shop_image_url
+                                  ? "border-white/10"
+                                  : "border-white/10 hover:border-white/20"
+                              }
+                            `}
+                          >
+                            {/* Existing image */}
+                            {form.shop_image_url && !isImageUploading && (
+                              <>
+                                <img
+                                  src={resolveImageUrl(form.shop_image_url)}
+                                  alt="Branch"
+                                  className="absolute inset-0 w-full h-full object-cover"
+                                />
+                                {/* Hover overlay — re-upload */}
+                                <button
+                                  type="button"
+                                  onClick={() => imageInputRef.current?.click()}
+                                  className="absolute inset-0 bg-black/50 opacity-0
+                                    hover:opacity-100 transition-opacity flex items-center
+                                    justify-center z-10"
+                                >
+                                  <ImageIcon size={14} className="text-white/70" />
+                                </button>
+                                {/* Clear button */}
+                                <button
+                                  type="button"
+                                  onClick={() => patch("shop_image_url", null)}
+                                  className="absolute top-1 right-1 w-5 h-5 rounded-full
+                                    bg-black/60 flex items-center justify-center
+                                    opacity-0 hover:opacity-100 transition-opacity z-20"
+                                >
+                                  <X size={9} className="text-white" />
+                                </button>
+                              </>
+                            )}
+
+                            {/* Upload progress */}
+                            {isImageUploading && (
+                              <div
+                                className="absolute inset-0 bg-black/60 flex flex-col
+                                  items-center justify-center gap-1.5 z-20"
+                              >
+                                <Loader2
+                                  size={14}
+                                  className="text-white/60 animate-spin"
+                                />
+                                <div className="w-14 h-1 rounded-full bg-white/10 overflow-hidden">
+                                  <div
+                                    className="h-full bg-white/40 rounded-full transition-all duration-300"
+                                    style={{ width: `${imageUploadProgress}%` }}
+                                  />
+                                </div>
+                                <span className="text-[9px] text-white/40">
+                                  {imageUploadProgress}%
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Empty state */}
+                            {!form.shop_image_url && !isImageUploading && (
+                              <button
+                                type="button"
+                                onClick={() => imageInputRef.current?.click()}
+                                className="absolute inset-0 flex flex-col items-center
+                                  justify-center gap-1 text-white/20 hover:text-white/40
+                                  transition-colors"
+                              >
+                                <ImageIcon size={18} />
+                                <span className="text-[9px]">Upload</span>
+                              </button>
+                            )}
+
+                            <input
+                              ref={imageInputRef}
+                              type="file"
+                              accept="image/jpeg,image/jpg,image/png,image/webp"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImageUpload(file);
+                                e.target.value = "";
+                              }}
+                            />
+                          </div>
+
+                          {/* Right-side hints */}
+                          <div className="flex-1 pt-1 space-y-1">
+                            <p className="text-[11px] text-white/30 leading-relaxed">
+                              Shown on your branch's marketplace page. Helps
+                              customers recognise your location.
+                            </p>
+                            <p className="text-[10px] text-white/15">
+                              JPG, PNG or WebP · Max 5 MB · Optional
+                            </p>
+                            {imageUploadError && (
+                              <p className="text-[11px] text-red-400 flex items-center gap-1 mt-1">
+                                <AlertCircle size={9} /> {imageUploadError}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </Section>
+
                       {/* ── Location ──────────────────────────── */}
                       <Section title="Location">
                         {isSuperAdmin ? (
                           <div className="space-y-3">
-                            {/* Search */}
                             <LocationPicker
                               value={{
                                 google_place_id: form.google_place_id,
@@ -389,7 +543,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               loadError={loadError}
                             />
 
-                            {/* Mini map — shows once location is set */}
                             {form.latitude && form.longitude && (
                               <UnifiedBranchMap
                                 branches={mapBranches}
@@ -408,7 +561,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             )}
                           </div>
                         ) : (
-                          /* branch_admin: read-only */
                           <div className="px-3 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                             <div className="flex items-start gap-2">
                               <Lock
@@ -527,7 +679,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                         </div>
                       </Section>
 
-                      {/* ── Contact Override ──────────────────────────── */}
+                      {/* ── Contact Override ──────────────────── */}
                       <Section title="Contact Number">
                         <div className="space-y-1.5">
                           <div className="relative">
@@ -543,15 +695,15 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               placeholder="e.g. +91 98765 43210"
                               maxLength={15}
                               className={`
-          w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-white/[0.04]
-          border text-white placeholder-white/20
-          focus:outline-none focus:ring-2 transition-all
-          ${
-            errors.contact_override
-              ? "border-red-500/40 focus:ring-red-500/20"
-              : "border-white/10 focus:ring-white/10 focus:border-white/20"
-          }
-        `}
+                                w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-white/[0.04]
+                                border text-white placeholder-white/20
+                                focus:outline-none focus:ring-2 transition-all
+                                ${
+                                  errors.contact_override
+                                    ? "border-red-500/40 focus:ring-red-500/20"
+                                    : "border-white/10 focus:ring-white/10 focus:border-white/20"
+                                }
+                              `}
                             />
                           </div>
                           {errors.contact_override ? (
@@ -596,7 +748,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                 <button
                   type="submit"
                   form="branch-form"
-                  disabled={isSaving}
+                  disabled={isSaving || isImageUploading}
                   className="flex items-center gap-2 px-5 py-2 rounded-xl bg-white text-[#010015] text-sm font-semibold hover:bg-white/90 transition-all disabled:opacity-40"
                 >
                   {isSaving ? (

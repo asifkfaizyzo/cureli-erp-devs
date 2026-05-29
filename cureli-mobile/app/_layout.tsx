@@ -50,14 +50,9 @@ export default function RootLayout() {
     initialize();
   }, []);
 
-  // ── Token expiry logout ──────────────────────────────────
-  // Only call logout() here — do NOT navigate.
-  // index.tsx watches status and handles all navigation.
-  // Navigating here races with index.tsx and causes jitter + errors.
   useEffect(() => {
     const unsubscribe = authEventEmitter.on('logout', () => {
       logout();
-      // No router.replace here — index.tsx handles it
     });
     return unsubscribe;
   }, [logout]);
@@ -77,7 +72,8 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)"                 options={{ headerShown: false }} />
             <Stack.Screen name="search"                 options={{ headerShown: false }} />
             <Stack.Screen name="product/[id]"           options={{ headerShown: false }} />
-            <Stack.Screen name="cart"                   options={{ headerShown: false }} />
+            <Stack.Screen name="shop/[id]"              options={{ headerShown: false }} />
+            <Stack.Screen name="cart"                    options={{ headerShown: false }} />
             <Stack.Screen name="checkout"               options={{ headerShown: false }} />
             <Stack.Screen name="onboarding/name"        options={{ headerShown: false, animation: 'slide_from_right' }} />
             <Stack.Screen name="onboarding/email"       options={{ headerShown: false, animation: 'slide_from_right' }} />
@@ -87,6 +83,9 @@ export default function RootLayout() {
             <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
             <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
             <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
+            <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
+            <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
+            <Stack.Screen name="marketplace/category"   options={{ headerShown: false }} />
           </Stack>
         </DialogProvider>
       </QueryClientProvider>

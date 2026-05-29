@@ -79,7 +79,7 @@ export const StorageService = {
     storage.clearAll();
   },
 
-  // ── Onboarding flags ──────────────────────────────────────
+  // ── Onboarding flags ──────────────────────────────────────────
 
   isIntroSeen(): boolean {
     return storage.getBoolean(KEYS.INTRO_SEEN) ?? false;
@@ -97,7 +97,7 @@ export const StorageService = {
     storage.set(KEYS.ONBOARDING_COMPLETE, true);
   },
 
-    // ── Theme preference ──────────────────────────────────────
+  // ── Theme preference ──────────────────────────────────────────
 
   getThemePreference(): 'light' | 'dark' | 'system' {
     const val = storage.getString('app.theme_preference');
@@ -117,5 +117,21 @@ export const StorageService = {
 
   setDarkVariant(variant: 'pure' | 'navy' | 'neutral'): void {
     storage.set('app.dark_variant', variant);
+  },
+
+  // ── Cart ──────────────────────────────────────────────────────
+  // Per-user cart stored under cart.{userId}
+  // So different users on the same device have separate carts.
+
+  getCart(userId: string): string | null {
+    return storage.getString(`cart.${userId}`) ?? null;
+  },
+
+  setCart(userId: string, cart: unknown): void {
+    storage.set(`cart.${userId}`, JSON.stringify(cart));
+  },
+
+  clearCart(userId: string): void {
+    storage.remove(`cart.${userId}`);
   },
 };

@@ -35,6 +35,8 @@ export function signMobileAccessToken({ userId, sessionId }) {
     ACCESS_TOKEN_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
+  console.log("Accesstoken:",ACCESS_TOKEN_SECRET);
+  
 }
 
 /**

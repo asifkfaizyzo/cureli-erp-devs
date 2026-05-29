@@ -62,6 +62,7 @@ import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js"
 import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
 import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
+import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js"; 
 
 // ============================================
 // APP SETUP
@@ -205,7 +206,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/marketplace", listingsRoutes);  
+app.use("/api/marketplace-listing", listingsRoutes);  
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);
@@ -228,6 +229,8 @@ app.use("/cadmin", cadminMasterMedicinesRoutes);
 app.use("/mobile", mobileAuthRoutes);
 app.use("/mobile", mobileUsersRoutes);
 app.use("/mobile", mobileMedicinesRoutes);
+app.use("/mobile", mobileShopsRoutes); 
+
 // ============================================
 // HEALTH CHECK
 // ============================================

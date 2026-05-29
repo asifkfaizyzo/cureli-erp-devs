@@ -11,55 +11,66 @@ import {
   bulkUpdateSchema,
   categoryVisibilitySchema,
   branchIdQuerySchema,
+  listingIdParamSchema,
 } from "./listings.schema.js";
 
 const router = Router();
 
 router.use(requireAuth);
 
-// Summary — all roles
-router.get("/listings/summary", Controller.getBranchSummary);
+// GET /api/marketplace/listings/summary
+router.get("/summary", Controller.getBranchSummary);
 
-// Categories — all roles can view, branch_admin+ can update
+// GET /api/marketplace/listings/categories
 router.get(
-  "/listings/categories",
+  "/categories",
   validate(branchIdQuerySchema, "query"),
   Controller.getCategories
 );
 
+// PATCH /api/marketplace/listings/categories
 router.patch(
-  "/listings/categories",
+  "/categories",
   requireRole("super_admin", "branch_admin"),
   validate(categoryVisibilitySchema),
   Controller.updateCategoryVisibility
 );
 
-// Main listings — all roles can view
+// GET /api/marketplace/listings
 router.get(
-  "/listings",
+  "/",
   validate(getListingsSchema, "query"),
   Controller.getListings
 );
 
-// Sync — super_admin and branch_admin only
+// POST /api/marketplace/listings/sync
 router.post(
-  "/listings/sync",
+  "/sync",
   requireRole("super_admin", "branch_admin"),
   validate(branchIdQuerySchema, "query"),
   Controller.syncInventory
 );
 
-// Bulk update — super_admin and branch_admin only
+// POST /api/marketplace/listings/bulk
 router.post(
-  "/listings/bulk",
+  "/bulk",
   requireRole("super_admin", "branch_admin"),
   validate(bulkUpdateSchema),
   Controller.bulkUpdateListings
 );
 
-// Single listing update — super_admin and branch_admin only
+// GET /api/marketplace/listings/:listing_id/detail
+// IMPORTANT: This must come BEFORE /:listing_id PATCH
+// to avoid Express matching "detail" as a listing_id param
+router.get(
+  "/:listing_id/detail",
+  validate(listingIdParamSchema, "params"),
+  Controller.getListingDetail
+);
+
+// PATCH /api/marketplace/listings/:listing_id
 router.patch(
-  "/listings/:listing_id",
+  "/:listing_id",
   requireRole("super_admin", "branch_admin"),
   validate(updateListingSchema),
   Controller.updateListing

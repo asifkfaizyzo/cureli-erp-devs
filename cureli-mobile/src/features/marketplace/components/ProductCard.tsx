@@ -1,22 +1,20 @@
 // src/features/marketplace/components/ProductCard.tsx
 //
-// Horizontal-discovery product card.
+// Product card used in horizontal home rails and vertical category grid.
 //
-// Layout:
-//   ┌─────────────────────────┐
-//   │                         │
-//   │      Product Image      │
-//   │                         │
-//   │                   [ADD] │  ← floating, peeks out right
-//   ├─────────────────────────┤
-//   │  Name (2 lines)         │
-//   │  Composition (1 line)   │
-//   │  Manufacturer (1 line)  │
-//   └─────────────────────────┘
+// PHASE 4 CHANGE: ADD button now navigates to the product detail page
+// instead of adding directly to cart. This is intentional — the cart
+// now requires pharmacy context (shopId, branchId) which is not available
+// from the home feed or category screen. The user must select a pharmacy
+// on the detail page before adding to cart.
 //
-// Fixed height: 200px.
-// ADD button adds to cart via useCartStore.
-// Card background matches page background.
+// The ADD button visual is preserved so the card looks identical to before.
+// Tapping it routes to /product/:skuId — same destination as tapping the
+// card body. The distinction will become meaningful in Phase 5 when the
+// detail page has a pharmacy selector and a real Add to Cart flow.
+//
+// cartItem / quantityInCart are removed — cart state is no longer
+// reflected on this card since items can only be added via the detail page.
 
 import React, { useCallback } from "react";
 import {
@@ -33,28 +31,22 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
-import { useCartStore } from "../../../store/cartStore";
 import type { EnrichedMedicine } from "../types/marketplace.types";
-
-// ── Constants ─────────────────────────────────────────────────
 
 const CARD_HEIGHT = 200;
 const IMAGE_HEIGHT = 120;
-
-// ── Props ─────────────────────────────────────────────────────
 
 interface ProductCardProps {
   medicine: EnrichedMedicine;
   width: number;
   onPress: (medicine: EnrichedMedicine) => void;
 }
-
-// ── Helpers ───────────────────────────────────────────────────
 
 function compositionSummary(med: EnrichedMedicine): string {
   if (Array.isArray(med.composition) && med.composition.length > 0) {
@@ -66,15 +58,8 @@ function compositionSummary(med: EnrichedMedicine): string {
   return med.strength || med.genericName || "Medicine";
 }
 
-// ── Component ─────────────────────────────────────────────────
-
-function ProductCardBase({
-  medicine,
-  width,
-  onPress,
-}: ProductCardProps) {
+function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
   const { colors } = useTheme();
-  const addItem = useCartStore((state) => state.addItem);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -93,15 +78,12 @@ function ProductCardBase({
     onPress(medicine);
   }, [onPress, medicine]);
 
+  // ADD button navigates to detail page — pharmacy selection happens there.
+  // Does NOT add to cart directly. cartStore.addItem requires pharmacy
+  // context that is not available from the feed/category context.
   const handleAdd = useCallback(() => {
-    addItem({
-      variantId: medicine.variantId,
-      skuId: medicine.skuId,
-      name: medicine.name,
-      quantity: 1,
-      pricePerUnit: medicine.marketplace.startsAt,
-    });
-  }, [addItem, medicine]);
+    router.push(`/product/${medicine.skuId}` as any);
+  }, [medicine.skuId]);
 
   return (
     <Animated.View style={[animatedStyle, { width }]}>
@@ -151,16 +133,20 @@ function ProductCardBase({
             </View>
           )}
 
-          {/* ── Floating ADD button ── */}
-          {/* Positioned so ~10% peeks out to the right of the image area */}
+          {/* ── Floating ADD button — navigates to detail page ── */}
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`Add ${medicine.name} to cart`}
-            style={styles.addButton}
+            accessibilityLabel={`View ${medicine.name}`}
+            style={[
+              styles.addButton,
+              { borderColor: colors.brand.primary },
+            ]}
           >
-            <Text style={styles.addText}>ADD</Text>
+            <Text style={[styles.addText, { color: colors.brand.primary }]}>
+              ADD
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -194,22 +180,19 @@ function ProductCardBase({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
-    overflow: "visible", // Allow ADD button to peek out
+    overflow: "visible",
   },
-  // ── Image ──
   imageContainer: {
     width: "100%",
     height: IMAGE_HEIGHT,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    overflow: "visible", // Allow ADD button to peek out
+    overflow: "visible",
     alignItems: "center",
-    justifyContent: "flex-end", // Image sits slightly lower
+    justifyContent: "flex-end",
     paddingBottom: Spacing.sm,
     position: "relative",
   },
@@ -224,21 +207,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // ── ADD button ──
-  // Floats at bottom-right of image area.
-  // right: -6 makes ~10% peek outside image boundary.
   addButton: {
     position: "absolute",
     bottom: -12,
     right: -6,
     backgroundColor: "#ffffff",
     borderWidth: 1.5,
-    borderColor: "#05015A",
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     zIndex: 10,
-    // Subtle shadow so it reads above image
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -247,13 +225,11 @@ const styles = StyleSheet.create({
   },
   addText: {
     ...Typography.buttonSmall,
-    color: "#05015A",
     letterSpacing: 0.5,
   },
-  // ── Content ──
   content: {
     paddingHorizontal: Spacing.xs,
-    paddingTop: Spacing.base, // Extra top padding to clear the floating ADD button
+    paddingTop: Spacing.base,
     gap: 2,
     flex: 1,
   },

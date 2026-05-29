@@ -74,12 +74,18 @@ const MedicineRow = ({
       {/* Medicine Identity */}
       <td className="px-3 py-2 border-r border-white/[0.04]">
         <div className="flex items-center gap-2.5">
-          {/* Image / Avatar */}
           <MedicineAvatar listing={listing} />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-white/90 truncate leading-tight">
-              {listing.catalog_name}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-semibold text-white/90 truncate leading-tight">
+                {listing.catalog_name}
+              </p>
+              {listing.requires_prescription && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-[9px] font-bold text-violet-400 uppercase tracking-wide flex-shrink-0">
+                  Rx
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-white/30 truncate mt-0.5">
               {listing.generic_name ? `${listing.generic_name} · ` : ""}
               {listing.manufacturer}

@@ -2,32 +2,55 @@
 //
 // PUBLIC mobile medicine discovery — service layer.
 //
-// Data philosophy (Cureli Mobile MVP showcase):
-//   • REAL  → MasterMedicineVariant catalog data (name, brand, composition,
-//             manufacturer, pack size, images) + its master's regulatory
-//             fields (prescription_required, form, primary_category, type).
-//   • FAKE  → pharmacy count, price, ETA, distance, stock. Generated on the
-//             FRONTEND only. This service NEVER returns those.
+// FEED MODE
+// ─────────
+// MOBILE_SHOW_UNLISTED_MEDICINES=true  (demo / dev)
+//   → Queries MasterMedicineVariant directly.
+//     All catalog medicines are visible regardless of whether any shop
+//     has listed them. Pricing and availability are generated on the
+//     frontend by generateMarketplaceData().
 //
-// Isolation: this module talks to Prisma + the shared asset URL resolver
-// ONLY. It does NOT import the cadmin master-medicines service, so the
-// mobile contract stays independent of the admin tool.
+// MOBILE_SHOW_UNLISTED_MEDICINES=false (production, safe default)
+//   → Queries MarketplaceListing with full visibility chain:
+//       listing.is_visible = true
+//       listing.stock_status = IN_STOCK
+//       branch.marketplaceSettings.marketplace_enabled = true
+//       branch.marketplaceSettings.marketplaceProfile.is_live = true
+//     Only medicines actively listed by a live branch appear in the feed.
+//     Output shape is IDENTICAL to demo mode — frontend is unaware of
+//     which path ran.
 //
-// IMAGE NOTE: image_status RAW means scraped images EXIST and are valid.
-// Only NONE means truly no image. We therefore resolve the variant's
-// images JSON array directly; an empty resolved array is the single signal
-// the frontend uses to show its branded placeholder.
+// FLAG IS READ ONCE AT MODULE LOAD — not per request.
+// Falsy default: if the variable is absent or misspelled, production
+// behavior is used. This is intentional — safe by default.
+//
+// IMAGE NOTE: image_status RAW means scraped images exist and are valid.
+// Only NONE means truly no image. We resolve the variant's images JSON
+// array directly; an empty resolved array signals the frontend to show
+// its branded placeholder.
 
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
+import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
+
+// ── Feed mode ─────────────────────────────────────────────────
+
+const SHOW_UNLISTED = process.env.MOBILE_SHOW_UNLISTED_MEDICINES === "true";
+
+console.log(
+  `[mobile.feed] mode: ${
+    SHOW_UNLISTED
+      ? "UNLISTED VISIBLE (demo)"
+      : "LISTINGS ONLY (production)"
+  }`
+);
 
 // ── Helpers ───────────────────────────────────────────────────
 
 /**
  * The variant.images column is a JSON array of storage keys, e.g.
  *   ["medicine_images/10005/img_00_high.jpg", ...]
- * Resolve each to a full CDN URL and drop nulls. RAW + VERIFIED images are
- * both valid and live here; we do NOT filter by source.
+ * Resolve each to a full CDN URL and drop nulls.
  *
  * @param {unknown} images
  * @returns {string[]}
@@ -50,7 +73,14 @@ function buildStrength(strengthValue, strengthUnit) {
 
 /**
  * Shape a single variant (with included master) into the mobile feed item.
- * Only REAL fields. No pricing — pricing is faked client-side.
+ * Only REAL fields. No pricing — pricing is generated client-side.
+ *
+ * This function is the single source of truth for the feed item shape.
+ * Both the demo path and the production path call it. The frontend
+ * receives an identical structure regardless of which path ran.
+ *
+ * @param {object} variant - MasterMedicineVariant with master included
+ * @returns {object}
  */
 function toFeedItem(variant) {
   const images = resolveVariantImages(variant.images);
@@ -58,31 +88,193 @@ function toFeedItem(variant) {
     variantId: variant.variant_id,
     skuId: variant.sku_id,
     name: variant.name,
-    brand: variant.brand,
+    brand: variant.brand ?? null,
     composition: variant.composition ?? [],
     strength: buildStrength(variant.strength_value, variant.strength_unit),
-    manufacturer: variant.manufacturer,
-    packSize: variant.pack_size,
-    image: images[0] ?? null, // first image, or null → frontend placeholder
+    manufacturer: variant.manufacturer ?? null,
+    packSize: variant.pack_size ?? null,
+    image: images[0] ?? null,
     // ── from master (regulatory / discovery) ──
     prescriptionRequired: variant.master?.prescription_required ?? false,
     form: variant.master?.form ?? null,
-    category: variant.master?.primary_category ?? null, // internal code
+    category: variant.master?.primary_category ?? null,
     genericName: variant.master?.generic_name ?? null,
     type: variant.master?.type ?? null,
   };
 }
 
-// ── List variants (the feed) ──────────────────────────────────
+// ── Prisma select clauses (reused across paths) ───────────────
 
 /**
- * Paginated, per-variant feed for the mobile home screen.
+ * The variant select used by both the demo path and the production
+ * listing path. Centralised so both paths always return the same shape.
+ */
+const VARIANT_SELECT = {
+  variant_id: true,
+  sku_id: true,
+  name: true,
+  brand: true,
+  composition: true,
+  strength_value: true,
+  strength_unit: true,
+  manufacturer: true,
+  pack_size: true,
+  images: true,
+  master: {
+    select: {
+      generic_name: true,
+      type: true,
+      form: true,
+      prescription_required: true,
+      primary_category: true,
+    },
+  },
+};
+
+// ── Demo path ─────────────────────────────────────────────────
+
+/**
+ * Query MasterMedicineVariant directly for a given category.
+ * Used when SHOW_UNLISTED = true.
+ *
+ * @param {string} category - internal primary_category value
+ * @param {number} limit
+ * @returns {Promise<object[]>} shaped feed items
+ */
+async function listVariantsFromCatalog(category, limit) {
+  const variants = await prisma.masterMedicineVariant.findMany({
+    where: {
+      master: {
+        is: {
+          primary_category: { equals: category, mode: "insensitive" },
+          is_active: true,
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+    take: limit,
+    select: VARIANT_SELECT,
+  });
+
+  return variants.map(toFeedItem);
+}
+
+// ── Production path ───────────────────────────────────────────
+
+/**
+ * Query MarketplaceListing with full visibility chain for a given category.
+ * Used when SHOW_UNLISTED = false.
+ *
+ * Visibility chain:
+ *   listing.is_visible = true
+ *   listing.stock_status = IN_STOCK
+ *   branch.marketplaceSettings.marketplace_enabled = true
+ *   branch.marketplaceSettings.marketplaceProfile.is_live = true
+ *
+ * @param {string} category - internal primary_category value
+ * @param {number} limit
+ * @returns {Promise<object[]>} shaped feed items, identical shape to demo path
+ */
+async function listVariantsFromListings(category, limit) {
+  const listings = await prisma.marketplaceListing.findMany({
+    where: {
+      is_visible: true,
+      stock_status: "IN_STOCK",
+      branch: {
+        marketplaceSettings: {
+          marketplace_enabled: true,
+          marketplaceProfile: {
+            is_live: true,
+          },
+        },
+      },
+      linkedVariant: {
+        master: {
+          primary_category: { equals: category, mode: "insensitive" },
+          is_active: true,
+        },
+      },
+    },
+    orderBy: {
+      linkedVariant: { name: "asc" },
+    },
+    take: limit,
+    select: {
+      linkedVariant: {
+        select: VARIANT_SELECT,
+      },
+    },
+  });
+
+  // Deduplicate by variant_id — multiple branches may list the same variant.
+  // The feed should show each medicine once, not once per listing.
+  const seen = new Set();
+  const items = [];
+
+  for (const listing of listings) {
+    const v = listing.linkedVariant;
+    if (!v || seen.has(v.variant_id)) continue;
+    seen.add(v.variant_id);
+    items.push(toFeedItem(v));
+  }
+
+  return items;
+}
+
+// ── Feed ──────────────────────────────────────────────────────
+
+/**
+ * Build the complete home feed — one section per CURATED_CATEGORIES entry
+ * that returns at least one result.
+ *
+ * Runs all category queries concurrently via Promise.all().
+ * From the mobile app's perspective this is one network round trip
+ * instead of one per category.
+ *
+ * Sections with zero results are omitted from the response so the
+ * frontend never renders an empty rail.
+ *
+ * @param {number} [itemsPerSection=8]
+ * @returns {Promise<{ sections: object[] }>}
+ */
+export async function listMobileFeed(itemsPerSection = 8) {
+  const queryFn = SHOW_UNLISTED
+    ? listVariantsFromCatalog
+    : listVariantsFromListings;
+
+  const results = await Promise.all(
+    CURATED_CATEGORIES.map(async (cat) => {
+      const medicines = await queryFn(cat.key, itemsPerSection);
+      return { cat, medicines };
+    })
+  );
+
+  const sections = results
+    .filter(({ medicines }) => medicines.length > 0)
+    .map(({ cat, medicines }) => ({
+      key: cat.key,
+      title: cat.label,
+      icon: cat.icon,
+      medicines,
+    }));
+
+  return { sections };
+}
+
+// ── List variants (paginated catalog — CategoryScreen) ────────
+
+/**
+ * Paginated, per-variant feed for the category browse screen.
+ * This endpoint is NOT affected by SHOW_UNLISTED — it always
+ * queries the full catalog. Category browsing is always public.
+ *
+ * Used by GET /mobile/medicines (CategoryScreen infinite scroll).
  *
  * @param {Object} opts
  * @param {number} opts.page
  * @param {number} opts.limit
  * @param {"DRUG"|"OTC"} [opts.type]
- * @param {string} [opts.category]  internal primary_category
+ * @param {string} [opts.category]
  * @param {string} [opts.search]
  */
 export async function listMobileMedicines({
@@ -94,12 +286,9 @@ export async function listMobileMedicines({
 }) {
   const skip = (page - 1) * limit;
 
-  // Build the variant-level where clause. Master-level filters (type,
-  // category) go through the `master` relation, which is indexed.
   const where = {};
 
-  // Filter on master fields via relation
-  const masterWhere = {};
+  const masterWhere = { is_active: true };
   if (type) masterWhere.type = type;
   if (category) {
     masterWhere.primary_category = { equals: category, mode: "insensitive" };
@@ -108,14 +297,16 @@ export async function listMobileMedicines({
     where.master = { is: masterWhere };
   }
 
-  // Search matches the variant name/brand/manufacturer OR the master's
-  // generic name — covers brand searches and composition searches.
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
       { brand: { contains: search, mode: "insensitive" } },
       { manufacturer: { contains: search, mode: "insensitive" } },
-      { master: { is: { generic_name: { contains: search, mode: "insensitive" } } } },
+      {
+        master: {
+          is: { generic_name: { contains: search, mode: "insensitive" } },
+        },
+      },
     ];
   }
 
@@ -125,27 +316,7 @@ export async function listMobileMedicines({
       orderBy: { name: "asc" },
       skip,
       take: limit,
-      select: {
-        variant_id: true,
-        sku_id: true,
-        name: true,
-        brand: true,
-        composition: true,
-        strength_value: true,
-        strength_unit: true,
-        manufacturer: true,
-        pack_size: true,
-        images: true,
-        master: {
-          select: {
-            generic_name: true,
-            type: true,
-            form: true,
-            prescription_required: true,
-            primary_category: true,
-          },
-        },
-      },
+      select: VARIANT_SELECT,
     }),
     prisma.masterMedicineVariant.count({ where }),
   ]);
@@ -168,12 +339,19 @@ export async function listMobileMedicines({
 // ── Single variant (detail) ───────────────────────────────────
 
 /**
- * Fetch one variant by variant UUID OR sku_id, plus sibling variants under
- * the same master (for the detail screen's "other brands" section).
- * Dual lookup mirrors the cadmin getMasterMedicineById pattern.
+ * Fetch one variant by variant UUID OR sku_id, plus sibling variants
+ * under the same master (for the detail screen's "Other options" rail).
  *
- * @param {string} idOrSku
- * @returns {Promise<Object|null>}
+ * In production mode (SHOW_UNLISTED = false), also checks whether any
+ * visible listing exists for this variant across any live branch.
+ * Returns availableNearYou: boolean so the frontend can disable order
+ * actions without hiding the product page.
+ *
+ * In demo mode (SHOW_UNLISTED = true), availableNearYou is always true —
+ * the check is skipped entirely.
+ *
+ * @param {string} idOrSku - variant UUID or sku_id
+ * @returns {Promise<object|null>}
  */
 export async function getMobileMedicine(idOrSku) {
   const baseSelect = {
@@ -203,17 +381,16 @@ export async function getMobileMedicine(idOrSku) {
     },
   };
 
-  // Try sku_id first (the card routes by skuId), then fall back to UUID.
+  // Try sku_id first (cards route by skuId), then fall back to UUID.
   let variant = await prisma.masterMedicineVariant.findUnique({
     where: { sku_id: idOrSku },
     select: baseSelect,
   });
 
   if (!variant) {
-    // findUnique on variant_id requires a valid UUID; guard against bad input.
     const looksLikeUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        idOrSku,
+        idOrSku
       );
     if (looksLikeUuid) {
       variant = await prisma.masterMedicineVariant.findUnique({
@@ -225,7 +402,35 @@ export async function getMobileMedicine(idOrSku) {
 
   if (!variant) return null;
 
-  // Sibling variants under the same master (exclude self).
+  // ── availableNearYou ──────────────────────────────────────
+  // Demo mode: skip the DB check entirely — always true.
+  // Production mode: check if any live branch has this variant
+  // listed and visible. One findFirst with a short-circuit is
+  // cheaper than a count.
+  let availableNearYou = true;
+
+  if (!SHOW_UNLISTED) {
+    const visibleListing = await prisma.marketplaceListing.findFirst({
+      where: {
+        linked_variant_id: variant.variant_id,
+        is_visible: true,
+        stock_status: "IN_STOCK",
+        branch: {
+          marketplaceSettings: {
+            marketplace_enabled: true,
+            marketplaceProfile: {
+              is_live: true,
+            },
+          },
+        },
+      },
+      select: { listing_id: true },
+    });
+
+    availableNearYou = visibleListing !== null;
+  }
+
+  // ── Siblings ──────────────────────────────────────────────
   const siblings = await prisma.masterMedicineVariant.findMany({
     where: {
       master_medicine_id: variant.master_medicine_id,
@@ -233,26 +438,7 @@ export async function getMobileMedicine(idOrSku) {
     },
     take: 10,
     orderBy: { name: "asc" },
-    select: {
-      variant_id: true,
-      sku_id: true,
-      name: true,
-      brand: true,
-      strength_value: true,
-      strength_unit: true,
-      manufacturer: true,
-      pack_size: true,
-      images: true,
-      master: {
-        select: {
-          prescription_required: true,
-          form: true,
-          primary_category: true,
-          type: true,
-          generic_name: true,
-        },
-      },
-    },
+    select: VARIANT_SELECT,
   });
 
   return {
@@ -260,7 +446,8 @@ export async function getMobileMedicine(idOrSku) {
       ...toFeedItem(variant),
       marketer: variant.marketer ?? null,
       description: variant.description ?? null,
-      images: resolveVariantImages(variant.images), // full gallery
+      images: resolveVariantImages(variant.images),
+      availableNearYou,
     },
     siblings: siblings.map(toFeedItem),
   };

@@ -183,6 +183,7 @@ const BasicInfoPanel = ({ formData, errors, handleInputChange }) => (
       </FormField>
 
       <FormField label="Schedule">
+        {/* type="button" is set inside StyledSelect internally — no change needed */}
         <StyledSelect
           value={formData.schedule}
           onChange={(val) => handleInputChange("schedule", val)}
@@ -250,7 +251,6 @@ const StoragePanel = ({ formData, errors, handleInputChange }) => (
       </FormField>
     </div>
 
-    {/* Visual range indicator */}
     {(formData.minLevel || formData.maxLevel || formData.reorderPoint) && (
       <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100 text-[10px] text-gray-500">
         <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
@@ -273,7 +273,15 @@ const StoragePanel = ({ formData, errors, handleInputChange }) => (
   </div>
 );
 
-const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstMode, handleGSTChange, handleTaxChange }) => (
+const PricingPanel = ({
+  formData,
+  errors,
+  handleInputChange,
+  gstMode,
+  toggleGstMode,
+  handleGSTChange,
+  handleTaxChange,
+}) => (
   <div className="space-y-4">
     <FormField label="HSN Code" hint="Harmonised System of Nomenclature code">
       <InputWithIcon
@@ -287,7 +295,6 @@ const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstM
 
     <SectionDivider label="GST Configuration" />
 
-    {/* Mode toggle card */}
     <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
       <div>
         <p className="text-xs font-semibold text-gray-700">Tax Entry Mode</p>
@@ -297,6 +304,7 @@ const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstM
             : "Enter CGST and SGST individually"}
         </p>
       </div>
+      {/* ← type="button" prevents this from submitting the form */}
       <button
         type="button"
         onClick={toggleGstMode}
@@ -377,7 +385,6 @@ const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstM
 
     <SectionDivider label="Price Control" />
 
-    {/* Price controlled toggle */}
     <div
       className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all select-none ${
         formData.priceControlled
@@ -400,11 +407,9 @@ const PricingPanel = ({ formData, errors, handleInputChange, gstMode, toggleGstM
           <p className="text-[10px] text-gray-500">Government regulated product (DPCO)</p>
         </div>
       </div>
-      <div
-        className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
-          formData.priceControlled ? "bg-indigo-600" : "bg-gray-200"
-        }`}
-      >
+      <div className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${
+        formData.priceControlled ? "bg-indigo-600" : "bg-gray-200"
+      }`}>
         <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${
           formData.priceControlled ? "left-[18px]" : "left-0.5"
         }`} />
@@ -434,11 +439,23 @@ const ProductMasterModal = ({
   mode = "create",
 }) => {
   const [formData, setFormData] = useState({
-    name: "", manufacturer: "", category: "", subCategory: "",
-    genericName: "", schedule: "", rackNo: "", minLevel: "",
-    maxLevel: "", reorderPoint: "", priceControlled: false,
-    hsnCode: "", packSize: "", gst: "12", cgstPercent: "6",
-    sgstPercent: "6", subHead: "",
+    name: "",
+    manufacturer: "",
+    category: "",
+    subCategory: "",
+    genericName: "",
+    schedule: "",
+    rackNo: "",
+    minLevel: "",
+    maxLevel: "",
+    reorderPoint: "",
+    priceControlled: false,
+    hsnCode: "",
+    packSize: "",
+    gst: "12",
+    cgstPercent: "6",
+    sgstPercent: "6",
+    subHead: "",
   });
 
   const [errors, setErrors] = useState({});
@@ -470,11 +487,16 @@ const ProductMasterModal = ({
     },
   ];
 
+  // Seed form when modal opens
   useEffect(() => {
     if (open) {
-      const hasManualGst = initialData.cgstPercent && initialData.sgstPercent;
+      const hasManualGst =
+        initialData.cgstPercent && initialData.sgstPercent;
       const calculatedGst = hasManualGst
-        ? String(parseFloat(initialData.cgstPercent) + parseFloat(initialData.sgstPercent))
+        ? String(
+            parseFloat(initialData.cgstPercent) +
+              parseFloat(initialData.sgstPercent),
+          )
         : "12";
 
       setFormData({
@@ -501,30 +523,42 @@ const ProductMasterModal = ({
       setActiveTab("basic");
       document.body.style.overflow = "hidden";
     }
-    return () => { document.body.style.overflow = "unset"; };
+    return () => {
+      document.body.style.overflow = "unset";
+    };
   }, [open, initialData]);
 
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === "Escape") handleClose(); };
-    if (open) document.addEventListener("keydown", handleEsc);
-    return () => document.removeEventListener("keydown", handleEsc);
-  }, [open]);
+  // ── NO global keydown listener here ──
+  // The <form onSubmit> handles Enter natively.
+  // Escape is handled by the parent (BatchProductModal closes the inner modal
+  // via onClose, which sets showProductModal = false).
 
-  const stats = useMemo(() => ({
-    isValid: !!formData.name.trim() && !!formData.manufacturer.trim(),
-  }), [formData.name, formData.manufacturer]);
+  const stats = useMemo(
+    () => ({
+      isValid:
+        !!formData.name.trim() && !!formData.manufacturer.trim(),
+    }),
+    [formData.name, formData.manufacturer],
+  );
 
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = "Product name is required";
-    if (!formData.manufacturer.trim()) newErrors.manufacturer = "Manufacturer is required";
-    if (formData.minLevel && formData.maxLevel && Number(formData.minLevel) >= Number(formData.maxLevel)) {
+    if (!formData.name.trim())
+      newErrors.name = "Product name is required";
+    if (!formData.manufacturer.trim())
+      newErrors.manufacturer = "Manufacturer is required";
+    if (
+      formData.minLevel &&
+      formData.maxLevel &&
+      Number(formData.minLevel) >= Number(formData.maxLevel)
+    ) {
       newErrors.maxLevel = "Max must be greater than min";
     }
     if (gstMode === "manual") {
       const cgst = parseFloat(formData.cgstPercent) || 0;
       const sgst = parseFloat(formData.sgstPercent) || 0;
-      if (cgst + sgst > 28) newErrors.cgstPercent = "Total GST cannot exceed 28%";
+      if (cgst + sgst > 28)
+        newErrors.cgstPercent = "Total GST cannot exceed 28%";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -533,15 +567,22 @@ const ProductMasterModal = ({
   const handleGSTChange = (value) => {
     const gst = parseFloat(value) || 0;
     const half = (gst / 2).toFixed(2);
-    setFormData((prev) => ({ ...prev, gst: value, cgstPercent: half, sgstPercent: half }));
+    setFormData((prev) => ({
+      ...prev,
+      gst: value,
+      cgstPercent: half,
+      sgstPercent: half,
+    }));
   };
 
   const handleTaxChange = (field, value) => {
     const numValue = parseFloat(value) || 0;
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
-      const cgst = field === "cgstPercent" ? numValue : parseFloat(prev.cgstPercent) || 0;
-      const sgst = field === "sgstPercent" ? numValue : parseFloat(prev.sgstPercent) || 0;
+      const cgst =
+        field === "cgstPercent" ? numValue : parseFloat(prev.cgstPercent) || 0;
+      const sgst =
+        field === "sgstPercent" ? numValue : parseFloat(prev.sgstPercent) || 0;
       newData.gst = String(cgst + sgst);
       return newData;
     });
@@ -554,18 +595,27 @@ const ProductMasterModal = ({
     } else {
       const gst = parseFloat(formData.gst) || 12;
       const half = (gst / 2).toFixed(2);
-      setFormData((prev) => ({ ...prev, cgstPercent: half, sgstPercent: half }));
+      setFormData((prev) => ({
+        ...prev,
+        cgstPercent: half,
+        sgstPercent: half,
+      }));
       setGstMode("auto");
     }
   };
 
+  // This is called by the <form>'s onSubmit — triggered by Enter OR clicking
+  // the submit button. Both paths go through here.
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!validateForm()) {
+      // Jump to the tab that has the first error
       if (errors.name || errors.manufacturer) setActiveTab("basic");
       else if (errors.maxLevel) setActiveTab("storage");
       return;
     }
+
     setIsSubmitting(true);
     try {
       const toNum = (val) => {
@@ -573,6 +623,7 @@ const ProductMasterModal = ({
         const num = Number(val);
         return isNaN(num) ? null : num;
       };
+
       await onSave({
         name: formData.name.trim(),
         manufacturer: formData.manufacturer.trim(),
@@ -592,9 +643,14 @@ const ProductMasterModal = ({
         priceControlled: formData.priceControlled || false,
         subHead: formData.subHead?.trim() || null,
       });
-      onClose();
+
+      // onSave's parent (handleSaveProduct in BatchProductModal) calls onClose
+      // so we don't need to call onClose() here.
     } catch (error) {
-      setErrors((prev) => ({ ...prev, submit: error.message || "Failed to save product" }));
+      setErrors((prev) => ({
+        ...prev,
+        submit: error.message || "Failed to save product",
+      }));
     } finally {
       setIsSubmitting(false);
     }
@@ -605,25 +661,22 @@ const ProductMasterModal = ({
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
   };
 
-  const handleClose = () => onClose();
-
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 font-poppins"
-      onClick={handleClose}
+      onClick={onClose}
     >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" />
 
-      {/* Modal — fixed size, always same height */}
+      {/* Modal */}
       <div
         className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         style={{ height: "min(680px, calc(100vh - 2rem))" }}
         onClick={(e) => e.stopPropagation()}
       >
-
         {/* ═══════════ HEADER ═══════════ */}
         <div className="shrink-0 bg-gradient-to-r from-[#05015A] to-[#0a0280] px-6 py-4">
           <div className="flex items-center justify-between">
@@ -635,7 +688,9 @@ const ProductMasterModal = ({
                 <h2 className="text-white font-bold text-base leading-tight">
                   {mode === "create" ? "Add New Product" : "Edit Product"}
                 </h2>
-                <p className="text-white/50 text-[11px] mt-0.5">Medicine Master Entry</p>
+                <p className="text-white/50 text-[11px] mt-0.5">
+                  Medicine Master Entry
+                </p>
               </div>
             </div>
 
@@ -649,8 +704,10 @@ const ProductMasterModal = ({
                   <AlertTriangle size={10} /> Incomplete
                 </span>
               )}
+              {/* ← type="button" — critical, prevents form submission */}
               <button
-                onClick={handleClose}
+                type="button"
+                onClick={onClose}
                 className="p-1.5 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-all"
               >
                 <X size={18} />
@@ -659,7 +716,7 @@ const ProductMasterModal = ({
           </div>
         </div>
 
-        {/* ═══════════ BODY (sidebar + content) ═══════════ */}
+        {/* ═══════════ BODY ═══════════ */}
         <form onSubmit={handleSubmit} className="flex flex-1 overflow-hidden">
 
           {/* ── LEFT SIDEBAR TABS ── */}
@@ -672,7 +729,7 @@ const ProductMasterModal = ({
               return (
                 <button
                   key={tab.id}
-                  type="button"
+                  type="button" // ← critical: prevents form submit on tab click
                   onClick={() => setActiveTab(tab.id)}
                   className={`
                     w-full text-left px-3 py-3 rounded-xl transition-all group
@@ -684,9 +741,7 @@ const ProductMasterModal = ({
                 >
                   <div className="flex items-start gap-2.5">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                      isActive
-                        ? "bg-indigo-600"
-                        : "bg-gray-200 group-hover:bg-gray-300"
+                      isActive ? "bg-indigo-600" : "bg-gray-200 group-hover:bg-gray-300"
                     }`}>
                       <Icon size={14} className={isActive ? "text-white" : "text-gray-500"} />
                     </div>
@@ -710,19 +765,17 @@ const ProductMasterModal = ({
               );
             })}
 
-            {/* Sidebar footer — spacer + required note */}
             <div className="mt-auto px-2 pb-2 pt-3 border-t border-gray-100 mt-3">
               <p className="text-[10px] text-gray-400 leading-relaxed">
-                <span className="text-red-400 font-bold">*</span> Required fields must be filled before saving.
+                <span className="text-red-400 font-bold">*</span> Required
+                fields must be filled before saving.
               </p>
             </div>
           </div>
 
           {/* ── RIGHT CONTENT PANEL ── */}
           <div className="flex-1 flex flex-col overflow-hidden bg-white">
-            {/* Content scroll area */}
             <div className="flex-1 overflow-y-auto p-5">
-
               {activeTab === "basic" && (
                 <BasicInfoPanel
                   formData={formData}
@@ -730,7 +783,6 @@ const ProductMasterModal = ({
                   handleInputChange={handleInputChange}
                 />
               )}
-
               {activeTab === "storage" && (
                 <StoragePanel
                   formData={formData}
@@ -738,7 +790,6 @@ const ProductMasterModal = ({
                   handleInputChange={handleInputChange}
                 />
               )}
-
               {activeTab === "pricing" && (
                 <PricingPanel
                   formData={formData}
@@ -751,7 +802,6 @@ const ProductMasterModal = ({
                 />
               )}
 
-              {/* Submit error */}
               {errors.submit && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
                   <AlertTriangle size={13} className="text-red-500 mt-0.5 shrink-0" />
@@ -760,39 +810,63 @@ const ProductMasterModal = ({
               )}
             </div>
 
-            {/* ── FOOTER inside right panel ── */}
-            <div className="shrink-0 px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
+            {/* ── FOOTER ── */}
+            <div className="shrink-0 px-5 py-3 bg-gray-50 border-t border-gray-100
+              flex items-center justify-between gap-3">
               <div className="flex items-center gap-1.5">
                 <span className={`w-1.5 h-1.5 rounded-full transition-colors ${
                   stats.isValid ? "bg-emerald-500" : "bg-amber-400"
                 }`} />
                 <span className="text-[10px] text-gray-400">
-                  {stats.isValid ? "Ready to save" : "Fill name & manufacturer to continue"}
+                  {stats.isValid
+                    ? "Ready to save"
+                    : "Fill name & manufacturer to continue"}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* ← type="button" — prevents Enter from hitting Cancel */}
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={onClose}
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border
+                    border-gray-200 rounded-lg hover:bg-gray-50 transition-colors
+                    disabled:opacity-50"
                 >
                   Cancel
                 </button>
+
+                {/*
+                  ← type="submit" — this is what Enter triggers.
+                  The form's onSubmit fires when Enter is pressed inside
+                  any text input within the form, which calls handleSubmit.
+                */}
                 <button
                   type="submit"
                   disabled={isSubmitting || !stats.isValid}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    stats.isValid && !isSubmitting
-                      ? "bg-[#05015A] text-white hover:bg-[#0a0280] shadow-sm"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  }`}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm
+                    font-semibold transition-all ${
+                      stats.isValid && !isSubmitting
+                        ? "bg-[#05015A] text-white hover:bg-[#0a0280] shadow-sm"
+                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    }`}
                 >
                   {isSubmitting ? (
-                    <><Loader2 size={14} className="animate-spin" /> Saving...</>
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Saving...
+                    </>
                   ) : (
-                    <><Save size={14} /> {mode === "create" ? "Add Product" : "Update Product"}</>
+                    <>
+                      <Save size={14} />
+                      {mode === "create" ? "Add Product" : "Update Product"}
+                      {/* Enter key hint */}
+                      <kbd className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono
+                        bg-white/20 text-white/70 border border-white/20 leading-none">
+                        Enter
+                      </kbd>
+                    </>
                   )}
                 </button>
               </div>

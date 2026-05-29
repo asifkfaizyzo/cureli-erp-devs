@@ -1,22 +1,24 @@
+// src/pages/marketplace/MarketplaceStorefrontPage.jsx
+
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 
-import { useStorefrontPage }  from "../../hooks/marketplace/useStorefrontPage";
-import { usePermission }      from "../../hooks/usePermission";
-import { useToast }           from "../../components/common/Toast";
-import ConfirmDialog          from "../../components/common/ConfirmDialog";
-import { PERMISSIONS }        from "../../config/permissions";
-import EditBrandingModal      from "./components/EditBrandingModal";
-import EditBranchModal        from "./components/EditBranchModal";
+import { useStorefrontPage } from "../../hooks/marketplace/useStorefrontPage";
+import { usePermission } from "../../hooks/usePermission";
+import { useToast } from "../../components/common/Toast";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
+import { PERMISSIONS } from "../../config/permissions";
+import EditBrandingModal from "./components/EditBrandingModal";
+import EditBranchModal from "./components/EditBranchModal";
 
 // Layout components
-import PageSkeleton           from "./components/PageSkeleton";
-import ErrorState             from "./components/ErrorState";
-import SuspendedBanner        from "./components/SuspendedBanner";
-import StorefrontHeader       from "./components/StorefrontHeader";
-import StorefrontMetrics      from "./components/StorefrontMetrics";
-import StorefrontIdentity     from "./components/StorefrontIdentity";
-import BranchOperations       from "./components/BranchOperations";
+import PageSkeleton from "./components/PageSkeleton";
+import ErrorState from "./components/ErrorState";
+import SuspendedBanner from "./components/SuspendedBanner";
+import StorefrontHeader from "./components/StorefrontHeader";
+import StorefrontMetrics from "./components/StorefrontMetrics";
+import StorefrontIdentity from "./components/StorefrontIdentity";
+import BranchOperations from "./components/BranchOperations";
 
 // ─────────────────────────────────────────────────────────────────
 
@@ -51,30 +53,37 @@ const MarketplaceStorefrontPage = () => {
     resume,
   } = useStorefrontPage();
 
-  const canManage  = hasPermission(PERMISSIONS.MARKETPLACE_MANAGE);
+  const canManage = hasPermission(PERMISSIONS.MARKETPLACE_MANAGE);
   const canSuspend = hasPermission(PERMISSIONS.MARKETPLACE_SUSPEND);
 
-  const [confirmDialog,     setConfirmDialog]     = useState({ open: false, type: null });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, type: null });
   const [brandingModalOpen, setBrandingModalOpen] = useState(false);
-  const [branchModal,       setBranchModal]       = useState({ open: false, branch: null });
+  const [branchModal, setBranchModal]             = useState({ open: false, branch: null });
 
+  // ── Load on mount / when role context changes ─────────────────
+  // No in-flight bail here — the hook's loadIdRef handles
+  // last-call-wins, so StrictMode's double-invoke is harmless:
+  // call #1 is stamped stale the moment call #2 increments loadIdRef.
   useEffect(() => {
     load({ isSuperAdmin, branchId });
   }, [load, isSuperAdmin, branchId]);
 
-  // ── Handlers ─────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────
 
   const handleToggleBranch = async (branch_id, newValue) => {
     try {
       await toggleBranch(branch_id, newValue);
       toast.success(
-        newValue ? "Branch enabled"  : "Branch disabled",
+        newValue ? "Branch enabled" : "Branch disabled",
         newValue
           ? "This branch is now visible in the marketplace."
-          : "This branch has been removed from the marketplace."
+          : "This branch has been removed from the marketplace.",
       );
     } catch {
-      toast.error("Toggle failed", "Could not update branch status. Please try again.");
+      toast.error(
+        "Toggle failed",
+        "Could not update branch status. Please try again.",
+      );
     }
   };
 
@@ -99,32 +108,50 @@ const MarketplaceStorefrontPage = () => {
 
   const handleBrandingSave = async (data) => {
     const result = await saveStorefrontData(data);
-    if (result.success) toast.success("Branding updated", "Your storefront looks great.");
+    if (result.success)
+      toast.success("Branding updated", "Your storefront looks great.");
     return result;
   };
 
   const handleBranchSave = async (branch_id, payload) => {
     const result = await saveBranchConfig(branch_id, payload);
-    if (result.success) toast.success("Branch updated", "Branch marketplace settings saved successfully.");
+    if (result.success)
+      toast.success("Branch updated", "Branch marketplace settings saved successfully.");
     return result;
   };
 
-  // ── Render Guards ─────────────────────────────────────────────
+  // ── Render guards ─────────────────────────────────────────────
 
   if (isLoading) {
-    return <div className="min-h-screen bg-[#010015]"><PageSkeleton /></div>;
+    return (
+      <div className="min-h-screen bg-[#010015]">
+        <PageSkeleton />
+      </div>
+    );
   }
 
-  if (storefrontError && branchesError) {
-    return <div className="min-h-screen bg-[#010015]"><ErrorState message={storefrontError} onRetry={refresh} /></div>;
+  if (storefrontError || branchesError) {
+    return (
+      <div className="min-h-screen bg-[#010015]">
+        <ErrorState message={storefrontError || branchesError} onRetry={refresh} />
+      </div>
+    );
   }
 
-  // ── Main Render ───────────────────────────────────────────────
+  // Not loading, no error, but no data — offer recovery instead of blank page.
+  if (!storefront) {
+    return (
+      <div className="min-h-screen bg-[#010015]">
+        <ErrorState message="Could not load storefront." onRetry={refresh} />
+      </div>
+    );
+  }
+
+  // ── Main render ───────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#010015]">
       <div className="space-y-6">
-
         <AnimatePresence>
           {isSuspended && (
             <SuspendedBanner
@@ -182,7 +209,11 @@ const MarketplaceStorefrontPage = () => {
         isOpen={confirmDialog.open}
         onClose={() => setConfirmDialog({ open: false, type: null })}
         onConfirm={handleConfirmAction}
-        title={confirmDialog.type === "suspend" ? "Suspend Marketplace?" : "Resume Marketplace?"}
+        title={
+          confirmDialog.type === "suspend"
+            ? "Suspend Marketplace?"
+            : "Resume Marketplace?"
+        }
         message={
           confirmDialog.type === "suspend"
             ? "This will immediately take all branches offline. Customers will not be able to place orders until you resume."
