@@ -2,16 +2,28 @@
 //
 // Per-user cart store with MMKV persistence.
 //
-// Persistence rules:
-//   - Cart is stored under key "cart.{userId}" in MMKV.
-//   - On app start, initCart(userId) loads the user's cart.
-//   - On logout, clearCartForUser(userId) wipes their cart from memory + MMKV.
-//   - Different users on the same device have separate carts.
+// PHASE 3 CHANGE: single-pharmacy cart enforcement.
 //
-// cartCount is derived from items so it is always in sync.
+// CartItem now carries pharmacy context (shopId, shopName, branchId,
+// branchName). addItem detects when the incoming item belongs to a
+// different branch than items already in the cart and returns a conflict
+// signal instead of adding silently.
+//
+// The UI handles the conflict by showing a dialog:
+//   "Your cart contains items from [shopName]. Clear cart and continue?"
+// User confirms → clearCart() then addItem() again.
+// User cancels → nothing changes.
+//
+// Cart enforcement is at the BRANCH level. Same shop, different branch =
+// conflict. This is intentional — different branches have different
+// inventory, pricing, and fulfillment.
+//
+// cartPharmacy is a derived selector — null when cart is empty,
+// otherwise the pharmacy context of the current cart items.
 
 import { create } from "zustand";
 import { StorageService } from "../services/storage";
+import type { CartPharmacy } from "../types/shop";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -23,7 +35,20 @@ export interface CartItem {
   pricePerUnit: number;
   image: string | null;
   manufacturer: string | null;
+  // ── Pharmacy context (Phase 3) ──────────────────────────────
+  shopId: string;
+  shopName: string;
+  branchId: string;
+  branchName: string;
 }
+
+// Result of addItem — either success or a conflict that needs user resolution
+export type AddItemResult =
+  | { status: "added" }
+  | {
+      status: "conflict";
+      existingPharmacy: CartPharmacy;
+    };
 
 interface CartStore {
   items: CartItem[];
@@ -35,11 +60,14 @@ interface CartStore {
   clearCartForUser: (userId: string) => void;
 
   // Mutations
-  addItem: (item: Omit<CartItem, "quantity">) => void;
+  addItem: (item: Omit<CartItem, "quantity">) => AddItemResult;
   removeItem: (variantId: string) => void;
   incrementItem: (variantId: string) => void;
   decrementItem: (variantId: string) => void;
   clearCart: () => void;
+
+  // Derived
+  cartPharmacy: () => CartPharmacy | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -60,7 +88,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   cartCount: 0,
   currentUserId: null,
 
-  // ── Load cart for user on login / app start ───────────────────
+  // ── Load cart for user on login / app start ───────────────
 
   initCart: (userId: string) => {
     const raw = StorageService.getCart(userId);
@@ -81,19 +109,46 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     });
   },
 
-  // ── Clear cart on logout ──────────────────────────────────────
+  // ── Clear cart on logout ──────────────────────────────────
 
   clearCartForUser: (userId: string) => {
     StorageService.clearCart(userId);
     set({ items: [], cartCount: 0, currentUserId: null });
   },
 
-  // ── Add item ──────────────────────────────────────────────────
+  // ── Add item with pharmacy conflict detection ─────────────
+  //
+  // Returns { status: "added" } on success.
+  // Returns { status: "conflict", existingPharmacy } when the item
+  // belongs to a different branch than existing cart items.
+  //
+  // On conflict: caller must show dialog, then call clearCart() and
+  // addItem() again if user confirms.
 
-  addItem: (item) => {
+  addItem: (item): AddItemResult => {
     const { items, currentUserId } = get();
-    const existing = items.find((i) => i.variantId === item.variantId);
 
+    // ── Conflict check ──────────────────────────────────────
+    // Only check if cart is non-empty.
+    if (items.length > 0) {
+      const existingBranchId = items[0].branchId;
+
+      if (item.branchId !== existingBranchId) {
+        // Different branch — return conflict signal without mutating state
+        return {
+          status: "conflict",
+          existingPharmacy: {
+            shopId: items[0].shopId,
+            shopName: items[0].shopName,
+            branchId: items[0].branchId,
+            branchName: items[0].branchName,
+          },
+        };
+      }
+    }
+
+    // ── No conflict — add or increment ──────────────────────
+    const existing = items.find((i) => i.variantId === item.variantId);
     let updated: CartItem[];
 
     if (existing) {
@@ -108,9 +163,11 @@ export const useCartStore = create<CartStore>()((set, get) => ({
 
     persist(currentUserId, updated);
     set({ items: updated, cartCount: deriveCount(updated) });
+
+    return { status: "added" };
   },
 
-  // ── Remove item entirely ──────────────────────────────────────
+  // ── Remove item entirely ──────────────────────────────────
 
   removeItem: (variantId) => {
     const { items, currentUserId } = get();
@@ -119,7 +176,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     set({ items: updated, cartCount: deriveCount(updated) });
   },
 
-  // ── Increment quantity ────────────────────────────────────────
+  // ── Increment quantity ────────────────────────────────────
 
   incrementItem: (variantId) => {
     const { items, currentUserId } = get();
@@ -130,7 +187,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     set({ items: updated, cartCount: deriveCount(updated) });
   },
 
-  // ── Decrement quantity (caller decides whether to remove) ─────
+  // ── Decrement quantity ────────────────────────────────────
 
   decrementItem: (variantId) => {
     const { items, currentUserId } = get();
@@ -143,11 +200,27 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     set({ items: updated, cartCount: deriveCount(updated) });
   },
 
-  // ── Clear entire cart ─────────────────────────────────────────
+  // ── Clear entire cart ─────────────────────────────────────
 
   clearCart: () => {
     const { currentUserId } = get();
     if (currentUserId) StorageService.clearCart(currentUserId);
     set({ items: [], cartCount: 0 });
+  },
+
+  // ── Derived: current cart pharmacy ───────────────────────
+  // Returns null when cart is empty.
+  // Returns pharmacy context when items exist — all items in cart
+  // always belong to the same branch (enforced by addItem).
+
+  cartPharmacy: (): CartPharmacy | null => {
+    const { items } = get();
+    if (items.length === 0) return null;
+    return {
+      shopId: items[0].shopId,
+      shopName: items[0].shopName,
+      branchId: items[0].branchId,
+      branchName: items[0].branchName,
+    };
   },
 }));

@@ -1,11 +1,11 @@
 // src/features/marketplace/api/marketplace.api.ts
 //
-// All marketplace medicine API calls.
-// Goes through src/services/api.ts (shared Axios instance) — never axios
-// directly — mirroring features/profile/api/profile.api.ts.
+// All marketplace medicine and shop API calls.
+// Goes through src/services/api.ts (shared Axios instance).
 //
-// NOTE: these endpoints are PUBLIC. The shared instance still auto-attaches
-// the mobile token when present (harmless), and works fine when absent.
+// NOTE: all mobile endpoints are PUBLIC. The shared instance
+// auto-attaches the mobile token when present (harmless), and
+// works fine when absent.
 
 import { api } from "../../../services/api";
 import type {
@@ -15,6 +15,11 @@ import type {
   CategoriesResponse,
 } from "../types/marketplace.types";
 import type { HomeFeedResponse } from "../types/marketplace.types";
+import type {
+  ShopSearchResponse,
+  ShopProfileResponse,
+  BranchMedicinesResponse,
+} from "../../../types/shop";
 import type { AxiosError } from "axios";
 
 // ── Shared response wrapper ───────────────────────────────────
@@ -48,15 +53,29 @@ function buildFeedQuery(params: MedicineFeedParams): string {
   return qs ? `?${qs}` : "";
 }
 
+// ── Location params helper ────────────────────────────────────
+
+interface LocationParams {
+  lat?: number | null;
+  lng?: number | null;
+}
+
+function buildLocationQuery(location: LocationParams): string {
+  const sp = new URLSearchParams();
+  if (location.lat != null) sp.set("lat", String(location.lat));
+  if (location.lng != null) sp.set("lng", String(location.lng));
+  const qs = sp.toString();
+  return qs ? `?${qs}` : "";
+}
+
 // ── API methods ───────────────────────────────────────────────
 
 export const marketplaceApi = {
+  // ── Medicine endpoints (unchanged) ──────────────────────────
+
   /**
    * GET /mobile/medicines/feed
    * Home feed — all curated sections in one request.
-   * Returns only sections that have at least one result.
-   * Feed mode (demo vs production) is determined server-side by
-   * MOBILE_SHOW_UNLISTED_MEDICINES — the client is unaware.
    */
   getFeed: async (): Promise<HomeFeedResponse> => {
     const response = await api.get<ApiResponse<HomeFeedResponse>>(
@@ -67,8 +86,7 @@ export const marketplaceApi = {
 
   /**
    * GET /mobile/medicines
-   * Paginated per-variant catalog. Used by CategoryScreen infinite scroll.
-   * Always queries the full catalog regardless of feed mode.
+   * Paginated catalog. Used by CategoryScreen and medicine search.
    */
   getMedicines: async (
     params: MedicineFeedParams = {},
@@ -82,7 +100,6 @@ export const marketplaceApi = {
   /**
    * GET /mobile/medicines/categories
    * Curated category list for the Quick Categories rail.
-   * Effectively static — staleTime 1 hour in useCategories.
    */
   getCategories: async (): Promise<CategoriesResponse> => {
     const response = await api.get<ApiResponse<CategoriesResponse>>(
@@ -93,16 +110,81 @@ export const marketplaceApi = {
 
   /**
    * GET /mobile/medicines/:variantId
-   * Single variant (by skuId or variant UUID) + sibling variants.
-   * Response includes availableNearYou: boolean.
-   * Never returns 404 for a known variant — availableNearYou: false
-   * signals the UI to disable order actions instead.
+   * Single variant detail + siblings. Includes availableNearYou.
    */
   getMedicine: async (
     variantIdOrSku: string,
   ): Promise<MedicineDetailResponse> => {
     const response = await api.get<ApiResponse<MedicineDetailResponse>>(
       `/mobile/medicines/${encodeURIComponent(variantIdOrSku)}`,
+    );
+    return response.data.data;
+  },
+
+  // ── Shop endpoints (new) ─────────────────────────────────────
+
+  /**
+   * GET /mobile/shops/search?q=X&lat=Y&lng=Z&page=1&limit=20
+   * Search live shops. q is optional — omitting returns all live shops.
+   * lat/lng are optional — omitting skips distance computation.
+   */
+  searchShops: async (params: {
+    q?: string;
+    lat?: number | null;
+    lng?: number | null;
+    page?: number;
+    limit?: number;
+  }): Promise<ShopSearchResponse> => {
+    const sp = new URLSearchParams();
+    if (params.q && params.q.trim().length >= 2) sp.set("q", params.q.trim());
+    if (params.lat != null) sp.set("lat", String(params.lat));
+    if (params.lng != null) sp.set("lng", String(params.lng));
+    if (params.page !== undefined) sp.set("page", String(params.page));
+    if (params.limit !== undefined) sp.set("limit", String(params.limit));
+    const qs = sp.toString();
+
+    const response = await api.get<ApiResponse<ShopSearchResponse>>(
+      `/mobile/shops/search${qs ? `?${qs}` : ""}`,
+    );
+    return response.data.data;
+  },
+
+  /**
+   * GET /mobile/shops/:shopId?lat=Y&lng=Z
+   * Full shop profile with all onboarded branches.
+   * lat/lng optional — enables distance on branches.
+   */
+  getShopProfile: async (
+    shopId: string,
+    location: LocationParams = {},
+  ): Promise<ShopProfileResponse> => {
+    const qs = buildLocationQuery(location);
+    const response = await api.get<ApiResponse<ShopProfileResponse>>(
+      `/mobile/shops/${encodeURIComponent(shopId)}${qs}`,
+    );
+    return response.data.data;
+  },
+
+  /**
+   * GET /mobile/shops/:shopId/branches/:branchId/medicines
+   * Paginated medicines for a specific branch.
+   * search param enables in-shop search.
+   */
+  getShopBranchMedicines: async (
+    shopId: string,
+    branchId: string,
+    params: { search?: string; page?: number; limit?: number } = {},
+  ): Promise<BranchMedicinesResponse> => {
+    const sp = new URLSearchParams();
+    if (params.search && params.search.trim().length >= 1) {
+      sp.set("search", params.search.trim());
+    }
+    if (params.page !== undefined) sp.set("page", String(params.page));
+    if (params.limit !== undefined) sp.set("limit", String(params.limit));
+    const qs = sp.toString();
+
+    const response = await api.get<ApiResponse<BranchMedicinesResponse>>(
+      `/mobile/shops/${encodeURIComponent(shopId)}/branches/${encodeURIComponent(branchId)}/medicines${qs ? `?${qs}` : ""}`,
     );
     return response.data.data;
   },

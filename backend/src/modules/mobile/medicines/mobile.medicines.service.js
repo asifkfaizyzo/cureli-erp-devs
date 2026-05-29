@@ -407,7 +407,7 @@ export async function getMobileMedicine(idOrSku) {
   // Production mode: check if any live branch has this variant
   // listed and visible. One findFirst with a short-circuit is
   // cheaper than a count.
-  let availableNearYou = false;
+  let availableNearYou = true;
 
   if (!SHOW_UNLISTED) {
     const visibleListing = await prisma.marketplaceListing.findFirst({
