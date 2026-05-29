@@ -1,10 +1,9 @@
-// app/search.tsx
-
 import React, {
   useState,
   useCallback,
   useEffect,
   useRef,
+  useMemo,
 } from "react";
 import {
   View,
@@ -26,9 +25,45 @@ import { Typography } from "../src/theme/typography";
 import { Spacing } from "../src/theme/spacing";
 import { Radius } from "../src/theme/radius";
 import { MedicineCard } from "../src/features/marketplace/components/MedicineCard";
+import { ShopCard } from "../src/features/marketplace/components/ShopCard";
 import { marketplaceApi } from "../src/features/marketplace/api/marketplace.api";
 import { generateMarketplaceData } from "../src/features/marketplace/utils/generateMarketplaceData";
+import {
+  searchShops,
+  type DummyShop,
+} from "../src/features/marketplace/constants/dummyShops";
 import type { EnrichedMedicine } from "../src/types/medicine";
+
+// ── Types ─────────────────────────────────────────────────────
+
+type SearchMode = "medicines" | "shops";
+
+// ── Mode-specific copy ────────────────────────────────────────
+
+const MODE_COPY = {
+  medicines: {
+    placeholder: "Search medicines, brands, compositions...",
+    helperText: "Showing medicine and brand matches",
+    idleTitle: "Find medicines quickly",
+    idleHint: "Search by medicine name, brand, or composition",
+    leadingIcon: "medkit-outline" as const,
+    chipIcon: "search-outline" as const,
+    emptyPrefix: "No medicines found for",
+    emptyHint: "Try a different name or brand",
+    resultLabel: "medicine",
+  },
+  shops: {
+    placeholder: "Search pharmacies, shop names, areas...",
+    helperText: "Search pharmacies by name or area in Kochi",
+    idleTitle: "Find pharmacies near you",
+    idleHint: "Search by pharmacy name or area like Kakkanad",
+    leadingIcon: "storefront-outline" as const,
+    chipIcon: "storefront-outline" as const,
+    emptyPrefix: "No shops found for",
+    emptyHint: "Try a pharmacy name or area like Kakkanad, Edapally",
+    resultLabel: "shop",
+  },
+} as const;
 
 // ── Debounce hook ─────────────────────────────────────────────
 
@@ -41,16 +76,16 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced;
 }
 
-// ── Search query hook ─────────────────────────────────────────
+// ── Medicine search hook ──────────────────────────────────────
 
-function useSearchResults(query: string) {
+function useMedicineResults(query: string, enabled: boolean) {
   const trimmed = query.trim();
 
   const result = useQuery({
     queryKey: ["medicines", "search", trimmed],
     queryFn: () =>
       marketplaceApi.getMedicines({ search: trimmed, limit: 30 }),
-    enabled: trimmed.length >= 2,
+    enabled: enabled && trimmed.length >= 2,
     staleTime: 1000 * 60 * 2,
   });
 
@@ -68,9 +103,9 @@ function useSearchResults(query: string) {
   };
 }
 
-// ── Quick suggestion chips ────────────────────────────────────
+// ── Quick suggestions ─────────────────────────────────────────
 
-const QUICK_SUGGESTIONS = [
+const MEDICINE_SUGGESTIONS = [
   "Paracetamol",
   "Vitamin D",
   "Metformin",
@@ -79,24 +114,153 @@ const QUICK_SUGGESTIONS = [
   "Amoxicillin",
 ];
 
+const SHOP_SUGGESTIONS = [
+  "Kakkanad",
+  "Edapally",
+  "Apollo",
+  "MedPlus",
+  "Vytilla",
+  "Aluva",
+];
+
+// ── Mode toggle component ─────────────────────────────────────
+
+interface ModeToggleProps {
+  mode: SearchMode;
+  onChange: (mode: SearchMode) => void;
+}
+
+function ModeToggle({ mode, onChange }: ModeToggleProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.toggleSection}>
+      {/* Label */}
+      <Text style={[styles.toggleLabel, { color: colors.text.muted }]}>
+        Search in
+      </Text>
+
+      {/* Pills */}
+      <View
+        style={[
+          styles.toggleWrapper,
+          { backgroundColor: colors.background.tint },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => onChange("medicines")}
+          activeOpacity={0.8}
+          style={[
+            styles.togglePill,
+            mode === "medicines" && {
+              backgroundColor: colors.brand.primary,
+            },
+          ]}
+        >
+          <Ionicons
+            name="medkit-outline"
+            size={14}
+            color={mode === "medicines" ? "#FFFFFF" : colors.text.muted}
+          />
+          <Text
+            style={[
+              styles.togglePillText,
+              {
+                color:
+                  mode === "medicines" ? "#FFFFFF" : colors.text.muted,
+              },
+            ]}
+          >
+            Medicines
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => onChange("shops")}
+          activeOpacity={0.8}
+          style={[
+            styles.togglePill,
+            mode === "shops" && {
+              backgroundColor: colors.brand.primary,
+            },
+          ]}
+        >
+          <Ionicons
+            name="storefront-outline"
+            size={14}
+            color={mode === "shops" ? "#FFFFFF" : colors.text.muted}
+          />
+          <Text
+            style={[
+              styles.togglePillText,
+              {
+                color: mode === "shops" ? "#FFFFFF" : colors.text.muted,
+              },
+            ]}
+          >
+            Shops
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Helper text */}
+      <Text style={[styles.toggleHelper, { color: colors.text.faint }]}>
+        {MODE_COPY[mode].helperText}
+      </Text>
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────
 
 export default function SearchScreen() {
   const { colors } = useTheme();
 
   const [inputValue, setInputValue] = useState("");
+  const [mode, setMode] = useState<SearchMode>("medicines");
   const debouncedQuery = useDebounce(inputValue, 400);
   const inputRef = useRef<TextInput>(null);
 
+  // Auto-focus on mount
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 150);
     return () => clearTimeout(t);
   }, []);
 
-  const { medicines, isLoading, isError, refetch } =
-    useSearchResults(debouncedQuery);
+  // Current mode copy
+  const copy = MODE_COPY[mode];
 
-  // ── Handlers ─────────────────────────────────────────────────
+  // ── Medicine results (only fetch when in medicine mode) ──
+  const { medicines, isLoading, isError, refetch } = useMedicineResults(
+    debouncedQuery,
+    mode === "medicines",
+  );
+
+  // ── Shop results (sync filter, always instant) ────────────
+  const shops = useMemo<DummyShop[]>(() => {
+    if (mode !== "shops") return [];
+    return searchShops(debouncedQuery);
+  }, [debouncedQuery, mode]);
+
+  // ── Derived state ─────────────────────────────────────────
+  const hasQuery = inputValue.trim().length >= 2;
+  const isMedicineMode = mode === "medicines";
+  const isShopMode = mode === "shops";
+
+  const isSearching = isMedicineMode && hasQuery && isLoading;
+  const hasMedicineResults = isMedicineMode && medicines.length > 0;
+  const hasShopResults = isShopMode && shops.length > 0;
+  const hasAnyResults = hasMedicineResults || hasShopResults;
+
+  const suggestions =
+    isMedicineMode ? MEDICINE_SUGGESTIONS : SHOP_SUGGESTIONS;
+
+  // Result count text
+  const resultCount = isMedicineMode ? medicines.length : shops.length;
+  const resultLabel =
+    resultCount === 1 ? copy.resultLabel : `${copy.resultLabel}s`;
+
+  // ── Handlers ──────────────────────────────────────────────
 
   const handleClear = useCallback(() => {
     setInputValue("");
@@ -107,6 +271,11 @@ export default function SearchScreen() {
     router.push(`/product/${medicine.skuId}`);
   }, []);
 
+  const handlePressShop = useCallback((shop: DummyShop) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    router.push(`/shop/${shop.shopId}` as any);
+  }, []);
+
   const handleSuggestionPress = useCallback((term: string) => {
     setInputValue(term);
   }, []);
@@ -115,34 +284,38 @@ export default function SearchScreen() {
     router.push("/prescription/upload");
   }, []);
 
-  // ── FlatList renderers ────────────────────────────────────────
+  // ── FlatList renderers ────────────────────────────────────
 
-  const renderItem = useCallback<ListRenderItem<EnrichedMedicine>>(
+  const renderMedicine = useCallback<ListRenderItem<EnrichedMedicine>>(
     ({ item }) => (
       <MedicineCard medicine={item} onPress={handlePressMedicine} />
     ),
     [handlePressMedicine],
   );
 
-  const keyExtractor = useCallback(
+  const renderShop = useCallback<ListRenderItem<DummyShop>>(
+    ({ item }) => <ShopCard shop={item} onPress={handlePressShop} />,
+    [handlePressShop],
+  );
+
+  const medicineKeyExtractor = useCallback(
     (item: EnrichedMedicine) => item.variantId,
     [],
   );
 
-  // ── Derived state ─────────────────────────────────────────────
+  const shopKeyExtractor = useCallback(
+    (item: DummyShop) => item.shopId,
+    [],
+  );
 
-  const hasQuery = inputValue.trim().length >= 2;
-  const isSearching = hasQuery && isLoading;
-  const hasResults = medicines.length > 0;
-
-  // ── Render ────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────
 
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top"]}
     >
-      {/* ── Header ── */}
+      {/* ── Header with search input ── */}
       <View
         style={[
           styles.header,
@@ -175,12 +348,17 @@ export default function SearchScreen() {
             },
           ]}
         >
-          <Ionicons name="search" size={18} color={colors.text.muted} />
+          {/* Mode-aware leading icon */}
+          <Ionicons
+            name={copy.leadingIcon}
+            size={18}
+            color={colors.text.muted}
+          />
 
           <TextInput
             ref={inputRef}
             style={[styles.input, { color: colors.text.primary }]}
-            placeholder="Search medicines, brands…"
+            placeholder={copy.placeholder}
             placeholderTextColor={colors.text.muted}
             value={inputValue}
             onChangeText={setInputValue}
@@ -202,7 +380,6 @@ export default function SearchScreen() {
               />
             </TouchableOpacity>
           ) : (
-            /* Camera → prescription upload */
             <TouchableOpacity
               onPress={handleCameraPress}
               accessibilityRole="button"
@@ -219,17 +396,20 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* ── IDLE ── */}
+      {/* ── Mode toggle with label + helper ── */}
+      <ModeToggle mode={mode} onChange={setMode} />
+
+      {/* ── IDLE state ── */}
       {!hasQuery && (
         <View style={styles.idleContainer}>
           <Text style={[styles.idleTitle, { color: colors.text.secondary }]}>
-            What are you looking for?
+            {copy.idleTitle}
           </Text>
           <Text style={[styles.idleHint, { color: colors.text.muted }]}>
-            Search by medicine name, brand, or composition
+            {copy.idleHint}
           </Text>
           <View style={styles.suggestions}>
-            {QUICK_SUGGESTIONS.map((term) => (
+            {suggestions.map((term) => (
               <TouchableOpacity
                 key={term}
                 onPress={() => handleSuggestionPress(term)}
@@ -242,7 +422,7 @@ export default function SearchScreen() {
                 ]}
               >
                 <Ionicons
-                  name="search-outline"
+                  name={copy.chipIcon}
                   size={13}
                   color={colors.text.brand}
                 />
@@ -260,18 +440,18 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* ── LOADING ── */}
-      {hasQuery && isSearching && (
+      {/* ── LOADING (medicines only) ── */}
+      {isSearching && (
         <View style={styles.center}>
           <ActivityIndicator color={colors.brand.primary} size="large" />
           <Text style={[styles.centerText, { color: colors.text.muted }]}>
-            Searching…
+            Searching medicines...
           </Text>
         </View>
       )}
 
-      {/* ── ERROR ── */}
-      {hasQuery && isError && (
+      {/* ── ERROR (medicines only) ── */}
+      {isMedicineMode && hasQuery && isError && (
         <View style={styles.center}>
           <Ionicons
             name="cloud-offline-outline"
@@ -291,30 +471,35 @@ export default function SearchScreen() {
       )}
 
       {/* ── EMPTY ── */}
-      {hasQuery && !isSearching && !isError && !hasResults && (
-        <View style={styles.center}>
-          <Ionicons
-            name="search-outline"
-            size={44}
-            color={colors.text.faint}
-          />
-          <Text style={[styles.centerText, { color: colors.text.secondary }]}>
-            No results for "{debouncedQuery}"
-          </Text>
-          <Text style={[styles.centerSubtext, { color: colors.text.muted }]}>
-            Try a different name or brand
-          </Text>
-        </View>
-      )}
+      {hasQuery &&
+        !isSearching &&
+        !isError &&
+        !hasAnyResults && (
+          <View style={styles.center}>
+            <Ionicons
+              name={isMedicineMode ? "medkit-outline" : "storefront-outline"}
+              size={44}
+              color={colors.text.faint}
+            />
+            <Text
+              style={[styles.centerText, { color: colors.text.secondary }]}
+            >
+              {copy.emptyPrefix} "{debouncedQuery}"
+            </Text>
+            <Text style={[styles.centerSubtext, { color: colors.text.muted }]}>
+              {copy.emptyHint}
+            </Text>
+          </View>
+        )}
 
-      {/* ── RESULTS ── */}
-      {hasQuery && !isSearching && hasResults && (
+      {/* ── MEDICINE RESULTS ── */}
+      {isMedicineMode && hasMedicineResults && !isSearching && (
         <>
           <View style={styles.resultsHeader}>
             <Text
               style={[styles.resultsCount, { color: colors.text.muted }]}
             >
-              {medicines.length} result{medicines.length !== 1 ? "s" : ""} for{" "}
+              {resultCount} {resultLabel} for{" "}
               <Text style={{ color: colors.text.secondary }}>
                 "{debouncedQuery}"
               </Text>
@@ -322,8 +507,36 @@ export default function SearchScreen() {
           </View>
           <FlatList
             data={medicines}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
+            renderItem={renderMedicine}
+            keyExtractor={medicineKeyExtractor}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={11}
+            removeClippedSubviews
+          />
+        </>
+      )}
+
+      {/* ── SHOP RESULTS ── */}
+      {isShopMode && hasShopResults && (
+        <>
+          <View style={styles.resultsHeader}>
+            <Text
+              style={[styles.resultsCount, { color: colors.text.muted }]}
+            >
+              {resultCount} {resultLabel} for{" "}
+              <Text style={{ color: colors.text.secondary }}>
+                "{debouncedQuery}"
+              </Text>
+            </Text>
+          </View>
+          <FlatList
+            data={shops}
+            renderItem={renderShop}
+            keyExtractor={shopKeyExtractor}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
@@ -344,6 +557,8 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+
+  // ── Header ──────────────────────────────────────────────────
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -376,10 +591,45 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 0,
   },
+
+  // ── Toggle section ──────────────────────────────────────────
+  toggleSection: {
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  toggleLabel: {
+    ...Typography.smallMedium,
+  },
+  toggleWrapper: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    borderRadius: Radius.full,
+    padding: 3,
+    gap: 2,
+  },
+  togglePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.full,
+  },
+  togglePillText: {
+    ...Typography.smallMedium,
+  },
+  toggleHelper: {
+    ...Typography.small,
+    marginTop: 2,
+  },
+
+  // ── Idle ────────────────────────────────────────────────────
   idleContainer: {
     flex: 1,
     paddingHorizontal: Spacing.base,
-    paddingTop: Spacing["2xl"],
+    paddingTop: Spacing.xl,
     gap: Spacing.md,
   },
   idleTitle: {
@@ -406,6 +656,8 @@ const styles = StyleSheet.create({
   suggestionText: {
     ...Typography.smallMedium,
   },
+
+  // ── Center states ───────────────────────────────────────────
   center: {
     flex: 1,
     alignItems: "center",
@@ -422,6 +674,8 @@ const styles = StyleSheet.create({
     ...Typography.body,
     textAlign: "center",
   },
+
+  // ── Results ─────────────────────────────────────────────────
   resultsHeader: {
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
