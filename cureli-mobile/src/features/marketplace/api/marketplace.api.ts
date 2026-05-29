@@ -14,6 +14,7 @@ import type {
   MedicineDetailResponse,
   CategoriesResponse,
 } from "../types/marketplace.types";
+import type { HomeFeedResponse } from "../types/marketplace.types";
 import type { AxiosError } from "axios";
 
 // ── Shared response wrapper ───────────────────────────────────
@@ -25,7 +26,6 @@ interface ApiResponse<T> {
 }
 
 // ── Error message extractor ───────────────────────────────────
-// The interceptor throws raw AxiosError. Mirrors profile.api.ts.
 
 export function extractErrorMessage(error: unknown): string {
   const axiosError = error as AxiosError<{ message: string }>;
@@ -36,7 +36,6 @@ export function extractErrorMessage(error: unknown): string {
 }
 
 // ── Query string builder ──────────────────────────────────────
-// Only appends defined params; keeps URLs clean.
 
 function buildFeedQuery(params: MedicineFeedParams): string {
   const sp = new URLSearchParams();
@@ -53,8 +52,23 @@ function buildFeedQuery(params: MedicineFeedParams): string {
 
 export const marketplaceApi = {
   /**
+   * GET /mobile/medicines/feed
+   * Home feed — all curated sections in one request.
+   * Returns only sections that have at least one result.
+   * Feed mode (demo vs production) is determined server-side by
+   * MOBILE_SHOW_UNLISTED_MEDICINES — the client is unaware.
+   */
+  getFeed: async (): Promise<HomeFeedResponse> => {
+    const response = await api.get<ApiResponse<HomeFeedResponse>>(
+      "/mobile/medicines/feed",
+    );
+    return response.data.data;
+  },
+
+  /**
    * GET /mobile/medicines
-   * Paginated per-variant feed. Returns real catalog data (no pricing).
+   * Paginated per-variant catalog. Used by CategoryScreen infinite scroll.
+   * Always queries the full catalog regardless of feed mode.
    */
   getMedicines: async (
     params: MedicineFeedParams = {},
@@ -68,6 +82,7 @@ export const marketplaceApi = {
   /**
    * GET /mobile/medicines/categories
    * Curated category list for the Quick Categories rail.
+   * Effectively static — staleTime 1 hour in useCategories.
    */
   getCategories: async (): Promise<CategoriesResponse> => {
     const response = await api.get<ApiResponse<CategoriesResponse>>(
@@ -79,6 +94,9 @@ export const marketplaceApi = {
   /**
    * GET /mobile/medicines/:variantId
    * Single variant (by skuId or variant UUID) + sibling variants.
+   * Response includes availableNearYou: boolean.
+   * Never returns 404 for a known variant — availableNearYou: false
+   * signals the UI to disable order actions instead.
    */
   getMedicine: async (
     variantIdOrSku: string,

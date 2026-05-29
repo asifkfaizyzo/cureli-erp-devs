@@ -1,23 +1,22 @@
 // app/product/[id].tsx
 //
 // Medicine detail screen — Root Stack screen (tab bar hidden).
-// Replaces the dev placeholder with a real marketplace detail view.
 //
-// Route: /product/:id  where :id is the variant's skuId (e.g. "10005").
-// The MedicineCard routes here via router.push(`/product/${medicine.skuId}`).
+// PHASE 5 CHANGE: availableNearYou handling.
 //
-// Data: useMedicineDetail(skuId) — fetches real catalog data + siblings,
-//       enriched with deterministic fake marketplace decoration.
+//   variant.availableNearYou is now read from the backend response.
+//   Demo mode: always true — no visible change to the screen.
+//   Production mode: false when no live branch has this variant
+//   listed, visible, and in stock.
 //
-// Layout:
-//   ┌─ Header bar (back + name) ──────────────────────────┐
-//   │  ScrollView                                          │
-//   │  ├─ Image area (CDN image or branded placeholder)   │
-//   │  ├─ Name + Rx badge + form pill                     │
-//   │  ├─ Marketplace row (pharmacy count / price / ETA)  │
-//   │  ├─ Info section (composition, manufacturer, pack)  │
-//   │  └─ Siblings rail ("Other brands / strengths")      │
-//   └──────────────────────────────────────────────────────┘
+//   When availableNearYou is false:
+//     - An "unavailable" banner replaces the marketplace summary card
+//     - The ADD button is replaced by a disabled "Not Available" button
+//     - All other content (name, composition, siblings, disclaimer)
+//       renders normally — the medicine page is still fully informative
+//     - The user is not shown a 404 or error state
+//
+// Everything else is unchanged from the previous version.
 
 import React, { useCallback } from "react";
 import {
@@ -39,6 +38,7 @@ import { Typography } from "../../src/theme/typography";
 import { Spacing } from "../../src/theme/spacing";
 import { Radius } from "../../src/theme/radius";
 import { useMedicineDetail } from "../../src/features/marketplace/hooks/useMedicineDetail";
+import { useCartStore } from "../../src/store/cartStore";
 import type {
   EnrichedMedicine,
   CompositionItem,
@@ -124,7 +124,11 @@ function SiblingCard({
             resizeMode="contain"
           />
         ) : (
-          <Ionicons name="medical-outline" size={22} color={colors.text.brand} />
+          <Ionicons
+            name="medical-outline"
+            size={22}
+            color={colors.text.brand}
+          />
         )}
       </View>
       <Text
@@ -192,6 +196,86 @@ function compositionLine(items: CompositionItem[]): string {
     .join(", ");
 }
 
+// ── Unavailability banner ─────────────────────────────────────
+//
+// Shown in place of the marketplace summary card when
+// availableNearYou is false. Informative, not an error state.
+// The rest of the screen renders normally.
+
+function UnavailableBanner({
+  colors,
+}: {
+  colors: ReturnType<typeof useTheme>["colors"];
+}) {
+  return (
+    <View
+      style={[
+        unavailableStyles.banner,
+        {
+          backgroundColor: colors.background.card,
+          borderColor: colors.border.default,
+        },
+      ]}
+    >
+      <View
+        style={[
+          unavailableStyles.iconWrap,
+          { backgroundColor: colors.background.tint },
+        ]}
+      >
+        <Ionicons
+          name="storefront-outline"
+          size={22}
+          color={colors.text.muted}
+        />
+      </View>
+      <View style={unavailableStyles.textWrap}>
+        <Text
+          style={[unavailableStyles.title, { color: colors.text.primary }]}
+        >
+          Not available near you
+        </Text>
+        <Text
+          style={[unavailableStyles.subtitle, { color: colors.text.muted }]}
+        >
+          No pharmacy in your area currently stocks this medicine.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const unavailableStyles = StyleSheet.create({
+  banner: {
+    marginHorizontal: Spacing.base,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  textWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  title: {
+    ...Typography.bodyMedium,
+  },
+  subtitle: {
+    ...Typography.small,
+    lineHeight: 18,
+  },
+});
+
 // ── Main screen ───────────────────────────────────────────────
 
 export default function ProductDetailScreen() {
@@ -200,8 +284,10 @@ export default function ProductDetailScreen() {
   const { variant, siblings, isLoading, isError, refetch } =
     useMedicineDetail(id ?? "");
 
+  const addItem = useCartStore((state) => state.addItem);
+  const cartItems = useCartStore((state) => state.items);
+
   const handlePressSibling = useCallback((medicine: EnrichedMedicine) => {
-    // Replace current detail screen with the sibling's detail.
     router.replace(`/product/${medicine.skuId}`);
   }, []);
 
@@ -279,7 +365,27 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const { marketplace } = variant;
+  // availableNearYou is boolean (non-optional) on EnrichedMedicineDetail.
+  // No null-check needed — TypeScript enforces it is always present.
+  const { marketplace, availableNearYou } = variant;
+
+  // Cart state — only relevant when availableNearYou is true.
+  const cartItem = cartItems.find(
+    (item) => item.variantId === variant.variantId,
+  );
+  const quantityInCart = cartItem?.quantity ?? 0;
+
+  const handleAdd = useCallback(() => {
+    if (!availableNearYou) return;
+    addItem({
+      variantId: variant.variantId,
+      skuId: variant.skuId,
+      name: variant.name,
+      pricePerUnit: marketplace.startsAt,
+      image: variant.image,
+      manufacturer: variant.manufacturer,
+    });
+  }, [addItem, variant, marketplace, availableNearYou]);
 
   // ── Detail view ─────────────────────────────────────────────
   return (
@@ -318,7 +424,6 @@ export default function ProductDetailScreen() {
           {variant.genericName ?? variant.name}
         </Text>
 
-        {/* Spacer to balance the back button */}
         <View style={styles.headerSpacer} />
       </View>
 
@@ -373,14 +478,15 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.rxText, { color: colors.status.warning }]}>
+                <Text
+                  style={[styles.rxText, { color: colors.status.warning }]}
+                >
                   Rx
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Form pill */}
           {variant.form ? (
             <View
               style={[
@@ -397,7 +503,6 @@ export default function ProductDetailScreen() {
             </View>
           ) : null}
 
-          {/* Generic name */}
           {variant.genericName && variant.genericName !== variant.name ? (
             <Text
               style={[styles.genericName, { color: colors.text.muted }]}
@@ -408,99 +513,176 @@ export default function ProductDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── Marketplace summary card ────────────────────────── */}
-        <View
-          style={[
-            styles.marketplaceCard,
-            {
-              backgroundColor: colors.background.card,
-              borderColor: colors.border.default,
-            },
-          ]}
-        >
-          {/* Price */}
-          <View style={styles.marketplaceItem}>
-            <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-              Starts at
-            </Text>
-            <Text style={[styles.mktValue, { color: colors.text.primary }]}>
-              ₹{marketplace.startsAt}
-            </Text>
-          </View>
-
+        {/* ── Marketplace area ───────────────────────────────── */}
+        {availableNearYou ? (
+          // ── Available: show full marketplace summary card ────
           <View
             style={[
-              styles.mktDivider,
-              { backgroundColor: colors.border.subtle },
+              styles.marketplaceCard,
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.default,
+              },
             ]}
-          />
-
-          {/* Pharmacy count */}
-          <View style={styles.marketplaceItem}>
-            <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-              Nearby
-            </Text>
-            <Text style={[styles.mktValue, { color: colors.text.primary }]}>
-              {marketplace.pharmacyCount}{" "}
-              {marketplace.pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.mktDivider,
-              { backgroundColor: colors.border.subtle },
-            ]}
-          />
-
-          {/* ETA */}
-          <View style={styles.marketplaceItem}>
-            <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-              ETA
-            </Text>
-            <Text style={[styles.mktValue, { color: colors.text.primary }]}>
-              {marketplace.etaMins} mins
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.mktDivider,
-              { backgroundColor: colors.border.subtle },
-            ]}
-          />
-
-          {/* Stock */}
-          <View style={styles.marketplaceItem}>
-            <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-              Stock
-            </Text>
-            <View style={styles.stockRow}>
-              <View
-                style={[
-                  styles.stockDot,
-                  {
-                    backgroundColor: marketplace.inStock
-                      ? colors.status.success
-                      : colors.status.warning,
-                  },
-                ]}
-              />
+          >
+            <View style={styles.marketplaceItem}>
+              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
+                Starts at
+              </Text>
               <Text
-                style={[
-                  styles.mktValue,
-                  {
-                    color: marketplace.inStock
-                      ? colors.status.success
-                      : colors.status.warning,
-                  },
-                ]}
+                style={[styles.mktValue, { color: colors.text.primary }]}
               >
-                {marketplace.stockLabel}
+                ₹{marketplace.startsAt}
               </Text>
             </View>
+
+            <View
+              style={[
+                styles.mktDivider,
+                { backgroundColor: colors.border.subtle },
+              ]}
+            />
+
+            <View style={styles.marketplaceItem}>
+              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
+                Nearby
+              </Text>
+              <Text
+                style={[styles.mktValue, { color: colors.text.primary }]}
+              >
+                {marketplace.pharmacyCount}{" "}
+                {marketplace.pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.mktDivider,
+                { backgroundColor: colors.border.subtle },
+              ]}
+            />
+
+            <View style={styles.marketplaceItem}>
+              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
+                ETA
+              </Text>
+              <Text
+                style={[styles.mktValue, { color: colors.text.primary }]}
+              >
+                {marketplace.etaMins} mins
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.mktDivider,
+                { backgroundColor: colors.border.subtle },
+              ]}
+            />
+
+            <View style={styles.marketplaceItem}>
+              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
+                Stock
+              </Text>
+              <View style={styles.stockRow}>
+                <View
+                  style={[
+                    styles.stockDot,
+                    {
+                      backgroundColor: marketplace.inStock
+                        ? colors.status.success
+                        : colors.status.warning,
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.mktValue,
+                    {
+                      color: marketplace.inStock
+                        ? colors.status.success
+                        : colors.status.warning,
+                    },
+                  ]}
+                >
+                  {marketplace.stockLabel}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
+        ) : (
+          // ── Unavailable: replace card with informative banner ─
+          <UnavailableBanner colors={colors} />
+        )}
+
+        {/* ── Order button ───────────────────────────────────── */}
+        {availableNearYou ? (
+          // Available: tappable ADD / ADD (n) button
+          <TouchableOpacity
+            onPress={handleAdd}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={
+              quantityInCart > 0
+                ? `Add more ${variant.name}, ${quantityInCart} in cart`
+                : `Add ${variant.name} to cart`
+            }
+            style={[
+              styles.orderButton,
+              quantityInCart > 0
+                ? { backgroundColor: colors.brand.primary }
+                : {
+                    backgroundColor: colors.background.page,
+                    borderWidth: 1.5,
+                    borderColor: colors.brand.primary,
+                  },
+            ]}
+          >
+            <Ionicons
+              name={quantityInCart > 0 ? "cart" : "cart-outline"}
+              size={18}
+              color={
+                quantityInCart > 0 ? "#ffffff" : colors.brand.primary
+              }
+            />
+            <Text
+              style={[
+                styles.orderButtonText,
+                {
+                  color:
+                    quantityInCart > 0 ? "#ffffff" : colors.brand.primary,
+                },
+              ]}
+            >
+              {quantityInCart > 0
+                ? `Added (${quantityInCart})`
+                : "Add to Cart"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          // Unavailable: disabled button — visually distinct, not tappable
+          <View
+            style={[
+              styles.orderButton,
+              styles.orderButtonDisabled,
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.default,
+              },
+            ]}
+          >
+            <Ionicons
+              name="cart-outline"
+              size={18}
+              color={colors.text.faint}
+            />
+            <Text
+              style={[styles.orderButtonText, { color: colors.text.faint }]}
+            >
+              Not Available
+            </Text>
+          </View>
+        )}
 
         {/* ── Info section ──────────────────────────────────── */}
         <View
@@ -553,7 +735,11 @@ export default function ProductDetailScreen() {
                   { backgroundColor: colors.border.subtle },
                 ]}
               />
-              <InfoRow label="Pack Size" value={variant.packSize} colors={colors} />
+              <InfoRow
+                label="Pack Size"
+                value={variant.packSize}
+                colors={colors}
+              />
             </>
           ) : null}
 
@@ -565,7 +751,11 @@ export default function ProductDetailScreen() {
                   { backgroundColor: colors.border.subtle },
                 ]}
               />
-              <InfoRow label="Strength" value={variant.strength} colors={colors} />
+              <InfoRow
+                label="Strength"
+                value={variant.strength}
+                colors={colors}
+              />
             </>
           ) : null}
         </View>
@@ -595,7 +785,7 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
 
-        {/* Rx disclaimer */}
+        {/* ── Rx disclaimer ─────────────────────────────────── */}
         {variant.prescriptionRequired ? (
           <View
             style={[
@@ -612,7 +802,10 @@ export default function ProductDetailScreen() {
               color={colors.status.warning}
             />
             <Text
-              style={[styles.disclaimerText, { color: colors.status.warning }]}
+              style={[
+                styles.disclaimerText,
+                { color: colors.status.warning },
+              ]}
             >
               This medicine requires a valid prescription from a licensed
               doctor.
@@ -750,6 +943,22 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+  },
+  // Order button
+  orderButton: {
+    marginHorizontal: Spacing.base,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  orderButtonDisabled: {
+    borderWidth: 1,
+  },
+  orderButtonText: {
+    ...Typography.bodyMedium,
   },
   // Info section
   infoSection: {

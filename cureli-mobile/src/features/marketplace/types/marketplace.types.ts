@@ -16,5 +16,12 @@ export type {
   CategoriesResponse,
   MarketplaceData,
   EnrichedMedicine,
+  EnrichedMedicineDetail,
   MedicineFeedParams,
 } from "../../../types/medicine";
+
+export type {
+  FeedSection,
+  HomeFeedResponse,
+  EnrichedFeedSection,
+} from "../../../types/feed";
