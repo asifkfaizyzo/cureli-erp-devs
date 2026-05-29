@@ -139,16 +139,17 @@ const AuthenticatedTopHeader = () => {
 
   // ── user.name = full name ("Men Dona")
   // ── user.username = login handle ("mendona")
-  const userName   = user?.name?.trim()     || "User";
+  const userName = user?.name?.trim() || "User";
   const userHandle = user?.username?.trim() || "";
 
-  const userInitials = userName
-    .split(" ")
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "U";
+  const userInitials =
+    userName
+      .split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
 
   const sortedBranches = useMemo(() => {
     if (!branches.length) return [];
@@ -345,9 +346,9 @@ const AuthenticatedTopHeader = () => {
     ? "bg-[#010015] border-white/[0.06]"
     : "bg-white border-gray-200/80";
 
-  const textPrimary   = isMarketplace ? "text-white"      : "text-gray-800";
-  const textSecondary = isMarketplace ? "text-white/50"   : "text-gray-500";
-  const textMuted     = isMarketplace ? "text-white/30"   : "text-gray-400";
+  const textPrimary = isMarketplace ? "text-white" : "text-gray-800";
+  const textSecondary = isMarketplace ? "text-white/50" : "text-gray-500";
+  const textMuted = isMarketplace ? "text-white/30" : "text-gray-400";
 
   const branchButtonBase = isMarketplace
     ? `border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10 ${showBranchSelector ? "border-white/20 bg-white/10" : ""}`
@@ -361,9 +362,15 @@ const AuthenticatedTopHeader = () => {
     ? "bg-white/5 border-white/10"
     : "bg-gray-50/80 border-gray-100";
 
-  const dropdownItemHover  = isMarketplace ? "hover:bg-white/5"    : "hover:bg-gray-50";
-  const dropdownItemActive = isMarketplace ? "bg-white/10"         : "bg-[#000060]/[0.04]";
-  const dropdownFooterBg   = isMarketplace ? "bg-white/5 border-white/10" : "bg-gray-50/50 border-gray-100";
+  const dropdownItemHover = isMarketplace
+    ? "hover:bg-white/5"
+    : "hover:bg-gray-50";
+  const dropdownItemActive = isMarketplace
+    ? "bg-white/10"
+    : "bg-[#000060]/[0.04]";
+  const dropdownFooterBg = isMarketplace
+    ? "bg-white/5 border-white/10"
+    : "bg-gray-50/50 border-gray-100";
 
   return (
     <>
@@ -387,7 +394,9 @@ const AuthenticatedTopHeader = () => {
                 >
                   Cureli
                 </span>
-                <span className={`text-[10px] font-medium -mt-0.5 ${textMuted}`}>
+                <span
+                  className={`text-[10px] font-medium -mt-0.5 ${textMuted}`}
+                >
                   {isMarketplace ? "Mobile Delivery" : "Pharmacy ERP"}
                 </span>
               </div>
@@ -437,7 +446,7 @@ const AuthenticatedTopHeader = () => {
             </div>
 
             {/* Mode Switcher */}
-            {/* <div
+            <div
               className={`flex items-center rounded-lg p-0.5 gap-0.5 ${
                 isMarketplace ? "bg-white/10" : "bg-gray-100"
               }`}
@@ -472,7 +481,7 @@ const AuthenticatedTopHeader = () => {
               >
                 Marketplace
               </button>
-            </div> */}
+            </div>
 
             <Divider />
 
@@ -496,12 +505,16 @@ const AuthenticatedTopHeader = () => {
                   ) : isAllBranches ? (
                     <Layers
                       size={15}
-                      className={isMarketplace ? "text-white/60" : "text-[#000060]"}
+                      className={
+                        isMarketplace ? "text-white/60" : "text-[#000060]"
+                      }
                     />
                   ) : (
                     <Building2
                       size={15}
-                      className={isMarketplace ? "text-white/60" : "text-[#000060]"}
+                      className={
+                        isMarketplace ? "text-white/60" : "text-[#000060]"
+                      }
                     />
                   )}
                   <span
@@ -531,7 +544,10 @@ const AuthenticatedTopHeader = () => {
                           Select Branch
                         </span>
                         {isBranchesLoading && (
-                          <Loader2 size={12} className={`animate-spin ${textMuted}`} />
+                          <Loader2
+                            size={12}
+                            className={`animate-spin ${textMuted}`}
+                          />
                         )}
                       </div>
                     </div>
@@ -558,16 +574,24 @@ const AuthenticatedTopHeader = () => {
                             <div
                               className={`w-8 h-8 rounded-md flex items-center justify-center ${
                                 isAllBranches
-                                  ? isMarketplace ? "bg-white/20" : "bg-[#000060]/10"
-                                  : isMarketplace ? "bg-white/10" : "bg-gray-100"
+                                  ? isMarketplace
+                                    ? "bg-white/20"
+                                    : "bg-[#000060]/10"
+                                  : isMarketplace
+                                    ? "bg-white/10"
+                                    : "bg-gray-100"
                               }`}
                             >
                               <Layers
                                 size={14}
                                 className={
                                   isAllBranches
-                                    ? isMarketplace ? "text-white" : "text-[#000060]"
-                                    : isMarketplace ? "text-white/50" : "text-gray-500"
+                                    ? isMarketplace
+                                      ? "text-white"
+                                      : "text-[#000060]"
+                                    : isMarketplace
+                                      ? "text-white/50"
+                                      : "text-gray-500"
                                 }
                               />
                             </div>
@@ -575,8 +599,12 @@ const AuthenticatedTopHeader = () => {
                               <span
                                 className={`text-sm font-medium ${
                                   isAllBranches
-                                    ? isMarketplace ? "text-white" : "text-[#000060]"
-                                    : isMarketplace ? "text-white/70" : "text-gray-700"
+                                    ? isMarketplace
+                                      ? "text-white"
+                                      : "text-[#000060]"
+                                    : isMarketplace
+                                      ? "text-white/70"
+                                      : "text-gray-700"
                                 }`}
                               >
                                 All Branches
@@ -588,7 +616,11 @@ const AuthenticatedTopHeader = () => {
                             {isAllBranches && (
                               <Check
                                 size={14}
-                                className={isMarketplace ? "text-white" : "text-[#000060]"}
+                                className={
+                                  isMarketplace
+                                    ? "text-white"
+                                    : "text-[#000060]"
+                                }
                               />
                             )}
                           </button>
@@ -596,13 +628,16 @@ const AuthenticatedTopHeader = () => {
                           {sortedBranches.length > 0 && (
                             <div
                               className={`my-1 mx-3 border-t ${
-                                isMarketplace ? "border-white/10" : "border-gray-100"
+                                isMarketplace
+                                  ? "border-white/10"
+                                  : "border-gray-100"
                               }`}
                             />
                           )}
 
                           {sortedBranches.map((branch) => {
-                            const isSelected = selectedBranchId === branch.branch_id;
+                            const isSelected =
+                              selectedBranchId === branch.branch_id;
                             const isMain = branch.is_main;
                             return (
                               <button
@@ -617,22 +652,32 @@ const AuthenticatedTopHeader = () => {
                                 <div
                                   className={`w-8 h-8 rounded-md flex items-center justify-center relative ${
                                     isMain || isSelected
-                                      ? isMarketplace ? "bg-white/20" : "bg-[#000060]/10"
-                                      : isMarketplace ? "bg-white/10" : "bg-gray-100"
+                                      ? isMarketplace
+                                        ? "bg-white/20"
+                                        : "bg-[#000060]/10"
+                                      : isMarketplace
+                                        ? "bg-white/10"
+                                        : "bg-gray-100"
                                   }`}
                                 >
                                   <Building2
                                     size={14}
                                     className={
                                       isMain || isSelected
-                                        ? isMarketplace ? "text-white" : "text-[#000060]"
-                                        : isMarketplace ? "text-white/50" : "text-gray-500"
+                                        ? isMarketplace
+                                          ? "text-white"
+                                          : "text-[#000060]"
+                                        : isMarketplace
+                                          ? "text-white/50"
+                                          : "text-gray-500"
                                     }
                                   />
                                   {isMain && (
                                     <div
                                       className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${
-                                        isMarketplace ? "bg-blue-400" : "bg-[#000060]"
+                                        isMarketplace
+                                          ? "bg-blue-400"
+                                          : "bg-[#000060]"
                                       }`}
                                     />
                                   )}
@@ -642,8 +687,12 @@ const AuthenticatedTopHeader = () => {
                                     <span
                                       className={`text-sm font-medium truncate ${
                                         isSelected
-                                          ? isMarketplace ? "text-white" : "text-[#000060]"
-                                          : isMarketplace ? "text-white/70" : "text-gray-700"
+                                          ? isMarketplace
+                                            ? "text-white"
+                                            : "text-[#000060]"
+                                          : isMarketplace
+                                            ? "text-white/70"
+                                            : "text-gray-700"
                                       }`}
                                     >
                                       {branch.branch_name}
@@ -665,7 +714,9 @@ const AuthenticatedTopHeader = () => {
                                   <Check
                                     size={14}
                                     className={`flex-shrink-0 ${
-                                      isMarketplace ? "text-white" : "text-[#000060]"
+                                      isMarketplace
+                                        ? "text-white"
+                                        : "text-[#000060]"
                                     }`}
                                   />
                                 )}
@@ -673,17 +724,22 @@ const AuthenticatedTopHeader = () => {
                             );
                           })}
 
-                          {sortedBranches.length === 0 && !isBranchesLoading && (
-                            <div className="px-3 py-4 text-center">
-                              <p className={`text-xs ${textMuted}`}>No branches found</p>
-                            </div>
-                          )}
+                          {sortedBranches.length === 0 &&
+                            !isBranchesLoading && (
+                              <div className="px-3 py-4 text-center">
+                                <p className={`text-xs ${textMuted}`}>
+                                  No branches found
+                                </p>
+                              </div>
+                            )}
                         </>
                       )}
                     </div>
 
                     <div className={`px-3 py-2 border-t ${dropdownFooterBg}`}>
-                      <div className={`flex items-center gap-1.5 text-[10px] ${textMuted}`}>
+                      <div
+                        className={`flex items-center gap-1.5 text-[10px] ${textMuted}`}
+                      >
                         <div
                           className={`w-1.5 h-1.5 rounded-full ${
                             isAllBranches ? "bg-blue-400" : "bg-green-400"
@@ -696,7 +752,9 @@ const AuthenticatedTopHeader = () => {
                               isMarketplace ? "text-white/60" : "text-gray-600"
                             }`}
                           >
-                            {isAllBranches ? "Global (Read-only)" : displayBranchName}
+                            {isAllBranches
+                              ? "Global (Read-only)"
+                              : displayBranchName}
                           </span>
                         </span>
                       </div>
@@ -764,10 +822,14 @@ const AuthenticatedTopHeader = () => {
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white/20" />
                 </div>
                 <div className="hidden md:flex flex-col items-start">
-                  <span className={`text-sm font-semibold leading-tight ${textPrimary}`}>
+                  <span
+                    className={`text-sm font-semibold leading-tight ${textPrimary}`}
+                  >
                     {userName}
                   </span>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}>
+                  <span
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${currentRole.color}`}
+                  >
                     {currentRole.label}
                   </span>
                 </div>
@@ -799,7 +861,7 @@ const AuthenticatedTopHeader = () => {
                         <p className={`font-semibold truncate ${textPrimary}`}>
                           {userName}
                         </p>
-                        
+
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}
                         >
@@ -823,12 +885,20 @@ const AuthenticatedTopHeader = () => {
                         : "bg-gray-50/50 border-gray-100"
                     }`}
                   >
-                    <div className={`flex items-center gap-2 text-xs ${textSecondary}`}>
+                    <div
+                      className={`flex items-center gap-2 text-xs ${textSecondary}`}
+                    >
                       <Store size={12} />
                       <span className="truncate">{displayShopName}</span>
                     </div>
-                    <div className={`flex items-center gap-2 text-xs mt-1 ${textSecondary}`}>
-                      {isAllBranches ? <Layers size={12} /> : <Building2 size={12} />}
+                    <div
+                      className={`flex items-center gap-2 text-xs mt-1 ${textSecondary}`}
+                    >
+                      {isAllBranches ? (
+                        <Layers size={12} />
+                      ) : (
+                        <Building2 size={12} />
+                      )}
                       <span className="truncate">{displayBranchName}</span>
                       {isAllBranches && (
                         <span
@@ -860,7 +930,9 @@ const AuthenticatedTopHeader = () => {
                       >
                         <Headphones
                           size={16}
-                          className={isMarketplace ? "text-white/40" : "text-gray-500"}
+                          className={
+                            isMarketplace ? "text-white/40" : "text-gray-500"
+                          }
                         />
                         <span>Contact & Support</span>
                       </button>
