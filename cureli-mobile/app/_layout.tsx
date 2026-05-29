@@ -87,6 +87,9 @@ export default function RootLayout() {
             <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
             <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
             <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
+            <Stack.Screen name="prescription/upload" options={{ headerShown: false, }} />
+            <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
+            <Stack.Screen name="marketplace/category" options={{ headerShown: false }} />
           </Stack>
         </DialogProvider>
       </QueryClientProvider>

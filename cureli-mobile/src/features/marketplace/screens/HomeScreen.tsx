@@ -1,14 +1,11 @@
 // src/features/marketplace/screens/HomeScreen.tsx
 //
-// Phase 4 complete:
-//   — Fixed gradient header
-//   — Prescription strip
-//   — Hero carousel
-//   — Category grid (3×3, paginated)
-//   — Dynamic product sections per category
-//   — HomeFooter at the end
+// Phase 4 final:
+//   — Category taps navigate to categories tab
+//   — Home always shows all product sections
+//   — No more filtering on home
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   ScrollView,
@@ -30,7 +27,6 @@ import { ProductSection } from "../components/ProductSection";
 import { HomeFooter } from "../components/HomeFooter";
 
 import { useCategories } from "../hooks/useCategories";
-import { useMarketplaceFilterStore } from "../../../store/marketplaceFilterStore";
 
 export function HomeScreen() {
   const { colors } = useTheme();
@@ -38,23 +34,11 @@ export function HomeScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const selectedCategory = useMarketplaceFilterStore(
-    (state) => state.selectedCategory,
-  );
-  const setSelectedCategory = useMarketplaceFilterStore(
-    (state) => state.setSelectedCategory,
-  );
-
   const {
     categories,
     isLoading: isCategoriesLoading,
     refetch: refetchCategories,
   } = useCategories();
-
-  const visibleSections = useMemo(() => {
-    if (!selectedCategory) return categories;
-    return categories.filter((c) => c.key === selectedCategory);
-  }, [categories, selectedCategory]);
 
   const handlePressSearch = useCallback(() => {
     router.push("/search" as any);
@@ -71,13 +55,6 @@ export function HomeScreen() {
   const handlePressAddress = useCallback(() => {
     // Phase 6
   }, []);
-
-  const handleSelectCategory = useCallback(
-    (key: string | null) => {
-      setSelectedCategory(key);
-    },
-    [setSelectedCategory],
-  );
 
   const handlePressViewAll = useCallback(() => {
     router.push("/marketplace/categories" as any);
@@ -118,13 +95,9 @@ export function HomeScreen() {
           />
         }
       >
-        {/* Phase 1 */}
         <PrescriptionStrip />
-
-        {/* Phase 2 */}
         <HeroCarousel />
 
-        {/* Phase 3 */}
         <SectionHeader
           title="Everything for your well-being"
           hint="View all"
@@ -134,12 +107,9 @@ export function HomeScreen() {
         <CategoryGrid
           categories={categories}
           isLoading={isCategoriesLoading}
-          selectedKey={selectedCategory}
-          onSelectCategory={handleSelectCategory}
         />
 
-        {/* Phase 4 — dynamic product sections */}
-        {visibleSections.map((category) => (
+        {categories.map((category) => (
           <ProductSection
             key={category.key}
             title={category.label}
@@ -147,7 +117,6 @@ export function HomeScreen() {
           />
         ))}
 
-        {/* Footer */}
         <HomeFooter />
       </ScrollView>
     </View>

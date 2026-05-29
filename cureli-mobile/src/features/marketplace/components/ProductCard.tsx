@@ -1,22 +1,10 @@
 // src/features/marketplace/components/ProductCard.tsx
 //
-// Horizontal-discovery product card.
+// Product card used in both horizontal home rails and vertical category grid.
 //
-// Layout:
-//   ┌─────────────────────────┐
-//   │                         │
-//   │      Product Image      │
-//   │                         │
-//   │                   [ADD] │  ← floating, peeks out right
-//   ├─────────────────────────┤
-//   │  Name (2 lines)         │
-//   │  Composition (1 line)   │
-//   │  Manufacturer (1 line)  │
-//   └─────────────────────────┘
-//
-// Fixed height: 200px.
-// ADD button adds to cart via useCartStore.
-// Card background matches page background.
+// ADD button behavior:
+//   - Not in cart: shows "ADD"
+//   - In cart: shows "ADD (2)"
 
 import React, { useCallback } from "react";
 import {
@@ -41,20 +29,14 @@ import { Radius } from "../../../theme/radius";
 import { useCartStore } from "../../../store/cartStore";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
-// ── Constants ─────────────────────────────────────────────────
-
 const CARD_HEIGHT = 200;
 const IMAGE_HEIGHT = 120;
-
-// ── Props ─────────────────────────────────────────────────────
 
 interface ProductCardProps {
   medicine: EnrichedMedicine;
   width: number;
   onPress: (medicine: EnrichedMedicine) => void;
 }
-
-// ── Helpers ───────────────────────────────────────────────────
 
 function compositionSummary(med: EnrichedMedicine): string {
   if (Array.isArray(med.composition) && med.composition.length > 0) {
@@ -66,16 +48,17 @@ function compositionSummary(med: EnrichedMedicine): string {
   return med.strength || med.genericName || "Medicine";
 }
 
-// ── Component ─────────────────────────────────────────────────
-
-function ProductCardBase({
-  medicine,
-  width,
-  onPress,
-}: ProductCardProps) {
+function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
   const { colors } = useTheme();
   const addItem = useCartStore((state) => state.addItem);
+  const cartItems = useCartStore((state) => state.items);
   const scale = useSharedValue(1);
+
+  // Find quantity in cart for this variant.
+  const cartItem = cartItems.find(
+    (item) => item.variantId === medicine.variantId,
+  );
+  const quantityInCart = cartItem?.quantity ?? 0;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -94,14 +77,15 @@ function ProductCardBase({
   }, [onPress, medicine]);
 
   const handleAdd = useCallback(() => {
-    addItem({
-      variantId: medicine.variantId,
-      skuId: medicine.skuId,
-      name: medicine.name,
-      quantity: 1,
-      pricePerUnit: medicine.marketplace.startsAt,
-    });
-  }, [addItem, medicine]);
+  addItem({
+    variantId: medicine.variantId,
+    skuId: medicine.skuId,
+    name: medicine.name,
+    pricePerUnit: medicine.marketplace.startsAt,
+    image: medicine.image,
+    manufacturer: medicine.manufacturer,
+  });
+}, [addItem, medicine]);
 
   return (
     <Animated.View style={[animatedStyle, { width }]}>
@@ -152,15 +136,28 @@ function ProductCardBase({
           )}
 
           {/* ── Floating ADD button ── */}
-          {/* Positioned so ~10% peeks out to the right of the image area */}
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`Add ${medicine.name} to cart`}
-            style={styles.addButton}
+            accessibilityLabel={
+              quantityInCart > 0
+                ? `Add more ${medicine.name}, ${quantityInCart} in cart`
+                : `Add ${medicine.name} to cart`
+            }
+            style={[
+              styles.addButton,
+              quantityInCart > 0 && styles.addButtonActive,
+            ]}
           >
-            <Text style={styles.addText}>ADD</Text>
+            <Text
+              style={[
+                styles.addText,
+                quantityInCart > 0 && styles.addTextActive,
+              ]}
+            >
+              ADD{quantityInCart > 0 ? ` (${quantityInCart})` : ""}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -194,22 +191,19 @@ function ProductCardBase({
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
-    overflow: "visible", // Allow ADD button to peek out
+    overflow: "visible",
   },
-  // ── Image ──
   imageContainer: {
     width: "100%",
     height: IMAGE_HEIGHT,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    overflow: "visible", // Allow ADD button to peek out
+    overflow: "visible",
     alignItems: "center",
-    justifyContent: "flex-end", // Image sits slightly lower
+    justifyContent: "flex-end",
     paddingBottom: Spacing.sm,
     position: "relative",
   },
@@ -224,9 +218,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // ── ADD button ──
-  // Floats at bottom-right of image area.
-  // right: -6 makes ~10% peek outside image boundary.
   addButton: {
     position: "absolute",
     bottom: -12,
@@ -238,22 +229,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     zIndex: 10,
-    // Subtle shadow so it reads above image
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 3,
   },
+  addButtonActive: {
+    backgroundColor: "#05015A",
+  },
   addText: {
     ...Typography.buttonSmall,
     color: "#05015A",
     letterSpacing: 0.5,
   },
-  // ── Content ──
+  addTextActive: {
+    color: "#ffffff",
+  },
   content: {
     paddingHorizontal: Spacing.xs,
-    paddingTop: Spacing.base, // Extra top padding to clear the floating ADD button
+    paddingTop: Spacing.base,
     gap: 2,
     flex: 1,
   },

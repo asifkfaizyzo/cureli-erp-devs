@@ -1,23 +1,4 @@
 // app/search.tsx
-//
-// Medicine search screen — Root Stack screen (tab bar hidden).
-// Replaces the dev placeholder with a real search experience.
-//
-// Architecture:
-//   • Lives outside (tabs)/ so it covers the tab bar when pushed.
-//   • Text input → 400ms debounce → query → MedicineCard feed.
-//   • Uses a local useQuery (not useMedicineFeed's useInfiniteQuery) because
-//     the search UX is a single result page, not an infinite scroll. The user
-//     refines the query rather than paginating.
-//   • EnrichedMedicine is built here the same way as the home feed so cards
-//     look identical — same fake marketplace data for the same skuId.
-//
-// States:
-//   idle      — no query typed yet → "popular" prompt / empty canvas
-//   loading   — debounced query is in flight
-//   results   — FlatList of MedicineCards
-//   empty     — query returned 0 results
-//   error     — network / server error
 
 import React, {
   useState,
@@ -50,8 +31,6 @@ import { generateMarketplaceData } from "../src/features/marketplace/utils/gener
 import type { EnrichedMedicine } from "../src/types/medicine";
 
 // ── Debounce hook ─────────────────────────────────────────────
-// Returns a value that only updates after `delay` ms of inactivity.
-// Using a ref-based implementation to avoid stale-closure issues.
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState<T>(value);
@@ -72,7 +51,7 @@ function useSearchResults(query: string) {
     queryFn: () =>
       marketplaceApi.getMedicines({ search: trimmed, limit: 30 }),
     enabled: trimmed.length >= 2,
-    staleTime: 1000 * 60 * 2, // 2 min — search results can change
+    staleTime: 1000 * 60 * 2,
   });
 
   const medicines: EnrichedMedicine[] =
@@ -90,7 +69,6 @@ function useSearchResults(query: string) {
 }
 
 // ── Quick suggestion chips ────────────────────────────────────
-// Shown when the search field is empty to give users a starting point.
 
 const QUICK_SUGGESTIONS = [
   "Paracetamol",
@@ -110,7 +88,6 @@ export default function SearchScreen() {
   const debouncedQuery = useDebounce(inputValue, 400);
   const inputRef = useRef<TextInput>(null);
 
-  // Focus the input on mount — the user is here to type.
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 150);
     return () => clearTimeout(t);
@@ -134,6 +111,10 @@ export default function SearchScreen() {
     setInputValue(term);
   }, []);
 
+  const handleCameraPress = useCallback(() => {
+    router.push("/prescription/upload");
+  }, []);
+
   // ── FlatList renderers ────────────────────────────────────────
 
   const renderItem = useCallback<ListRenderItem<EnrichedMedicine>>(
@@ -154,14 +135,14 @@ export default function SearchScreen() {
   const isSearching = hasQuery && isLoading;
   const hasResults = medicines.length > 0;
 
-  // ── Render ─────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────
 
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top"]}
     >
-      {/* ── Header: back + search input ──────────────────── */}
+      {/* ── Header ── */}
       <View
         style={[
           styles.header,
@@ -195,6 +176,7 @@ export default function SearchScreen() {
           ]}
         >
           <Ionicons name="search" size={18} color={colors.text.muted} />
+
           <TextInput
             ref={inputRef}
             style={[styles.input, { color: colors.text.primary }]}
@@ -206,8 +188,13 @@ export default function SearchScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
+
           {inputValue.length > 0 ? (
-            <TouchableOpacity onPress={handleClear} accessibilityLabel="Clear">
+            <TouchableOpacity
+              onPress={handleClear}
+              accessibilityLabel="Clear search"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Ionicons
                 name="close-circle"
                 size={18}
@@ -215,18 +202,24 @@ export default function SearchScreen() {
               />
             </TouchableOpacity>
           ) : (
-            <Ionicons
-              name="camera-outline"
-              size={18}
-              color={colors.text.brand}
-            />
+            /* Camera → prescription upload */
+            <TouchableOpacity
+              onPress={handleCameraPress}
+              accessibilityRole="button"
+              accessibilityLabel="Upload prescription"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="camera-outline"
+                size={18}
+                color={colors.text.brand}
+              />
+            </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* ── Body ──────────────────────────────────────────── */}
-
-      {/* IDLE — no query yet */}
+      {/* ── IDLE ── */}
       {!hasQuery && (
         <View style={styles.idleContainer}>
           <Text style={[styles.idleTitle, { color: colors.text.secondary }]}>
@@ -254,7 +247,10 @@ export default function SearchScreen() {
                   color={colors.text.brand}
                 />
                 <Text
-                  style={[styles.suggestionText, { color: colors.text.brand }]}
+                  style={[
+                    styles.suggestionText,
+                    { color: colors.text.brand },
+                  ]}
                 >
                   {term}
                 </Text>
@@ -264,7 +260,7 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* LOADING */}
+      {/* ── LOADING ── */}
       {hasQuery && isSearching && (
         <View style={styles.center}>
           <ActivityIndicator color={colors.brand.primary} size="large" />
@@ -274,7 +270,7 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* ERROR */}
+      {/* ── ERROR ── */}
       {hasQuery && isError && (
         <View style={styles.center}>
           <Ionicons
@@ -294,7 +290,7 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* EMPTY — query but no results */}
+      {/* ── EMPTY ── */}
       {hasQuery && !isSearching && !isError && !hasResults && (
         <View style={styles.center}>
           <Ionicons
@@ -311,7 +307,7 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* RESULTS */}
+      {/* ── RESULTS ── */}
       {hasQuery && !isSearching && hasResults && (
         <>
           <View style={styles.resultsHeader}>
@@ -378,9 +374,8 @@ const styles = StyleSheet.create({
   input: {
     ...Typography.body,
     flex: 1,
-    paddingVertical: 0, // Android adds extra padding otherwise
+    paddingVertical: 0,
   },
-  // Idle state
   idleContainer: {
     flex: 1,
     paddingHorizontal: Spacing.base,
@@ -411,7 +406,6 @@ const styles = StyleSheet.create({
   suggestionText: {
     ...Typography.smallMedium,
   },
-  // Shared center states
   center: {
     flex: 1,
     alignItems: "center",
@@ -428,7 +422,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     textAlign: "center",
   },
-  // Results
   resultsHeader: {
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,

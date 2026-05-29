@@ -7,9 +7,12 @@
 // Tapping navigates to /search (handler via prop). Camera icon = prescription
 // scan affordance (non-functional for showcase). Presentational + memoised.
 
+// src/features/marketplace/components/SearchBar.tsx
+
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
@@ -55,6 +58,10 @@ function SearchBarBase({
     ? "rgba(255,255,255,0.25)"
     : colors.border.default;
 
+  const handleCameraPress = () => {
+    router.push("/prescription/upload");
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
@@ -64,14 +71,25 @@ function SearchBarBase({
       style={[styles.container, containerStyle]}
     >
       <Ionicons name="search" size={18} color={iconColor} />
+
       <Text
         style={[styles.placeholder, { color: placeholderColor }]}
         numberOfLines={1}
       >
         {placeholder}
       </Text>
+
       <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-      <Ionicons name="camera-outline" size={18} color={cameraColor} />
+
+      {/* Camera — navigates to prescription upload */}
+      <TouchableOpacity
+        onPress={handleCameraPress}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Upload prescription"
+      >
+        <Ionicons name="camera-outline" size={18} color={cameraColor} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }

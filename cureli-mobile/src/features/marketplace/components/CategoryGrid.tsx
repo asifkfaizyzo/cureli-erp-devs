@@ -4,17 +4,15 @@
 // 3 columns × 3 rows = 9 slots
 // 8 category cards + 1 navigation card
 //
-// Exact row layout:
-// 1 2 3
-// 4 5 6
-// 7 8 More
+// Tapping a category navigates to /(tabs)/categories?category=KEY
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   StyleSheet,
   useWindowDimensions,
 } from "react-native";
+import { router } from "expo-router";
 
 import { Spacing } from "../../../theme/spacing";
 import { CategoryCard, type GridItem } from "./CategoryCard";
@@ -29,8 +27,6 @@ const HORIZONTAL_PADDING = Spacing.base * 2;
 interface CategoryGridProps {
   categories: MedicineCategory[];
   isLoading: boolean;
-  selectedKey: string | null;
-  onSelectCategory: (key: string | null) => void;
 }
 
 function chunkIntoRows<T>(items: T[], size: number): T[][] {
@@ -44,8 +40,6 @@ function chunkIntoRows<T>(items: T[], size: number): T[][] {
 function CategoryGridBase({
   categories,
   isLoading,
-  selectedKey,
-  onSelectCategory,
 }: CategoryGridProps) {
   const { width: screenWidth } = useWindowDimensions();
   const [page, setPage] = useState(0);
@@ -57,19 +51,6 @@ function CategoryGridBase({
   const isMultiPage = totalPages > 1;
   const isFirstPage = page === 0;
   const isLastPage = page >= totalPages - 1;
-
-  // If selected from "View all", jump to its page on Home.
-  useEffect(() => {
-    if (!selectedKey) return;
-
-    const index = categories.findIndex((c) => c.key === selectedKey);
-    if (index === -1) return;
-
-    const selectedPage = Math.floor(index / SLOTS_PER_PAGE);
-    if (selectedPage !== page) {
-      setPage(selectedPage);
-    }
-  }, [selectedKey, categories, page]);
 
   const gridItems = useMemo<GridItem[]>(() => {
     const start = page * SLOTS_PER_PAGE;
@@ -97,12 +78,13 @@ function CategoryGridBase({
 
   const rows = useMemo(() => chunkIntoRows(gridItems, COLUMNS), [gridItems]);
 
-  const handlePressCategory = useCallback(
-    (key: string) => {
-      onSelectCategory(selectedKey === key ? null : key);
-    },
-    [onSelectCategory, selectedKey],
-  );
+  // Navigate to categories tab with the selected category.
+  const handlePressCategory = useCallback((key: string) => {
+    router.push({
+      pathname: "/(tabs)/categories",
+      params: { category: key },
+    } as any);
+  }, []);
 
   const handleNext = useCallback(() => {
     if (!isLastPage) {
@@ -133,7 +115,7 @@ function CategoryGridBase({
               }
               item={item}
               cardWidth={cardWidth}
-              selected={item.type === "category" && item.data.key === selectedKey}
+              selected={false}
               onPressCategory={handlePressCategory}
               onPressNext={handleNext}
               onPressBack={handleBack}
