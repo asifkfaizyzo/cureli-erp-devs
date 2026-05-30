@@ -2,7 +2,6 @@
 
 import { Router } from "express";
 import { mobileAuth } from "../../../middleware/mobile.auth.js";
-import { mobileLimiter } from "../../../middleware/rateLimiter.js";
 import {
   handleSearchPlaces,
   handleGetPlaceDetails,
@@ -13,7 +12,7 @@ const router = Router();
 
 // All places routes require mobile authentication
 router.use(mobileAuth);
-router.use(mobileLimiter);
+
 
 /**
  * GET /mobile/places/search?query=

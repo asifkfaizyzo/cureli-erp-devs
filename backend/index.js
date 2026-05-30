@@ -230,6 +230,7 @@ app.use("/cadmin", cadminMasterMedicinesRoutes);
 app.use("/mobile", mobileAuthRoutes);
 app.use("/mobile", mobileUsersRoutes);
 app.use("/mobile", mobileMedicinesRoutes);
+app.use("/mobile", mobilePlacesRoutes);
 app.use("/mobile", mobileShopsRoutes); 
 
 // ============================================
