@@ -1,10 +1,20 @@
 // src/features/marketplace/components/ProductCard.tsx
 //
-// Product card used in both horizontal home rails and vertical category grid.
+// Product card used in horizontal home rails and vertical category grid.
 //
-// ADD button behavior:
-//   - Not in cart: shows "ADD"
-//   - In cart: shows "ADD (2)"
+// PHASE 4 CHANGE: ADD button now navigates to the product detail page
+// instead of adding directly to cart. This is intentional — the cart
+// now requires pharmacy context (shopId, branchId) which is not available
+// from the home feed or category screen. The user must select a pharmacy
+// on the detail page before adding to cart.
+//
+// The ADD button visual is preserved so the card looks identical to before.
+// Tapping it routes to /product/:skuId — same destination as tapping the
+// card body. The distinction will become meaningful in Phase 5 when the
+// detail page has a pharmacy selector and a real Add to Cart flow.
+//
+// cartItem / quantityInCart are removed — cart state is no longer
+// reflected on this card since items can only be added via the detail page.
 
 import React, { useCallback } from "react";
 import {
@@ -21,12 +31,12 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
-import { useCartStore } from "../../../store/cartStore";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
 const CARD_HEIGHT = 200;
@@ -50,15 +60,7 @@ function compositionSummary(med: EnrichedMedicine): string {
 
 function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
   const { colors } = useTheme();
-  const addItem = useCartStore((state) => state.addItem);
-  const cartItems = useCartStore((state) => state.items);
   const scale = useSharedValue(1);
-
-  // Find quantity in cart for this variant.
-  const cartItem = cartItems.find(
-    (item) => item.variantId === medicine.variantId,
-  );
-  const quantityInCart = cartItem?.quantity ?? 0;
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -76,16 +78,12 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
     onPress(medicine);
   }, [onPress, medicine]);
 
+  // ADD button navigates to detail page — pharmacy selection happens there.
+  // Does NOT add to cart directly. cartStore.addItem requires pharmacy
+  // context that is not available from the feed/category context.
   const handleAdd = useCallback(() => {
-  addItem({
-    variantId: medicine.variantId,
-    skuId: medicine.skuId,
-    name: medicine.name,
-    pricePerUnit: medicine.marketplace.startsAt,
-    image: medicine.image,
-    manufacturer: medicine.manufacturer,
-  });
-}, [addItem, medicine]);
+    router.push(`/product/${medicine.skuId}` as any);
+  }, [medicine.skuId]);
 
   return (
     <Animated.View style={[animatedStyle, { width }]}>
@@ -135,28 +133,19 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
             </View>
           )}
 
-          {/* ── Floating ADD button ── */}
+          {/* ── Floating ADD button — navigates to detail page ── */}
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={
-              quantityInCart > 0
-                ? `Add more ${medicine.name}, ${quantityInCart} in cart`
-                : `Add ${medicine.name} to cart`
-            }
+            accessibilityLabel={`View ${medicine.name}`}
             style={[
               styles.addButton,
-              quantityInCart > 0 && styles.addButtonActive,
+              { borderColor: colors.brand.primary },
             ]}
           >
-            <Text
-              style={[
-                styles.addText,
-                quantityInCart > 0 && styles.addTextActive,
-              ]}
-            >
-              ADD{quantityInCart > 0 ? ` (${quantityInCart})` : ""}
+            <Text style={[styles.addText, { color: colors.brand.primary }]}>
+              ADD
             </Text>
           </TouchableOpacity>
         </View>
@@ -224,7 +213,6 @@ const styles = StyleSheet.create({
     right: -6,
     backgroundColor: "#ffffff",
     borderWidth: 1.5,
-    borderColor: "#05015A",
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
@@ -235,16 +223,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  addButtonActive: {
-    backgroundColor: "#05015A",
-  },
   addText: {
     ...Typography.buttonSmall,
-    color: "#05015A",
     letterSpacing: 0.5,
-  },
-  addTextActive: {
-    color: "#ffffff",
   },
   content: {
     paddingHorizontal: Spacing.xs,

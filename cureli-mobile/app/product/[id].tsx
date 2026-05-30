@@ -1,22 +1,16 @@
 // app/product/[id].tsx
 //
 // Medicine detail screen — Root Stack screen (tab bar hidden).
+// Route: /product/:id  where :id is the variant's skuId.
 //
-// PHASE 5 CHANGE: availableNearYou handling.
+// This file is intentionally thin — it only:
+//   1. Reads route params
+//   2. Calls useMedicineDetail
+//   3. Handles loading / error states
+//   4. Composes pre-built components into the screen layout
 //
-//   variant.availableNearYou is now read from the backend response.
-//   Demo mode: always true — no visible change to the screen.
-//   Production mode: false when no live branch has this variant
-//   listed, visible, and in stock.
-//
-//   When availableNearYou is false:
-//     - An "unavailable" banner replaces the marketplace summary card
-//     - The ADD button is replaced by a disabled "Not Available" button
-//     - All other content (name, composition, siblings, disclaimer)
-//       renders normally — the medicine page is still fully informative
-//     - The user is not shown a 404 or error state
-//
-// Everything else is unchanged from the previous version.
+// All sub-components live in:
+//   src/features/marketplace/components/product/
 
 import React, { useCallback } from "react";
 import {
@@ -37,8 +31,15 @@ import { useTheme } from "../../src/theme/ThemeContext";
 import { Typography } from "../../src/theme/typography";
 import { Spacing } from "../../src/theme/spacing";
 import { Radius } from "../../src/theme/radius";
+
 import { useMedicineDetail } from "../../src/features/marketplace/hooks/useMedicineDetail";
-import { useCartStore } from "../../src/store/cartStore";
+
+import { InfoRow } from "../../src/features/marketplace/components/product/InfoRow";
+import { SiblingCard } from "../../src/features/marketplace/components/product/SiblingCard";
+import { UnavailableBanner } from "../../src/features/marketplace/components/product/UnavailableBanner";
+import { MarketplaceSummaryCard } from "../../src/features/marketplace/components/product/MarketplaceSummaryCard";
+import { FindPharmaciesSection } from "../../src/features/marketplace/components/product/FindPharmaciesSection";
+
 import type {
   EnrichedMedicine,
   CompositionItem,
@@ -47,147 +48,7 @@ import type {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const IMAGE_SIZE = SCREEN_WIDTH * 0.42;
 
-// ── Sub-components ────────────────────────────────────────────
-
-function InfoRow({
-  label,
-  value,
-  colors,
-}: {
-  label: string;
-  value: string;
-  colors: ReturnType<typeof useTheme>["colors"];
-}) {
-  return (
-    <View style={infoStyles.row}>
-      <Text style={[infoStyles.label, { color: colors.text.faint }]}>
-        {label}
-      </Text>
-      <Text
-        style={[infoStyles.value, { color: colors.text.secondary }]}
-        numberOfLines={2}
-      >
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-const infoStyles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    paddingVertical: Spacing.sm,
-    gap: Spacing.md,
-  },
-  label: {
-    ...Typography.smallMedium,
-    width: 110,
-    flexShrink: 0,
-  },
-  value: {
-    ...Typography.small,
-    flex: 1,
-  },
-});
-
-function SiblingCard({
-  medicine,
-  onPress,
-  colors,
-}: {
-  medicine: EnrichedMedicine;
-  onPress: (m: EnrichedMedicine) => void;
-  colors: ReturnType<typeof useTheme>["colors"];
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={() => onPress(medicine)}
-      style={[
-        siblingStyles.card,
-        {
-          backgroundColor: colors.background.card,
-          borderColor: colors.border.default,
-        },
-      ]}
-    >
-      <View
-        style={[
-          siblingStyles.imageBox,
-          { backgroundColor: colors.background.tint },
-        ]}
-      >
-        {medicine.image ? (
-          <Image
-            source={{ uri: medicine.image }}
-            style={siblingStyles.image}
-            resizeMode="contain"
-          />
-        ) : (
-          <Ionicons
-            name="medical-outline"
-            size={22}
-            color={colors.text.brand}
-          />
-        )}
-      </View>
-      <Text
-        style={[siblingStyles.name, { color: colors.text.primary }]}
-        numberOfLines={2}
-      >
-        {medicine.name}
-      </Text>
-      {medicine.packSize ? (
-        <Text
-          style={[siblingStyles.pack, { color: colors.text.muted }]}
-          numberOfLines={1}
-        >
-          {medicine.packSize}
-        </Text>
-      ) : null}
-      <Text style={[siblingStyles.price, { color: colors.text.brand }]}>
-        ₹{medicine.marketplace.startsAt}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-const siblingStyles = StyleSheet.create({
-  card: {
-    width: 120,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    padding: Spacing.sm,
-    gap: 4,
-    alignItems: "center",
-  },
-  imageBox: {
-    width: 56,
-    height: 56,
-    borderRadius: Radius.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  name: {
-    ...Typography.smallMedium,
-    textAlign: "center",
-    lineHeight: 16,
-  },
-  pack: {
-    ...Typography.caption,
-    textAlign: "center",
-  },
-  price: {
-    ...Typography.smallBold,
-  },
-});
-
-// ── Composition helpers ───────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
 function compositionLine(items: CompositionItem[]): string {
   if (!Array.isArray(items) || items.length === 0) return "—";
@@ -196,96 +57,13 @@ function compositionLine(items: CompositionItem[]): string {
     .join(", ");
 }
 
-// ── Unavailability banner ─────────────────────────────────────
-//
-// Shown in place of the marketplace summary card when
-// availableNearYou is false. Informative, not an error state.
-// The rest of the screen renders normally.
-
-function UnavailableBanner({
-  colors,
-}: {
-  colors: ReturnType<typeof useTheme>["colors"];
-}) {
-  return (
-    <View
-      style={[
-        unavailableStyles.banner,
-        {
-          backgroundColor: colors.background.card,
-          borderColor: colors.border.default,
-        },
-      ]}
-    >
-      <View
-        style={[
-          unavailableStyles.iconWrap,
-          { backgroundColor: colors.background.tint },
-        ]}
-      >
-        <Ionicons
-          name="storefront-outline"
-          size={22}
-          color={colors.text.muted}
-        />
-      </View>
-      <View style={unavailableStyles.textWrap}>
-        <Text
-          style={[unavailableStyles.title, { color: colors.text.primary }]}
-        >
-          Not available near you
-        </Text>
-        <Text
-          style={[unavailableStyles.subtitle, { color: colors.text.muted }]}
-        >
-          No pharmacy in your area currently stocks this medicine.
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-const unavailableStyles = StyleSheet.create({
-  banner: {
-    marginHorizontal: Spacing.base,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  title: {
-    ...Typography.bodyMedium,
-  },
-  subtitle: {
-    ...Typography.small,
-    lineHeight: 18,
-  },
-});
-
-// ── Main screen ───────────────────────────────────────────────
+// ── Screen ────────────────────────────────────────────────────
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { variant, siblings, isLoading, isError, refetch } =
     useMedicineDetail(id ?? "");
-
-  const addItem = useCartStore((state) => state.addItem);
-  const cartItems = useCartStore((state) => state.items);
 
   const handlePressSibling = useCallback((medicine: EnrichedMedicine) => {
     router.replace(`/product/${medicine.skuId}`);
@@ -308,7 +86,6 @@ export default function ProductDetailScreen() {
                 borderColor: colors.border.brand,
               },
             ]}
-            accessibilityLabel="Go back"
           >
             <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
           </TouchableOpacity>
@@ -340,7 +117,6 @@ export default function ProductDetailScreen() {
                 borderColor: colors.border.brand,
               },
             ]}
-            accessibilityLabel="Go back"
           >
             <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
           </TouchableOpacity>
@@ -365,35 +141,15 @@ export default function ProductDetailScreen() {
     );
   }
 
-  // availableNearYou is boolean (non-optional) on EnrichedMedicineDetail.
-  // No null-check needed — TypeScript enforces it is always present.
   const { marketplace, availableNearYou } = variant;
 
-  // Cart state — only relevant when availableNearYou is true.
-  const cartItem = cartItems.find(
-    (item) => item.variantId === variant.variantId,
-  );
-  const quantityInCart = cartItem?.quantity ?? 0;
-
-  const handleAdd = useCallback(() => {
-    if (!availableNearYou) return;
-    addItem({
-      variantId: variant.variantId,
-      skuId: variant.skuId,
-      name: variant.name,
-      pricePerUnit: marketplace.startsAt,
-      image: variant.image,
-      manufacturer: variant.manufacturer,
-    });
-  }, [addItem, variant, marketplace, availableNearYou]);
-
-  // ── Detail view ─────────────────────────────────────────────
+  // ── Detail ──────────────────────────────────────────────────
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top"]}
     >
-      {/* Header bar */}
+      {/* Header */}
       <View
         style={[
           styles.headerBar,
@@ -412,18 +168,15 @@ export default function ProductDetailScreen() {
               borderColor: colors.border.brand,
             },
           ]}
-          accessibilityLabel="Go back"
         >
           <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
         </TouchableOpacity>
-
         <Text
           style={[styles.headerTitle, { color: colors.text.primary }]}
           numberOfLines={1}
         >
           {variant.genericName ?? variant.name}
         </Text>
-
         <View style={styles.headerSpacer} />
       </View>
 
@@ -431,7 +184,7 @@ export default function ProductDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Image area ────────────────────────────────────── */}
+        {/* Image */}
         <View
           style={[
             styles.imageArea,
@@ -460,7 +213,7 @@ export default function ProductDetailScreen() {
           )}
         </View>
 
-        {/* ── Name block ─────────────────────────────────────── */}
+        {/* Name block */}
         <View style={styles.nameBlock}>
           <View style={styles.nameRow}>
             <Text
@@ -478,9 +231,7 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                <Text
-                  style={[styles.rxText, { color: colors.status.warning }]}
-                >
+                <Text style={[styles.rxText, { color: colors.status.warning }]}>
                   Rx
                 </Text>
               </View>
@@ -513,178 +264,37 @@ export default function ProductDetailScreen() {
           ) : null}
         </View>
 
-        {/* ── Marketplace area ───────────────────────────────── */}
+        {/* Marketplace area */}
         {availableNearYou ? (
-          // ── Available: show full marketplace summary card ────
-          <View
-            style={[
-              styles.marketplaceCard,
-              {
-                backgroundColor: colors.background.card,
-                borderColor: colors.border.default,
-              },
-            ]}
-          >
-            <View style={styles.marketplaceItem}>
-              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-                Starts at
-              </Text>
-              <Text
-                style={[styles.mktValue, { color: colors.text.primary }]}
-              >
-                ₹{marketplace.startsAt}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.mktDivider,
-                { backgroundColor: colors.border.subtle },
-              ]}
-            />
-
-            <View style={styles.marketplaceItem}>
-              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-                Nearby
-              </Text>
-              <Text
-                style={[styles.mktValue, { color: colors.text.primary }]}
-              >
-                {marketplace.pharmacyCount}{" "}
-                {marketplace.pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.mktDivider,
-                { backgroundColor: colors.border.subtle },
-              ]}
-            />
-
-            <View style={styles.marketplaceItem}>
-              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-                ETA
-              </Text>
-              <Text
-                style={[styles.mktValue, { color: colors.text.primary }]}
-              >
-                {marketplace.etaMins} mins
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.mktDivider,
-                { backgroundColor: colors.border.subtle },
-              ]}
-            />
-
-            <View style={styles.marketplaceItem}>
-              <Text style={[styles.mktLabel, { color: colors.text.faint }]}>
-                Stock
-              </Text>
-              <View style={styles.stockRow}>
-                <View
-                  style={[
-                    styles.stockDot,
-                    {
-                      backgroundColor: marketplace.inStock
-                        ? colors.status.success
-                        : colors.status.warning,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.mktValue,
-                    {
-                      color: marketplace.inStock
-                        ? colors.status.success
-                        : colors.status.warning,
-                    },
-                  ]}
-                >
-                  {marketplace.stockLabel}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <MarketplaceSummaryCard marketplace={marketplace} colors={colors} />
         ) : (
-          // ── Unavailable: replace card with informative banner ─
           <UnavailableBanner colors={colors} />
         )}
 
-        {/* ── Order button ───────────────────────────────────── */}
+        {/* CTA */}
         {availableNearYou ? (
-          // Available: tappable ADD / ADD (n) button
-          <TouchableOpacity
-            onPress={handleAdd}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={
-              quantityInCart > 0
-                ? `Add more ${variant.name}, ${quantityInCart} in cart`
-                : `Add ${variant.name} to cart`
-            }
-            style={[
-              styles.orderButton,
-              quantityInCart > 0
-                ? { backgroundColor: colors.brand.primary }
-                : {
-                    backgroundColor: colors.background.page,
-                    borderWidth: 1.5,
-                    borderColor: colors.brand.primary,
-                  },
-            ]}
-          >
-            <Ionicons
-              name={quantityInCart > 0 ? "cart" : "cart-outline"}
-              size={18}
-              color={
-                quantityInCart > 0 ? "#ffffff" : colors.brand.primary
-              }
-            />
-            <Text
-              style={[
-                styles.orderButtonText,
-                {
-                  color:
-                    quantityInCart > 0 ? "#ffffff" : colors.brand.primary,
-                },
-              ]}
-            >
-              {quantityInCart > 0
-                ? `Added (${quantityInCart})`
-                : "Add to Cart"}
-            </Text>
-          </TouchableOpacity>
+          <FindPharmaciesSection
+            medicineName={variant.name}
+            colors={colors}
+          />
         ) : (
-          // Unavailable: disabled button — visually distinct, not tappable
           <View
             style={[
-              styles.orderButton,
-              styles.orderButtonDisabled,
+              styles.disabledBtn,
               {
                 backgroundColor: colors.background.card,
                 borderColor: colors.border.default,
               },
             ]}
           >
-            <Ionicons
-              name="cart-outline"
-              size={18}
-              color={colors.text.faint}
-            />
-            <Text
-              style={[styles.orderButtonText, { color: colors.text.faint }]}
-            >
+            <Ionicons name="cart-outline" size={18} color={colors.text.faint} />
+            <Text style={[styles.disabledBtnText, { color: colors.text.faint }]}>
               Not Available
             </Text>
           </View>
         )}
 
-        {/* ── Info section ──────────────────────────────────── */}
+        {/* Info section */}
         <View
           style={[
             styles.infoSection,
@@ -699,10 +309,7 @@ export default function ProductDetailScreen() {
           </Text>
 
           <View
-            style={[
-              styles.infoDivider,
-              { backgroundColor: colors.border.subtle },
-            ]}
+            style={[styles.infoDivider, { backgroundColor: colors.border.subtle }]}
           />
 
           <InfoRow
@@ -735,11 +342,7 @@ export default function ProductDetailScreen() {
                   { backgroundColor: colors.border.subtle },
                 ]}
               />
-              <InfoRow
-                label="Pack Size"
-                value={variant.packSize}
-                colors={colors}
-              />
+              <InfoRow label="Pack Size" value={variant.packSize} colors={colors} />
             </>
           ) : null}
 
@@ -751,21 +354,15 @@ export default function ProductDetailScreen() {
                   { backgroundColor: colors.border.subtle },
                 ]}
               />
-              <InfoRow
-                label="Strength"
-                value={variant.strength}
-                colors={colors}
-              />
+              <InfoRow label="Strength" value={variant.strength} colors={colors} />
             </>
           ) : null}
         </View>
 
-        {/* ── Sibling variants ─────────────────────────────── */}
+        {/* Siblings */}
         {siblings.length > 0 ? (
           <View style={styles.siblingsSection}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.text.primary }]}
-            >
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
               Other options
             </Text>
             <ScrollView
@@ -785,7 +382,7 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
 
-        {/* ── Rx disclaimer ─────────────────────────────────── */}
+        {/* Rx disclaimer */}
         {variant.prescriptionRequired ? (
           <View
             style={[
@@ -802,13 +399,9 @@ export default function ProductDetailScreen() {
               color={colors.status.warning}
             />
             <Text
-              style={[
-                styles.disclaimerText,
-                { color: colors.status.warning },
-              ]}
+              style={[styles.disclaimerText, { color: colors.status.warning }]}
             >
-              This medicine requires a valid prescription from a licensed
-              doctor.
+              This medicine requires a valid prescription from a licensed doctor.
             </Text>
           </View>
         ) : null}
@@ -817,12 +410,8 @@ export default function ProductDetailScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
   headerBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -844,24 +433,17 @@ const styles = StyleSheet.create({
     ...Typography.bodySemiBold,
     flex: 1,
   },
-  headerSpacer: {
-    width: 40,
-    flexShrink: 0,
-  },
+  headerSpacer: { width: 40, flexShrink: 0 },
   scrollContent: {
     paddingBottom: Spacing["4xl"],
     gap: Spacing.md,
   },
-  // Image area
   imageArea: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: Spacing["2xl"],
   },
-  mainImage: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-  },
+  mainImage: { width: IMAGE_SIZE, height: IMAGE_SIZE },
   imagePlaceholder: {
     width: IMAGE_SIZE,
     height: IMAGE_SIZE,
@@ -869,7 +451,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // Name block
   nameBlock: {
     paddingHorizontal: Spacing.base,
     gap: Spacing.sm,
@@ -879,10 +460,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: Spacing.sm,
   },
-  medicineName: {
-    ...Typography.h2,
-    flex: 1,
-  },
+  medicineName: { ...Typography.h2, flex: 1 },
   rxBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -890,10 +468,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 4,
   },
-  rxText: {
-    ...Typography.smallBold,
-    fontSize: 11,
-  },
+  rxText: { ...Typography.smallBold, fontSize: 11 },
   formPill: {
     alignSelf: "flex-start",
     paddingHorizontal: Spacing.md,
@@ -901,51 +476,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     borderWidth: 1,
   },
-  formText: {
-    ...Typography.smallMedium,
-  },
-  genericName: {
-    ...Typography.body,
-  },
-  // Marketplace card
-  marketplaceCard: {
-    marginHorizontal: Spacing.base,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-  },
-  marketplaceItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-  mktLabel: {
-    ...Typography.caption,
-    textAlign: "center",
-  },
-  mktValue: {
-    ...Typography.smallBold,
-    textAlign: "center",
-  },
-  mktDivider: {
-    width: 1,
-    height: 32,
-  },
-  stockRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  stockDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  // Order button
-  orderButton: {
+  formText: { ...Typography.smallMedium },
+  genericName: { ...Typography.body },
+  disabledBtn: {
     marginHorizontal: Spacing.base,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.md,
@@ -953,14 +486,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-  },
-  orderButtonDisabled: {
     borderWidth: 1,
   },
-  orderButtonText: {
-    ...Typography.bodyMedium,
-  },
-  // Info section
+  disabledBtnText: { ...Typography.bodyMedium },
   infoSection: {
     marginHorizontal: Spacing.base,
     borderRadius: Radius.lg,
@@ -968,24 +496,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
   },
-  sectionTitle: {
-    ...Typography.h4,
-    marginBottom: Spacing.sm,
-  },
-  infoDivider: {
-    height: 1,
-    marginVertical: 2,
-  },
-  // Siblings
-  siblingsSection: {
-    paddingLeft: Spacing.base,
-    gap: Spacing.md,
-  },
-  siblingsScroll: {
-    paddingRight: Spacing.base,
-    gap: Spacing.md,
-  },
-  // Disclaimer
+  sectionTitle: { ...Typography.h4, marginBottom: Spacing.sm },
+  infoDivider: { height: 1, marginVertical: 2 },
+  siblingsSection: { paddingLeft: Spacing.base, gap: Spacing.md },
+  siblingsScroll: { paddingRight: Spacing.base, gap: Spacing.md },
   disclaimer: {
     marginHorizontal: Spacing.base,
     borderRadius: Radius.md,
@@ -995,12 +509,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: Spacing.sm,
   },
-  disclaimerText: {
-    ...Typography.small,
-    flex: 1,
-    lineHeight: 18,
-  },
-  // Shared states
+  disclaimerText: { ...Typography.small, flex: 1, lineHeight: 18 },
   center: {
     flex: 1,
     alignItems: "center",
@@ -1008,13 +517,6 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
   },
-  centerText: {
-    ...Typography.h4,
-    marginTop: Spacing.sm,
-    textAlign: "center",
-  },
-  centerSubtext: {
-    ...Typography.body,
-    textAlign: "center",
-  },
+  centerText: { ...Typography.h4, marginTop: Spacing.sm, textAlign: "center" },
+  centerSubtext: { ...Typography.body, textAlign: "center" },
 });

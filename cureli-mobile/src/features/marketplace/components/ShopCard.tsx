@@ -1,3 +1,15 @@
+// src/features/marketplace/components/ShopCard.tsx
+//
+// Shop card used in the Shops tab of the search screen.
+//
+// PHASE 4 CHANGE: updated to use real ShopSearchResult type instead
+// of DummyShop. Fields that have no real data are handled gracefully:
+//   - rating: null → shows "No rating yet"
+//   - deliveryTimeEstimate: null → hidden (not shown in UI)
+//   - category: replaced by Pickup / Delivery capability pills
+//
+// DummyShop is no longer imported. dummyShops.ts is deleted.
+
 import React, { memo } from "react";
 import {
   View,
@@ -10,15 +22,16 @@ import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
-import type { DummyShop } from "../constants/dummyShops";
+import type { ShopSearchResult } from "../../../types/shop";
 
 interface ShopCardProps {
-  shop: DummyShop;
-  onPress: (shop: DummyShop) => void;
+  shop: ShopSearchResult;
+  onPress: (shop: ShopSearchResult) => void;
 }
 
 function ShopCardComponent({ shop, onPress }: ShopCardProps) {
   const { colors } = useTheme();
+  const branch = shop.nearestBranch;
 
   return (
     <TouchableOpacity
@@ -32,9 +45,8 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         },
       ]}
     >
-      {/* ── Top row: icon placeholder + name + open badge ── */}
+      {/* ── Top row: icon + name + open badge ── */}
       <View style={styles.topRow}>
-        {/* Shop icon circle */}
         <View
           style={[
             styles.iconCircle,
@@ -48,7 +60,6 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           />
         </View>
 
-        {/* Name + category */}
         <View style={styles.nameBlock}>
           <Text
             style={[styles.name, { color: colors.text.primary }]}
@@ -56,84 +67,168 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           >
             {shop.name}
           </Text>
+
+          {/* Medicine count line */}
           <Text
-            style={[styles.category, { color: colors.text.muted }]}
+            style={[styles.medicineCount, { color: colors.text.muted }]}
             numberOfLines={1}
           >
-            {shop.category}
+            {shop.listedMedicineCount > 0
+              ? `${shop.listedMedicineCount} medicines listed`
+              : "No medicines listed yet"}
           </Text>
         </View>
 
-        {/* Open / Closed badge */}
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor: shop.isOpen
-                ? colors.background.tint
-                : "#F5F5F5",
-              borderColor: shop.isOpen ? colors.border.brand : "#E0E0E0",
-            },
-          ]}
-        >
+        {/* Open / Closed badge — driven by branch isOpen */}
+        {branch ? (
           <View
             style={[
-              styles.dot,
-              { backgroundColor: shop.isOpen ? "#22C55E" : "#9E9E9E" },
-            ]}
-          />
-          <Text
-            style={[
-              styles.badgeText,
+              styles.badge,
               {
-                color: shop.isOpen ? colors.text.brand : colors.text.muted,
+                backgroundColor: branch.isOpen
+                  ? colors.background.tint
+                  : "#F5F5F5",
+                borderColor: branch.isOpen
+                  ? colors.border.brand
+                  : "#E0E0E0",
               },
             ]}
           >
-            {shop.isOpen ? "Open" : "Closed"}
-          </Text>
-        </View>
+            <View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: branch.isOpen ? "#22C55E" : "#9E9E9E",
+                },
+              ]}
+            />
+            <Text
+              style={[
+                styles.badgeText,
+                {
+                  color: branch.isOpen
+                    ? colors.text.brand
+                    : colors.text.muted,
+                },
+              ]}
+            >
+              {branch.isOpen ? "Open" : "Closed"}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
-      {/* ── Tagline ── */}
-      <Text
-        style={[styles.tagline, { color: colors.text.secondary }]}
-        numberOfLines={2}
-      >
-        {shop.tagline}
-      </Text>
+      {/* ── Description (tagline equivalent) ── */}
+      {shop.description ? (
+        <Text
+          style={[styles.description, { color: colors.text.secondary }]}
+          numberOfLines={2}
+        >
+          {shop.description}
+        </Text>
+      ) : null}
 
-      {/* ── Bottom row: area + rating + delivery + CTA ── */}
+      {/* ── Capability pills: Pickup / Delivery ── */}
+      {branch ? (
+        <View style={styles.pillRow}>
+          {branch.pickupEnabled ? (
+            <View
+              style={[
+                styles.pill,
+                {
+                  backgroundColor: colors.background.tint,
+                  borderColor: colors.border.brand,
+                },
+              ]}
+            >
+              <Ionicons
+                name="bag-handle-outline"
+                size={11}
+                color={colors.text.brand}
+              />
+              <Text style={[styles.pillText, { color: colors.text.brand }]}>
+                Pickup
+              </Text>
+            </View>
+          ) : null}
+
+          {branch.deliveryEnabled ? (
+            <View
+              style={[
+                styles.pill,
+                {
+                  backgroundColor: colors.background.tint,
+                  borderColor: colors.border.brand,
+                },
+              ]}
+            >
+              <Ionicons
+                name="bicycle-outline"
+                size={11}
+                color={colors.text.brand}
+              />
+              <Text style={[styles.pillText, { color: colors.text.brand }]}>
+                Delivery
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* ── Bottom row: address + distance + rating + CTA ── */}
       <View style={styles.bottomRow}>
-        {/* Area */}
+        {/* Address */}
+        {branch?.address ? (
+          <View style={styles.metaItem}>
+            <Ionicons
+              name="location-outline"
+              size={13}
+              color={colors.text.muted}
+            />
+            <Text
+              style={[styles.metaText, { color: colors.text.muted }]}
+              numberOfLines={1}
+            >
+              {branch.address}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Distance — only shown when distanceKm is available */}
+        {branch?.distanceKm != null ? (
+          <View style={styles.metaItem}>
+            <Ionicons
+              name="navigate-outline"
+              size={13}
+              color={colors.text.muted}
+            />
+            <Text style={[styles.metaText, { color: colors.text.muted }]}>
+              {branch.distanceKm} km
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Rating — always shown, "No rating yet" when null */}
         <View style={styles.metaItem}>
           <Ionicons
-            name="location-outline"
+            name="star"
             size={13}
-            color={colors.text.muted}
+            color={shop.rating != null ? "#FBBF24" : colors.text.faint}
           />
-          <Text style={[styles.metaText, { color: colors.text.muted }]}>
-            {shop.area}
-          </Text>
-        </View>
-
-        {/* Rating */}
-        <View style={styles.metaItem}>
-          <Ionicons name="star" size={13} color="#FBBF24" />
-          <Text style={[styles.metaText, { color: colors.text.muted }]}>
-            {shop.rating.toFixed(1)}
-          </Text>
-        </View>
-
-        {/* Delivery time */}
-        <View style={styles.metaItem}>
-          <Ionicons
-            name="time-outline"
-            size={13}
-            color={colors.text.muted}
-          />
-          <Text style={[styles.metaText, { color: colors.text.muted }]}>
-            {shop.deliveryTime}
+          <Text
+            style={[
+              styles.metaText,
+              {
+                color:
+                  shop.rating != null
+                    ? colors.text.muted
+                    : colors.text.faint,
+              },
+            ]}
+          >
+            {shop.rating != null
+              ? shop.rating.toFixed(1)
+              : "No rating yet"}
           </Text>
         </View>
 
@@ -154,8 +249,6 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
 }
 
 export const ShopCard = memo(ShopCardComponent);
-
-// ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {
@@ -186,7 +279,7 @@ const styles = StyleSheet.create({
   name: {
     ...Typography.bodyMedium,
   },
-  category: {
+  medicineCount: {
     ...Typography.small,
   },
   badge: {
@@ -204,13 +297,31 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-   badgeText: {
+  badgeText: {
     ...Typography.caption,
     fontFamily: "Inter_600SemiBold",
   },
-  tagline: {
+  description: {
     ...Typography.small,
     lineHeight: 18,
+  },
+  pillRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  pillText: {
+    ...Typography.caption,
+    fontFamily: "Inter_600SemiBold",
   },
   bottomRow: {
     flexDirection: "row",
@@ -223,9 +334,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
+    flexShrink: 1,
+    minWidth: 0,
   },
   metaText: {
     ...Typography.small,
+    flexShrink: 1,
   },
   cta: {
     marginLeft: "auto",
