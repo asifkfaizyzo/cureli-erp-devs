@@ -16,8 +16,13 @@ import { useAuthStore } from '../src/store/authStore';
 import { authEventEmitter } from '../src/services/api';
 import { ThemeProvider } from '../src/theme/ThemeContext';
 import { DialogProvider } from '../src/components/Dialog/DialogProvider';
+import { LogBox } from 'react-native';
 
 SplashScreen.preventAutoHideAsync();
+
+LogBox.ignoreLogs([
+  'SafeAreaView has been deprecated',
+]);
 
 const queryClient = new QueryClient({
   defaultOptions: {

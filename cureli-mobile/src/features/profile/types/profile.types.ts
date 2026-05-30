@@ -28,14 +28,14 @@ export interface Address {
 // ── Profile form ──────────────────────────────────────────────
 
 export interface ProfileFormData {
-  full_name?: string; // ← make optional
-  email?: string | null; // ← make optional, allow null
+  full_name?: string;
+  email?: string | null;
 }
 
 // ── Address form ──────────────────────────────────────────────
 
 export interface AddressFormData {
-  label: AddressLabel;
+  label: string;
   custom_label?: string;
   recipient_name?: string;
   recipient_phone?: string;
@@ -46,9 +46,12 @@ export interface AddressFormData {
   state: string;
   pincode: string;
   is_default?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
-export interface UpdateAddressPayload extends AddressFormData {
+// ── Update uses Partial so only changed fields are required ───
+export interface UpdateAddressPayload extends Partial<AddressFormData> {
   id: string;
 }
 

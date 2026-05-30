@@ -1,6 +1,6 @@
 // src/features/profile/screens/AddressFormScreen.tsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -23,8 +23,12 @@ import { extractErrorMessage } from "../api/profile.api";
 import { ADDRESS_LABELS } from "../constants/profile.constants";
 import { useTheme } from "../../../theme/ThemeContext";
 import { useDialog } from "../../../components/Dialog/DialogProvider";
+import { LocationPickerSheet } from "../components/LocationPickerSheet";
 import type { AddressLabel } from "../constants/profile.constants";
 import type { AddressFormData } from "../types/profile.types";
+import type { PlaceDetails } from "../api/places.api";
+
+// ── Form state ─────────────────────────────────────────────────
 
 interface FormState {
   label: AddressLabel;
@@ -38,6 +42,9 @@ interface FormState {
   state: string;
   pincode: string;
   is_default: boolean;
+  // Coordinates — populated by location picker
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const EMPTY_FORM: FormState = {
@@ -52,7 +59,11 @@ const EMPTY_FORM: FormState = {
   state: "",
   pincode: "",
   is_default: false,
+  latitude: null,
+  longitude: null,
 };
+
+// ── Validation ─────────────────────────────────────────────────
 
 interface FormErrors {
   custom_label?: string;
@@ -65,14 +76,19 @@ interface FormErrors {
 
 function validateForm(form: FormState): FormErrors {
   const errors: FormErrors = {};
+
   if (form.label === "Other" && !form.custom_label.trim()) {
     errors.custom_label = "Please enter a label for this address";
   }
   if (form.address_line_1.trim().length < 5) {
     errors.address_line_1 = "Address is too short (min 5 characters)";
   }
-  if (!form.city.trim()) errors.city = "City is required";
-  if (!form.state.trim()) errors.state = "State is required";
+  if (!form.city.trim()) {
+    errors.city = "City is required";
+  }
+  if (!form.state.trim()) {
+    errors.state = "State is required";
+  }
   if (!/^\d{6}$/.test(form.pincode.trim())) {
     errors.pincode = "Enter a valid 6-digit pincode";
   }
@@ -82,12 +98,17 @@ function validateForm(form: FormState): FormErrors {
       errors.recipient_phone = "Enter a valid Indian mobile number";
     }
   }
+
   return errors;
 }
+
+// ── Props ──────────────────────────────────────────────────────
 
 interface AddressFormScreenProps {
   addressId?: string;
 }
+
+// ── Component ──────────────────────────────────────────────────
 
 export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
   const { colors, isDark } = useTheme();
@@ -104,10 +125,13 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
     Partial<Record<keyof FormErrors, boolean>>
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
+  const scrollRef = useRef<ScrollView>(null);
   const isPending = isCreating || isUpdating;
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
+
+  // ── Seed form on mount ─────────────────────────────────────
 
   useEffect(() => {
     if (isEditMode && addresses.length > 0) {
@@ -132,6 +156,8 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
         state: existing.state,
         pincode: existing.pincode,
         is_default: existing.is_default,
+        latitude: existing.latitude ? Number(existing.latitude) : null,
+        longitude: existing.longitude ? Number(existing.longitude) : null,
       });
     } else if (!isEditMode && user) {
       setForm((prev) => ({
@@ -142,13 +168,21 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
     }
   }, [isEditMode, addresses, user]);
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+  // ── Field helpers ──────────────────────────────────────────
+
+  const setField = <K extends keyof FormState>(
+    key: K,
+    value: FormState[K],
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setSubmitError(null);
     if (touched[key as keyof FormErrors]) {
       const updated = { ...form, [key]: value };
       const errs = validateForm(updated);
-      setErrors((prev) => ({ ...prev, [key]: errs[key as keyof FormErrors] }));
+      setErrors((prev) => ({
+        ...prev,
+        [key]: errs[key as keyof FormErrors],
+      }));
     }
   };
 
@@ -161,6 +195,55 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
   const scrollToY = (y: number) => {
     scrollRef.current?.scrollTo({ y, animated: true });
   };
+
+  // ── Location picker confirm ────────────────────────────────
+
+  const handleLocationConfirm = useCallback((details: PlaceDetails) => {
+    setForm((prev) => ({
+      ...prev,
+      // Only overwrite fields that the place returned a value for.
+      // Never blank out something the user already typed.
+      address_line_1:
+        details.address_line_1 && details.address_line_1.trim().length >= 5
+          ? details.address_line_1
+          : prev.address_line_1,
+      address_line_2: details.address_line_2 ?? prev.address_line_2,
+      city: details.city ?? prev.city,
+      state: details.state ?? prev.state,
+      pincode: details.pincode ?? prev.pincode,
+      latitude: details.latitude ?? prev.latitude,
+      longitude: details.longitude ?? prev.longitude,
+    }));
+
+    // Clear errors for fields we just filled
+    setErrors((prev) => ({
+      ...prev,
+      address_line_1:
+        details.address_line_1 &&
+        details.address_line_1.trim().length >= 5
+          ? undefined
+          : prev.address_line_1,
+      city: details.city ? undefined : prev.city,
+      state: details.state ? undefined : prev.state,
+      pincode:
+        details.pincode && /^\d{6}$/.test(details.pincode)
+          ? undefined
+          : prev.pincode,
+    }));
+
+    // Mark touched so validation messages show correctly
+    setTouched((prev) => ({
+      ...prev,
+      address_line_1: true,
+      city: true,
+      state: true,
+      pincode: true,
+    }));
+
+    setSubmitError(null);
+  }, []);
+
+  // ── Submit ─────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     setTouched({
@@ -191,6 +274,9 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
       state: form.state.trim(),
       pincode: form.pincode.trim(),
       is_default: form.is_default,
+      // Coordinates from location picker (optional)
+      latitude: form.latitude ?? undefined,
+      longitude: form.longitude ?? undefined,
     };
 
     try {
@@ -205,12 +291,14 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
     }
   };
 
+  // ── Render ─────────────────────────────────────────────────
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["bottom"]}
     >
-      {/* Header */}
+      {/* ── Header ────────────────────────────────────────── */}
       <View
         style={[
           styles.header,
@@ -254,7 +342,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="interactive"
         >
-          {/* Submit error */}
+          {/* ── Submit error banner ────────────────────────── */}
           {submitError ? (
             <View
               style={[
@@ -273,7 +361,10 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
               <Text
                 style={[
                   styles.errorBannerText,
-                  { color: colors.status.error, fontFamily: "Inter_500Medium" },
+                  {
+                    color: colors.status.error,
+                    fontFamily: "Inter_500Medium",
+                  },
                 ]}
               >
                 {submitError}
@@ -281,7 +372,85 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             </View>
           ) : null}
 
-          {/* Label selector */}
+          {/* ── Location picker trigger ────────────────────── */}
+          <TouchableOpacity
+            style={[
+              styles.locationPickerButton,
+              {
+                backgroundColor: colors.background.card,
+                borderColor: form.latitude
+                  ? colors.status.successBorder
+                  : brandColor,
+              },
+            ]}
+            onPress={() => setLocationPickerVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View
+              style={[
+                styles.locationPickerIcon,
+                {
+                  backgroundColor: form.latitude
+                    ? colors.status.successBg
+                    : colors.background.tint,
+                },
+              ]}
+            >
+              <MaterialIcons
+                name={form.latitude ? "location-on" : "add-location-alt"}
+                size={20}
+                color={
+                  form.latitude ? colors.status.success : brandColor
+                }
+              />
+            </View>
+            <View style={styles.locationPickerTextBlock}>
+              <Text
+                style={[
+                  styles.locationPickerTitle,
+                  {
+                    color: form.latitude
+                      ? colors.status.success
+                      : brandColor,
+                    fontFamily: "Inter_600SemiBold",
+                  },
+                ]}
+              >
+                {form.latitude
+                  ? "Location set — tap to change"
+                  : "Search or use current location"}
+              </Text>
+              <Text
+                style={[
+                  styles.locationPickerSubtitle,
+                  {
+                    color: colors.text.faint,
+                    fontFamily: "Inter_400Regular",
+                  },
+                ]}
+              >
+                {form.latitude
+                  ? "Auto-filled address fields below"
+                  : "Auto-fills city, state & pincode"}
+              </Text>
+            </View>
+            <MaterialIcons
+              name={form.latitude ? "check-circle" : "chevron-right"}
+              size={20}
+              color={
+                form.latitude ? colors.status.success : colors.text.faint
+              }
+            />
+          </TouchableOpacity>
+
+          {/* ── Location picker sheet ──────────────────────── */}
+          <LocationPickerSheet
+            visible={locationPickerVisible}
+            onClose={() => setLocationPickerVisible(false)}
+            onConfirm={handleLocationConfirm}
+          />
+
+          {/* ── Address Type ───────────────────────────────── */}
           <Text
             style={[
               styles.sectionLabel,
@@ -298,9 +467,13 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   styles.labelChip,
                   {
                     borderColor:
-                      form.label === lbl ? brandColor : colors.border.default,
+                      form.label === lbl
+                        ? brandColor
+                        : colors.border.default,
                     backgroundColor:
-                      form.label === lbl ? brandColor : colors.background.card,
+                      form.label === lbl
+                        ? brandColor
+                        : colors.background.card,
                   },
                 ]}
                 onPress={() => setField("label", lbl)}
@@ -321,7 +494,8 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   style={[
                     styles.labelChipText,
                     {
-                      color: form.label === lbl ? "#ffffff" : colors.text.muted,
+                      color:
+                        form.label === lbl ? "#ffffff" : colors.text.muted,
                       fontFamily: "Inter_600SemiBold",
                     },
                   ]}
@@ -332,6 +506,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             ))}
           </View>
 
+          {/* Custom label — only when "Other" */}
           {form.label === "Other" && (
             <FieldInput
               label="Label Name"
@@ -346,6 +521,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             />
           )}
 
+          {/* ── Delivery Address ───────────────────────────── */}
           <Text
             style={[
               styles.sectionLabel,
@@ -361,8 +537,10 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             value={form.address_line_1}
             onChangeText={(v) => setField("address_line_1", v)}
             onBlur={() => handleBlur("address_line_1")}
-            onFocus={() => scrollToY(180)}
-            error={touched.address_line_1 ? errors.address_line_1 : undefined}
+            onFocus={() => scrollToY(280)}
+            error={
+              touched.address_line_1 ? errors.address_line_1 : undefined
+            }
             placeholder="Flat / House No, Building, Street"
             maxLength={300}
             colors={colors}
@@ -372,7 +550,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             label="Address Line 2"
             value={form.address_line_2}
             onChangeText={(v) => setField("address_line_2", v)}
-            onFocus={() => scrollToY(260)}
+            onFocus={() => scrollToY(360)}
             placeholder="Area, Colony (optional)"
             maxLength={300}
             colors={colors}
@@ -382,7 +560,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             label="Landmark"
             value={form.landmark}
             onChangeText={(v) => setField("landmark", v)}
-            onFocus={() => scrollToY(340)}
+            onFocus={() => scrollToY(440)}
             placeholder="Near a school, temple, etc. (optional)"
             maxLength={200}
             colors={colors}
@@ -396,7 +574,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                 value={form.city}
                 onChangeText={(v) => setField("city", v)}
                 onBlur={() => handleBlur("city")}
-                onFocus={() => scrollToY(420)}
+                onFocus={() => scrollToY(520)}
                 error={touched.city ? errors.city : undefined}
                 placeholder="City"
                 maxLength={100}
@@ -412,7 +590,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   setField("pincode", v.replace(/\D/g, "").slice(0, 6))
                 }
                 onBlur={() => handleBlur("pincode")}
-                onFocus={() => scrollToY(420)}
+                onFocus={() => scrollToY(520)}
                 error={touched.pincode ? errors.pincode : undefined}
                 placeholder="6 digits"
                 keyboardType="number-pad"
@@ -428,13 +606,14 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             value={form.state}
             onChangeText={(v) => setField("state", v)}
             onBlur={() => handleBlur("state")}
-            onFocus={() => scrollToY(500)}
+            onFocus={() => scrollToY(600)}
             error={touched.state ? errors.state : undefined}
             placeholder="State"
             maxLength={100}
             colors={colors}
           />
 
+          {/* ── Recipient Details ──────────────────────────── */}
           <Text
             style={[
               styles.sectionLabel,
@@ -456,7 +635,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             label="Recipient Name"
             value={form.recipient_name}
             onChangeText={(v) => setField("recipient_name", v)}
-            onFocus={() => scrollToY(640)}
+            onFocus={() => scrollToY(740)}
             placeholder="Full name of the person receiving"
             maxLength={200}
             autoCapitalize="words"
@@ -468,15 +647,17 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             value={form.recipient_phone}
             onChangeText={(v) => setField("recipient_phone", v)}
             onBlur={() => handleBlur("recipient_phone")}
-            onFocus={() => scrollToY(720)}
-            error={touched.recipient_phone ? errors.recipient_phone : undefined}
+            onFocus={() => scrollToY(820)}
+            error={
+              touched.recipient_phone ? errors.recipient_phone : undefined
+            }
             placeholder="+91 XXXXX XXXXX"
             keyboardType="phone-pad"
             maxLength={15}
             colors={colors}
           />
 
-          {/* Default toggle */}
+          {/* ── Default toggle ─────────────────────────────── */}
           <View
             style={[
               styles.defaultRow,
@@ -501,7 +682,10 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
               <Text
                 style={[
                   styles.defaultSubtitle,
-                  { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                  {
+                    color: colors.text.faint,
+                    fontFamily: "Inter_400Regular",
+                  },
                 ]}
               >
                 Used automatically at checkout
@@ -510,12 +694,15 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             <Switch
               value={form.is_default}
               onValueChange={(v) => setField("is_default", v)}
-              trackColor={{ false: colors.border.default, true: brandColor }}
+              trackColor={{
+                false: colors.border.default,
+                true: brandColor,
+              }}
               thumbColor="#ffffff"
             />
           </View>
 
-          {/* Save */}
+          {/* ── Save button ────────────────────────────────── */}
           <TouchableOpacity
             style={[
               styles.saveButton,
@@ -526,9 +713,14 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             disabled={isPending}
             activeOpacity={0.8}
           >
-            {isPending ? <ActivityIndicator size={18} color="#ffffff" /> : null}
+            {isPending ? (
+              <ActivityIndicator size={18} color="#ffffff" />
+            ) : null}
             <Text
-              style={[styles.saveButtonText, { fontFamily: "Inter_700Bold" }]}
+              style={[
+                styles.saveButtonText,
+                { fontFamily: "Inter_700Bold" },
+              ]}
             >
               {isPending
                 ? isEditMode
@@ -547,7 +739,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
   );
 }
 
-// ── Local FieldInput ──────────────────────────────────────────
+// ── FieldInput ─────────────────────────────────────────────────
 
 interface FieldInputProps {
   label: string;
@@ -583,20 +775,27 @@ function FieldInput({
       <Text
         style={[
           styles.fieldLabel,
-          { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
+          {
+            color: colors.text.secondary,
+            fontFamily: "Inter_600SemiBold",
+          },
         ]}
       >
         {label}{" "}
-        {required && <Text style={{ color: colors.status.error }}>*</Text>}
+        {required && (
+          <Text style={{ color: colors.status.error }}>*</Text>
+        )}
       </Text>
       <TextInput
         style={[
           styles.input,
           {
             backgroundColor: colors.background.input,
-            borderColor: error ? colors.status.error : colors.border.input,
+            borderColor: error
+              ? colors.status.error
+              : colors.border.input,
             color: colors.text.primary,
-            fontFamily: "Inter_400Regular", // ← moved into style
+            fontFamily: "Inter_400Regular",
           },
           error ? { backgroundColor: colors.status.errorBg } : null,
         ]}
@@ -615,7 +814,10 @@ function FieldInput({
         <Text
           style={[
             styles.fieldError,
-            { color: colors.status.error, fontFamily: "Inter_500Medium" },
+            {
+              color: colors.status.error,
+              fontFamily: "Inter_500Medium",
+            },
           ]}
         >
           {error}
@@ -625,9 +827,13 @@ function FieldInput({
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -645,8 +851,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 17 },
   headerRight: { width: 36 },
+
+  // Scroll
   scroll: { flex: 1 },
   content: { padding: 20 },
+
+  // Error banner
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -657,14 +867,51 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorBannerText: { flex: 1, fontSize: 13 },
+
+  // Location picker trigger
+  locationPickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  locationPickerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  locationPickerTextBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  locationPickerTitle: {
+    fontSize: 14,
+  },
+  locationPickerSubtitle: {
+    fontSize: 12,
+  },
+
+  // Section labels
   sectionLabel: {
     fontSize: 12,
     letterSpacing: 1,
     textTransform: "uppercase",
-    marginTop: 8,
+    marginTop: 4,
     marginBottom: 12,
   },
-  sectionHint: { fontSize: 12, marginTop: -8, marginBottom: 12 },
+  sectionHint: {
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 12,
+  },
+
+  // Label chips
   labelRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
   labelChip: {
     flex: 1,
@@ -677,6 +924,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   labelChipText: { fontSize: 13 },
+
+  // Fields
   field: { marginBottom: 16 },
   fieldLabel: { fontSize: 13, marginBottom: 8 },
   input: {
@@ -687,9 +936,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   fieldError: { fontSize: 12, marginTop: 5 },
+
+  // City + Pincode row
   row: { flexDirection: "row", gap: 12 },
   rowFieldLarge: { flex: 2 },
   rowFieldSmall: { flex: 1 },
+
+  // Default toggle
   defaultRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -703,6 +956,8 @@ const styles = StyleSheet.create({
   defaultText: { flex: 1, marginRight: 12 },
   defaultTitle: { fontSize: 14 },
   defaultSubtitle: { fontSize: 12, marginTop: 2 },
+
+  // Save button
   saveButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -713,5 +968,6 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.45 },
   saveButtonText: { fontSize: 15, color: "#ffffff" },
+
   bottomPad: { height: 32 },
 });
