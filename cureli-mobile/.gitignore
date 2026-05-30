@@ -41,3 +41,12 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Local config overrides with secrets
+app.local.json
+google-services.json
+GoogleService-Info.plist
+
+.env
+.env.local
+.env.*

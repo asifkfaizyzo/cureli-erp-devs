@@ -43,12 +43,25 @@ export const placesApi = {
    * Returns place predictions for a text query.
    */
   searchPlaces: async (query: string): Promise<PlaceSuggestion[]> => {
+  // console.log('🔍 [PLACES] search called', { query });
+  try {
     const response = await api.get<ApiResponse<{ results: PlaceSuggestion[] }>>(
       '/mobile/places/search',
       { params: { query } },
     );
+    // console.log('🔍 [PLACES] search success', response.data);
     return response.data.data.results;
-  },
+  } catch (error: unknown) {
+    const e = error as any;
+    // console.log('🔍 [PLACES] search failed', {
+    //   status: e?.response?.status,
+    //   data: e?.response?.data,
+    //   message: e?.message,
+    //   url: e?.config?.url,
+    // });
+    throw error;
+  }
+},
 
   /**
    * GET /mobile/places/details?place_id=
@@ -67,10 +80,23 @@ export const placesApi = {
    * Returns address details for GPS coordinates.
    */
   reverseGeocode: async (lat: number, lng: number): Promise<PlaceDetails> => {
+  // console.log('📍 [PLACES] reverseGeocode called', { lat, lng });
+  try {
     const response = await api.get<ApiResponse<{ details: PlaceDetails }>>(
       '/mobile/places/reverse',
       { params: { lat, lng } },
     );
+    // console.log('📍 [PLACES] reverseGeocode success', response.data);
     return response.data.data.details;
-  },
+  } catch (error: unknown) {
+    const e = error as any;
+    // console.log('📍 [PLACES] reverseGeocode failed', {
+    //   status: e?.response?.status,
+    //   data: e?.response?.data,
+    //   message: e?.message,
+    //   url: e?.config?.url,
+    // });
+    throw error;
+  }
+},
 };

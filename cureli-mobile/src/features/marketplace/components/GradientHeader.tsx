@@ -1,12 +1,4 @@
 // src/features/marketplace/components/GradientHeader.tsx
-//
-// Fixed gradient header that sits above the scroll content.
-// Height = HEADER_HEIGHT (content) + insets.top (safe area).
-//
-// Gradient: #05015A → #BBAEF9, top → bottom.
-// Contains: wordmark + location + address | SearchBar + CartButton row.
-//
-// Presentational — all handlers come from props.
 
 import React from "react";
 import {
@@ -14,7 +6,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  // Platform,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,20 +14,14 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
-import { Radius } from "../../../theme/radius";
 
 import { SearchBar } from "./SearchBar";
 import { CartButton } from "./CartButton";
-
-import { DEMO_LOCATION } from "../constants/marketplace.constants";
+import { useDeliveryLocation } from "../../../hooks/useDeliveryLocation";
 
 // ── Constants ─────────────────────────────────────────────────
 
-// Content height below the safe area inset.
-// Safe area is added dynamically via useSafeAreaInsets().
 export const HEADER_HEIGHT = 180;
-
-// Gradient colours — top (deep navy) → bottom (soft lavender).
 const GRADIENT_COLORS: [string, string] = ["#05015A", "#BBAEF9"];
 
 // ── Props ─────────────────────────────────────────────────────
@@ -56,6 +42,26 @@ function GradientHeaderBase({
   onPressCart,
 }: GradientHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { location, isResolving } = useDeliveryLocation();
+
+  // Has a real location been resolved (GPS or saved)?
+  const hasLocation = location.source === 'gps' || location.source === 'saved';
+
+  // Icon based on location source
+  const locationIcon =
+    location.source === 'gps'
+      ? 'navigate'
+      : location.source === 'saved'
+        ? 'location'
+        : 'location-outline';
+
+  // Icon color
+  const iconColor =
+    location.source === 'gps'
+      ? '#4ade80'
+      : location.source === 'saved'
+        ? '#facc15'
+        : 'rgba(255,255,255,0.75)';
 
   return (
     <LinearGradient
@@ -72,7 +78,6 @@ function GradientHeaderBase({
     >
       {/* ── Top row: wordmark + location + profile ── */}
       <View style={styles.topRow}>
-        {/* Left: brand + location */}
         <View style={styles.left}>
           <Text style={styles.wordmark}>cureli</Text>
 
@@ -81,16 +86,26 @@ function GradientHeaderBase({
             onPress={onPressAddress}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Delivering near ${DEMO_LOCATION.area}`}
+            accessibilityLabel={
+              hasLocation
+                ? `Delivering in 10 mins to ${location.area}`
+                : 'Set delivery location'
+            }
           >
-            <Ionicons
-              name="location-outline"
-              size={13}
-              color="rgba(255,255,255,0.75)"
-            />
+            {isResolving ? (
+              <ActivityIndicator size={12} color="rgba(255,255,255,0.75)" />
+            ) : (
+              <Ionicons name={locationIcon} size={13} color={iconColor} />
+            )}
+
             <Text style={styles.locationPrimary} numberOfLines={1}>
-              Delivering in 10 mins
+              {isResolving
+                ? 'Detecting location...'
+                : hasLocation
+                  ? 'Delivering in 10 mins'
+                  : 'Set delivery location'}
             </Text>
+
             <Ionicons
               name="chevron-down"
               size={13}
@@ -98,8 +113,13 @@ function GradientHeaderBase({
             />
           </TouchableOpacity>
 
+          {/* Address line — shows area + address when resolved */}
           <Text style={styles.address} numberOfLines={1}>
-            {DEMO_LOCATION.addressLine}
+            {isResolving
+              ? 'Please wait...'
+              : hasLocation
+                ? `${location.area} · ${location.addressLine}`
+                : 'Tap here to set your address'}
           </Text>
         </View>
 
@@ -117,7 +137,6 @@ function GradientHeaderBase({
 
       {/* ── Bottom row: search + cart ── */}
       <View style={styles.searchRow}>
-        {/* SearchBar takes flex:1, CartButton is fixed width */}
         <View style={styles.searchFlex}>
           <SearchBar onPress={onPressSearch} variant="header" />
         </View>
@@ -136,7 +155,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 100,
-    // Distribute children top/bottom inside the content area.
     justifyContent: "space-between",
     paddingBottom: Spacing.md,
     paddingHorizontal: Spacing.base,
