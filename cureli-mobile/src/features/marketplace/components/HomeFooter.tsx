@@ -52,10 +52,6 @@ function HomeFooterBase() {
       <View
         style={[styles.divider, { backgroundColor: colors.border.subtle }]}
       />
-
-      <Text style={[styles.madeWith, { color: colors.text.faint }]}>
-        Made with ❤️ in India
-      </Text>
     </View>
   );
 }
