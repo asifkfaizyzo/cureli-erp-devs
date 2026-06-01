@@ -296,21 +296,20 @@ export function EditProfileScreen() {
             Phone Number
           </Text>
           <View style={styles.phoneRow}>
-            // AFTER
-            <TextInput
-              style={[
-                styles.input,
-                styles.inputLocked,
-                {
-                  backgroundColor: colors.background.elevated,
-                  borderColor: colors.border.subtle,
-                  color: colors.text.faint,
-                  fontFamily: "Inter_400Regular", // ← moved into style
-                },
-              ]}
-              value={user?.phone ?? ""}
-              editable={false}
-            />
+  <TextInput
+    style={[
+      styles.input,
+      styles.inputLocked,
+      {
+        backgroundColor: colors.background.elevated,
+        borderColor: colors.border.subtle,
+        color: colors.text.faint,
+        fontFamily: "Inter_400Regular",
+      },
+    ]}
+    value={user?.phone ?? ""}
+    editable={false}
+  />
             <View
               style={[
                 styles.verifiedBadge,

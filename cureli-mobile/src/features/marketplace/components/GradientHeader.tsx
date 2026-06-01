@@ -1,6 +1,6 @@
 // src/features/marketplace/components/GradientHeader.tsx
 
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,11 @@ import { Spacing } from "../../../theme/spacing";
 
 import { SearchBar } from "./SearchBar";
 import { CartButton } from "./CartButton";
+import { AddressDropdown } from "./AddressDropdown";
 import { useDeliveryLocation } from "../../../hooks/useDeliveryLocation";
+import { useAddresses } from "../../profile/hooks/useAddresses";
+import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
+import type { DeliveryLocation } from "../../../store/deliveryLocationStore";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -27,7 +31,6 @@ const GRADIENT_COLORS: [string, string] = ["#05015A", "#BBAEF9"];
 // ── Props ─────────────────────────────────────────────────────
 
 interface GradientHeaderProps {
-  onPressAddress?: () => void;
   onPressProfile?: () => void;
   onPressSearch?: () => void;
   onPressCart?: () => void;
@@ -36,18 +39,59 @@ interface GradientHeaderProps {
 // ── Component ─────────────────────────────────────────────────
 
 function GradientHeaderBase({
-  onPressAddress,
   onPressProfile,
   onPressSearch,
   onPressCart,
 }: GradientHeaderProps) {
   const insets = useSafeAreaInsets();
   const { location, isResolving } = useDeliveryLocation();
+  const { addresses } = useAddresses();
+  const { selectAddress } = useDeliveryLocationStore();
 
-  // Has a real location been resolved (GPS or saved)?
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
+  // ── Track newly added address ─────────────────────────────
+  const prevAddressCountRef = useRef(addresses.length);
+
+  useEffect(() => {
+    const prevCount = prevAddressCountRef.current;
+    const currentCount = addresses.length;
+
+    if (currentCount > prevCount && prevCount > 0) {
+      // A new address was added — find it (most recent by created_at)
+      const sorted = [...addresses].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      const newest = sorted[0];
+
+      if (newest) {
+        const newLocation: DeliveryLocation = {
+          source: 'saved',
+          area: newest.city ?? newest.label ?? 'Saved Address',
+          addressLine: [
+            newest.address_line_1,
+            newest.city,
+            newest.pincode,
+          ]
+            .filter(Boolean)
+            .join(', '),
+          latitude: newest.latitude ? Number(newest.latitude) : null,
+          longitude: newest.longitude ? Number(newest.longitude) : null,
+          addressId: newest.id,
+        };
+
+        selectAddress(newLocation);
+      }
+    }
+
+    prevAddressCountRef.current = currentCount;
+  }, [addresses, selectAddress]);
+
+  // ── Derived state ─────────────────────────────────────────
+
   const hasLocation = location.source === 'gps' || location.source === 'saved';
 
-  // Icon based on location source
   const locationIcon =
     location.source === 'gps'
       ? 'navigate'
@@ -55,7 +99,6 @@ function GradientHeaderBase({
         ? 'location'
         : 'location-outline';
 
-  // Icon color
   const iconColor =
     location.source === 'gps'
       ? '#4ade80'
@@ -63,86 +106,104 @@ function GradientHeaderBase({
         ? '#facc15'
         : 'rgba(255,255,255,0.75)';
 
-  return (
-    <LinearGradient
-      colors={GRADIENT_COLORS}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0, y: 1 }}
-      style={[
-        styles.gradient,
-        {
-          height: HEADER_HEIGHT + insets.top,
-          paddingTop: insets.top,
-        },
-      ]}
-    >
-      {/* ── Top row: wordmark + location + profile ── */}
-      <View style={styles.topRow}>
-        <View style={styles.left}>
-          <Text style={styles.wordmark}>cureli</Text>
+  // ── Handlers ──────────────────────────────────────────────
 
+  const toggleDropdown = () => {
+    setDropdownVisible((prev) => !prev);
+  };
+
+  const closeDropdown = () => {
+    setDropdownVisible(false);
+  };
+
+  return (
+    <>
+      <LinearGradient
+        colors={GRADIENT_COLORS}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[
+          styles.gradient,
+          {
+            height: HEADER_HEIGHT + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        {/* ── Top row: wordmark + location + profile ── */}
+        <View style={styles.topRow}>
+          <View style={styles.left}>
+            <Text style={styles.wordmark}>cureli</Text>
+
+            <TouchableOpacity
+              style={styles.locationRow}
+              onPress={toggleDropdown}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={
+                hasLocation
+                  ? `Delivering to ${location.area}. Tap to change.`
+                  : 'Set delivery location'
+              }
+            >
+              {isResolving ? (
+                <ActivityIndicator size={12} color="rgba(255,255,255,0.75)" />
+              ) : (
+                <Ionicons name={locationIcon} size={13} color={iconColor} />
+              )}
+
+              <Text style={styles.areaName} numberOfLines={1}>
+                {isResolving
+                  ? 'Detecting location...'
+                  : hasLocation
+                    ? location.area
+                    : 'Set delivery location'}
+              </Text>
+
+              <Ionicons
+                name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
+                size={13}
+                color="rgba(255,255,255,0.55)"
+              />
+            </TouchableOpacity>
+
+            {/* Address line */}
+            <Text style={styles.address} numberOfLines={1}>
+              {isResolving
+                ? 'Please wait...'
+                : hasLocation
+                  ? location.addressLine
+                  : 'Tap here to set your address'}
+            </Text>
+          </View>
+
+          {/* Right: profile avatar */}
           <TouchableOpacity
-            style={styles.locationRow}
-            onPress={onPressAddress}
+            style={styles.avatarButton}
+            onPress={onPressProfile}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={
-              hasLocation
-                ? `Delivering in 10 mins to ${location.area}`
-                : 'Set delivery location'
-            }
+            accessibilityLabel="Profile"
           >
-            {isResolving ? (
-              <ActivityIndicator size={12} color="rgba(255,255,255,0.75)" />
-            ) : (
-              <Ionicons name={locationIcon} size={13} color={iconColor} />
-            )}
-
-            <Text style={styles.locationPrimary} numberOfLines={1}>
-              {isResolving
-                ? 'Detecting location...'
-                : hasLocation
-                  ? 'Delivering in 10 mins'
-                  : 'Set delivery location'}
-            </Text>
-
-            <Ionicons
-              name="chevron-down"
-              size={13}
-              color="rgba(255,255,255,0.55)"
-            />
+            <Ionicons name="person" size={18} color="#ffffff" />
           </TouchableOpacity>
-
-          {/* Address line — shows area + address when resolved */}
-          <Text style={styles.address} numberOfLines={1}>
-            {isResolving
-              ? 'Please wait...'
-              : hasLocation
-                ? `${location.area} · ${location.addressLine}`
-                : 'Tap here to set your address'}
-          </Text>
         </View>
 
-        {/* Right: profile avatar */}
-        <TouchableOpacity
-          style={styles.avatarButton}
-          onPress={onPressProfile}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Profile"
-        >
-          <Ionicons name="person" size={18} color="#ffffff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Bottom row: search + cart ── */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchFlex}>
-          <SearchBar onPress={onPressSearch} variant="header" />
+        {/* ── Bottom row: search + cart ── */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchFlex}>
+            <SearchBar onPress={onPressSearch} variant="header" />
+          </View>
+          <CartButton onPress={onPressCart} />
         </View>
-        <CartButton onPress={onPressCart} />
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+
+      {/* ── Address dropdown (renders outside gradient, overlays content) ── */}
+      <AddressDropdown
+        visible={dropdownVisible}
+        onClose={closeDropdown}
+      />
+    </>
   );
 }
 
@@ -181,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  locationPrimary: {
+  areaName: {
     ...Typography.bodySemiBold,
     color: "rgba(255,255,255,0.90)",
     flexShrink: 1,

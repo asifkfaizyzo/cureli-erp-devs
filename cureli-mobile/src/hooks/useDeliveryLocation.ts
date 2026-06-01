@@ -10,6 +10,7 @@ import type { DeliveryLocation } from '../store/deliveryLocationStore';
 /**
  * Resolves the delivery location once on mount:
  *
+ * 0. If user has manually selected an address (isManualSelection) → skip everything
  * 1. Check if location permission is granted
  * 2. If YES → get GPS coords → reverse geocode → set as "gps" location
  * 3. If NO  → check saved addresses → use default address
@@ -22,6 +23,7 @@ export function useDeliveryLocation() {
     location,
     isResolving,
     hasResolved,
+    isManualSelection,
     setLocation,
     setResolving,
     setResolved,
@@ -30,6 +32,9 @@ export function useDeliveryLocation() {
   const { addresses } = useAddresses();
 
   const resolve = useCallback(async () => {
+    // If user has manually picked an address, respect that choice
+    if (isManualSelection && hasResolved) return;
+
     // Don't resolve again if already done
     if (hasResolved) return;
 
@@ -128,7 +133,7 @@ export function useDeliveryLocation() {
       setLocation(FALLBACK_LOCATION);
       setResolved();
     }
-  }, [hasResolved, addresses, setLocation, setResolving, setResolved]);
+  }, [hasResolved, isManualSelection, addresses, setLocation, setResolving, setResolved]);
 
   // Auto-resolve on mount
   useEffect(() => {
@@ -139,10 +144,10 @@ export function useDeliveryLocation() {
     location,
     isResolving,
     hasResolved,
+    isManualSelection,
     refresh: () => {
-      // Reset and re-resolve
-      useDeliveryLocationStore.getState().reset();
-      // Will trigger on next render via useEffect
+      // Full reset including manual selection — re-runs GPS detection
+      useDeliveryLocationStore.getState().hardReset();
     },
   };
 }

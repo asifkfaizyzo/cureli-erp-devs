@@ -15,8 +15,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  useWindowDimensions,
 } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -77,15 +77,13 @@ function PromoCardBase({ slide, width }: PromoCardProps) {
         {/* ── Right: image or placeholder icon ── */}
         <View style={styles.imageBlock}>
           {slide.imageUrl ? (
-            // Real image — swap <View> for <Image> when URLs are ready.
-            // Using View placeholder so no new dependency needed now.
-            <View style={styles.imagePlaceholder}>
-              <Ionicons
-                name={slide.placeholderIcon as any}
-                size={44}
-                color="rgba(255,255,255,0.9)"
-              />
-            </View>
+            // TODO: Replace placeholder with real CDN banner images
+            <Image
+              source={{ uri: slide.imageUrl }}
+              style={styles.image}
+              contentFit="cover"
+              transition={300}
+            />
           ) : (
             <View style={styles.imagePlaceholder}>
               <Ionicons
@@ -111,7 +109,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
   },
-  // Decorative depth circles
   circleTopRight: {
     position: "absolute",
     width: 160,
@@ -168,6 +165,11 @@ const styles = StyleSheet.create({
     height: 88,
     alignItems: "center",
     justifyContent: "center",
+  },
+  image: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   imagePlaceholder: {
     width: 80,
