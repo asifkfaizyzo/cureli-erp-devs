@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { ProfileHeader } from '../components/ProfileHeader';
 import { ProfileSection } from '../components/ProfileSection';
@@ -23,8 +22,8 @@ import { LogoutButton } from '../components/LogoutButton';
 
 import { useProfile } from '../hooks/useProfile';
 import { useAddresses } from '../hooks/useAddresses';
+import { useAddressMutations } from '../hooks/useAddressMutations';
 import { profileApi, extractErrorMessage } from '../api/profile.api';
-import { QUERY_KEYS } from '../constants/profile.constants';
 import { useAuthStore } from '../../../store/authStore';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useDialog } from '../../../components/Dialog/DialogProvider';
@@ -32,7 +31,6 @@ import { useDialog } from '../../../components/Dialog/DialogProvider';
 export function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const { confirm, alert } = useDialog();
-  const queryClient = useQueryClient();
   const {
     user,
     isLoading: profileLoading,
@@ -41,6 +39,7 @@ export function ProfileScreen() {
     refetch,
   } = useProfile();
   const { addresses, isLoading: addressesLoading } = useAddresses();
+  const { deleteAddress, setDefaultAddress } = useAddressMutations();
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [settingDefaultId, setSettingDefaultId] = useState<string | null>(null);
@@ -68,8 +67,7 @@ export function ProfileScreen() {
 
     setDeletingId(id);
     try {
-      await profileApi.deleteAddress(id);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADDRESSES });
+      await deleteAddress(id);
     } catch (error) {
       await alert({
         title: 'Error',
@@ -85,8 +83,7 @@ export function ProfileScreen() {
   const handleSetDefault = async (id: string) => {
     setSettingDefaultId(id);
     try {
-      await profileApi.setDefaultAddress(id);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ADDRESSES });
+      await setDefaultAddress(id);
     } catch (error) {
       await alert({
         title: 'Error',
@@ -250,6 +247,18 @@ export function ProfileScreen() {
             label="Log out of all devices"
             onPress={handleLogoutAll}
             destructive
+            showSeparator
+          />
+          <ProfileMenuItem
+            icon="medication"
+            label="Dispensed Medicines"
+            onPress={() => router.push('/profile/dispensed' as any)}
+            showSeparator
+          />
+          <ProfileMenuItem
+            icon="notifications-none"
+            label="Notification Preferences"
+            onPress={() => router.push('/profile/notifications' as any)}
             showSeparator
           />
           <ProfileMenuItem

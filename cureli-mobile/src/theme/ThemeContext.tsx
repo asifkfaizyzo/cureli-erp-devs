@@ -4,7 +4,7 @@
 // Reads preference from MMKV. Defaults to system.
 // Re-renders only the consumers that use useTheme().
 
-import React, { createContext, useContext, useMemo, useCallback, useState, useEffect } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, useState} from 'react';
 import { useColorScheme } from 'react-native';
 import { StorageService } from '../services/storage';
 import { LightColors, getDarkColors, DARK_VARIANT } from './colors';
