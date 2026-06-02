@@ -28,6 +28,15 @@
 // Only NONE means truly no image. We resolve the variant's images JSON
 // array directly; an empty resolved array signals the frontend to show
 // its branded placeholder.
+//
+// getMedicineShops (new):
+//   Returns all branches that have a visible, in-stock listing for a
+//   given variant. One row per branch. Sorted by distance if lat/lng
+//   provided, else by shop name. Uses the same Haversine + IST helpers
+//   already established in mobile.shops.service.js — copied here to
+//   avoid cross-module coupling. Marketplace assets resolved via
+//   resolveMarketplaceAsset (backend origin), medicine images via
+//   resolveAssetUrl (CloudFront).
 
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
@@ -45,15 +54,96 @@ console.log(
   }`
 );
 
+// ── Marketplace asset resolver ────────────────────────────────
+// Mirrors the identical helper in mobile.shops.service.js.
+// Marketplace assets (logo, banner, branch image) are served by the
+// backend, NOT CloudFront. resolveAssetUrl would produce a 403.
+
+const PUBLIC_API_ORIGIN = process.env.PUBLIC_API_ORIGIN || null;
+
+if (!PUBLIC_API_ORIGIN) {
+  console.warn(
+    "[mobile.medicines] WARNING: PUBLIC_API_ORIGIN is not set. " +
+      "Shop logo URLs in getMedicineShops will be returned as relative paths."
+  );
+}
+
+/**
+ * Resolve a stored marketplace-asset path to a full backend URL.
+ * @param {string|null} pathOrUrl
+ * @returns {string|null}
+ */
+function resolveMarketplaceAsset(pathOrUrl) {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+  if (!PUBLIC_API_ORIGIN) return pathOrUrl;
+  const origin = PUBLIC_API_ORIGIN.endsWith("/")
+    ? PUBLIC_API_ORIGIN.slice(0, -1)
+    : PUBLIC_API_ORIGIN;
+  const suffix = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  return `${origin}${suffix}`;
+}
+
+// ── IST helpers ───────────────────────────────────────────────
+// Mirrors mobile.shops.service.js — kept local to avoid coupling.
+
+function getNowIST() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const istMs = utcMs + 5.5 * 60 * 60_000;
+  const ist = new Date(istMs);
+  return { hours: ist.getHours(), minutes: ist.getMinutes() };
+}
+
+function toMinutes(timeStr) {
+  if (!timeStr) return null;
+  const parts = timeStr.split(":");
+  if (parts.length !== 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function computeIsOpen(is24Hours, openingTime, closingTime) {
+  if (is24Hours) return true;
+  const open = toMinutes(openingTime);
+  const close = toMinutes(closingTime);
+  if (open === null || close === null) return false;
+  const { hours, minutes } = getNowIST();
+  const nowMins = hours * 60 + minutes;
+  if (open <= close) {
+    return nowMins >= open && nowMins < close;
+  } else {
+    return nowMins >= open || nowMins < close;
+  }
+}
+
+// ── Haversine distance ────────────────────────────────────────
+// Mirrors mobile.shops.service.js — kept local to avoid coupling.
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
 // ── Helpers ───────────────────────────────────────────────────
 
 /**
- * The variant.images column is a JSON array of storage keys, e.g.
- *   ["medicine_images/10005/img_00_high.jpg", ...]
+ * The variant.images column is a JSON array of storage keys.
  * Resolve each to a full CDN URL and drop nulls.
- *
- * @param {unknown} images
- * @returns {string[]}
  */
 function resolveVariantImages(images) {
   if (!Array.isArray(images)) return [];
@@ -64,7 +154,6 @@ function resolveVariantImages(images) {
 
 /**
  * Build a strength display string from parsed strength fields.
- * @returns {string|null}
  */
 function buildStrength(strengthValue, strengthUnit) {
   if (strengthValue === null || strengthValue === undefined) return null;
@@ -74,13 +163,6 @@ function buildStrength(strengthValue, strengthUnit) {
 /**
  * Shape a single variant (with included master) into the mobile feed item.
  * Only REAL fields. No pricing — pricing is generated client-side.
- *
- * This function is the single source of truth for the feed item shape.
- * Both the demo path and the production path call it. The frontend
- * receives an identical structure regardless of which path ran.
- *
- * @param {object} variant - MasterMedicineVariant with master included
- * @returns {object}
  */
 function toFeedItem(variant) {
   const images = resolveVariantImages(variant.images);
@@ -94,7 +176,6 @@ function toFeedItem(variant) {
     manufacturer: variant.manufacturer ?? null,
     packSize: variant.pack_size ?? null,
     image: images[0] ?? null,
-    // ── from master (regulatory / discovery) ──
     prescriptionRequired: variant.master?.prescription_required ?? false,
     form: variant.master?.form ?? null,
     category: variant.master?.primary_category ?? null,
@@ -103,12 +184,8 @@ function toFeedItem(variant) {
   };
 }
 
-// ── Prisma select clauses (reused across paths) ───────────────
+// ── Prisma select clauses ─────────────────────────────────────
 
-/**
- * The variant select used by both the demo path and the production
- * listing path. Centralised so both paths always return the same shape.
- */
 const VARIANT_SELECT = {
   variant_id: true,
   sku_id: true,
@@ -133,14 +210,6 @@ const VARIANT_SELECT = {
 
 // ── Demo path ─────────────────────────────────────────────────
 
-/**
- * Query MasterMedicineVariant directly for a given category.
- * Used when SHOW_UNLISTED = true.
- *
- * @param {string} category - internal primary_category value
- * @param {number} limit
- * @returns {Promise<object[]>} shaped feed items
- */
 async function listVariantsFromCatalog(category, limit) {
   const variants = await prisma.masterMedicineVariant.findMany({
     where: {
@@ -155,26 +224,11 @@ async function listVariantsFromCatalog(category, limit) {
     take: limit,
     select: VARIANT_SELECT,
   });
-
   return variants.map(toFeedItem);
 }
 
 // ── Production path ───────────────────────────────────────────
 
-/**
- * Query MarketplaceListing with full visibility chain for a given category.
- * Used when SHOW_UNLISTED = false.
- *
- * Visibility chain:
- *   listing.is_visible = true
- *   listing.stock_status = IN_STOCK
- *   branch.marketplaceSettings.marketplace_enabled = true
- *   branch.marketplaceSettings.marketplaceProfile.is_live = true
- *
- * @param {string} category - internal primary_category value
- * @param {number} limit
- * @returns {Promise<object[]>} shaped feed items, identical shape to demo path
- */
 async function listVariantsFromListings(category, limit) {
   const listings = await prisma.marketplaceListing.findMany({
     where: {
@@ -183,9 +237,7 @@ async function listVariantsFromListings(category, limit) {
       branch: {
         marketplaceSettings: {
           marketplace_enabled: true,
-          marketplaceProfile: {
-            is_live: true,
-          },
+          marketplaceProfile: { is_live: true },
         },
       },
       linkedVariant: {
@@ -195,48 +247,24 @@ async function listVariantsFromListings(category, limit) {
         },
       },
     },
-    orderBy: {
-      linkedVariant: { name: "asc" },
-    },
+    orderBy: { linkedVariant: { name: "asc" } },
     take: limit,
-    select: {
-      linkedVariant: {
-        select: VARIANT_SELECT,
-      },
-    },
+    select: { linkedVariant: { select: VARIANT_SELECT } },
   });
 
-  // Deduplicate by variant_id — multiple branches may list the same variant.
-  // The feed should show each medicine once, not once per listing.
   const seen = new Set();
   const items = [];
-
   for (const listing of listings) {
     const v = listing.linkedVariant;
     if (!v || seen.has(v.variant_id)) continue;
     seen.add(v.variant_id);
     items.push(toFeedItem(v));
   }
-
   return items;
 }
 
 // ── Feed ──────────────────────────────────────────────────────
 
-/**
- * Build the complete home feed — one section per CURATED_CATEGORIES entry
- * that returns at least one result.
- *
- * Runs all category queries concurrently via Promise.all().
- * From the mobile app's perspective this is one network round trip
- * instead of one per category.
- *
- * Sections with zero results are omitted from the response so the
- * frontend never renders an empty rail.
- *
- * @param {number} [itemsPerSection=8]
- * @returns {Promise<{ sections: object[] }>}
- */
 export async function listMobileFeed(itemsPerSection = 8) {
   const queryFn = SHOW_UNLISTED
     ? listVariantsFromCatalog
@@ -261,22 +289,8 @@ export async function listMobileFeed(itemsPerSection = 8) {
   return { sections };
 }
 
-// ── List variants (paginated catalog — CategoryScreen) ────────
+// ── List variants (paginated catalog) ─────────────────────────
 
-/**
- * Paginated, per-variant feed for the category browse screen.
- * This endpoint is NOT affected by SHOW_UNLISTED — it always
- * queries the full catalog. Category browsing is always public.
- *
- * Used by GET /mobile/medicines (CategoryScreen infinite scroll).
- *
- * @param {Object} opts
- * @param {number} opts.page
- * @param {number} opts.limit
- * @param {"DRUG"|"OTC"} [opts.type]
- * @param {string} [opts.category]
- * @param {string} [opts.search]
- */
 export async function listMobileMedicines({
   page = 1,
   limit = 20,
@@ -285,9 +299,7 @@ export async function listMobileMedicines({
   search,
 }) {
   const skip = (page - 1) * limit;
-
   const where = {};
-
   const masterWhere = { is_active: true };
   if (type) masterWhere.type = type;
   if (category) {
@@ -296,7 +308,6 @@ export async function listMobileMedicines({
   if (Object.keys(masterWhere).length > 0) {
     where.master = { is: masterWhere };
   }
-
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -322,7 +333,6 @@ export async function listMobileMedicines({
   ]);
 
   const totalPages = Math.ceil(total / limit);
-
   return {
     medicines: variants.map(toFeedItem),
     meta: {
@@ -338,21 +348,6 @@ export async function listMobileMedicines({
 
 // ── Single variant (detail) ───────────────────────────────────
 
-/**
- * Fetch one variant by variant UUID OR sku_id, plus sibling variants
- * under the same master (for the detail screen's "Other options" rail).
- *
- * In production mode (SHOW_UNLISTED = false), also checks whether any
- * visible listing exists for this variant across any live branch.
- * Returns availableNearYou: boolean so the frontend can disable order
- * actions without hiding the product page.
- *
- * In demo mode (SHOW_UNLISTED = true), availableNearYou is always true —
- * the check is skipped entirely.
- *
- * @param {string} idOrSku - variant UUID or sku_id
- * @returns {Promise<object|null>}
- */
 export async function getMobileMedicine(idOrSku) {
   const baseSelect = {
     variant_id: true,
@@ -381,7 +376,6 @@ export async function getMobileMedicine(idOrSku) {
     },
   };
 
-  // Try sku_id first (cards route by skuId), then fall back to UUID.
   let variant = await prisma.masterMedicineVariant.findUnique({
     where: { sku_id: idOrSku },
     select: baseSelect,
@@ -402,11 +396,6 @@ export async function getMobileMedicine(idOrSku) {
 
   if (!variant) return null;
 
-  // ── availableNearYou ──────────────────────────────────────
-  // Demo mode: skip the DB check entirely — always true.
-  // Production mode: check if any live branch has this variant
-  // listed and visible. One findFirst with a short-circuit is
-  // cheaper than a count.
   let availableNearYou = true;
 
   if (!SHOW_UNLISTED) {
@@ -418,19 +407,15 @@ export async function getMobileMedicine(idOrSku) {
         branch: {
           marketplaceSettings: {
             marketplace_enabled: true,
-            marketplaceProfile: {
-              is_live: true,
-            },
+            marketplaceProfile: { is_live: true },
           },
         },
       },
       select: { listing_id: true },
     });
-
     availableNearYou = visibleListing !== null;
   }
 
-  // ── Siblings ──────────────────────────────────────────────
   const siblings = await prisma.masterMedicineVariant.findMany({
     where: {
       master_medicine_id: variant.master_medicine_id,
@@ -451,4 +436,150 @@ export async function getMobileMedicine(idOrSku) {
     },
     siblings: siblings.map(toFeedItem),
   };
+}
+
+// ── getMedicineShops (new) ────────────────────────────────────
+//
+// Returns all branches that have a visible listing for a given variant.
+// One row per branch — cart enforcement is at the branch level.
+// Sorted by distance asc if lat/lng provided, else by shop name asc.
+//
+// Stock statuses included: IN_STOCK, LOW_STOCK.
+// OUT_OF_STOCK listings are excluded — no point showing them in the
+// "where to buy" list. The detail screen shows UnavailableBanner when
+// this list comes back empty.
+//
+// In demo mode (SHOW_UNLISTED = true) we still query real listings —
+// if none exist we return []. The frontend handles both states.
+//
+// @param {string} variantId   - MasterMedicineVariant.variant_id (UUID)
+// @param {number|null} lat
+// @param {number|null} lng
+// @returns {Promise<object[]>}
+
+export async function getMedicineShops(variantId, lat, lng) {
+  const hasLocation = lat != null && lng != null;
+
+  // We need the variant_id (UUID) not the sku_id for the listing join.
+  // The controller resolves sku_id → variant_id before calling here.
+  const listings = await prisma.marketplaceListing.findMany({
+    where: {
+      linked_variant_id: variantId,
+      is_visible: true,
+      stock_status: "IN_STOCK",
+      branch: {
+        marketplaceSettings: {
+          marketplace_enabled: true,
+          marketplaceProfile: { is_live: true },
+        },
+      },
+    },
+    select: {
+      listing_id: true,
+      marketplace_price: true,
+      requires_prescription: true,
+      stock_status: true,
+      shop: {
+        select: {
+          shop_id: true,
+          business_name: true,
+          marketplaceProfile: {
+            select: {
+              storefront_name: true,
+              logo_url: true,
+            },
+          },
+        },
+      },
+      branch: {
+        select: {
+          branch_id: true,
+          branch_name: true,
+          marketplaceSettings: {
+            select: {
+              latitude: true,
+              longitude: true,
+              formatted_address: true,
+              opening_time: true,
+              closing_time: true,
+              is_24_hours: true,
+              pickup_enabled: true,
+              delivery_enabled: true,
+              contact_override: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Shape each listing into a shop row
+  const rows = listings.map((l) => {
+    const bs = l.branch?.marketplaceSettings;
+    const branchLat = bs?.latitude ? Number(bs.latitude) : null;
+    const branchLng = bs?.longitude ? Number(bs.longitude) : null;
+
+    const shopName =
+      l.shop?.marketplaceProfile?.storefront_name ||
+      l.shop?.business_name ||
+      "Unknown Shop";
+
+    return {
+      // Shop context (needed for cart + navigation)
+      shopId: l.shop?.shop_id ?? null,
+      shopName,
+      logoUrl: resolveMarketplaceAsset(
+        l.shop?.marketplaceProfile?.logo_url ?? null
+      ),
+
+      // Branch context (needed for cart — cart is branch-level)
+      branchId: l.branch?.branch_id ?? null,
+      branchName: l.branch?.branch_name ?? null,
+      address: bs?.formatted_address ?? null,
+
+      // Location
+      latitude: branchLat,
+      longitude: branchLng,
+      distanceKm: haversineKm(
+        hasLocation ? lat : null,
+        hasLocation ? lng : null,
+        branchLat,
+        branchLng
+      ),
+
+      // Timing
+      isOpen: computeIsOpen(
+        bs?.is_24_hours ?? false,
+        bs?.opening_time ?? null,
+        bs?.closing_time ?? null
+      ),
+      is24Hours: bs?.is_24_hours ?? false,
+      openingTime: bs?.opening_time ?? null,
+      closingTime: bs?.closing_time ?? null,
+
+      // Fulfillment
+      pickupEnabled: bs?.pickup_enabled ?? false,
+      deliveryEnabled: bs?.delivery_enabled ?? false,
+      contact: bs?.contact_override ?? null,
+
+      // Listing specifics
+      // marketplace_price is null when the shop has not set a price.
+      // Frontend shows "Price not set" in that case.
+      listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
+      stockStatus: l.stock_status,
+      requiresPrescription: l.requires_prescription,
+    };
+  });
+
+  // Sort: distance asc if location provided, else shopName asc
+  rows.sort((a, b) => {
+    if (hasLocation) {
+      const dA = a.distanceKm ?? Infinity;
+      const dB = b.distanceKm ?? Infinity;
+      return dA - dB;
+    }
+    return (a.shopName ?? "").localeCompare(b.shopName ?? "");
+  });
+
+  return rows;
 }

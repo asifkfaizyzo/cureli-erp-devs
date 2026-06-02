@@ -3,8 +3,8 @@
 // Categories tab route.
 // Renders CategoryScreen which reads ?category= param.
 
-import { CategoryScreen } from "../../src/features/marketplace/screens/CategoryScreen";
+import { AllCategoriesScreen } from "../../src/features/marketplace/screens/AllCategoriesScreen";
 
 export default function CategoriesRoute() {
-  return <CategoryScreen />;
+  return <AllCategoriesScreen />;
 }

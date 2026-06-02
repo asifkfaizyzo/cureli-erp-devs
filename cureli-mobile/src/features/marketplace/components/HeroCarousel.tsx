@@ -5,17 +5,12 @@
 // Features:
 //   — Auto-slides every HERO_AUTO_SLIDE_INTERVAL_MS ms.
 //   — Infinite loop.
-//   — Pagination dots synced to active index via Reanimated shared value.
-//   — Each slide is a PromoCard (gradient + text + icon + CTA).
+//   — Pagination dots synced to active index.
+//   — Each slide is a PromoCard (gradient + text + icon/image + CTA).
 //   — Horizontal margins so cards don't bleed to screen edges.
-//
-// v4 API notes (differs from v3):
-//   — Default export is `Carousel`.
-//   — `width` is required and must be the full render width of the item.
-//   — `onProgressChange` gives a fine-grained progress value; we derive
-//     the active index from it for the dots.
+//   — Gap between cards via width padding trick.
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -34,8 +29,8 @@ import { useTheme } from "../../../theme/ThemeContext";
 
 // ── Constants ─────────────────────────────────────────────────
 
-// Horizontal margin on each side so the card doesn't bleed to edges.
 const SIDE_MARGIN = Spacing.base;
+const CARD_GAP = Spacing.md; // 12pt gap between cards
 
 // ── Dot indicator ─────────────────────────────────────────────
 
@@ -68,13 +63,19 @@ function Dots({ count, activeIndex }: DotsProps) {
 
 function HeroCarouselBase() {
   const { width: screenWidth } = useWindowDimensions();
-  const cardWidth = screenWidth - SIDE_MARGIN * 2;
+
+  // Carousel width includes the gap — each "slot" is card + gap.
+  // The visible card is smaller by the gap amount.
+  const slotWidth = screenWidth - SIDE_MARGIN * 2;
+  const cardWidth = slotWidth - CARD_GAP;
 
   const [activeIndex, setActiveIndex] = useState(0);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: HeroBannerSlide; index: number }) => (
-      <PromoCard slide={item} width={cardWidth} />
+    ({ item }: { item: HeroBannerSlide; index: number }) => (
+      <View style={styles.slideContainer}>
+        <PromoCard slide={item} width={cardWidth} />
+      </View>
     ),
     [cardWidth],
   );
@@ -88,15 +89,13 @@ function HeroCarouselBase() {
       <Carousel
         data={HERO_BANNERS}
         renderItem={renderItem}
-        width={cardWidth}
+        width={slotWidth}
         height={HERO_CAROUSEL_HEIGHT}
         loop
         autoPlay
         autoPlayInterval={HERO_AUTO_SLIDE_INTERVAL_MS}
         onSnapToItem={onSnapToItem}
-        style={styles.carousel}
-        // v4: scrollAnimationDuration controls snap animation speed
-        scrollAnimationDuration={400}
+        scrollAnimationDuration={500}
       />
 
       <Dots count={HERO_BANNERS.length} activeIndex={activeIndex} />
@@ -109,12 +108,11 @@ function HeroCarouselBase() {
 const styles = StyleSheet.create({
   wrapper: {
     marginTop: Spacing.lg,
-    // Left margin so carousel aligns with page content.
-    marginLeft: SIDE_MARGIN,
+    marginHorizontal: SIDE_MARGIN,
   },
-  carousel: {
-    // Carousel itself needs no extra horizontal styling —
-    // cardWidth already accounts for margins.
+  slideContainer: {
+    flex: 1,
+    paddingRight: CARD_GAP,
   },
   dotsRow: {
     flexDirection: "row",

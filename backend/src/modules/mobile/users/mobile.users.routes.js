@@ -29,36 +29,36 @@ router.use(mobileLimiter);
 
 // ── Profile ───────────────────────────────────────────────────
 router.patch(
-  "/users/profile",
+  "/profile",
   validate(updateProfileSchema),
   handleUpdateProfile,
 );
 
 // ── Addresses ─────────────────────────────────────────────────
-router.get("/users/addresses", handleListAddresses);
+router.get("/addresses", handleListAddresses);
 router.post(
-  "/users/addresses",
+  "/addresses",
   validate(createAddressSchema),
   handleCreateAddress,
 );
 router.patch(
-  "/users/addresses/:id",
+  "/addresses/:id",
   validate(updateAddressSchema),
   handleUpdateAddress,
 );
-router.patch("/users/addresses/:id/default", handleSetDefaultAddress);
-router.delete("/users/addresses/:id", handleDeleteAddress);
+router.patch("/addresses/:id/default", handleSetDefaultAddress);
+router.delete("/addresses/:id", handleDeleteAddress);
 
 // ── Account Deletion ──────────────────────────────────────────
 // Uses stricter mobileAuthLimiter — same as OTP endpoints.
 // Sending the delete OTP is a sensitive action.
 router.post(
-  "/users/account/delete/send-otp",
+  "/account/delete/send-otp",
   mobileAuthLimiter,
   handleSendDeleteOtp,
 );
 router.post(
-  "/users/account/delete/confirm",
+  "/account/delete/confirm",
   mobileAuthLimiter,
   validate(confirmDeleteAccountSchema),
   handleConfirmDeleteAccount,

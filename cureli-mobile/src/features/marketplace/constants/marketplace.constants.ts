@@ -24,16 +24,11 @@ export const STOCK_LABELS = {
   limited: "Limited Stock",
 } as const;
 
-/** Location label shown in the header — fake "near" location for the demo. */
-export const DEMO_LOCATION = {
-  area: "Kakkanad",
-  addressLine: "Kochi, Kerala 682030",
-} as const;
-
 // ── Hero Carousel ─────────────────────────────────────────────
 // Static slides for the home screen carousel.
-// Replace imageUrl with a real CDN URL when available.
-// gradient: [start, end] — top-to-bottom on the card background.
+// Set imageUrl to a CDN URL to show a real banner image.
+// When imageUrl is null, the placeholderIcon is rendered instead.
+// gradient: [start, end] — diagonal gradient on the card background.
 
 export interface HeroBannerSlide {
   id: string;
@@ -52,7 +47,7 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
   {
     id: "welcome",
     title: "Welcome to Cureli",
-    subtitle: "Order medicines from trusted\npharmacias near you",
+    subtitle: "Order medicines from trusted\npharmacies near you",
     ctaLabel: "Let's Start",
     ctaRoute: "/search",
     imageUrl: null,

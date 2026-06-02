@@ -169,7 +169,7 @@ const PrivacyPage = () => {
               <li>Withdraw consent anytime</li>
             </ul>
             <p className="mt-2">
-              Contact: privacy@cureli.com
+              Contact: info@curelihealth.com
             </p>
           </section>
 
@@ -218,9 +218,9 @@ const PrivacyPage = () => {
               12. Contact Us
             </h2>
             <p>
-              <strong>Email:</strong> privacy@cureli.com<br />
-              <strong>Phone:</strong> +91 8025043217<br />
-              <strong>Address:</strong> Karnataka, India
+              <strong>Email:</strong> info@curelihealth.com<br />
+              <strong>Phone:</strong> +91 7356020940<br />
+              <strong>Address:</strong> Bangalore,Karnataka, India
             </p>
           </section>
         </div>

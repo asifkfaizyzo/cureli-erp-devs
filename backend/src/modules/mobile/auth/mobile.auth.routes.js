@@ -25,29 +25,29 @@ const router = Router();
 // 10 requests per 15 min per IP — covers send + verify combined.
 
 router.post(
-  "/auth/send-otp",
+  "/send-otp",
   mobileAuthLimiter,
   validate(sendOtpSchema),
   handleSendOtp
 );
 
 router.post(
-  "/auth/verify-otp",
+  "/verify-otp",
   mobileAuthLimiter,
   validate(verifyOtpSchema),
   handleVerifyOtp
 );
 
 router.post(
-  "/auth/refresh",
+  "/refresh",
   mobileAuthLimiter,
   validate(refreshSchema),
   handleRefresh
 );
 
 // ── Protected routes (access token required) ──────────────────
-router.post("/auth/logout", mobileAuth, handleLogout);
-router.post("/auth/logout-all", mobileAuth, handleLogoutAll);
-router.get("/auth/me", mobileAuth, handleMe);
+router.post("/logout", mobileAuth, handleLogout);
+router.post("/logout-all", mobileAuth, handleLogoutAll);
+router.get("/me", mobileAuth, handleMe);
 
 export default router;
