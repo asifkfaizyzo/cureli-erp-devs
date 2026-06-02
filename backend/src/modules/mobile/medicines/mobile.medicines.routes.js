@@ -28,13 +28,13 @@ import {
 const router = Router();
 
 // ── Static routes first ───────────────────────────────────────
-router.get("/medicines/feed", handleGetFeed);
-router.get("/medicines/categories", handleListCategories);
+router.get("/feed", handleGetFeed);
+router.get("/categories", handleListCategories);
 
 // ── Paginated catalog (CategoryScreen) ───────────────────────
-router.get("/medicines", handleListMedicines);
+router.get("", handleListMedicines);
 
 // ── Dynamic single variant (must be last) ─────────────────────
-router.get("/medicines/:variantId", handleGetMedicine);
+router.get("/:variantId", handleGetMedicine);
 
 export default router;

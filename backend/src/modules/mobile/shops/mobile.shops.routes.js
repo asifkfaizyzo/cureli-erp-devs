@@ -22,14 +22,14 @@ import {
 const router = Router();
 
 // ── Static routes first ───────────────────────────────────────
-router.get("/shops/search", handleSearchShops);
+router.get("/search", handleSearchShops);
 
 // ── Shop profile ──────────────────────────────────────────────
-router.get("/shops/:shopId", handleGetShopProfile);
+router.get("/:shopId", handleGetShopProfile);
 
 // ── Branch medicines (nested, must be last) ───────────────────
 router.get(
-  "/shops/:shopId/branches/:branchId/medicines",
+  "/:shopId/branches/:branchId/medicines",
   handleGetBranchMedicines
 );
 
