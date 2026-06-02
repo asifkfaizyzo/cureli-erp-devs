@@ -1,7 +1,8 @@
 // src/features/marketplace/components/product/SiblingCard.tsx
 //
 // A single card in the "Other options" horizontal rail on the product
-// detail screen. Shows image, name, pack size, and fake starting price.
+// detail screen. Shows image, name, and pack size.
+// Price is hidden — marketplace.startsAt is fake and not rendered here.
 
 import React from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
@@ -67,10 +68,6 @@ export function SiblingCard({ medicine, onPress, colors }: SiblingCardProps) {
           {medicine.packSize}
         </Text>
       ) : null}
-
-      <Text style={[styles.price, { color: colors.text.brand }]}>
-        ₹{medicine.marketplace.startsAt}
-      </Text>
     </TouchableOpacity>
   );
 }
@@ -104,8 +101,5 @@ const styles = StyleSheet.create({
   pack: {
     ...Typography.caption,
     textAlign: "center",
-  },
-  price: {
-    ...Typography.smallBold,
   },
 });

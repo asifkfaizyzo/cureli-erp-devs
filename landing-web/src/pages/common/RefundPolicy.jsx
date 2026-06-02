@@ -76,7 +76,7 @@ const RefundPolicy = () => {
             </h2>
             <p>To initiate a refund request:</p>
             <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
-              <li>Email us at <strong>support@cureli.com</strong> with your registered email and payment details</li>
+              <li>Email us at <strong>support@curelihealth.com</strong> with your registered email and payment details</li>
               <li>Include your Razorpay Payment ID or Order ID</li>
               <li>Describe the reason for the refund request clearly</li>
               <li>Our team will review and respond within 2 business days</li>
@@ -112,8 +112,8 @@ const RefundPolicy = () => {
             </h2>
             <p>For refund-related queries, reach out to us:</p>
             <p className="mt-2">
-              <strong>Email:</strong> support@cureli.com<br />
-              <strong>Phone:</strong> +91 8025043217<br />
+              <strong>Email:</strong> support@curelihealth.com<br />
+              <strong>Phone:</strong> +91 7356020940<br />
               <strong>Business Hours:</strong> Monday – Saturday, 9:00 AM – 6:00 PM IST
             </p>
           </section>

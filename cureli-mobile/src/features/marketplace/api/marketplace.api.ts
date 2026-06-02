@@ -3,9 +3,11 @@
 // All marketplace medicine and shop API calls.
 // Goes through src/services/api.ts (shared Axios instance).
 //
-// NOTE: all mobile endpoints are PUBLIC. The shared instance
-// auto-attaches the mobile token when present (harmless), and
-// works fine when absent.
+// getMedicineShops (new):
+//   GET /mobile/medicines/:variantId/shops?lat=X&lng=Y
+//   Returns branches stocking a specific variant, sorted by distance
+//   when coordinates are provided. Used by the product detail screen's
+//   "Available at" bottom sheet.
 
 import { api } from "../../../services/api";
 import type {
@@ -13,6 +15,7 @@ import type {
   MedicineFeedResponse,
   MedicineDetailResponse,
   CategoriesResponse,
+  MedicineShopsResponse,
 } from "../types/marketplace.types";
 import type { HomeFeedResponse } from "../types/marketplace.types";
 import type {
@@ -71,12 +74,8 @@ function buildLocationQuery(location: LocationParams): string {
 // ── API methods ───────────────────────────────────────────────
 
 export const marketplaceApi = {
-  // ── Medicine endpoints (unchanged) ──────────────────────────
+  // ── Medicine endpoints ───────────────────────────────────────
 
-  /**
-   * GET /mobile/medicines/feed
-   * Home feed — all curated sections in one request.
-   */
   getFeed: async (): Promise<HomeFeedResponse> => {
     const response = await api.get<ApiResponse<HomeFeedResponse>>(
       "/mobile/medicines/feed",
@@ -84,10 +83,6 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  /**
-   * GET /mobile/medicines
-   * Paginated catalog. Used by CategoryScreen and medicine search.
-   */
   getMedicines: async (
     params: MedicineFeedParams = {},
   ): Promise<MedicineFeedResponse> => {
@@ -97,10 +92,6 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  /**
-   * GET /mobile/medicines/categories
-   * Curated category list for the Quick Categories rail.
-   */
   getCategories: async (): Promise<CategoriesResponse> => {
     const response = await api.get<ApiResponse<CategoriesResponse>>(
       "/mobile/medicines/categories",
@@ -108,10 +99,6 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  /**
-   * GET /mobile/medicines/:variantId
-   * Single variant detail + siblings. Includes availableNearYou.
-   */
   getMedicine: async (
     variantIdOrSku: string,
   ): Promise<MedicineDetailResponse> => {
@@ -121,13 +108,24 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  // ── Shop endpoints (new) ─────────────────────────────────────
-
   /**
-   * GET /mobile/shops/search?q=X&lat=Y&lng=Z&page=1&limit=20
-   * Search live shops. q is optional — omitting returns all live shops.
-   * lat/lng are optional — omitting skips distance computation.
+   * GET /mobile/medicines/:variantId/shops?lat=X&lng=Y
+   * Returns branches stocking this variant.
+   * lat/lng are optional — omit for unsorted results.
    */
+  getMedicineShops: async (
+    variantIdOrSku: string,
+    location: LocationParams = {},
+  ): Promise<MedicineShopsResponse> => {
+    const qs = buildLocationQuery(location);
+    const response = await api.get<ApiResponse<MedicineShopsResponse>>(
+      `/mobile/medicines/${encodeURIComponent(variantIdOrSku)}/shops${qs}`,
+    );
+    return response.data.data;
+  },
+
+  // ── Shop endpoints ───────────────────────────────────────────
+
   searchShops: async (params: {
     q?: string;
     lat?: number | null;
@@ -149,11 +147,6 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  /**
-   * GET /mobile/shops/:shopId?lat=Y&lng=Z
-   * Full shop profile with all onboarded branches.
-   * lat/lng optional — enables distance on branches.
-   */
   getShopProfile: async (
     shopId: string,
     location: LocationParams = {},
@@ -165,11 +158,6 @@ export const marketplaceApi = {
     return response.data.data;
   },
 
-  /**
-   * GET /mobile/shops/:shopId/branches/:branchId/medicines
-   * Paginated medicines for a specific branch.
-   * search param enables in-shop search.
-   */
   getShopBranchMedicines: async (
     shopId: string,
     branchId: string,

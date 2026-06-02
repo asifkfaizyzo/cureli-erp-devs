@@ -1,36 +1,35 @@
 // src/features/marketplace/components/product/FindPharmaciesSection.tsx
 //
-// Shown below the marketplace summary card when availableNearYou is true.
-// Prompts the user to find a pharmacy — navigates to /search with the
-// Shops tab active and the medicine name pre-filled.
-//
-// Cart add happens inside the shop screen, not here. This component
-// bridges the gap between medicine discovery and pharmacy selection.
+// CTA card that opens the ShopsBottomSheet.
+// No longer navigates away — the sheet slides up in-place.
+// The onPress handler is provided by the parent screen.
 
-import React, { useCallback } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
 import type { useTheme } from "../../../../theme/ThemeContext";
 
 interface FindPharmaciesSectionProps {
-  medicineName: string;
+  shopCount: number;
+  isLoading: boolean;
+  onPress: () => void;
   colors: ReturnType<typeof useTheme>["colors"];
 }
 
 export function FindPharmaciesSection({
-  medicineName,
+  shopCount,
+  isLoading,
+  onPress,
   colors,
 }: FindPharmaciesSectionProps) {
-  const handleFind = useCallback(() => {
-    router.push({
-      pathname: "/search",
-      params: { tab: "shops", q: medicineName },
-    } as any);
-  }, [medicineName]);
+  const subtitle = isLoading
+    ? "Finding nearby pharmacies…"
+    : shopCount > 0
+      ? `${shopCount} ${shopCount === 1 ? "pharmacy" : "pharmacies"} near you`
+      : "Tap to check availability";
 
   return (
     <View style={styles.section}>
@@ -63,18 +62,30 @@ export function FindPharmaciesSection({
               Order from a pharmacy
             </Text>
             <Text style={[styles.cardSub, { color: colors.text.muted }]}>
-              Find a nearby pharmacy that stocks this medicine
+              {subtitle}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
-          onPress={handleFind}
+          onPress={onPress}
           activeOpacity={0.85}
-          style={[styles.btn, { backgroundColor: colors.brand.primary }]}
+          disabled={isLoading}
+          style={[
+            styles.btn,
+            {
+              backgroundColor: isLoading
+                ? colors.border.default
+                : colors.brand.primary,
+            },
+          ]}
         >
-          <Text style={styles.btnText}>Find</Text>
-          <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          <Text style={styles.btnText}>
+            {isLoading ? "Loading" : "See all"}
+          </Text>
+          {!isLoading ? (
+            <Ionicons name="chevron-up" size={14} color="#FFFFFF" />
+          ) : null}
         </TouchableOpacity>
       </View>
     </View>

@@ -50,7 +50,7 @@ const CancellationPolicy = () => {
             <ul className="list-disc list-inside ml-4 mt-2 space-y-1">
               <li>Logging into your Cureli dashboard and navigating to Subscription Settings</li>
               <li>Clicking "Cancel Subscription" and confirming your request</li>
-              <li>Alternatively, emailing us at <strong>support@cureli.com</strong> with your cancellation request</li>
+              <li>Alternatively, emailing us at <strong>support@curelihealth.com</strong> with your cancellation request</li>
             </ul>
           </section>
 
@@ -118,8 +118,8 @@ const CancellationPolicy = () => {
             </h2>
             <p>For cancellation-related support:</p>
             <p className="mt-2">
-              <strong>Email:</strong> support@cureli.com<br />
-              <strong>Phone:</strong> +91 8025043217<br />
+              <strong>Email:</strong> support@curelihealth.com<br />
+              <strong>Phone:</strong> +91 7356020940<br />
               <strong>Business Hours:</strong> Monday – Saturday, 9:00 AM – 6:00 PM IST
             </p>
           </section>
