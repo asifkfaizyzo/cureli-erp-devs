@@ -14,7 +14,9 @@ import {
   UserStar,
   MessageSquare,
   ClipboardList,
-  Pill,
+  Pill,  
+  ShoppingBag, 
+
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
@@ -22,6 +24,7 @@ import {
   useCAdminMenuPermissions,
   useCAdminPermission,
 } from "../../hooks/useCAdminPermission";
+import { useAdminMode } from "../../store/useAdminModeStore";
 
 // ============================================
 // SIDEBAR WIDTH CONFIG
@@ -55,16 +58,15 @@ const SIDEBAR_TRANSITION = {
 };
 
 // ============================================
-// MENU ITEMS
+// ADMIN MENU ITEMS (existing)
 // ============================================
-const MENU_ITEMS = [
+const ADMIN_MENU_ITEMS = [
   {
     id: "dashboard",
     label: "Dashboard",
     icon: LayoutGrid,
     path: "/dashboard",
     breadcrumbs: ["Dashboard"],
-    // permissionKey: "dashboard",
   },
   {
     id: "users",
@@ -88,7 +90,6 @@ const MENU_ITEMS = [
     icon: ClipboardList,
     path: "/orders",
     breadcrumbs: ["Orders"],
-    // permissionKey: "orders",
   },
   {
     id: "master-medicines",
@@ -149,9 +150,44 @@ const MENU_ITEMS = [
 ];
 
 // ============================================
-// CHILD ROUTES MAPPING
+// MARKETPLACE MENU ITEMS
 // ============================================
-const CHILD_ROUTES = {
+
+const MARKETPLACE_MENU_ITEMS = [
+  {
+    id: "mp-dashboard",
+    label: "Dashboard",
+    icon: LayoutGrid,
+    path: "/marketplace/dashboard",
+    breadcrumbs: ["Marketplace", "Dashboard"],
+  },
+  {
+    id: "mp-users",
+    label: "Users",
+    icon: Users,
+    path: "/marketplace/users",
+    breadcrumbs: ["Marketplace", "Users"],
+  },
+  {
+  id: "mp-shops",
+  label: "Shops",
+  icon: HousePlus,
+  path: "/marketplace/shops",
+  breadcrumbs: ["Marketplace", "Shops"],
+},
+  {
+    id: "mp-orders",
+    label: "Orders",
+    icon: ShoppingBag,
+    path: "/marketplace/orders",
+    breadcrumbs: ["Marketplace", "Orders"],
+  },
+];
+
+// ============================================
+// ADMIN CHILD ROUTES
+// ============================================
+const ADMIN_CHILD_ROUTES = {
   "/communications/tickets": {
     parentId: "communications",
     breadcrumbs: ["Communications", "Tickets"],
@@ -188,6 +224,17 @@ const CHILD_ROUTES = {
     parentId: "orders",
     breadcrumbs: ["Orders", "Details"],
   },
+};
+
+// ============================================
+// MARKETPLACE CHILD ROUTES
+// ============================================
+const MARKETPLACE_CHILD_ROUTES = {
+  // Add child routes as marketplace grows
+  // "/marketplace/users/:id": {
+  //   parentId: "mp-users",
+  //   breadcrumbs: ["Marketplace", "Users", "Details"],
+  // },
 };
 
 // ============================================
@@ -251,6 +298,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
 
   const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
+  const { isMarketplace, isAdmin } = useAdminMode();
 
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
 
@@ -261,16 +309,33 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   }, []);
 
   // ============================================
-  // VISIBLE MENU ITEMS
+  // PICK MENU + CHILD ROUTES based on active module
+  // ============================================
+  const currentMenuItems = isMarketplace
+    ? MARKETPLACE_MENU_ITEMS
+    : ADMIN_MENU_ITEMS;
+
+  const currentChildRoutes = isMarketplace
+    ? MARKETPLACE_CHILD_ROUTES
+    : ADMIN_CHILD_ROUTES;
+
+  const defaultMenuId = isMarketplace ? "mp-users" : "dashboard";
+  const defaultPath = isMarketplace ? "/marketplace/users" : "/dashboard";
+  const defaultBreadcrumbs = isMarketplace
+    ? ["Marketplace", "Users"]
+    : ["Dashboard"];
+
+  // ============================================
+  // VISIBLE MENU ITEMS (permission filtered)
   // ============================================
   const visibleMenuItems = useMemo(() => {
-    return MENU_ITEMS.filter((item) => {
+    return currentMenuItems.filter((item) => {
       if (item.superAdminOnly) return isSuperCAdmin;
       if (!item.permissionKey) return true;
       const permission = permissions[item.permissionKey];
       return permission === undefined ? true : permission.visible !== false;
     });
-  }, [permissions, isSuperCAdmin]);
+  }, [currentMenuItems, permissions, isSuperCAdmin]);
 
   // ============================================
   // NAVIGATION HANDLER
@@ -281,16 +346,16 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
       setActiveMenu(item.id);
       setBreadcrumbs(item.breadcrumbs);
     },
-    [navigate, setActiveMenu, setBreadcrumbs],
+    [navigate, setActiveMenu, setBreadcrumbs]
   );
 
   const handleMouseEnter = useCallback(
     () => onExpandChange(true),
-    [onExpandChange],
+    [onExpandChange]
   );
   const handleMouseLeave = useCallback(
     () => onExpandChange(false),
-    [onExpandChange],
+    [onExpandChange]
   );
 
   // ============================================
@@ -301,19 +366,22 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
 
     if (NON_SIDEBAR_ROUTES.includes(currentPath)) return;
 
-    if (currentPath === "/dashboard") {
-      setActiveMenu("dashboard");
-      setBreadcrumbs(["Dashboard"]);
+    // Check default path
+    if (currentPath === defaultPath) {
+      setActiveMenu(defaultMenuId);
+      setBreadcrumbs(defaultBreadcrumbs);
       return;
     }
 
-    const childRoute = CHILD_ROUTES[currentPath];
+    // Check child routes
+    const childRoute = currentChildRoutes[currentPath];
     if (childRoute) {
       setActiveMenu(childRoute.parentId);
       setBreadcrumbs(childRoute.breadcrumbs);
       return;
     }
 
+    // Check main menu items
     for (const item of visibleMenuItems) {
       if (item.path === currentPath) {
         setActiveMenu(item.id);
@@ -321,7 +389,16 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         return;
       }
     }
-  }, [location.pathname, setActiveMenu, setBreadcrumbs, visibleMenuItems]);
+  }, [
+    location.pathname,
+    setActiveMenu,
+    setBreadcrumbs,
+    visibleMenuItems,
+    currentChildRoutes,
+    defaultPath,
+    defaultMenuId,
+    defaultBreadcrumbs,
+  ]);
 
   // ============================================
   // FALLBACK FOR INVALID / UNMATCHED ROUTES
@@ -329,28 +406,33 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
   useEffect(() => {
     const currentPath = location.pathname;
 
-    if (currentPath === "/dashboard") return;
+    if (currentPath === defaultPath) return;
+
+    // Don't redirect if we're on the other module's routes
+    // (the header switch handler will navigate us)
+    if (isMarketplace && !currentPath.startsWith("/marketplace")) return;
+    if (isAdmin && currentPath.startsWith("/marketplace")) return;
 
     const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
-    const isValidChild = Object.keys(CHILD_ROUTES).includes(currentPath);
+    const isValidChild = Object.keys(currentChildRoutes).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
-    // Path is already valid — do nothing
     if (isValidMain || isValidChild || isNonSidebarRoute) return;
 
     const allValidPaths = [
       ...visibleMenuItems.map((m) => m.path),
-      ...Object.keys(CHILD_ROUTES),
+      ...Object.keys(currentChildRoutes),
       ...NON_SIDEBAR_ROUTES,
     ];
 
-    // Path is a prefix match (e.g. /admins/123) — do nothing, let the page handle it
-    const isPartialMatch = allValidPaths.some((p) => currentPath.startsWith(p));
+    const isPartialMatch = allValidPaths.some((p) =>
+      currentPath.startsWith(p)
+    );
 
     if (!isPartialMatch) {
-      setActiveMenu("dashboard");
-      setBreadcrumbs(["Dashboard"]);
-      navigate("/dashboard");
+      setActiveMenu(defaultMenuId);
+      setBreadcrumbs(defaultBreadcrumbs);
+      navigate(defaultPath);
     }
   }, [
     location.pathname,
@@ -358,6 +440,12 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     setActiveMenu,
     setBreadcrumbs,
     visibleMenuItems,
+    currentChildRoutes,
+    defaultPath,
+    defaultMenuId,
+    defaultBreadcrumbs,
+    isMarketplace,
+    isAdmin,
   ]);
 
   // ============================================
@@ -381,7 +469,26 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         className="flex flex-col h-full pt-2 pb-4 px-2 overflow-y-auto sidebar-nav"
         style={{ gap: "clamp(4px, 1.5vh, 16px)" }}
       >
-        <div className="flex flex-col" style={{ gap: "clamp(2px, 1vh, 12px)" }}>
+        {/* Module label when expanded */}
+        <motion.div
+          className="px-2 pt-1 pb-2"
+          animate={{
+            opacity: expanded ? 1 : 0,
+            height: expanded ? "auto" : 0,
+          }}
+          transition={SIDEBAR_TRANSITION}
+        >
+          {expanded && (
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+              {isMarketplace ? "Marketplace" : "Administration"}
+            </span>
+          )}
+        </motion.div>
+
+        <div
+          className="flex flex-col"
+          style={{ gap: "clamp(2px, 1vh, 12px)" }}
+        >
           {visibleMenuItems.map((item) => (
             <MenuItem
               key={item.id}

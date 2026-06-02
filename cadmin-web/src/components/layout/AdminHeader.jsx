@@ -1,6 +1,4 @@
-// ============================================
-// cadmin-web/src/components/layout/AdminHeader.jsx
-// ============================================
+// src/components/layout/AdminHeader.jsx
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,14 +10,22 @@ import {
   Calendar,
   Loader2,
   RefreshCw,
+  ShieldCheck,
+  Store,
 } from "lucide-react";
 import logo from "../../assets/icons/curelinew.svg";
 import { useAuth } from "../../context/AuthContext";
 import { NotificationDropdown } from "../common/notifications";
+import { useAdminMode } from "../../store/useAdminModeStore";
+import { useMenuStore } from "../../store/useMenuStore";
 
 const AdminHeader = () => {
   const navigate = useNavigate();
-  const { admin, pendingCounts, loading, logout, refreshProfile } = useAuth();
+  const { admin, loading, logout, refreshProfile } = useAuth();
+  const { activeModule, setActiveModule, isAdmin, isMarketplace } =
+    useAdminMode();
+  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
+  const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   // ============================================
   // STATE
@@ -31,7 +37,26 @@ const AdminHeader = () => {
   const profileRef = useRef(null);
 
   // ============================================
-  // CLOCK — update every second
+  // MODULE SWITCH HANDLERS
+  // ============================================
+  const handleSwitchToAdmin = () => {
+    if (isAdmin) return;
+    setActiveModule("admin");
+    setActiveMenu("dashboard");
+    setBreadcrumbs(["Dashboard"]);
+    setTimeout(() => navigate("/dashboard"), 50);
+  };
+
+  const handleSwitchToMarketplace = () => {
+    if (isMarketplace) return;
+    setActiveModule("marketplace");
+    setActiveMenu("mp-users");
+    setBreadcrumbs(["Marketplace", "Users"]);
+    setTimeout(() => navigate("/marketplace/users"), 50);
+  };
+
+  // ============================================
+  // CLOCK
   // ============================================
   useEffect(() => {
     const updateDateTime = () => {
@@ -69,6 +94,15 @@ const AdminHeader = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Escape key
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") setShowProfileMenu(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   // ============================================
   // HANDLERS
   // ============================================
@@ -81,22 +115,15 @@ const AdminHeader = () => {
   // ============================================
   // HELPERS
   // ============================================
-
-  /** Derive initials from admin name */
   const getInitials = (name) => {
     if (!name) return "AD";
-    const parts = name.split(" ");
+    const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return name.slice(0, 2).toUpperCase();
   };
 
-  /**
-   * Role badge color:
-   * - Super admin → purple (brand constant)
-   * - All other / custom roles → indigo (consistent with dynamic badge system)
-   */
   const getRoleBadgeColor = () => {
     if (admin?.is_super_cadmin) return "bg-purple-100 text-purple-700";
     return "bg-indigo-100 text-indigo-700";
@@ -141,7 +168,44 @@ const AdminHeader = () => {
         </div>
 
         {/* ── RIGHT — Actions & Profile ── */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* ── MODULE SWITCHER ── */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+            <button
+              onClick={handleSwitchToAdmin}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-md
+                text-xs font-semibold transition-all duration-150
+                ${
+                  isAdmin
+                    ? "bg-white text-[#05015A] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }
+              `}
+            >
+              <ShieldCheck size={13} />
+              <span className="hidden sm:block">Admin</span>
+            </button>
+            <button
+              onClick={handleSwitchToMarketplace}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-md
+                text-xs font-semibold transition-all duration-150
+                ${
+                  isMarketplace
+                    ? "bg-white text-[#05015A] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }
+              `}
+            >
+              <Store size={13} />
+              <span className="hidden sm:block">Marketplace</span>
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-gray-200" />
+
           {/* Refresh */}
           <button
             onClick={handleRefresh}
@@ -149,7 +213,10 @@ const AdminHeader = () => {
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all disabled:opacity-50"
             title="Refresh data"
           >
-            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+            <RefreshCw
+              size={18}
+              className={refreshing ? "animate-spin" : ""}
+            />
           </button>
 
           {/* Notifications */}
@@ -165,12 +232,13 @@ const AdminHeader = () => {
               className="flex items-center gap-2 sm:gap-3 px-2 py-1.5 rounded-lg hover:bg-gray-100 transition-all"
             >
               {/* Avatar */}
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#000060] to-[#0a0280] flex items-center justify-center text-white font-semibold text-sm">
+              <div className="relative w-9 h-9 rounded-full bg-gradient-to-br from-[#000060] to-[#0a0280] flex items-center justify-center text-white font-semibold text-sm">
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   getInitials(admin?.name)
                 )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white" />
               </div>
 
               {/* Name & Role badge */}
@@ -185,7 +253,6 @@ const AdminHeader = () => {
                     <span className="text-sm font-semibold text-gray-800 leading-tight">
                       {admin?.name || "Admin"}
                     </span>
-                    {/* ← primary_role from profile API, no more formatRole/hardcoded map */}
                     <span
                       className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${getRoleBadgeColor()}`}
                     >
@@ -205,17 +272,48 @@ const AdminHeader = () => {
 
             {/* ── Profile Dropdown ── */}
             {showProfileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50">
                 {/* Info block */}
-                <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                  <p className="font-semibold text-gray-800">{admin?.name}</p>
-                  <p className="text-xs text-gray-500">@{admin?.username}</p>
-                  {/* ← primary_role replaces old role display */}
-                  {admin?.primary_role && (
-                    <p className="text-xs text-indigo-600 font-medium mt-0.5">
-                      {admin.primary_role}
-                    </p>
-                  )}
+                <div className="px-4 py-4 border-b border-gray-100 bg-gradient-to-br from-gray-50 to-white">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#000060] to-[#0a0280] flex items-center justify-center text-white font-bold text-lg">
+                      {getInitials(admin?.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">
+                        {admin?.name || "Admin"}
+                      </p>
+                      {admin?.username && (
+                        <p className="text-xs text-gray-500 truncate">
+                          @{admin.username}
+                        </p>
+                      )}
+                      {admin?.primary_role && (
+                        <span
+                          className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded mt-1 ${getRoleBadgeColor()}`}
+                        >
+                          {admin.primary_role}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current module indicator */}
+                <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/50">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    {isMarketplace ? (
+                      <Store size={12} />
+                    ) : (
+                      <ShieldCheck size={12} />
+                    )}
+                    <span>
+                      Module:{" "}
+                      <span className="font-medium text-gray-700">
+                        {isMarketplace ? "Marketplace" : "Admin"}
+                      </span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Menu items */}
@@ -233,13 +331,13 @@ const AdminHeader = () => {
                 </div>
 
                 {/* Logout */}
-                <div className="border-t border-gray-100 py-1">
+                <div className="border-t border-gray-100 p-2">
                   <button
                     onClick={() => {
                       setShowProfileMenu(false);
                       logout();
                     }}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 text-red-600 hover:bg-red-50 transition-colors"
+                    className="w-full px-4 py-2.5 flex items-center justify-center gap-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <LogOut size={16} />
                     <span className="text-sm font-medium">Logout</span>
