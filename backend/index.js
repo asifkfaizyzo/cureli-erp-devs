@@ -227,11 +227,11 @@ app.use("/cadmin", cadminEmailBroadcastRoutes);
 app.use("/cadmin", cadminDashboardRoutes);
 app.use("/cadmin", cadminMasterMedicinesRoutes);
 
-app.use("/mobile", mobileAuthRoutes);
-app.use("/mobile", mobileUsersRoutes);
-app.use("/mobile", mobileMedicinesRoutes);
-app.use("/mobile", mobilePlacesRoutes);
-app.use("/mobile", mobileShopsRoutes); 
+app.use("/mobile/auth", mobileAuthRoutes);
+app.use("/mobile/users", mobileUsersRoutes);
+app.use("/mobile/medicines", mobileMedicinesRoutes);
+app.use("/mobile/places", mobilePlacesRoutes);
+app.use("/mobile/shops", mobileShopsRoutes); 
 
 // ============================================
 // HEALTH CHECK

@@ -18,18 +18,18 @@ router.use(mobileAuth);
  * GET /mobile/places/search?query=
  * Text search → place predictions
  */
-router.get("/places/search", handleSearchPlaces);
+router.get("/search", handleSearchPlaces);
 
 /**
  * GET /mobile/places/details?place_id=
  * place_id → full address + geometry
  */
-router.get("/places/details", handleGetPlaceDetails);
+router.get("/details", handleGetPlaceDetails);
 
 /**
  * GET /mobile/places/reverse?lat=&lng=
  * Coordinates → nearest address
  */
-router.get("/places/reverse", handleReverseGeocode);
+router.get("/reverse", handleReverseGeocode);
 
 export default router;
