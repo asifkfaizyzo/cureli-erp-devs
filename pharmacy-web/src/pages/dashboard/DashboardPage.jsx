@@ -1047,7 +1047,7 @@ const DashboardPage = () => {
         "new-sale": "/erp/sales-billing",
         "new-purchase": "/erp/purchase-billing",
         inventory: "/erp/inventory",
-        reports: "/erp/reports-sales",
+        // reports: "/erp/reports-sales",
       };
       if (routes[action]) navigate(routes[action]);
     },
@@ -1196,13 +1196,13 @@ const DashboardPage = () => {
             badge={lowStockItems.length > 0 ? `${lowStockItems.length}` : null}
             delay={2}
           />
-          <QuickAction
+          {/* <QuickAction
             title="Reports"
             icon={BarChart3}
             gradient="blue"
             onClick={() => handleQuickAction("reports")}
             delay={3}
-          />
+          /> */}
 
           {totalAlerts > 0 && (
             <>
@@ -1559,12 +1559,12 @@ const DashboardPage = () => {
               </div>
             ) : (
               <>
-                <SectionHeader
+                {/* <SectionHeader
                   title="Top Products"
                   subtitle="By revenue"
                   icon={Sparkles}
                   action={() => navigate("/erp/reports-sales")}
-                />
+                /> */}
                 {topProducts.length > 0 ? (
                   <div className="space-y-0.5">
                     {topProducts.map((p, i) => (
