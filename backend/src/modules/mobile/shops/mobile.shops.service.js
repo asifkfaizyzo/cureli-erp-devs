@@ -18,9 +18,75 @@
 //
 // Delivery time: field is present in types, always null for now. May be
 // computed from Google Maps Distance Matrix API in a future phase.
+//
+// ── IMAGE RESOLUTION NOTE ─────────────────────────────────────
+// Marketplace assets (logo, banner, branch image) are NOT stored as S3
+// keys. The marketplace upload pipeline stores them as backend-served
+// route paths, e.g. "/api/files/marketplace_assets/logo-<shop>-<ts>.png".
+// These are served by the backend's own filesRoutes, NOT from CloudFront.
+//
+// Therefore they must be resolved against the backend's public origin,
+// the same way the ERP web client does (it prepends VITE_API_URL).
+// Passing them through resolveAssetUrl (which prepends the CloudFront
+// domain) produces a URL CloudFront has no object for → 403/404 →
+// React Native <Image> renders a silent blank.
+//
+// Medicine images DO live in the bucket, so they continue to use
+// resolveAssetUrl. Only marketplace assets use resolveMarketplaceAsset.
 
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
+
+// ── Marketplace asset resolver ────────────────────────────────
+//
+// PUBLIC_API_ORIGIN is the backend's own externally-reachable origin:
+//   prod → https://api.cureliofficial.com
+//   dev  → http://<LAN-IP>:5000   (NOT localhost — the phone cannot
+//          reach the dev machine's localhost; use the same host the
+//          mobile app points CONFIG.BASE_URL at)
+//
+// If the var is unset we warn once and return the path unchanged, which
+// keeps already-absolute (http...) values working and fails loudly-ish
+// in logs rather than crashing.
+
+const PUBLIC_API_ORIGIN = process.env.PUBLIC_API_ORIGIN || null;
+
+if (!PUBLIC_API_ORIGIN) {
+  console.warn(
+    "[mobile.shops] WARNING: PUBLIC_API_ORIGIN is not set. " +
+      "Marketplace asset URLs (logo/banner/branch image) will be returned " +
+      "as relative paths and will not load in the mobile app."
+  );
+}
+
+/**
+ * Resolve a stored marketplace-asset path to a full backend URL.
+ *
+ * Mirrors the ERP web resolveImageUrl():
+ *   - null/empty            → null
+ *   - already absolute http → returned unchanged
+ *   - otherwise             → PUBLIC_API_ORIGIN + path
+ *
+ * @param {string|null} pathOrUrl  e.g. "/api/files/marketplace_assets/logo-x.png"
+ * @returns {string|null}
+ */
+function resolveMarketplaceAsset(pathOrUrl) {
+  if (!pathOrUrl) return null;
+
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+    return pathOrUrl;
+  }
+
+  if (!PUBLIC_API_ORIGIN) return pathOrUrl; // no config — return as-is
+
+  // Avoid double slashes at the join.
+  const origin = PUBLIC_API_ORIGIN.endsWith("/")
+    ? PUBLIC_API_ORIGIN.slice(0, -1)
+    : PUBLIC_API_ORIGIN;
+  const suffix = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+
+  return `${origin}${suffix}`;
+}
 
 // ── IST helpers ───────────────────────────────────────────────
 
@@ -340,8 +406,7 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
   // ── Shape results ─────────────────────────────────────────
   const shops = profiles
     .map((profile) => {
-      const name =
-        profile.storefront_name || profile.shop.business_name;
+      const name = profile.storefront_name || profile.shop.business_name;
 
       const listedMedicineCount = countMap.get(profile.shop_id) ?? 0;
 
@@ -389,7 +454,8 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
         shopId: profile.shop_id,
         name,
         description: profile.storefront_description ?? null,
-        logoUrl: resolveAssetUrl(profile.logo_url),
+        // CHANGED: marketplace asset, resolve against backend origin
+        logoUrl: resolveMarketplaceAsset(profile.logo_url),
         nearestBranch,
         totalBranches: profile.branchSettings.length,
         listedMedicineCount,
@@ -512,10 +578,16 @@ export async function getShopProfile(shopId, lat, lng) {
   // ── Shape branches ────────────────────────────────────────
   const branches = profile.branchSettings.map((bs) => {
     const count = branchCountMap.get(bs.branch_id) ?? 0;
-    const shaped = shapeBranch(bs, hasLocation ? lat : null, hasLocation ? lng : null, count);
+    const shaped = shapeBranch(
+      bs,
+      hasLocation ? lat : null,
+      hasLocation ? lng : null,
+      count
+    );
     return {
       ...shaped,
-      shopImageUrl: resolveAssetUrl(bs.shop_image_url),
+      // CHANGED: marketplace asset, resolve against backend origin
+      shopImageUrl: resolveMarketplaceAsset(bs.shop_image_url),
       isActive: bs.branch?.is_active ?? true,
     };
   });
@@ -536,15 +608,15 @@ export async function getShopProfile(shopId, lat, lng) {
     return (a.branchName ?? "").localeCompare(b.branchName ?? "");
   });
 
-  const name =
-    profile.storefront_name || profile.shop.business_name;
+  const name = profile.storefront_name || profile.shop.business_name;
 
   return {
     shopId: profile.shop_id,
     name,
     description: profile.storefront_description ?? null,
-    logoUrl: resolveAssetUrl(profile.logo_url),
-    bannerUrl: resolveAssetUrl(profile.banner_url),
+    // CHANGED: marketplace assets, resolve against backend origin
+    logoUrl: resolveMarketplaceAsset(profile.logo_url),
+    bannerUrl: resolveMarketplaceAsset(profile.banner_url),
     supportPhone: profile.support_phone ?? null,
     marketplaceStatus: profile.marketplace_status,
     isLive: profile.is_live,

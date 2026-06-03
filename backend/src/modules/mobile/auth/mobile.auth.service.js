@@ -26,7 +26,7 @@ import {
 const OTP_LENGTH = 6;
 const OTP_VALIDITY_MS = 5 * 60 * 1000;          // 5 minutes
 const OTP_VALIDITY_SECONDS = 5 * 60;             // 300 — sent to client
-const RESEND_COOLDOWN_SECONDS = 60;
+const RESEND_COOLDOWN_SECONDS = 30;
 const MAX_ATTEMPTS_PER_OTP = 5;
 const MAX_FAILED_CYCLES = 3;
 const LOCKOUT_DURATION_MS = 60 * 60 * 1000;      // 1 hour

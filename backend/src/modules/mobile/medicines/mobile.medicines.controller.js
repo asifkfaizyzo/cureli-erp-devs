@@ -2,32 +2,30 @@
 //
 // PUBLIC mobile medicine discovery — controllers.
 //
-// These parse and validate req.query / req.params with zod directly (see the
-// note in mobile.medicines.routes.js explaining why we don't use the shared
-// `validate` middleware here). On a validation failure we return a clean 400
-// via the shared fail() envelope rather than throwing.
+// handleGetMedicineShops (new):
+//   GET /mobile/medicines/:variantId/shops?lat=X&lng=Y
+//   Accepts sku_id or variant UUID in the path param (same dual-lookup
+//   as handleGetMedicine). Resolves to variant_id before querying shops
+//   so the service can join on MarketplaceListing.linked_variant_id.
+//   lat/lng are optional — omit for unsorted results.
 
 import { success, fail } from "../../../utils/response.js";
 import {
   listMedicinesQuerySchema,
   variantParamsSchema,
+  medicineShopsQuerySchema,
 } from "./mobile.medicines.schema.js";
 import {
   listMobileMedicines,
   listMobileFeed,
   getMobileMedicine,
+  getMedicineShops,
 } from "./mobile.medicines.service.js";
 import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
+import prisma from "../../../config/prisma.js";
 
 // ── GET /mobile/medicines/feed ────────────────────────────────
-//
-// Returns the complete home feed — one section per curated category
-// that has at least one result. No query params — the feed is not
-// filtered at the home screen level.
-//
-// The feed mode (demo vs production) is determined by the
-// MOBILE_SHOW_UNLISTED_MEDICINES env flag, read once at service
-// module load. The controller is unaware of which mode is active.
+
 export async function handleGetFeed(_req, res) {
   try {
     const result = await listMobileFeed(8);
@@ -39,6 +37,7 @@ export async function handleGetFeed(_req, res) {
 }
 
 // ── GET /mobile/medicines ─────────────────────────────────────
+
 export async function handleListMedicines(req, res) {
   const parsed = listMedicinesQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -56,17 +55,13 @@ export async function handleListMedicines(req, res) {
 }
 
 // ── GET /mobile/medicines/categories ──────────────────────────
-// Curated, display-ready category list driving the Quick Categories rail.
-// Static curated set — not a live groupBy — for predictable demo polish.
+
 export async function handleListCategories(_req, res) {
   return success(res, { categories: CURATED_CATEGORIES }, "Categories fetched");
 }
 
 // ── GET /mobile/medicines/:variantId ──────────────────────────
-// Accepts a sku_id or a variant UUID.
-// Returns the variant with availableNearYou: boolean.
-// Never returns 404 for a known variant — the frontend disables
-// order actions when availableNearYou is false.
+
 export async function handleGetMedicine(req, res) {
   const parsed = variantParamsSchema.safeParse(req.params);
   if (!parsed.success) {
@@ -82,5 +77,58 @@ export async function handleGetMedicine(req, res) {
   } catch (err) {
     console.error("[mobile.medicines] detail error:", err);
     return fail(res, "Failed to fetch medicine", 500);
+  }
+}
+
+// ── GET /mobile/medicines/:variantId/shops ────────────────────
+//
+// Accepts sku_id OR variant UUID.
+// Performs dual lookup to resolve to variant_id (UUID) before querying
+// listings — MarketplaceListing.linked_variant_id is always a UUID.
+
+export async function handleGetMedicineShops(req, res) {
+  const paramsParsed = variantParamsSchema.safeParse(req.params);
+  if (!paramsParsed.success) {
+    return fail(res, "Invalid medicine identifier", 400);
+  }
+
+  const queryParsed = medicineShopsQuerySchema.safeParse(req.query);
+  if (!queryParsed.success) {
+    const msg =
+      queryParsed.error.issues?.[0]?.message || "Invalid query parameters";
+    return fail(res, msg, 400);
+  }
+
+  const { variantId: idOrSku } = paramsParsed.data;
+  const { lat, lng } = queryParsed.data;
+
+  try {
+    // ── Resolve sku_id / UUID → variant_id ──────────────────
+    // MarketplaceListing.linked_variant_id is always a UUID.
+    // The path param may be a sku_id (e.g. "10005") so we must resolve.
+    let variantId = idOrSku;
+
+    const looksLikeUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        idOrSku
+      );
+
+    if (!looksLikeUuid) {
+      // It's a sku_id — resolve to variant UUID
+      const variant = await prisma.masterMedicineVariant.findUnique({
+        where: { sku_id: idOrSku },
+        select: { variant_id: true },
+      });
+      if (!variant) {
+        return fail(res, "Medicine not found", 404);
+      }
+      variantId = variant.variant_id;
+    }
+
+    const shops = await getMedicineShops(variantId, lat ?? null, lng ?? null);
+    return success(res, { shops }, "Medicine shops fetched");
+  } catch (err) {
+    console.error("[mobile.medicines] shops error:", err);
+    return fail(res, "Failed to fetch medicine shops", 500);
   }
 }

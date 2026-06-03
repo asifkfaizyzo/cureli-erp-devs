@@ -3,27 +3,28 @@
 // Medicine detail screen — Root Stack screen (tab bar hidden).
 // Route: /product/:id  where :id is the variant's skuId.
 //
-// This file is intentionally thin — it only:
-//   1. Reads route params
-//   2. Calls useMedicineDetail
-//   3. Handles loading / error states
-//   4. Composes pre-built components into the screen layout
+// Image display:
+//   - 0 images → placeholder (handled inside ProductImageCarousel)
+//   - 1 image  → static single image (handled inside ProductImageCarousel)
+//   - 2+ images → swipeable carousel with dot indicator
 //
-// All sub-components live in:
-//   src/features/marketplace/components/product/
+// All other behavior unchanged from previous version.
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
-  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -33,20 +34,23 @@ import { Spacing } from "../../src/theme/spacing";
 import { Radius } from "../../src/theme/radius";
 
 import { useMedicineDetail } from "../../src/features/marketplace/hooks/useMedicineDetail";
+import { useMedicineShops } from "../../src/features/marketplace/hooks/useMedicineShops";
+import { useDeliveryLocation } from "../../src/hooks/useDeliveryLocation";
+import { useCartStore } from "../../src/store/cartStore";
 
 import { InfoRow } from "../../src/features/marketplace/components/product/InfoRow";
 import { SiblingCard } from "../../src/features/marketplace/components/product/SiblingCard";
 import { UnavailableBanner } from "../../src/features/marketplace/components/product/UnavailableBanner";
 import { MarketplaceSummaryCard } from "../../src/features/marketplace/components/product/MarketplaceSummaryCard";
 import { FindPharmaciesSection } from "../../src/features/marketplace/components/product/FindPharmaciesSection";
+import { ShopsBottomSheet } from "../../src/features/marketplace/components/product/ShopsBottomSheet";
+import { ProductImageCarousel } from "../../src/features/marketplace/components/product/ProductImageCarousel";
 
-import type {
-  EnrichedMedicine,
-  CompositionItem,
-} from "../../src/types/medicine";
+import type { EnrichedMedicine } from "../../src/types/medicine";
+import type { CompositionItem } from "../../src/types/medicine";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const IMAGE_SIZE = SCREEN_WIDTH * 0.42;
+const CART_BAR_HEIGHT = 64;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -62,351 +66,488 @@ function compositionLine(items: CompositionItem[]): string {
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // ── Medicine detail ───────────────────────────────────────
   const { variant, siblings, isLoading, isError, refetch } =
     useMedicineDetail(id ?? "");
 
+  // ── Delivery location ─────────────────────────────────────
+  const { location } = useDeliveryLocation();
+  const shopLat =
+    location.latitude != null && location.longitude != null
+      ? location.latitude
+      : null;
+  const shopLng =
+    location.latitude != null && location.longitude != null
+      ? location.longitude
+      : null;
+
+  // ── Shops stocking this medicine ──────────────────────────
+  const {
+    shops,
+    isLoading: isShopsLoading,
+    isError: isShopsError,
+    refetch: refetchShops,
+  } = useMedicineShops({
+    idOrSku: id ?? "",
+    lat: shopLat,
+    lng: shopLng,
+    enabled: variant != null && variant.availableNearYou !== false,
+  });
+
+  // ── Bottom sheet state ────────────────────────────────────
+  const [sheetVisible, setSheetVisible] = useState(false);
+
+  const handleOpenSheet = useCallback(() => setSheetVisible(true), []);
+  const handleCloseSheet = useCallback(() => setSheetVisible(false), []);
+
+  // ── Cart ──────────────────────────────────────────────────
+  const cartCount = useCartStore((s) => s.cartCount);
+  const cartTotal = useCartStore((s) => s.cartTotal);
+
+  const runningTotal = cartTotal();
+
+  // ── Show cart bar only when sheet is closed ───────────────
+  const showCartBar = cartCount > 0 && !sheetVisible;
+
+  // ── Bottom padding for ScrollView ─────────────────────────
+  const scrollBottomPadding = useMemo(() => {
+    if (!showCartBar) return Spacing["4xl"];
+    return CART_BAR_HEIGHT + Spacing.lg + insets.bottom + Spacing.lg;
+  }, [showCartBar, insets.bottom]);
+
+  // ── Navigation ────────────────────────────────────────────
   const handlePressSibling = useCallback((medicine: EnrichedMedicine) => {
     router.replace(`/product/${medicine.skuId}`);
   }, []);
 
-  // ── Loading ─────────────────────────────────────────────────
+  const handleGoToCart = useCallback(() => {
+    router.push("/cart" as any);
+  }, []);
+
+  // ── Loading ───────────────────────────────────────────────
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={["top"]}
-      >
-        <View style={styles.headerBar}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[
-              styles.backBtn,
-              {
-                backgroundColor: colors.background.tint,
-                borderColor: colors.border.brand,
-              },
-            ]}
-          >
-            <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.brand.primary} />
-          <Text style={[styles.centerText, { color: colors.text.muted }]}>
-            Loading medicine…
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Error ───────────────────────────────────────────────────
-  if (isError || !variant) {
-    return (
-      <SafeAreaView
-        style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={["top"]}
-      >
-        <View style={styles.headerBar}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[
-              styles.backBtn,
-              {
-                backgroundColor: colors.background.tint,
-                borderColor: colors.border.brand,
-              },
-            ]}
-          >
-            <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.center}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={44}
-            color={colors.text.faint}
-          />
-          <Text style={[styles.centerText, { color: colors.text.secondary }]}>
-            Medicine not found
-          </Text>
-          <Text
-            style={[styles.centerSubtext, { color: colors.text.brand }]}
-            onPress={() => refetch()}
-          >
-            Tap to retry
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const { marketplace, availableNearYou } = variant;
-
-  // ── Detail ──────────────────────────────────────────────────
-  return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["top"]}
-    >
-      {/* Header */}
-      <View
-        style={[
-          styles.headerBar,
-          {
-            borderBottomColor: colors.border.subtle,
-            backgroundColor: colors.background.page,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={[
-            styles.backBtn,
-            {
-              backgroundColor: colors.background.tint,
-              borderColor: colors.border.brand,
-            },
-          ]}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaView
+          style={[styles.safe, { backgroundColor: colors.background.page }]}
+          edges={["top"]}
         >
-          <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
-        </TouchableOpacity>
-        <Text
-          style={[styles.headerTitle, { color: colors.text.primary }]}
-          numberOfLines={1}
-        >
-          {variant.genericName ?? variant.name}
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Image */}
-        <View
-          style={[
-            styles.imageArea,
-            { backgroundColor: colors.background.card },
-          ]}
-        >
-          {variant.image ? (
-            <Image
-              source={{ uri: variant.image }}
-              style={styles.mainImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <View
+          <View style={styles.headerBar}>
+            <TouchableOpacity
+              onPress={() => router.back()}
               style={[
-                styles.imagePlaceholder,
-                { backgroundColor: colors.background.tint },
-              ]}
-            >
-              <Ionicons
-                name="medical-outline"
-                size={64}
-                color={colors.text.brand}
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Name block */}
-        <View style={styles.nameBlock}>
-          <View style={styles.nameRow}>
-            <Text
-              style={[styles.medicineName, { color: colors.text.primary }]}
-            >
-              {variant.name}
-            </Text>
-            {variant.prescriptionRequired && (
-              <View
-                style={[
-                  styles.rxBadge,
-                  {
-                    backgroundColor: colors.status.warningBg,
-                    borderColor: colors.status.warning,
-                  },
-                ]}
-              >
-                <Text style={[styles.rxText, { color: colors.status.warning }]}>
-                  Rx
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {variant.form ? (
-            <View
-              style={[
-                styles.formPill,
+                styles.backBtn,
                 {
                   backgroundColor: colors.background.tint,
                   borderColor: colors.border.brand,
                 },
               ]}
             >
-              <Text style={[styles.formText, { color: colors.text.brand }]}>
-                {variant.form}
-              </Text>
-            </View>
-          ) : null}
-
-          {variant.genericName && variant.genericName !== variant.name ? (
-            <Text
-              style={[styles.genericName, { color: colors.text.muted }]}
-              numberOfLines={2}
-            >
-              {variant.genericName}
+              <Ionicons
+                name="arrow-back"
+                size={20}
+                color={colors.text.brand}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.brand.primary} />
+            <Text style={[styles.centerText, { color: colors.text.muted }]}>
+              Loading medicine…
             </Text>
-          ) : null}
+          </View>
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    );
+  }
+
+  // ── Error ─────────────────────────────────────────────────
+  if (isError || !variant) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaView
+          style={[styles.safe, { backgroundColor: colors.background.page }]}
+          edges={["top"]}
+        >
+          <View style={styles.headerBar}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={[
+                styles.backBtn,
+                {
+                  backgroundColor: colors.background.tint,
+                  borderColor: colors.border.brand,
+                },
+              ]}
+            >
+              <Ionicons
+                name="arrow-back"
+                size={20}
+                color={colors.text.brand}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.center}>
+            <Ionicons
+              name="cloud-offline-outline"
+              size={44}
+              color={colors.text.faint}
+            />
+            <Text
+              style={[styles.centerText, { color: colors.text.secondary }]}
+            >
+              Medicine not found
+            </Text>
+            <Text
+              style={[styles.centerSubtext, { color: colors.text.brand }]}
+              onPress={() => refetch()}
+            >
+              Tap to retry
+            </Text>
+          </View>
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    );
+  }
+
+  const { availableNearYou } = variant;
+
+  // ── Derive clean gallery images ───────────────────────────
+  // variant.images is the full resolved gallery from the backend.
+  // Filter out any blank/null entries defensively.
+  const galleryImages = useMemo(
+    () => (variant.images ?? []).filter((url) => typeof url === "string" && url.length > 0),
+    [variant.images],
+  );
+
+  // ── Detail ────────────────────────────────────────────────
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: colors.background.page }]}
+        edges={["top"]}
+      >
+        {/* Header */}
+        <View
+          style={[
+            styles.headerBar,
+            {
+              borderBottomColor: colors.border.subtle,
+              backgroundColor: colors.background.page,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[
+              styles.backBtn,
+              {
+                backgroundColor: colors.background.tint,
+                borderColor: colors.border.brand,
+              },
+            ]}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={20}
+              color={colors.text.brand}
+            />
+          </TouchableOpacity>
+          <Text
+            style={[styles.headerTitle, { color: colors.text.primary }]}
+            numberOfLines={1}
+          >
+            {variant.genericName ?? variant.name}
+          </Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        {/* Marketplace area */}
-        {availableNearYou ? (
-          <MarketplaceSummaryCard marketplace={marketplace} colors={colors} />
-        ) : (
-          <UnavailableBanner colors={colors} />
-        )}
-
-        {/* CTA */}
-        {availableNearYou ? (
-          <FindPharmaciesSection
-            medicineName={variant.name}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: scrollBottomPadding },
+          ]}
+        >
+          {/* ── Image / carousel ── */}
+          <ProductImageCarousel
+            images={galleryImages}
             colors={colors}
           />
-        ) : (
+
+          {/* Name block */}
+          <View style={styles.nameBlock}>
+            <View style={styles.nameRow}>
+              <Text
+                style={[styles.medicineName, { color: colors.text.primary }]}
+              >
+                {variant.name}
+              </Text>
+              {variant.prescriptionRequired && (
+                <View
+                  style={[
+                    styles.rxBadge,
+                    {
+                      backgroundColor: colors.status.warningBg,
+                      borderColor: colors.status.warning,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.rxText, { color: colors.status.warning }]}
+                  >
+                    Rx
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {variant.form ? (
+              <View
+                style={[
+                  styles.formPill,
+                  {
+                    backgroundColor: colors.background.tint,
+                    borderColor: colors.border.brand,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.formText, { color: colors.text.brand }]}
+                >
+                  {variant.form}
+                </Text>
+              </View>
+            ) : null}
+
+            {variant.genericName && variant.genericName !== variant.name ? (
+              <Text
+                style={[styles.genericName, { color: colors.text.muted }]}
+                numberOfLines={2}
+              >
+                {variant.genericName}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Marketplace summary */}
+          {availableNearYou && shops.length > 0 ? (
+            <MarketplaceSummaryCard shops={shops} colors={colors} />
+          ) : availableNearYou === false ? (
+            <UnavailableBanner colors={colors} />
+          ) : null}
+
+          {/* Find pharmacies CTA / unavailable state */}
+          {availableNearYou !== false ? (
+            <FindPharmaciesSection
+              shopCount={shops.length}
+              isLoading={isShopsLoading}
+              onPress={handleOpenSheet}
+              colors={colors}
+            />
+          ) : (
+            <View
+              style={[
+                styles.disabledBtn,
+                {
+                  backgroundColor: colors.background.card,
+                  borderColor: colors.border.default,
+                },
+              ]}
+            >
+              <Ionicons
+                name="cart-outline"
+                size={18}
+                color={colors.text.faint}
+              />
+              <Text
+                style={[
+                  styles.disabledBtnText,
+                  { color: colors.text.faint },
+                ]}
+              >
+                Not Available
+              </Text>
+            </View>
+          )}
+
+          {/* Info section */}
           <View
             style={[
-              styles.disabledBtn,
+              styles.infoSection,
               {
                 backgroundColor: colors.background.card,
                 borderColor: colors.border.default,
               },
             ]}
           >
-            <Ionicons name="cart-outline" size={18} color={colors.text.faint} />
-            <Text style={[styles.disabledBtnText, { color: colors.text.faint }]}>
-              Not Available
-            </Text>
-          </View>
-        )}
-
-        {/* Info section */}
-        <View
-          style={[
-            styles.infoSection,
-            {
-              backgroundColor: colors.background.card,
-              borderColor: colors.border.default,
-            },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-            Medicine Info
-          </Text>
-
-          <View
-            style={[styles.infoDivider, { backgroundColor: colors.border.subtle }]}
-          />
-
-          <InfoRow
-            label="Composition"
-            value={compositionLine(variant.composition)}
-            colors={colors}
-          />
-
-          {variant.manufacturer ? (
-            <>
-              <View
-                style={[
-                  styles.infoDivider,
-                  { backgroundColor: colors.border.subtle },
-                ]}
-              />
-              <InfoRow
-                label="Manufacturer"
-                value={variant.manufacturer}
-                colors={colors}
-              />
-            </>
-          ) : null}
-
-          {variant.packSize ? (
-            <>
-              <View
-                style={[
-                  styles.infoDivider,
-                  { backgroundColor: colors.border.subtle },
-                ]}
-              />
-              <InfoRow label="Pack Size" value={variant.packSize} colors={colors} />
-            </>
-          ) : null}
-
-          {variant.strength ? (
-            <>
-              <View
-                style={[
-                  styles.infoDivider,
-                  { backgroundColor: colors.border.subtle },
-                ]}
-              />
-              <InfoRow label="Strength" value={variant.strength} colors={colors} />
-            </>
-          ) : null}
-        </View>
-
-        {/* Siblings */}
-        {siblings.length > 0 ? (
-          <View style={styles.siblingsSection}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-              Other options
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.siblingsScroll}
+            <Text
+              style={[styles.sectionTitle, { color: colors.text.primary }]}
             >
-              {siblings.map((s) => (
-                <SiblingCard
-                  key={s.variantId}
-                  medicine={s}
-                  onPress={handlePressSibling}
+              Medicine Info
+            </Text>
+
+            <View
+              style={[
+                styles.infoDivider,
+                { backgroundColor: colors.border.subtle },
+              ]}
+            />
+
+            <InfoRow
+              label="Composition"
+              value={compositionLine(variant.composition)}
+              colors={colors}
+            />
+
+            {variant.manufacturer ? (
+              <>
+                <View
+                  style={[
+                    styles.infoDivider,
+                    { backgroundColor: colors.border.subtle },
+                  ]}
+                />
+                <InfoRow
+                  label="Manufacturer"
+                  value={variant.manufacturer}
                   colors={colors}
                 />
-              ))}
-            </ScrollView>
-          </View>
-        ) : null}
+              </>
+            ) : null}
 
-        {/* Rx disclaimer */}
-        {variant.prescriptionRequired ? (
-          <View
+            {variant.packSize ? (
+              <>
+                <View
+                  style={[
+                    styles.infoDivider,
+                    { backgroundColor: colors.border.subtle },
+                  ]}
+                />
+                <InfoRow
+                  label="Pack Size"
+                  value={variant.packSize}
+                  colors={colors}
+                />
+              </>
+            ) : null}
+
+            {variant.strength ? (
+              <>
+                <View
+                  style={[
+                    styles.infoDivider,
+                    { backgroundColor: colors.border.subtle },
+                  ]}
+                />
+                <InfoRow
+                  label="Strength"
+                  value={variant.strength}
+                  colors={colors}
+                />
+              </>
+            ) : null}
+          </View>
+
+          {/* Siblings */}
+          {siblings.length > 0 ? (
+            <View style={styles.siblingsSection}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.text.primary },
+                ]}
+              >
+                Other options
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.siblingsScroll}
+              >
+                {siblings.map((s) => (
+                  <SiblingCard
+                    key={s.variantId}
+                    medicine={s}
+                    onPress={handlePressSibling}
+                    colors={colors}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {/* Rx disclaimer */}
+          {variant.prescriptionRequired ? (
+            <View
+              style={[
+                styles.disclaimer,
+                {
+                  backgroundColor: colors.status.warningBg,
+                  borderColor: colors.status.warning,
+                },
+              ]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.status.warning}
+              />
+              <Text
+                style={[
+                  styles.disclaimerText,
+                  { color: colors.status.warning },
+                ]}
+              >
+                This medicine requires a valid prescription from a licensed
+                doctor.
+              </Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* ── Floating "Go to Cart" bar — hidden when sheet is open ── */}
+        {showCartBar && (
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={handleGoToCart}
+            accessibilityRole="button"
+            accessibilityLabel={`Go to cart. ${cartCount} items. Total ₹${runningTotal.toFixed(0)}`}
             style={[
-              styles.disclaimer,
+              styles.cartBar,
               {
-                backgroundColor: colors.status.warningBg,
-                borderColor: colors.status.warning,
+                backgroundColor: colors.brand.primary,
+                bottom: insets.bottom + Spacing.md,
               },
             ]}
           >
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={colors.status.warning}
-            />
-            <Text
-              style={[styles.disclaimerText, { color: colors.status.warning }]}
-            >
-              This medicine requires a valid prescription from a licensed doctor.
+            <View style={styles.cartBadgeWrap}>
+              <Text style={styles.cartBadgeText}>{cartCount}</Text>
+            </View>
+            <Text style={styles.cartBarLabel}>Go to Cart</Text>
+            <Text style={styles.cartBarTotal}>
+              ₹{runningTotal.toFixed(0)}
             </Text>
-          </View>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Shops bottom sheet ── */}
+        {variant && (
+          <ShopsBottomSheet
+            visible={sheetVisible}
+            onClose={handleCloseSheet}
+            variant={variant}
+            shops={shops}
+            isLoading={isShopsLoading}
+            isError={isShopsError}
+            onRetry={refetchShops}
+            colors={colors}
+          />
+        )}
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -435,21 +576,7 @@ const styles = StyleSheet.create({
   },
   headerSpacer: { width: 40, flexShrink: 0 },
   scrollContent: {
-    paddingBottom: Spacing["4xl"],
     gap: Spacing.md,
-  },
-  imageArea: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing["2xl"],
-  },
-  mainImage: { width: IMAGE_SIZE, height: IMAGE_SIZE },
-  imagePlaceholder: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-    borderRadius: Radius.xl,
-    alignItems: "center",
-    justifyContent: "center",
   },
   nameBlock: {
     paddingHorizontal: Spacing.base,
@@ -517,6 +644,51 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
   },
-  centerText: { ...Typography.h4, marginTop: Spacing.sm, textAlign: "center" },
+  centerText: {
+    ...Typography.h4,
+    marginTop: Spacing.sm,
+    textAlign: "center",
+  },
   centerSubtext: { ...Typography.body, textAlign: "center" },
+
+  // ── Floating "Go to Cart" bar ─────────────────────────────
+  cartBar: {
+    position: "absolute",
+    left: Spacing.base,
+    right: Spacing.base,
+    height: CART_BAR_HEIGHT,
+    borderRadius: Radius.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  cartBadgeWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.sm,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.sm,
+  },
+  cartBadgeText: {
+    color: "#ffffff",
+    ...Typography.smallBold,
+    fontSize: 14,
+  },
+  cartBarLabel: {
+    flex: 1,
+    color: "#ffffff",
+    ...Typography.bodyMedium,
+    textAlign: "center",
+  },
+  cartBarTotal: {
+    color: "#ffffff",
+    ...Typography.bodyMedium,
+  },
 });

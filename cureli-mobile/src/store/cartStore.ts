@@ -20,6 +20,9 @@
 //
 // cartPharmacy is a derived selector — null when cart is empty,
 // otherwise the pharmacy context of the current cart items.
+//
+// cartTotal is a derived selector — sum of pricePerUnit * quantity for
+// all items. Used by the shop screen's "Go to Cart" sticky bar.
 
 import { create } from "zustand";
 import { StorageService } from "../services/storage";
@@ -68,6 +71,7 @@ interface CartStore {
 
   // Derived
   cartPharmacy: () => CartPharmacy | null;
+  cartTotal: () => number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -188,8 +192,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   },
 
   // ── Decrement quantity ────────────────────────────────────
-  // FIX: Allow quantity to reach 0, then filter out the item.
-  // Previously had `i.quantity > 1` guard which prevented removal.
+  // Allows quantity to reach 0 then filters the item out.
   //
   // Behavior:
   //   quantity 3 → tap − → quantity 2  (stepper stays)
@@ -206,7 +209,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           ? { ...i, quantity: i.quantity - 1 }
           : i,
       )
-      .filter((i) => i.quantity > 0); // ← removes item when quantity hits 0
+      .filter((i) => i.quantity > 0);
 
     persist(currentUserId, updated);
     set({ items: updated, cartCount: deriveCount(updated) });
@@ -234,5 +237,18 @@ export const useCartStore = create<CartStore>()((set, get) => ({
       branchId: items[0].branchId,
       branchName: items[0].branchName,
     };
+  },
+
+  // ── Derived: cart grand total ─────────────────────────────
+  // Sum of pricePerUnit × quantity across all items.
+  // Used by the shop screen "Go to Cart" bar so it can show a
+  // running total without needing a separate computation.
+
+  cartTotal: (): number => {
+    const { items } = get();
+    return items.reduce(
+      (sum, item) => sum + item.pricePerUnit * item.quantity,
+      0,
+    );
   },
 }));

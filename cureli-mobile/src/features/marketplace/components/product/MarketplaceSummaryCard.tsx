@@ -1,8 +1,15 @@
 // src/features/marketplace/components/product/MarketplaceSummaryCard.tsx
 //
-// Horizontal card showing fake marketplace data on the product detail screen:
-// starts-at price, nearby pharmacy count, ETA, and stock status.
-// All values come from generateMarketplaceData (deterministic, frontend-only).
+// Horizontal summary card on the product detail screen.
+// Now shows REAL data derived from the shops list:
+//
+//   Available at : count of branches stocking the medicine
+//   From         : lowest real listing price across those branches
+//                  "—" if no branch has set a price
+//   Stock        : "In Stock" if any branch is IN_STOCK, else "Low Stock"
+//
+// ETA and distance are removed — we have no real data for them.
+// This component is only rendered when shops.length > 0.
 
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
@@ -10,17 +17,29 @@ import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
 import type { useTheme } from "../../../../theme/ThemeContext";
-import type { MarketplaceData } from "../../../../types/medicine";
+import type { MedicineShopListing } from "../../../../types/medicine";
 
 interface MarketplaceSummaryCardProps {
-  marketplace: MarketplaceData;
+  shops: MedicineShopListing[];
   colors: ReturnType<typeof useTheme>["colors"];
 }
 
 export function MarketplaceSummaryCard({
-  marketplace,
+  shops,
   colors,
 }: MarketplaceSummaryCardProps) {
+  // Derive real values from shop list
+  const pharmacyCount = shops.length;
+
+  const prices = shops
+    .map((s) => s.listingPrice)
+    .filter((p): p is number => p !== null);
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : null;
+
+  const hasInStock = shops.some((s) => s.stockStatus === "IN_STOCK");
+  const stockLabel = hasInStock ? "In Stock" : "Low Stock";
+  const stockColor = hasInStock ? colors.status.success : colors.status.warning;
+
   return (
     <View
       style={[
@@ -31,70 +50,46 @@ export function MarketplaceSummaryCard({
         },
       ]}
     >
-      {/* Starts at */}
+      {/* Available at */}
       <View style={styles.item}>
         <Text style={[styles.label, { color: colors.text.faint }]}>
-          Starts at
+          Available at
         </Text>
         <Text style={[styles.value, { color: colors.text.primary }]}>
-          ₹{marketplace.startsAt}
+          {pharmacyCount}{" "}
+          {pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
         </Text>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
+      <View
+        style={[styles.divider, { backgroundColor: colors.border.subtle }]}
+      />
 
-      {/* Nearby pharmacies */}
+      {/* Starts from */}
       <View style={styles.item}>
         <Text style={[styles.label, { color: colors.text.faint }]}>
-          Nearby
+          From
         </Text>
         <Text style={[styles.value, { color: colors.text.primary }]}>
-          {marketplace.pharmacyCount}{" "}
-          {marketplace.pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
+          {lowestPrice !== null ? `₹${lowestPrice}` : "—"}
         </Text>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
+      <View
+        style={[styles.divider, { backgroundColor: colors.border.subtle }]}
+      />
 
-      {/* ETA */}
-      <View style={styles.item}>
-        <Text style={[styles.label, { color: colors.text.faint }]}>
-          ETA
-        </Text>
-        <Text style={[styles.value, { color: colors.text.primary }]}>
-          {marketplace.etaMins} mins
-        </Text>
-      </View>
-
-      <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
-
-      {/* Stock */}
+      {/* Stock status */}
       <View style={styles.item}>
         <Text style={[styles.label, { color: colors.text.faint }]}>
           Stock
         </Text>
         <View style={styles.stockRow}>
           <View
-            style={[
-              styles.stockDot,
-              {
-                backgroundColor: marketplace.inStock
-                  ? colors.status.success
-                  : colors.status.warning,
-              },
-            ]}
+            style={[styles.stockDot, { backgroundColor: stockColor }]}
           />
-          <Text
-            style={[
-              styles.value,
-              {
-                color: marketplace.inStock
-                  ? colors.status.success
-                  : colors.status.warning,
-              },
-            ]}
-          >
-            {marketplace.stockLabel}
+          <Text style={[styles.value, { color: stockColor }]}>
+            {stockLabel}
           </Text>
         </View>
       </View>
