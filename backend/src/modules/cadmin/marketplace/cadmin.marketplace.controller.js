@@ -3,6 +3,7 @@
 import { success, fail } from "../../../utils/response.js";
 import * as Service from "./cadmin.marketplace.service.js";
 import * as PlacesService from "./cadmin.places.service.js";
+import { handleCAdminMarketplaceUpload } from "./cadmin.marketplace.upload.js";
 
 // ─────────────────────────────────────────────
 // SHOPS
@@ -75,6 +76,37 @@ export const blockShop = async (req, res) => {
   }
 };
 
+// PATCH /cadmin/marketplace/shops/:shop_id/storefront
+export const updateStorefront = async (req, res) => {
+  try {
+    const { shop_id } = req.params;
+    const {
+      storefront_name,
+      storefront_description,
+      support_phone,
+      logo_url,
+      banner_url,
+    } = req.body;
+
+    const data = await Service.updateShopStorefront(shop_id, {
+      storefront_name,
+      storefront_description,
+      support_phone,
+      logo_url,
+      banner_url,
+    });
+
+    return success(res, data, "Storefront updated");
+  } catch (err) {
+    console.error("[cadminMarketplace] updateStorefront:", err.message);
+    return fail(
+      res,
+      err.message,
+      err.message.includes("not found") ? 404 : 400
+    );
+  }
+};
+
 // PATCH /cadmin/marketplace/shops/:shop_id/branches/:branch_id/block
 export const blockBranch = async (req, res) => {
   try {
@@ -124,6 +156,13 @@ export const updateBranchConfig = async (req, res) => {
     );
   }
 };
+
+// ─────────────────────────────────────────────
+// UPLOAD
+// POST /cadmin/marketplace/upload/:type
+// ─────────────────────────────────────────────
+
+export const uploadAsset = handleCAdminMarketplaceUpload;
 
 // ─────────────────────────────────────────────
 // MOBILE USERS

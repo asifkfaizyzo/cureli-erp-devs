@@ -1,4 +1,4 @@
-// backend/src/modules/cadmin/marketplace/cadminMarketplace.service.js
+// backend/src/modules/cadmin/marketplace/cadmin.marketplace.service.js
 
 import prisma from "../../../config/prisma.js";
 
@@ -146,7 +146,6 @@ export const getShopDetail = async (shop_id) => {
 
   if (!shop) throw new Error("Shop not found");
 
-  // All branches with marketplace link status
   const branches = await prisma.branch.findMany({
     where: { shop_id },
     orderBy: [{ branch_type: "asc" }, { branch_name: "asc" }],
@@ -159,7 +158,6 @@ export const getShopDetail = async (shop_id) => {
       contact_number: true,
       is_active: true,
       created_at: true,
-      // non-null = linked to marketplace
       marketplaceSettings: {
         select: {
           branch_marketplace_id: true,
@@ -183,10 +181,6 @@ export const getShopDetail = async (shop_id) => {
   return { ...shop, branches };
 };
 
-/**
- * Block / unblock a shop.
- * Blocking auto-suspends a LIVE marketplace and disables all enabled branches.
- */
 export const setShopBlockStatus = async (shop_id, block) => {
   const shop = await prisma.shop.findUnique({
     where: { shop_id },
@@ -215,7 +209,6 @@ export const setShopBlockStatus = async (shop_id, block) => {
       },
     });
 
-    // Auto-suspend marketplace when blocking a shop that is LIVE
     if (block && shop.marketplaceProfile?.marketplace_status === "LIVE") {
       await tx.marketplaceProfile.update({
         where: { shop_id },
@@ -236,10 +229,6 @@ export const setShopBlockStatus = async (shop_id, block) => {
   });
 };
 
-/**
- * Block / unblock a single branch.
- * Blocking auto-disables its marketplace settings.
- */
 export const setBranchBlockStatus = async (shop_id, branch_id, block) => {
   const branch = await prisma.branch.findFirst({
     where: { branch_id, shop_id },
@@ -276,10 +265,6 @@ export const setBranchBlockStatus = async (shop_id, branch_id, block) => {
   });
 };
 
-/**
- * Update branch marketplace config.
- * CAdmin has full access — no role restriction like ERP side.
- */
 export const updateBranchMarketplaceConfig = async (
   shop_id,
   branch_id,
@@ -327,6 +312,51 @@ export const updateBranchMarketplaceConfig = async (
       branch: {
         select: { branch_id: true, branch_name: true },
       },
+    },
+  });
+};
+
+// ─────────────────────────────────────────────
+// UPDATE SHOP STOREFRONT (new)
+// ─────────────────────────────────────────────
+
+export const updateShopStorefront = async (shop_id, data) => {
+  const profile = await prisma.marketplaceProfile.findUnique({
+    where: { shop_id },
+    select: { marketplace_profile_id: true },
+  });
+
+  if (!profile) throw new Error("Marketplace profile not found for this shop");
+
+  return prisma.marketplaceProfile.update({
+    where: { shop_id },
+    data: {
+      ...(data.storefront_name !== undefined && {
+        storefront_name: data.storefront_name,
+      }),
+      ...(data.storefront_description !== undefined && {
+        storefront_description: data.storefront_description,
+      }),
+      ...(data.support_phone !== undefined && {
+        support_phone: data.support_phone,
+      }),
+      ...(data.logo_url !== undefined && {
+        logo_url: data.logo_url,
+      }),
+      // banner_url can be explicitly set to null (clear it)
+      ...(data.banner_url !== undefined && {
+        banner_url: data.banner_url,
+      }),
+    },
+    select: {
+      marketplace_profile_id: true,
+      storefront_name: true,
+      storefront_description: true,
+      support_phone: true,
+      logo_url: true,
+      banner_url: true,
+      marketplace_status: true,
+      updated_at: true,
     },
   });
 };
@@ -455,10 +485,6 @@ export const getMobileUserDetail = async (user_id) => {
   return user;
 };
 
-/**
- * Suspend or reactivate a mobile user.
- * Suspending revokes all active sessions immediately.
- */
 export const setMobileUserBlockStatus = async (
   user_id,
   block,
@@ -496,7 +522,6 @@ export const setMobileUserBlockStatus = async (
       },
     });
 
-    // Revoke all active sessions on suspend
     if (block) {
       await tx.cureliMobileSession.updateMany({
         where: { user_id, is_active: true },

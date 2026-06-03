@@ -6,8 +6,10 @@ import {
   listShops,
   getShop,
   blockShop,
+  updateStorefront,
   blockBranch,
   updateBranchConfig,
+  uploadAsset,
   listUsers,
   getUser,
   blockUser,
@@ -20,24 +22,25 @@ const router = express.Router();
 router.use(requireCAdmin);
 
 // ─────────────────────────────────────────────
-// PLACES PROXY
-// Must be declared before /:shop_id routes
-// to avoid param conflicts
+// PLACES PROXY — before /:shop_id to avoid conflicts
 // ─────────────────────────────────────────────
 router.get("/marketplace/places/search", searchPlaces);
 router.get("/marketplace/places/details", getPlaceDetails);
 
 // ─────────────────────────────────────────────
+// UPLOAD
+// POST /cadmin/marketplace/upload/:type
+// type: logo | banner | branch_image
+// ─────────────────────────────────────────────
+router.post("/marketplace/upload/:type", uploadAsset);
+
+// ─────────────────────────────────────────────
 // SHOPS
-// GET    /cadmin/marketplace/shops
-// GET    /cadmin/marketplace/shops/:shop_id
-// PATCH  /cadmin/marketplace/shops/:shop_id/block
-// PATCH  /cadmin/marketplace/shops/:shop_id/branches/:branch_id/block
-// PATCH  /cadmin/marketplace/shops/:shop_id/branches/:branch_id/config
 // ─────────────────────────────────────────────
 router.get("/marketplace/shops", listShops);
 router.get("/marketplace/shops/:shop_id", getShop);
 router.patch("/marketplace/shops/:shop_id/block", blockShop);
+router.patch("/marketplace/shops/:shop_id/storefront", updateStorefront);
 router.patch(
   "/marketplace/shops/:shop_id/branches/:branch_id/block",
   blockBranch
@@ -49,9 +52,6 @@ router.patch(
 
 // ─────────────────────────────────────────────
 // MOBILE USERS
-// GET    /cadmin/marketplace/users
-// GET    /cadmin/marketplace/users/:user_id
-// PATCH  /cadmin/marketplace/users/:user_id/block
 // ─────────────────────────────────────────────
 router.get("/marketplace/users", listUsers);
 router.get("/marketplace/users/:user_id", getUser);

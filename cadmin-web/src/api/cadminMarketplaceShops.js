@@ -12,6 +12,10 @@ export const getMarketplaceShopById = (shopId) =>
 export const blockMarketplaceShop = (shopId, block) =>
   CAdminAPI.patch(`/marketplace/shops/${shopId}/block`, { block });
 
+// ── Storefront ─────────────────────────────────────────────────
+export const updateShopStorefront = (shopId, data) =>
+  CAdminAPI.patch(`/marketplace/shops/${shopId}/storefront`, data);
+
 // ── Branches ───────────────────────────────────────────────────
 export const blockMarketplaceBranch = (shopId, branchId, block) =>
   CAdminAPI.patch(
@@ -24,6 +28,21 @@ export const updateBranchMarketplaceConfig = (shopId, branchId, data) =>
     `/marketplace/shops/${shopId}/branches/${branchId}/config`,
     data
   );
+
+// ── Upload ─────────────────────────────────────────────────────
+// type: "logo" | "banner" | "branch_image"
+export const uploadMarketplaceAsset = (type, file, onProgress) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return CAdminAPI.post(`/marketplace/upload/${type}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) {
+        onProgress(Math.round((e.loaded * 100) / e.total));
+      }
+    },
+  });
+};
 
 // ── Places proxy ───────────────────────────────────────────────
 export const searchPlaces = (query) =>
