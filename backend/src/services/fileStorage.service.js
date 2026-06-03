@@ -35,6 +35,7 @@ const ALLOWED_FOLDERS = [
   'email_attachments',
   'tickets',
   'marketplace_assets',
+  'order_prescriptions',
 ];
 
 // File size limits (bytes)
@@ -44,6 +45,7 @@ const MAX_FILE_SIZES = {
   email_attachments: 10 * 1024 * 1024,      // 10MB
   tickets: 5 * 1024 * 1024,                 // 5MB
   marketplace_assets: 5 * 1024 * 1024,
+  order_prescriptions: 10 * 1024 * 1024,  
 };
 
 // Allowed MIME types per folder
@@ -99,12 +101,18 @@ const ALLOWED_MIME_TYPES = {
     'image/webp',
     'application/pdf',
   ],
-  marketplace_assets: [          // ADD THIS BLOCK
+  marketplace_assets: [          
     'image/jpeg',
     'image/jpg',
     'image/png',
     'image/webp',
   ],
+  order_prescriptions: [          
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'application/pdf',
+],
 
 };
 

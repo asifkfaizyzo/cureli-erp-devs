@@ -40,6 +40,8 @@ import customerRoutes from "./src/modules/customers/customer.routes.js";
 import excelRoutes from "./src/modules/excel/excel.routes.js";
 import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
 import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.js";
+import marketplaceOrdersRoutes from './src/modules/marketplace-orders/marketplace.orders.routes.js';
+
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
@@ -63,6 +65,9 @@ import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
 import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
 import mobilePlacesRoutes from "./src/modules/mobile/places/mobile.places.routes.js";
+import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js"; 
+import mobileOrdersRoutes from './src/modules/mobile/orders/mobile.orders.routes.js';
+import mobilePrescriptionsRoutes from './src/modules/mobile/prescriptions/mobile.prescriptions.routes.js';
 import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js";
 
 
@@ -213,6 +218,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/marketplace-listing", listingsRoutes);  
+app.use('/api/marketplace-orders', marketplaceOrdersRoutes);
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);
@@ -239,7 +245,8 @@ app.use("/mobile/users", mobileUsersRoutes);
 app.use("/mobile/medicines", mobileMedicinesRoutes);
 app.use("/mobile/places", mobilePlacesRoutes);
 app.use("/mobile/shops", mobileShopsRoutes); 
-
+app.use('/mobile/orders', mobileOrdersRoutes);
+app.use('/mobile/prescriptions', mobilePrescriptionsRoutes);
 // ============================================
 // HEALTH CHECK
 // ============================================

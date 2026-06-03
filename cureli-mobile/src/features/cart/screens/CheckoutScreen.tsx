@@ -1,7 +1,4 @@
 // src/features/cart/screens/CheckoutScreen.tsx
-//
-// Full checkout: address + payment summary + order summary + place order.
-// On "place order" → clears cart → shows inline success state.
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -10,6 +7,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -27,6 +26,9 @@ import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
 import { useCartStore } from "../../../store/cartStore";
 import { usePaymentStore } from "../../../store/paymentStore";
+import { usePrescriptionStore } from "../../../store/prescriptionStore";
+import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
+import { ordersApi } from "../../marketplace/api/orders.api";
 
 const HANDLING_CHARGE = 10;
 const HIGH_DEMAND_CHARGE = 5;
@@ -60,10 +62,7 @@ function OrderSuccess({ onGoHome }: OrderSuccessProps) {
 
   return (
     <View
-      style={[
-        styles.successRoot,
-        { backgroundColor: colors.background.page },
-      ]}
+      style={[styles.successRoot, { backgroundColor: colors.background.page }]}
     >
       <Animated.View style={badgeStyle}>
         <View
@@ -113,8 +112,14 @@ export function CheckoutScreen() {
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
   const selectedMethod = usePaymentStore((s) => s.selectedMethod);
+  const tempPrescriptions = usePrescriptionStore((s) => s.tempFiles);
+  const clearPrescriptions = usePrescriptionStore((s) => s.clearTempFiles);
+  const selectedAddressId = useDeliveryLocationStore(
+    (s) => s.location.addressId ?? null,
+  );
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const itemsTotal = items.reduce(
     (sum, item) => sum + item.pricePerUnit * item.quantity,
@@ -134,10 +139,51 @@ export function CheckoutScreen() {
     router.push("/profile/addresses" as any);
   }, []);
 
-  const handlePlaceOrder = useCallback(() => {
-    clearCart();
-    setIsSuccess(true);
-  }, [clearCart]);
+  const handlePlaceOrder = useCallback(async () => {
+    if (!selectedAddressId) {
+      Alert.alert("Address Required", "Please select a delivery address");
+      return;
+    }
+
+    const branchId = items[0]?.branchId;
+    if (!branchId) {
+      Alert.alert("Error", "No branch found. Please re-add items to cart.");
+      return;
+    }
+
+    const payload = {
+      branch_id: branchId,
+      delivery_address_id: selectedAddressId,
+      items: items.map((i) => ({
+        variantId: i.variantId,
+        quantity: i.quantity,
+      })),
+      prescription_files: tempPrescriptions,
+    };
+
+    try {
+      setIsLoading(true);
+      const res = await ordersApi.placeOrder(payload);
+      if (res.data.success) {
+        clearCart();
+        clearPrescriptions();
+        setIsSuccess(true);
+      }
+    } catch (err: any) {
+      Alert.alert(
+        "Order Failed",
+        err.response?.data?.message || "Something went wrong",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    selectedAddressId,
+    items,
+    tempPrescriptions,
+    clearCart,
+    clearPrescriptions,
+  ]);
 
   const handleGoHome = useCallback(() => {
     router.replace("/(tabs)" as any);
@@ -193,7 +239,9 @@ export function CheckoutScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* ── Delivery Address ── */}
-        <View style={[styles.card, { backgroundColor: colors.background.card }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.background.card }]}
+        >
           <View style={styles.cardHeader}>
             <Ionicons
               name="location-outline"
@@ -234,13 +282,11 @@ export function CheckoutScreen() {
         </View>
 
         {/* ── Payment Method ── */}
-        <View style={[styles.card, { backgroundColor: colors.background.card }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.background.card }]}
+        >
           <View style={styles.cardHeader}>
-            <Ionicons
-              name="card-outline"
-              size={18}
-              color={colors.text.brand}
-            />
+            <Ionicons name="card-outline" size={18} color={colors.text.brand} />
             <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
               Payment Method
             </Text>
@@ -282,7 +328,9 @@ export function CheckoutScreen() {
         </View>
 
         {/* ── Order Summary ── */}
-        <View style={[styles.card, { backgroundColor: colors.background.card }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.background.card }]}
+        >
           <View style={styles.cardHeader}>
             <Ionicons
               name="receipt-outline"
@@ -387,12 +435,19 @@ export function CheckoutScreen() {
         <TouchableOpacity
           onPress={handlePlaceOrder}
           activeOpacity={0.85}
-          style={styles.placeBtn}
+          style={[styles.placeBtn, isLoading && { opacity: 0.7 }]}
+          disabled={isLoading}
           accessibilityRole="button"
           accessibilityLabel={`Place order for ₹${grandTotal.toFixed(2)}`}
         >
-          <Text style={styles.placeBtnText}>Place Order</Text>
-          <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Text style={styles.placeBtnText}>Place Order</Text>
+              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -575,6 +630,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     height: 50,
     borderRadius: Radius.md,
+    minWidth: 140,
+    justifyContent: "center",
   },
   placeBtnText: {
     fontSize: 15,
