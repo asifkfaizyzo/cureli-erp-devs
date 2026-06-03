@@ -1,11 +1,4 @@
 // src/features/prescription/screens/UploadPrescriptionScreen.tsx
-//
-// Full prescription upload flow:
-//   Step 1 — Guide card + 3 upload options (Gallery / Camera / Document)
-//   Step 2 — Preview selected file
-//   Step 3 — Success
-//
-// No backend yet — confirm simulates a 1.5s upload delay.
 
 import React, { useCallback, useState } from "react";
 import {
@@ -29,6 +22,8 @@ import { PrescriptionGuideCard } from "../components/PrescriptionGuideCard";
 import { UploadOptionCard } from "../components/UploadOptionCard";
 import { PrescriptionPreview } from "../components/PrescriptionPreview";
 import { PrescriptionSuccess } from "../components/PrescriptionSuccess";
+import { ordersApi } from "../../marketplace/api/orders.api";
+import { usePrescriptionStore } from "../../../store/prescriptionStore";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -38,6 +33,7 @@ interface SelectedFile {
   uri: string;
   fileType: "image" | "document";
   fileName?: string;
+  mimeType?: string;
 }
 
 // ── Screen ────────────────────────────────────────────────────
@@ -48,6 +44,8 @@ export function UploadPrescriptionScreen() {
   const [step, setStep] = useState<Step>("upload");
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  const setTempFiles = usePrescriptionStore((s) => s.setTempFiles);
 
   // ── Permission helpers ────────────────────────────────────────
 
@@ -96,6 +94,7 @@ export function UploadPrescriptionScreen() {
         uri: asset.uri,
         fileType: "image",
         fileName: asset.fileName ?? "prescription.jpg",
+        mimeType: asset.mimeType ?? "image/jpeg",
       });
       setStep("preview");
     }
@@ -117,6 +116,7 @@ export function UploadPrescriptionScreen() {
         uri: asset.uri,
         fileType: "image",
         fileName: "prescription_camera.jpg",
+        mimeType: asset.mimeType ?? "image/jpeg",
       });
       setStep("preview");
     }
@@ -136,20 +136,47 @@ export function UploadPrescriptionScreen() {
         uri: asset.uri,
         fileType: isImage ? "image" : "document",
         fileName: asset.name,
+        mimeType: asset.mimeType ?? "application/pdf",
       });
       setStep("preview");
     }
   }, []);
 
-  // ── Confirm handler — simulates upload ───────────────────────
+  // ── Confirm handler — calls real API ─────────────────────────
 
   const handleConfirm = useCallback(async () => {
+    if (!selectedFile) return;
+
     setIsUploading(true);
-    // Simulate upload delay — replace with real API call later.
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsUploading(false);
-    setStep("success");
-  }, []);
+
+    try {
+      const formData = new FormData();
+      formData.append("files", {
+        uri: selectedFile.uri,
+        name: selectedFile.fileName || `upload_${Date.now()}.jpg`,
+        type: selectedFile.mimeType || "image/jpeg",
+      } as any);
+
+      const res = await ordersApi.uploadPrescriptions(formData);
+
+      if (res.data.success) {
+        setTempFiles(res.data.data.files);
+        setStep("success");
+      } else {
+        Alert.alert(
+          "Upload Failed",
+          "Could not upload prescription. Please try again.",
+        );
+      }
+    } catch (err) {
+      Alert.alert(
+        "Upload Failed",
+        "Could not upload prescriptions. Please try again.",
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }, [selectedFile, setTempFiles]);
 
   const handlePickAgain = useCallback(() => {
     setSelectedFile(null);
@@ -288,7 +315,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
-  // ── Header ──
   header: {
     height: 60,
     flexDirection: "row",
@@ -308,12 +334,10 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     flex: 1,
   },
-  // ── Scroll content ──
   scrollContent: {
     padding: Spacing.base,
     paddingBottom: 40,
   },
-  // ── Upload options ──
   optionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",

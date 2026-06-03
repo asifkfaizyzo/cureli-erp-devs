@@ -8,7 +8,13 @@
 //   - 1 image  → static single image (handled inside ProductImageCarousel)
 //   - 2+ images → swipeable carousel with dot indicator
 //
-// All other behavior unchanged from previous version.
+// ── GO TO CART BAR ───────────────────────────────────────────
+// Rendered globally from app/_layout.tsx via GlobalCartBar.
+// The shared GlobalCartBar renders above the bottom sheet backdrop,
+// but the backdrop visually covers it when the sheet is open —
+// no special coordination needed from this screen.
+// This screen only adds bottom padding to the ScrollView so content
+// clears the bar when it is visible.
 
 import React, { useCallback, useState, useMemo } from "react";
 import {
@@ -20,10 +26,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -36,7 +39,7 @@ import { Radius } from "../../src/theme/radius";
 import { useMedicineDetail } from "../../src/features/marketplace/hooks/useMedicineDetail";
 import { useMedicineShops } from "../../src/features/marketplace/hooks/useMedicineShops";
 import { useDeliveryLocation } from "../../src/hooks/useDeliveryLocation";
-import { useCartStore } from "../../src/store/cartStore";
+import { useCartBottomPadding } from "../../src/hooks/useCartBottomPadding";
 
 import { InfoRow } from "../../src/features/marketplace/components/product/InfoRow";
 import { SiblingCard } from "../../src/features/marketplace/components/product/SiblingCard";
@@ -50,7 +53,6 @@ import type { EnrichedMedicine } from "../../src/types/medicine";
 import type { CompositionItem } from "../../src/types/medicine";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CART_BAR_HEIGHT = 64;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -66,7 +68,6 @@ function compositionLine(items: CompositionItem[]): string {
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
 
   // ── Medicine detail ───────────────────────────────────────
   const { variant, siblings, isLoading, isError, refetch } =
@@ -102,28 +103,14 @@ export default function ProductDetailScreen() {
   const handleOpenSheet = useCallback(() => setSheetVisible(true), []);
   const handleCloseSheet = useCallback(() => setSheetVisible(false), []);
 
-  // ── Cart ──────────────────────────────────────────────────
-  const cartCount = useCartStore((s) => s.cartCount);
-  const cartTotal = useCartStore((s) => s.cartTotal);
-
-  const runningTotal = cartTotal();
-
-  // ── Show cart bar only when sheet is closed ───────────────
-  const showCartBar = cartCount > 0 && !sheetVisible;
-
   // ── Bottom padding for ScrollView ─────────────────────────
-  const scrollBottomPadding = useMemo(() => {
-    if (!showCartBar) return Spacing["4xl"];
-    return CART_BAR_HEIGHT + Spacing.lg + insets.bottom + Spacing.lg;
-  }, [showCartBar, insets.bottom]);
+  // Delegates to the shared hook. Uses Spacing["4xl"] as the resting
+  // value (matching the original manual default for this screen).
+  const scrollBottomPadding = useCartBottomPadding(Spacing["4xl"]);
 
   // ── Navigation ────────────────────────────────────────────
   const handlePressSibling = useCallback((medicine: EnrichedMedicine) => {
     router.replace(`/product/${medicine.skuId}`);
-  }, []);
-
-  const handleGoToCart = useCallback(() => {
-    router.push("/cart" as any);
   }, []);
 
   // ── Loading ───────────────────────────────────────────────
@@ -215,10 +202,11 @@ export default function ProductDetailScreen() {
   const { availableNearYou } = variant;
 
   // ── Derive clean gallery images ───────────────────────────
-  // variant.images is the full resolved gallery from the backend.
-  // Filter out any blank/null entries defensively.
   const galleryImages = useMemo(
-    () => (variant.images ?? []).filter((url) => typeof url === "string" && url.length > 0),
+    () =>
+      (variant.images ?? []).filter(
+        (url) => typeof url === "string" && url.length > 0,
+      ),
     [variant.images],
   );
 
@@ -271,11 +259,8 @@ export default function ProductDetailScreen() {
             { paddingBottom: scrollBottomPadding },
           ]}
         >
-          {/* ── Image / carousel ── */}
-          <ProductImageCarousel
-            images={galleryImages}
-            colors={colors}
-          />
+          {/* Image / carousel */}
+          <ProductImageCarousel images={galleryImages} colors={colors} />
 
           {/* Name block */}
           <View style={styles.nameBlock}>
@@ -314,9 +299,7 @@ export default function ProductDetailScreen() {
                   },
                 ]}
               >
-                <Text
-                  style={[styles.formText, { color: colors.text.brand }]}
-                >
+                <Text style={[styles.formText, { color: colors.text.brand }]}>
                   {variant.form}
                 </Text>
               </View>
@@ -363,10 +346,7 @@ export default function ProductDetailScreen() {
                 color={colors.text.faint}
               />
               <Text
-                style={[
-                  styles.disabledBtnText,
-                  { color: colors.text.faint },
-                ]}
+                style={[styles.disabledBtnText, { color: colors.text.faint }]}
               >
                 Not Available
               </Text>
@@ -455,10 +435,7 @@ export default function ProductDetailScreen() {
           {siblings.length > 0 ? (
             <View style={styles.siblingsSection}>
               <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: colors.text.primary },
-                ]}
+                style={[styles.sectionTitle, { color: colors.text.primary }]}
               >
                 Other options
               </Text>
@@ -508,32 +485,7 @@ export default function ProductDetailScreen() {
           ) : null}
         </ScrollView>
 
-        {/* ── Floating "Go to Cart" bar — hidden when sheet is open ── */}
-        {showCartBar && (
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={handleGoToCart}
-            accessibilityRole="button"
-            accessibilityLabel={`Go to cart. ${cartCount} items. Total ₹${runningTotal.toFixed(0)}`}
-            style={[
-              styles.cartBar,
-              {
-                backgroundColor: colors.brand.primary,
-                bottom: insets.bottom + Spacing.md,
-              },
-            ]}
-          >
-            <View style={styles.cartBadgeWrap}>
-              <Text style={styles.cartBadgeText}>{cartCount}</Text>
-            </View>
-            <Text style={styles.cartBarLabel}>Go to Cart</Text>
-            <Text style={styles.cartBarTotal}>
-              ₹{runningTotal.toFixed(0)}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Shops bottom sheet ── */}
+        {/* Shops bottom sheet */}
         {variant && (
           <ShopsBottomSheet
             visible={sheetVisible}
@@ -650,45 +602,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   centerSubtext: { ...Typography.body, textAlign: "center" },
-
-  // ── Floating "Go to Cart" bar ─────────────────────────────
-  cartBar: {
-    position: "absolute",
-    left: Spacing.base,
-    right: Spacing.base,
-    height: CART_BAR_HEIGHT,
-    borderRadius: Radius.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.sm,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  cartBadgeWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.sm,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: Spacing.sm,
-  },
-  cartBadgeText: {
-    color: "#ffffff",
-    ...Typography.smallBold,
-    fontSize: 14,
-  },
-  cartBarLabel: {
-    flex: 1,
-    color: "#ffffff",
-    ...Typography.bodyMedium,
-    textAlign: "center",
-  },
-  cartBarTotal: {
-    color: "#ffffff",
-    ...Typography.bodyMedium,
-  },
 });

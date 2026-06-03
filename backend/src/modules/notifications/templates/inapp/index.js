@@ -11,7 +11,7 @@ import { shopTemplates } from "./shop.templates.js";
 import { userTemplates } from "./user.templates.js";
 import { paymentTemplates } from "./payment.templates.js";
 import { medicineTemplates } from "./medicine.templates.js";
-
+import { marketplaceOrderTemplates } from "./marketplace.orders.templates.js";
 // ============================================
 // TEMPLATE REGISTRY
 // ============================================
@@ -72,7 +72,11 @@ export const INAPP_TEMPLATES = {
   [NOTIFICATION_EVENTS.TICKET_CREATED]: ticketTemplates.ticketCreated,
   [NOTIFICATION_EVENTS.TICKET_STATUS_CHANGED]:
     ticketTemplates.ticketStatusChanged,
+  [NOTIFICATION_EVENTS.MARKETPLACE_ORDER_PLACED]:
+    marketplaceOrderTemplates.orderPlaced,
 
+  [NOTIFICATION_EVENTS.MARKETPLACE_ORDER_CANCELLED]:
+    marketplaceOrderTemplates.orderCancelled,
   // ─────────────────────────────────────────
   // BROADCAST (Pass-through - CAdmin provides title/message)
   // ─────────────────────────────────────────

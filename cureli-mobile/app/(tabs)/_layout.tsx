@@ -1,5 +1,3 @@
-// app/(tabs)/_layout.tsx
-
 import { Tabs, router } from 'expo-router';
 import {
   View,
@@ -7,15 +5,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+
 import { useTheme } from '../../src/theme/ThemeContext';
+import { useLayoutStore } from '../../src/store/layoutStore';
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
+  const setBottomTabBarHeight = useLayoutStore(
+    (store) => store.setBottomTabBarHeight,
+  );
+
+  const handleTabBarLayout = (event: LayoutChangeEvent) => {
+    setBottomTabBarHeight(event.nativeEvent.layout.height);
+  };
 
   const renderTab = (routeIndex: number) => {
     const route = state.routes[routeIndex];
@@ -28,6 +36,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         target: route.key,
         canPreventDefault: true,
       });
+
       if (!isFocused && !event.defaultPrevented) {
         navigation.navigate(route.name);
       }
@@ -36,6 +45,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const getIcon = (name: string, focused: boolean) => {
       const color = focused ? colors.tab.active : colors.tab.inactive;
       const size = 22;
+
       switch (name) {
         case 'home':
           return <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />;
@@ -78,6 +88,7 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <View
+      onLayout={handleTabBarLayout}
       style={[
         styles.tabBarContainer,
         {

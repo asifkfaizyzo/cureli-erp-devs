@@ -60,7 +60,9 @@ async function processScheduledBroadcasts() {
 
     for (const campaign of dueBroadcasts) {
       try {
-        cronLogger.info(`Sending broadcast: ${campaign.campaign_id} - "${campaign.title}"`);
+        cronLogger.info(
+          `Sending broadcast: ${campaign.campaign_id} - "${campaign.title}"`,
+        );
 
         const { sendScheduled } = await import(
           "../modules/cadmin/broadcast/inapp/cadminInAppBroadcast.service.js"
@@ -68,15 +70,22 @@ async function processScheduledBroadcasts() {
 
         const result = await sendScheduled(campaign.campaign_id);
 
-        cronLogger.success(`Broadcast ${campaign.campaign_id} sent to ${result.sent} recipients`);
+        cronLogger.success(
+          `Broadcast ${campaign.campaign_id} sent to ${result.sent} recipients`,
+        );
         sent++;
       } catch (err) {
-        cronLogger.error(`Failed to send broadcast ${campaign.campaign_id}`, err);
+        cronLogger.error(
+          `Failed to send broadcast ${campaign.campaign_id}`,
+          err,
+        );
         failed++;
       }
     }
 
-    cronLogger.info(`Scheduled broadcasts complete: ${sent} sent, ${failed} failed`);
+    cronLogger.info(
+      `Scheduled broadcasts complete: ${sent} sent, ${failed} failed`,
+    );
   } catch (err) {
     cronLogger.error("Scheduled broadcasts job failed", err);
   }
@@ -116,10 +125,14 @@ function initializePlanTransitionJob() {
       try {
         const result = await transitionDeprecatedPlans();
 
-        cronLogger.info(`Plan transition complete: checked=${result.checked} deprecated plans, transitioned=${result.transitioned} plans to SUSPENDED`);
+        cronLogger.info(
+          `Plan transition complete: checked=${result.checked} deprecated plans, transitioned=${result.transitioned} plans to SUSPENDED`,
+        );
 
         if (result.transitioned > 0) {
-          cronLogger.info(`Transitioned plans: ${result.plans.map((p) => p.name).join(", ")}`);
+          cronLogger.info(
+            `Transitioned plans: ${result.plans.map((p) => p.name).join(", ")}`,
+          );
         }
       } catch (err) {
         cronLogger.error("Plan transition job failed", err);
@@ -143,10 +156,14 @@ function initializeSubscriptionLifecycleJob() {
         // 1. Expired → Grace Period
         const graceResult = await transitionExpiredToGrace();
         if (graceResult.transitioned > 0) {
-          cronLogger.info(`Expired → Grace: ${graceResult.transitioned} subscriptions`);
+          cronLogger.info(
+            `Expired → Grace: ${graceResult.transitioned} subscriptions`,
+          );
 
           for (const r of graceResult.results) {
-            cronLogger.info(`  - ${r.shop_name}: grace until ${r.grace_period_until.toISOString().split("T")[0]}`);
+            cronLogger.info(
+              `  - ${r.shop_name}: grace until ${r.grace_period_until.toISOString().split("T")[0]}`,
+            );
 
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_STARTED,
@@ -163,7 +180,9 @@ function initializeSubscriptionLifecycleJob() {
         // 2. Grace Expired → Suspended
         const suspendResult = await suspendExpiredGrace();
         if (suspendResult.suspended > 0) {
-          cronLogger.info(`Grace → Suspended: ${suspendResult.suspended} subscriptions`);
+          cronLogger.info(
+            `Grace → Suspended: ${suspendResult.suspended} subscriptions`,
+          );
 
           for (const r of suspendResult.results) {
             cronLogger.info(`  - ${r.shop_name} (${r.shop_id}): SUSPENDED`);
@@ -178,7 +197,9 @@ function initializeSubscriptionLifecycleJob() {
           }
         }
 
-        cronLogger.info(`Subscription lifecycle complete | Grace: ${graceResult.transitioned} | Suspended: ${suspendResult.suspended}`);
+        cronLogger.info(
+          `Subscription lifecycle complete | Grace: ${graceResult.transitioned} | Suspended: ${suspendResult.suspended}`,
+        );
       } catch (err) {
         cronLogger.error("Subscription lifecycle job failed", err);
       }
@@ -201,7 +222,9 @@ function initializePaymentStatusSyncJob() {
         const result = await transitionPendingToOverdue();
 
         if (result.updated > 0) {
-          cronLogger.info(`Pending → Overdue: ${result.updated} subscriptions`);
+          cronLogger.info(
+            `Pending → Overdue: ${result.updated} subscriptions`,
+          );
         }
 
         cronLogger.info("Payment status sync complete");
@@ -228,7 +251,9 @@ function initializeReminderJob() {
 
         // 7 DAYS BEFORE EXPIRY
         if (reminders.expiring7Days.length > 0) {
-          cronLogger.info(`Expiring in 7 days: ${reminders.expiring7Days.length} shops`);
+          cronLogger.info(
+            `Expiring in 7 days: ${reminders.expiring7Days.length} shops`,
+          );
           for (const sub of reminders.expiring7Days) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_7_DAYS,
@@ -245,7 +270,9 @@ function initializeReminderJob() {
 
         // 3 DAYS BEFORE EXPIRY
         if (reminders.expiring3Days.length > 0) {
-          cronLogger.info(`Expiring in 3 days: ${reminders.expiring3Days.length} shops`);
+          cronLogger.info(
+            `Expiring in 3 days: ${reminders.expiring3Days.length} shops`,
+          );
           for (const sub of reminders.expiring3Days) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_EXPIRING_3_DAYS,
@@ -262,7 +289,9 @@ function initializeReminderJob() {
 
         // GRACE ENDING TOMORROW
         if (reminders.graceEndingSoon.length > 0) {
-          cronLogger.info(`Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`);
+          cronLogger.info(
+            `Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`,
+          );
           for (const sub of reminders.graceEndingSoon) {
             notifyAsync({
               type: NOTIFICATION_EVENTS.SUBSCRIPTION_GRACE_ENDING,
@@ -305,25 +334,34 @@ function initializeInventoryExpiryJob() {
 
         for (const shop of shops) {
           try {
-            const expiredResult = await inventoryService.markExpiredItems(shop.shop_id);
+            const expiredResult = await inventoryService.markExpiredItems(
+              shop.shop_id,
+            );
             totalExpired += expiredResult.count || 0;
 
             if (expiredResult.count > 0) {
-              cronLogger.info(`  - ${shop.business_name}: ${expiredResult.count} items expired`);
+              cronLogger.info(
+                `  - ${shop.business_name}: ${expiredResult.count} items expired`,
+              );
             }
 
-            const nearExpiryResult = await inventoryService.sendNearExpiryAlerts(shop.shop_id, 30);
+            const nearExpiryResult =
+              await inventoryService.sendNearExpiryAlerts(shop.shop_id, 30);
             totalNearExpiry += nearExpiryResult.sent || 0;
 
             if (nearExpiryResult.sent > 0) {
-              cronLogger.info(`  - ${shop.business_name}: ${nearExpiryResult.sent} near-expiry alerts sent`);
+              cronLogger.info(
+                `  - ${shop.business_name}: ${nearExpiryResult.sent} near-expiry alerts sent`,
+              );
             }
           } catch (shopErr) {
             cronLogger.error(`  - ${shop.business_name} failed`, shopErr);
           }
         }
 
-        cronLogger.info(`Inventory expiry checks complete | Expired: ${totalExpired} | Near-expiry alerts: ${totalNearExpiry}`);
+        cronLogger.info(
+          `Inventory expiry checks complete | Expired: ${totalExpired} | Near-expiry alerts: ${totalNearExpiry}`,
+        );
       } catch (err) {
         cronLogger.error("Inventory expiry job failed", err);
       }
@@ -331,6 +369,93 @@ function initializeInventoryExpiryJob() {
   );
 
   cronLogger.info("Inventory expiry job scheduled (daily at 6:00 AM)");
+}
+
+// ============================================
+// MARKETPLACE ORDER AUTO-COMPLETE - Every hour
+// ============================================
+
+async function autoCompleteStaleOrders() {
+  cronLogger.info('Checking for stale READY_FOR_PICKUP orders...');
+
+  try {
+    // Orders stuck in READY_FOR_PICKUP for more than 48 hours
+    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    const staleOrders = await prisma.marketplaceOrder.findMany({
+      where: {
+        status: 'READY_FOR_PICKUP',
+        ready_at: { lt: cutoff },
+        auto_completed: false,
+      },
+      select: {
+        order_id: true,
+        order_number: true,
+        shop_id: true,
+      },
+    });
+
+    if (staleOrders.length === 0) {
+      cronLogger.info('No stale orders found');
+      return;
+    }
+
+    cronLogger.info(
+      `Found ${staleOrders.length} stale order(s) to auto-complete`,
+    );
+
+    const now = new Date();
+    let completed = 0;
+    let failed = 0;
+
+    for (const order of staleOrders) {
+      try {
+        await prisma.$transaction(async (tx) => {
+          await tx.marketplaceOrder.update({
+            where: { order_id: order.order_id },
+            data: {
+              status: 'COMPLETED',
+              completed_at: now,
+              auto_completed: true,
+            },
+          });
+
+          await tx.marketplaceOrderStatusHistory.create({
+            data: {
+              order_id: order.order_id,
+              from_status: 'READY_FOR_PICKUP',
+              to_status: 'COMPLETED',
+              changed_by_type: 'system',
+              changed_by_id: null,
+              reason: 'auto_completed',
+            },
+          });
+        });
+
+        cronLogger.info(`  - Auto-completed order ${order.order_number}`);
+        completed++;
+      } catch (err) {
+        cronLogger.error(
+          `  - Failed to auto-complete ${order.order_number}`,
+          err,
+        );
+        failed++;
+      }
+    }
+
+    cronLogger.info(
+      `Marketplace auto-complete done: ${completed} completed, ${failed} failed`,
+    );
+  } catch (err) {
+    cronLogger.error('Marketplace order auto-complete job failed', err);
+  }
+}
+
+function initializeMarketplaceOrderAutoComplete() {
+  cron.schedule('0 * * * *', () =>
+    withCronLock('marketplace-order-autocomplete', 10, autoCompleteStaleOrders),
+  );
+  cronLogger.info('Marketplace order auto-complete scheduled (every hour)');
 }
 
 // ============================================
@@ -363,6 +488,7 @@ export function initializeCronJobs() {
   initializeReminderJob();
   initializeInventoryExpiryJob();
   initializeScheduledBroadcastsJob();
+  initializeMarketplaceOrderAutoComplete();
 
   // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
@@ -382,7 +508,9 @@ export function initializeCronJobs() {
       cronLogger.info("Running incomplete users cleanup...");
       try {
         const result = await cleanupIncompleteUsers();
-        cronLogger.success(`Incomplete users cleanup completed: ${result.deleted} deleted`);
+        cronLogger.success(
+          `Incomplete users cleanup completed: ${result.deleted} deleted`,
+        );
       } catch (err) {
         cronLogger.error("Incomplete users cleanup failed", err);
       }
@@ -394,7 +522,9 @@ export function initializeCronJobs() {
       cronLogger.info("Running deletion logs cleanup...");
       try {
         const count = await cleanupOldDeletionLogs();
-        cronLogger.success(`Deletion logs cleanup completed: ${count} old logs removed`);
+        cronLogger.success(
+          `Deletion logs cleanup completed: ${count} old logs removed`,
+        );
       } catch (err) {
         cronLogger.error("Deletion logs cleanup failed", err);
       }
@@ -428,4 +558,5 @@ export function initializeCronJobs() {
   cronLogger.info("  - Deletion logs cleanup: Daily at 3:30 AM");
   cronLogger.info("  - Scheduled broadcasts: Every 5 minutes");
   cronLogger.info("  - OTP daily limits cleanup: Daily at 3:45 AM");
+  cronLogger.info("  - Marketplace order auto-complete: Every hour");
 }

@@ -1,9 +1,11 @@
+// pharmacy-web/src/hooks/useSSENotifications.js
+
 import { useEffect, useRef } from 'react';
 import { useNotificationStore } from '../store/useNotificationStore';
-import { useAuthStore } from '../store/useAuthStore';
 
 export const useSSENotifications = () => {
-  const receiveSSE = useNotificationStore(s => s.receiveSSENotification);
+  const receiveSSE = useNotificationStore((s) => s.receiveSSENotification);
+  const receiveNewOrder = useNotificationStore((s) => s.receiveNewOrderSSE);
   const eventSourceRef = useRef(null);
 
   useEffect(() => {
@@ -14,6 +16,7 @@ export const useSSENotifications = () => {
       const url = `${import.meta.env.VITE_API_URL}/api/notifications/stream?token=${token}`;
       const es = new EventSource(url);
 
+      // ── Existing: notification bell ───────────────────────────────────
       es.addEventListener('connected', (e) => {
         const data = JSON.parse(e.data);
         useNotificationStore.setState({ unreadCount: data.unread_count });
@@ -21,6 +24,26 @@ export const useSSENotifications = () => {
 
       es.addEventListener('new_notification', (e) => {
         receiveSSE(JSON.parse(e.data));
+      });
+
+      // ── New: marketplace order real-time update ───────────────────────
+      // This event is fired directly from the order service
+      // independently of the notification bell pipeline.
+      // It carries order payload for live Orders page update.
+      es.addEventListener('marketplace_new_order', (e) => {
+        const data = JSON.parse(e.data);
+        receiveNewOrder(data);
+
+        // Play notification sound once
+        try {
+          const audio = new Audio('/sounds/order-alert.mp3');
+          audio.volume = 0.6;
+          audio.play().catch(() => {
+            // Browser may block autoplay — silent fail is correct
+          });
+        } catch {
+          // Audio not available — silent fail
+        }
       });
 
       es.onerror = () => es.close();
@@ -41,7 +64,7 @@ export const useSSENotifications = () => {
       window.removeEventListener('storage', handleStorage);
       eventSourceRef.current?.close();
     };
-  }, [receiveSSE]);
+  }, [receiveSSE, receiveNewOrder]);
 
   return null;
 };

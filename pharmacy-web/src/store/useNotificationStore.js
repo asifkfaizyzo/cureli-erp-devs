@@ -50,8 +50,11 @@ const initialState = {
     eventType: null,
   },
 
-  // SSE state — NEW
+  // SSE state
   hasNewNotifications: false,
+
+  // Marketplace order real-time state
+  newOrderCount: 0,
 
   // Polling
   lastFetched: null,
@@ -91,6 +94,22 @@ export const useNotificationStore = create(
             : state.recentNotifications,
         }));
       },
+
+      /**
+       * Called by SSE hook when a marketplace_new_order event arrives.
+       * Increments the new order badge count on the sidebar Orders item.
+       * Cleared when user navigates to /marketplace/orders.
+       */
+      receiveNewOrderSSE: () => {
+        set((state) => ({
+          newOrderCount: state.newOrderCount + 1,
+        }));
+      },
+
+      /**
+       * Call when user opens the Orders page.
+       */
+      clearNewOrderCount: () => set({ newOrderCount: 0 }),
 
       // ── Badge Count ──────────────────────────────────────────────────────
 
@@ -382,7 +401,8 @@ export const useNotificationStore = create(
 export const selectUnreadCount = (state) => state.unreadCount;
 export const selectHasCritical = (state) => state.hasCritical;
 export const selectHasHigh = (state) => state.hasHigh;
-export const selectHasNewNotifications = (state) => state.hasNewNotifications; // NEW
+export const selectHasNewNotifications = (state) => state.hasNewNotifications;
+export const selectNewOrderCount = (state) => state.newOrderCount;
 export const selectRecentNotifications = (state) => state.recentNotifications;
 export const selectIsRecentLoading = (state) => state.isRecentLoading;
 export const selectNotifications = (state) => state.notifications;
