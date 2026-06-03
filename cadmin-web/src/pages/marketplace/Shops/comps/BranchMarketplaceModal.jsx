@@ -317,6 +317,8 @@ const PlacesSearchInput = ({ value, onChange, onSelect }) => {
 
 // ── Draggable map — receives isLoaded/loadError as props ───────
 // useJsApiLoader is called at modal level, passed down here
+// Replace ONLY the DraggableMap component in BranchMarketplaceModal.jsx
+
 const DraggableMap = ({
   latitude,
   longitude,
@@ -325,7 +327,7 @@ const DraggableMap = ({
   loadError,
 }) => {
   const mapRef = useRef(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
   const center = useMemo(
@@ -337,46 +339,58 @@ const DraggableMap = ({
     mapRef.current = map;
   }, []);
 
-  const handleDragEnd = useCallback(
-    (e) => {
-      setIsDragging(false);
-      const newLat = e.latLng.lat();
-      const newLng = e.latLng.lng();
-      setIsReverseGeocoding(true);
+  // When user stops dragging/panning the map, get the new center
+  const handleIdle = useCallback(() => {
+    if (!mapRef.current) return;
+    const newCenter = mapRef.current.getCenter();
+    if (!newCenter) return;
 
-      try {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode(
-          { location: { lat: newLat, lng: newLng } },
-          (results, status) => {
-            const address =
-              status === "OK" && results?.[0]
-                ? results[0].formatted_address
-                : null;
-            onLocationUpdate({
-              latitude: newLat,
-              longitude: newLng,
-              formatted_address: address,
-            });
-            setIsReverseGeocoding(false);
-          }
-        );
-      } catch {
-        onLocationUpdate({
-          latitude: newLat,
-          longitude: newLng,
-          formatted_address: null,
-        });
-        setIsReverseGeocoding(false);
-      }
-    },
-    [onLocationUpdate]
-  );
+    const newLat = newCenter.lat();
+    const newLng = newCenter.lng();
+
+    // Skip if position hasn't meaningfully changed (prevents infinite loops)
+    if (
+      Math.abs(newLat - Number(latitude)) < 0.000001 &&
+      Math.abs(newLng - Number(longitude)) < 0.000001
+    ) {
+      setIsPanning(false);
+      return;
+    }
+
+    setIsPanning(false);
+    setIsReverseGeocoding(true);
+
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode(
+        { location: { lat: newLat, lng: newLng } },
+        (results, status) => {
+          const address =
+            status === "OK" && results?.[0]
+              ? results[0].formatted_address
+              : null;
+          onLocationUpdate({
+            latitude: newLat,
+            longitude: newLng,
+            formatted_address: address,
+          });
+          setIsReverseGeocoding(false);
+        }
+      );
+    } catch {
+      onLocationUpdate({
+        latitude: newLat,
+        longitude: newLng,
+        formatted_address: null,
+      });
+      setIsReverseGeocoding(false);
+    }
+  }, [latitude, longitude, onLocationUpdate]);
 
   if (loadError) {
     return (
       <div
-        className="h-40 rounded-xl bg-gray-50 border border-gray-200
+        className="h-48 rounded-xl bg-gray-50 border border-gray-200
           flex items-center justify-center"
       >
         <p className="text-xs text-gray-400">Map unavailable</p>
@@ -387,7 +401,7 @@ const DraggableMap = ({
   if (!isLoaded) {
     return (
       <div
-        className="h-40 rounded-xl bg-gray-50 border border-gray-200
+        className="h-48 rounded-xl bg-gray-50 border border-gray-200
           flex items-center justify-center gap-2"
       >
         <Loader2 size={14} className="animate-spin text-gray-400" />
@@ -397,37 +411,89 @@ const DraggableMap = ({
   }
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-gray-200 h-44">
+    <div className="relative rounded-xl overflow-hidden border border-gray-200 h-48">
       <GoogleMap
         mapContainerStyle={MAP_CONTAINER}
         center={center}
-        zoom={15}
-        options={MAP_OPTIONS}
+        zoom={16}
+        options={{
+          ...MAP_OPTIONS,
+          draggableCursor: "grab",
+          draggingCursor: "grabbing",
+        }}
         onLoad={onMapLoad}
+        onDragStart={() => setIsPanning(true)}
+        onIdle={handleIdle}
       >
-        <Marker
-          position={center}
-          draggable
-          onDragStart={() => setIsDragging(true)}
-          onDragEnd={handleDragEnd}
-        />
+        {/* No <Marker> — the pin is a CSS overlay in the center */}
       </GoogleMap>
 
-      {!isDragging && !isReverseGeocoding && (
+      {/* ── Fixed center pin (always in the middle) ── */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full
+          pointer-events-none z-10 flex flex-col items-center"
+      >
+        {/* Pin shadow */}
         <div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5
-            py-1 rounded-lg bg-black/50 backdrop-blur-sm pointer-events-none"
+          className={`w-3 h-1 rounded-full bg-black/20 blur-[2px]
+            absolute bottom-[-2px] transition-transform duration-200
+            ${isPanning ? "scale-75 opacity-50" : "scale-100 opacity-100"}`}
+        />
+        {/* Pin body */}
+        <div
+          className={`transition-transform duration-200
+            ${isPanning ? "-translate-y-2 scale-110" : "translate-y-0 scale-100"}`}
         >
-          <p className="text-[10px] text-white/80 whitespace-nowrap">
-            Drag pin to adjust location
+          {/* Pin SVG */}
+          <svg
+            width="32"
+            height="42"
+            viewBox="0 0 32 42"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Pin shape */}
+            <path
+              d="M16 0C7.164 0 0 7.164 0 16c0 12 16 26 16 26s16-14 16-26C32 7.164 24.836 0 16 0z"
+              fill="#05015A"
+            />
+            {/* White inner circle */}
+            <circle cx="16" cy="16" r="7" fill="white" />
+            {/* Blue dot */}
+            <circle cx="16" cy="16" r="3.5" fill="#05015A" />
+          </svg>
+        </div>
+      </div>
+
+      {/* ── Bottom hint ── */}
+      {!isPanning && !isReverseGeocoding && (
+        <div
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3
+            py-1.5 rounded-lg bg-black/50 backdrop-blur-sm pointer-events-none"
+        >
+          <p className="text-[10px] text-white/90 whitespace-nowrap font-medium">
+            Move map to adjust pin location
           </p>
         </div>
       )}
 
+      {/* ── Panning indicator ── */}
+      {isPanning && (
+        <div
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3
+            py-1.5 rounded-lg bg-[#05015A]/80 backdrop-blur-sm pointer-events-none"
+        >
+          <p className="text-[10px] text-white whitespace-nowrap font-medium">
+            Release to set location
+          </p>
+        </div>
+      )}
+
+      {/* ── Reverse geocoding overlay ── */}
       {isReverseGeocoding && (
         <div
-          className="absolute inset-0 bg-white/60 backdrop-blur-sm
-            flex items-center justify-center"
+          className="absolute inset-0 bg-white/40 backdrop-blur-[1px]
+            flex items-center justify-center pointer-events-none"
         >
           <div
             className="flex items-center gap-2 px-3 py-2 bg-white
