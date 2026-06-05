@@ -78,3 +78,5 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
 
 export const HERO_CAROUSEL_HEIGHT = 180;
 export const HERO_AUTO_SLIDE_INTERVAL_MS = 3500;
+
+export const HEADER_HEIGHT = 172;

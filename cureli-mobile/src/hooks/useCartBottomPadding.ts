@@ -1,3 +1,4 @@
+//cureli-mobile\src\hooks\useCartBottomPadding.ts
 import { useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 

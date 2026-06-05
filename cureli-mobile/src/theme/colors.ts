@@ -38,6 +38,7 @@ export interface ColorPalette {
     tint: string;       // light brand wash
     accent: string;     // stronger brand wash
     input: string;      // text input background
+    trans: string;      // fully transparent — overlays, ghost elements
   };
 
   text: {
@@ -107,6 +108,7 @@ export const LightColors: ColorPalette = {
     tint:      '#eef2ff',
     accent:    '#e0e7ff',
     input:     '#f8fafc',
+    trans:     'transparent',
   },
 
   text: {
@@ -152,6 +154,7 @@ export const LightColors: ColorPalette = {
     inactive:   '#94a3b8',
     background: '#ffffff',
     border:     '#e2e8f0',
+    
   },
 
   transparent: 'transparent',
@@ -177,6 +180,7 @@ const DarkPure: ColorPalette = {
     tint:      '#1a1030',
     accent:    '#231845',
     input:     '#111111',
+    trans:     'transparent',
   },
 
   text: {
@@ -245,6 +249,7 @@ const DarkNavy: ColorPalette = {
     tint:      '#1a1050',
     accent:    '#231860',
     input:     '#130840',
+    trans:     'transparent',
   },
 
   text: {
@@ -313,6 +318,7 @@ const DarkNeutral: ColorPalette = {
     tint:      '#1a1530',
     accent:    '#231845',
     input:     '#1c1c1e',
+    trans:     'transparent',
   },
 
   text: {
@@ -366,8 +372,8 @@ const DarkNeutral: ColorPalette = {
 // ── Dark palette map ──────────────────────────────────────────
 
 const DarkPalettes: Record<DarkVariant, ColorPalette> = {
-  pure: DarkPure,
-  navy: DarkNavy,
+  pure:    DarkPure,
+  navy:    DarkNavy,
   neutral: DarkNeutral,
 };
 

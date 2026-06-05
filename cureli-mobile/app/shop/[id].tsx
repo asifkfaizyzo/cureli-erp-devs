@@ -93,10 +93,10 @@ export default function ShopScreen() {
   );
 
   // ── Cart ──────────────────────────────────────────────────
-  const addItem       = useCartStore((state) => state.addItem);
-  const clearCart     = useCartStore((state) => state.clearCart);
-  const cartItems     = useCartStore((state) => state.items);
-  const cartPharmacy  = useCartStore((state) => state.cartPharmacy);
+  const addItem = useCartStore((state) => state.addItem);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const cartItems = useCartStore((state) => state.items);
+  const cartPharmacy = useCartStore((state) => state.cartPharmacy);
   const incrementItem = useCartStore((state) => state.incrementItem);
   const decrementItem = useCartStore((state) => state.decrementItem);
 
@@ -151,11 +151,7 @@ export default function ShopScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useShopMedicines(
-    shopId ?? "",
-    effectiveBranchId ?? "",
-    debouncedSearch,
-  );
+  } = useShopMedicines(shopId ?? "", effectiveBranchId ?? "", debouncedSearch);
 
   // ── Cart quantity map ─────────────────────────────────────
   const cartQuantityMap = useMemo(() => {
@@ -202,6 +198,10 @@ export default function ShopScreen() {
         shopName: profile.name,
         branchId: selectedBranch.branchId,
         branchName: selectedBranch.branchName ?? profile.name,
+        requiresPrescription: item.requiresPrescription, // ← NEW
+        category: item.category, // ← NEW
+        branchLatitude: selectedBranch.latitude ?? null,
+        branchLongitude: selectedBranch.longitude ?? null,
       });
 
       if (result.status === "conflict") {
@@ -247,6 +247,10 @@ export default function ShopScreen() {
       shopName: profile.name,
       branchId: selectedBranch.branchId,
       branchName: selectedBranch.branchName ?? profile.name,
+      requiresPrescription: pending.requiresPrescription, // ← NEW
+      category: pending.category, // ← NEW
+      branchLatitude: selectedBranch.latitude ?? null,
+      branchLongitude: selectedBranch.longitude ?? null,
     });
 
     pendingAddRef.current = null;
@@ -362,9 +366,7 @@ export default function ShopScreen() {
                 ? `Results for "${debouncedSearch}"`
                 : "Available Medicines"}
             </Text>
-            <Text
-              style={[styles.medicinesCount, { color: colors.text.muted }]}
-            >
+            <Text style={[styles.medicinesCount, { color: colors.text.muted }]}>
               {total} items
             </Text>
           </View>
@@ -438,11 +440,7 @@ export default function ShopScreen() {
         </View>
       ) : (
         <View style={styles.center}>
-          <Ionicons
-            name="medkit-outline"
-            size={44}
-            color={colors.text.faint}
-          />
+          <Ionicons name="medkit-outline" size={44} color={colors.text.faint} />
           <Text style={[styles.centerText, { color: colors.text.secondary }]}>
             {debouncedSearch.trim().length >= 1
               ? `No medicines found for "${debouncedSearch}"`

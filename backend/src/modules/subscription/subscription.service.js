@@ -97,8 +97,6 @@ async function applyGracePeriodGuard(subscription) {
       data: { grace_period_until: gracePeriodUntil },
     });
 
-    
-
     return { ...subscription, grace_period_until: gracePeriodUntil };
   }
 
@@ -967,7 +965,7 @@ async function executeUpgrade(
       order_id: razorpayOrder.id,
       amount: amountInPaisa,
       currency: RAZORPAY_CURRENCY,
-      name: "Cureli ERP",
+      name: "Cureli",
       description: introActive
         ? `${targetPlan.name} - Intro Period (Upgrade)`
         : `${targetPlan.name} - Annual Subscription (Upgrade)`,
@@ -1087,7 +1085,7 @@ async function executeRenewal(
       order_id: razorpayOrder.id,
       amount: amountInPaisa,
       currency: RAZORPAY_CURRENCY,
-      name: "Cureli ERP",
+      name: "Cureli",
       description: `${targetPlan.name} - Plan Renewal`,
       prefill: {
         name: user.full_name || "",

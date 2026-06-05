@@ -86,7 +86,7 @@ const Navbar = () => {
               >
                 <img
                   src={logo}
-                  alt="Cureli ERP"
+                  alt="Cureli"
                   className={`w-auto transition-all duration-700 ${
                     scrolled ? "h-7 sm:h-9" : "h-8 sm:h-10 md:h-11"
                   }`}
@@ -206,7 +206,9 @@ const Navbar = () => {
       {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          isOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
         }`}
         onClick={toggleMenu}
         aria-hidden="true"

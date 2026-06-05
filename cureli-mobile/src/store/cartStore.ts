@@ -38,11 +38,14 @@ export interface CartItem {
   pricePerUnit: number;
   image: string | null;
   manufacturer: string | null;
-  // ── Pharmacy context (Phase 3) ──────────────────────────────
   shopId: string;
   shopName: string;
   branchId: string;
   branchName: string;
+  requiresPrescription: boolean;
+  category: string | null;
+  branchLatitude?: number | null;
+  branchLongitude?: number | null;
 }
 
 // Result of addItem — either success or a conflict that needs user resolution
@@ -157,9 +160,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
 
     if (existing) {
       updated = items.map((i) =>
-        i.variantId === item.variantId
-          ? { ...i, quantity: i.quantity + 1 }
-          : i,
+        i.variantId === item.variantId ? { ...i, quantity: i.quantity + 1 } : i,
       );
     } else {
       updated = [...items, { ...item, quantity: 1 }];
@@ -205,9 +206,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
 
     const updated = items
       .map((i) =>
-        i.variantId === variantId
-          ? { ...i, quantity: i.quantity - 1 }
-          : i,
+        i.variantId === variantId ? { ...i, quantity: i.quantity - 1 } : i,
       )
       .filter((i) => i.quantity > 0);
 

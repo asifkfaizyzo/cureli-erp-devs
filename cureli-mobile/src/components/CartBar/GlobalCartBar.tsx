@@ -1,3 +1,4 @@
+//cureli-mobile\src\components\CartBar\GlobalCartBar.tsx
 import React, { useCallback, useMemo } from "react";
 import {
   TouchableOpacity,
