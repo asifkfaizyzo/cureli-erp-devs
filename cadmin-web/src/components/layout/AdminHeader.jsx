@@ -52,7 +52,7 @@ const AdminHeader = () => {
     setActiveModule("marketplace");
     setActiveMenu("mp-users");
     setBreadcrumbs(["Marketplace", "Users"]);
-    setTimeout(() => navigate("/marketplace/users"), 50);
+    setTimeout(() => navigate("/marketplace/dashboard"), 50);
   };
 
   // ============================================

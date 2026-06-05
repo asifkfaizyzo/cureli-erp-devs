@@ -149,29 +149,30 @@ const MarketplaceUsersPage = () => {
   useEffect(() => setPage(1), [statusFilter]);
 
   const fetchUsers = useCallback(
-    async ({ silent = false } = {}) => {
-      silent ? setRefreshing(true) : setLoading(true);
-      try {
-        const res = await getMobileUsers({
-          page,
-          limit: PAGE_SIZE,
-          search: debouncedSearch,
-          status: statusFilter,
-        });
-        const d = res.data?.data;
-        setUsers(d?.users || []);
-        setTotalPages(d?.total_pages || 1);
-        setTotalCount(d?.total || 0);
-      } catch {
-        showToast("Failed to load users", "error");
-        setUsers([]);
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [page, debouncedSearch, statusFilter]
-  );
+  async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const res = await getMobileUsers({
+        page,
+        limit: PAGE_SIZE,
+        search: debouncedSearch,
+        status: statusFilter,
+      });
+      const d = res.data?.data;
+      setUsers(d?.users || []);
+      setTotalPages(d?.total_pages || 1);
+      setTotalCount(d?.total || 0);
+    } catch {
+      showToast("Failed to load users", "error");
+      setUsers([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  },
+  [page, debouncedSearch, statusFilter, showToast] // ← showToast added
+);
 
   useEffect(() => {
     fetchUsers();
@@ -298,8 +299,8 @@ const MarketplaceUsersPage = () => {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <StatCard icon={Users} label="Total Users" value={totalCount.toLocaleString()} tint="bg-indigo-50 text-indigo-600" />
-          <StatCard icon={UserCheck} label="Active (page)" value={stats.active} tint="bg-emerald-50 text-emerald-600" />
-          <StatCard icon={UserX} label="Suspended (page)" value={stats.suspended} tint="bg-red-50 text-red-600" />
+          <StatCard icon={UserCheck} label="Active " value={stats.active} tint="bg-emerald-50 text-emerald-600" />
+          <StatCard icon={UserX} label="Suspended " value={stats.suspended} tint="bg-red-50 text-red-600" />
         </div>
 
         {/* Filters bar */}
