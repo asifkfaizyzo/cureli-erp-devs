@@ -18,25 +18,31 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import EventSource from 'react-native-sse';
+import EventSource, { CustomEvent } from 'react-native-sse';
 
 import { StorageService } from '../services/storage';
 import { CONFIG } from '../constants/config';
 import { useOrderNotificationStore } from '../store/orderNotificationStore';
 import { useAuthStore } from '../store/authStore';
 
+// ── Custom SSE event names this hook subscribes to ────────────────────────────
+// Must be declared here and passed as the generic to EventSource so TypeScript
+// accepts them in .addEventListener() calls. Any event not in this union will
+// be a compile-time error — intentional, keeps the contract explicit.
+type SSEEvents = 'connected' | 'heartbeat' | 'order_status_changed';
+
 // Backoff config — doubles on each retry, capped at 30s
 const INITIAL_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS     = 30_000;
 
 export function useMobileSSE() {
-  const status               = useAuthStore((s) => s.status);
-  const setLastStatusUpdate  = useOrderNotificationStore((s) => s.setLastStatusUpdate);
+  const status              = useAuthStore((s) => s.status);
+  const setLastStatusUpdate = useOrderNotificationStore((s) => s.setLastStatusUpdate);
 
-  const esRef          = useRef<EventSource | null>(null);
-  const backoffRef     = useRef<number>(INITIAL_BACKOFF_MS);
-  const retryTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef   = useRef<boolean>(true);
+  const esRef         = useRef<EventSource<SSEEvents> | null>(null);
+  const backoffRef    = useRef<number>(INITIAL_BACKOFF_MS);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef  = useRef<boolean>(true);
 
   const disconnect = useCallback(() => {
     if (retryTimerRef.current) {
@@ -51,7 +57,7 @@ export function useMobileSSE() {
 
   const connect = useCallback(() => {
     // Do not connect if already connected, not authenticated, or unmounted
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current)       return;
     if (status !== 'authenticated')  return;
     if (esRef.current)               return;
 
@@ -60,7 +66,9 @@ export function useMobileSSE() {
 
     const url = `${CONFIG.BASE_URL}/mobile/notifications/stream?token=${encodeURIComponent(token)}`;
 
-    const es = new EventSource(url);
+    // Generic union tells TypeScript exactly which custom event names are valid
+    // for addEventListener() on this instance.
+    const es = new EventSource<SSEEvents>(url);
     esRef.current = es;
 
     // ── Connection confirmed ──────────────────────────────────────────────
@@ -77,7 +85,12 @@ export function useMobileSSE() {
     // ── Order status changed ──────────────────────────────────────────────
     // Fired by the backend after any state transition:
     // ACCEPTED, REJECTED, READY_FOR_PICKUP, COMPLETED, CANCELLED
-    es.addEventListener('order_status_changed', (event) => {
+    //
+    // CustomEvent<'order_status_changed'> is what react-native-sse passes to
+    // callbacks for non-built-in event names. It carries a .data string field
+    // (the raw SSE data payload) just like MessageEvent, but its .type is
+    // the custom event name rather than "message".
+    es.addEventListener('order_status_changed', (event: CustomEvent<'order_status_changed'>) => {
       if (!event.data) return;
       try {
         const data = JSON.parse(event.data);
