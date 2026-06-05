@@ -88,9 +88,10 @@ function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
         <Text style={[styles.successTitle, { color: colors.text.primary }]}>
           Order Placed!
         </Text>
+        {/* ↓ Fixed copy — no longer promises push notifications */}
         <Text style={[styles.successSub, { color: colors.text.muted }]}>
-          Your medicines are being prepared.{"\n"}
-          You'll receive updates on your phone.
+          Your order has been placed with the pharmacy.{"\n"}
+          Track your order status in the Orders tab.
         </Text>
         <TouchableOpacity
           onPress={onGoHome}

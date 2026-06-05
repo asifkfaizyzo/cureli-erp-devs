@@ -1,14 +1,18 @@
+// backend/src/services/sse.service.js
+
 /**
  * SSE Service Manager (Singleton)
- * Maintains active connections for both Admin and ERP Users
+ * Maintains active connections for CAdmin, ERP Users, and Mobile Customers.
  */
 class SSEService {
   constructor() {
     this.cadminClients = new Map(); // Map<cadminId, Set<Response>>
-    this.userClients = new Map();   // Map<userId, Set<Response>>
+    this.userClients   = new Map(); // Map<userId,   Set<Response>>
+    this.mobileClients = new Map(); // Map<customerId, Set<Response>>
   }
 
-  // --- CAdmin Management ---
+  // ── CAdmin ────────────────────────────────────────────────────────────────
+
   addCAdminClient(cadminId, res) {
     if (!this.cadminClients.has(cadminId)) {
       this.cadminClients.set(cadminId, new Set());
@@ -28,16 +32,17 @@ class SSEService {
     const clients = this.cadminClients.get(cadminId);
     if (!clients) return;
     const message = this.formatSSEMessage(eventName, data);
-    clients.forEach(res => {
+    clients.forEach((res) => {
       try {
         res.write(message);
-      } catch (err) {
+      } catch {
         this.removeCAdminClient(cadminId, res);
       }
     });
   }
 
-  // --- User Management ---
+  // ── ERP Users ─────────────────────────────────────────────────────────────
+
   addUserClient(userId, res) {
     if (!this.userClients.has(userId)) {
       this.userClients.set(userId, new Set());
@@ -57,16 +62,47 @@ class SSEService {
     const clients = this.userClients.get(userId);
     if (!clients) return;
     const message = this.formatSSEMessage(eventName, data);
-    clients.forEach(res => {
+    clients.forEach((res) => {
       try {
         res.write(message);
-      } catch (err) {
+      } catch {
         this.removeUserClient(userId, res);
       }
     });
   }
 
-  // --- Helpers ---
+  // ── Mobile Customers ──────────────────────────────────────────────────────
+
+  addMobileClient(customerId, res) {
+    if (!this.mobileClients.has(customerId)) {
+      this.mobileClients.set(customerId, new Set());
+    }
+    this.mobileClients.get(customerId).add(res);
+  }
+
+  removeMobileClient(customerId, res) {
+    const clients = this.mobileClients.get(customerId);
+    if (clients) {
+      clients.delete(res);
+      if (clients.size === 0) this.mobileClients.delete(customerId);
+    }
+  }
+
+  notifyMobile(customerId, eventName, data) {
+    const clients = this.mobileClients.get(customerId);
+    if (!clients) return;
+    const message = this.formatSSEMessage(eventName, data);
+    clients.forEach((res) => {
+      try {
+        res.write(message);
+      } catch {
+        this.removeMobileClient(customerId, res);
+      }
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
   formatSSEMessage(eventName, data) {
     return `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
   }

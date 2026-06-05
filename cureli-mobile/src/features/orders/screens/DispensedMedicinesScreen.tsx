@@ -1,39 +1,60 @@
 // src/features/orders/screens/DispensedMedicinesScreen.tsx
-//
-// Shows the user's dispensed/delivered medicines history.
-// Currently uses mock data — will be wired to a real API later.
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { router, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../theme/ThemeContext';
 import { OrderHistoryCard } from '../components/OrderHistoryCard';
-import { MOCK_ORDERS } from '../constants/orders.constants';
-import type { DispensedOrder } from '../../../types/order';
+import { ordersApi } from '../../marketplace/api/orders.api';
+import { useLayoutStore } from '../../../store/layoutStore';
+import { Spacing } from '../../../theme/spacing';
+import type { MobileOrderSummary } from '../../../types/order';
 
 export function DispensedMedicinesScreen() {
   const { colors, isDark } = useTheme();
-  const [orders, setOrders] = useState<DispensedOrder[]>(MOCK_ORDERS);
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
+  const bottomTabBarHeight = useLayoutStore((s) => s.bottomTabBarHeight);
+
+  const [orders, setOrders] = useState<MobileOrderSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await ordersApi.getOrders();
+      setOrders(res.data.data.orders);
+    } catch (err) {
+      console.error('[DispensedMedicinesScreen] fetchOrders error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders]),
+  );
 
   const handleOpen = (orderId: string) => {
     router.push(`/orders/${orderId}` as any);
   };
 
-  const handleReorder = (orderId: string) => {
+  const handleReorder = (_orderId: string) => {
     router.push('/cart');
   };
 
   const handleDelete = (orderId: string) => {
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    setOrders((prev) => prev.filter((o) => o.order_id !== orderId));
   };
 
   const EmptyState = () => (
@@ -44,7 +65,11 @@ export function DispensedMedicinesScreen() {
           { backgroundColor: colors.background.elevated },
         ]}
       >
-        <MaterialIcons name="medication" size={40} color={colors.text.disabled} />
+        <Ionicons
+          name="receipt-outline"
+          size={40}
+          color={colors.text.disabled}
+        />
       </View>
       <Text
         style={[
@@ -52,7 +77,7 @@ export function DispensedMedicinesScreen() {
           { color: colors.text.primary, fontFamily: 'Inter_700Bold' },
         ]}
       >
-        No dispensed medicines
+        No orders yet
       </Text>
       <Text
         style={[
@@ -60,7 +85,7 @@ export function DispensedMedicinesScreen() {
           { color: colors.text.faint, fontFamily: 'Inter_400Regular' },
         ]}
       >
-        Your delivered medicines will appear here
+        Your orders will appear here
       </Text>
       <TouchableOpacity
         style={[styles.shopButton, { backgroundColor: brandColor }]}
@@ -68,7 +93,10 @@ export function DispensedMedicinesScreen() {
         activeOpacity={0.8}
       >
         <Text
-          style={[styles.shopButtonText, { fontFamily: 'Inter_600SemiBold' }]}
+          style={[
+            styles.shopButtonText,
+            { fontFamily: 'Inter_600SemiBold' },
+          ]}
         >
           Start Shopping
         </Text>
@@ -81,7 +109,7 @@ export function DispensedMedicinesScreen() {
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={['top']}
     >
-      {/* ── Header ─────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────── */}
       <View
         style={[
           styles.header,
@@ -96,7 +124,7 @@ export function DispensedMedicinesScreen() {
           style={styles.backButton}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="arrow-back" size={22} color={colors.text.primary} />
+          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text
@@ -105,7 +133,7 @@ export function DispensedMedicinesScreen() {
               { color: colors.text.primary, fontFamily: 'Inter_700Bold' },
             ]}
           >
-            Dispensed Medicines
+            My Medicines
           </Text>
           <Text
             style={[
@@ -113,30 +141,40 @@ export function DispensedMedicinesScreen() {
               { color: colors.text.faint, fontFamily: 'Inter_400Regular' },
             ]}
           >
-            {orders.length} record{orders.length !== 1 ? 's' : ''}
+            {orders.length} order{orders.length !== 1 ? 's' : ''}
           </Text>
         </View>
         <View style={styles.headerRight} />
       </View>
 
-      {/* ── List ─────────────────────────────────── */}
-      <FlatList
-        data={orders}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <OrderHistoryCard
-            order={item}
-            onOpen={() => handleOpen(item.id)}
-            onReorder={() => handleReorder(item.id)}
-            onDelete={() => handleDelete(item.id)}
-          />
-        )}
-        ListEmptyComponent={<EmptyState />}
-        ListHeaderComponent={<View style={styles.listHeader} />}
-        ListFooterComponent={<View style={styles.listFooter} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={orders.length === 0 ? styles.emptyList : undefined}
-      />
+      {/* ── Loading ─────────────────────────────────────── */}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={brandColor} />
+        </View>
+      ) : (
+        /* ── List ──────────────────────────────────────── */
+        <FlatList
+          data={orders}
+          keyExtractor={(item) => item.order_id}
+          renderItem={({ item }) => (
+            <OrderHistoryCard
+              order={item}
+              onOpen={() => handleOpen(item.order_id)}
+              onReorder={() => handleReorder(item.order_id)}
+              onDelete={() => handleDelete(item.order_id)}
+            />
+          )}
+          ListEmptyComponent={<EmptyState />}
+          ListHeaderComponent={<View style={styles.listHeader} />}
+          ListFooterComponent={<View style={styles.listFooter} />}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            orders.length === 0 ? styles.emptyList : undefined,
+            { paddingBottom: bottomTabBarHeight + Spacing.md },
+          ]}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -161,18 +199,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 17,
-  },
-  headerCount: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-  headerRight: {
-    width: 36,
+  headerTitle: { fontSize: 17 },
+  headerCount: { fontSize: 12, marginTop: 1 },
+  headerRight: { width: 36 },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listHeader: { height: 12 },
-  listFooter: { height: 24 },
+  listFooter: { height: 8 },
   emptyList: { flex: 1 },
   emptyContainer: {
     flex: 1,
@@ -189,21 +225,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  emptyTitle: {
-    fontSize: 20,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
+  emptyTitle: { fontSize: 20 },
+  emptySubtitle: { fontSize: 14, textAlign: 'center' },
   shopButton: {
     marginTop: 8,
     paddingHorizontal: 28,
     paddingVertical: 12,
     borderRadius: 12,
   },
-  shopButtonText: {
-    fontSize: 14,
-    color: '#ffffff',
-  },
+  shopButtonText: { fontSize: 14, color: '#ffffff' },
 });
