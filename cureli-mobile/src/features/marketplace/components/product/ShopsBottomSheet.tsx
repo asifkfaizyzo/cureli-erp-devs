@@ -11,12 +11,7 @@
 // The "Go to Cart" floating bar is hidden while this sheet is open
 // (controlled by parent via sheetVisible state).
 
-import React, {
-  useCallback,
-  useRef,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useRef, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -118,11 +113,11 @@ export function ShopsBottomSheet({
   );
 
   // ── Cart ──────────────────────────────────────────────────
-  const addItem       = useCartStore((s) => s.addItem);
-  const clearCart     = useCartStore((s) => s.clearCart);
+  const addItem = useCartStore((s) => s.addItem);
+  const clearCart = useCartStore((s) => s.clearCart);
   const incrementItem = useCartStore((s) => s.incrementItem);
   const decrementItem = useCartStore((s) => s.decrementItem);
-  const cartItems     = useCartStore((s) => s.items);
+  const cartItems = useCartStore((s) => s.items);
 
   // ── Derive cart state from items directly ─────────────────
   // FIX: Previously used cartPharmacy() in a useMemo which never
@@ -168,6 +163,8 @@ export function ShopsBottomSheet({
         shopName: shop.shopName,
         branchId: shop.branchId,
         branchName: shop.branchName ?? shop.shopName,
+        requiresPrescription: shop.requiresPrescription,
+        category: variant.category,
       });
 
       if (result.status === "conflict") {
@@ -210,6 +207,8 @@ export function ShopsBottomSheet({
       shopName: shop.shopName,
       branchId: shop.branchId,
       branchName: shop.branchName ?? shop.shopName,
+      requiresPrescription: shop.requiresPrescription,
+      category: variant.category,
     });
 
     pendingShopRef.current = null;
@@ -242,9 +241,7 @@ export function ShopsBottomSheet({
             size={44}
             color={colors.text.faint}
           />
-          <Text
-            style={[styles.centerText, { color: colors.text.secondary }]}
-          >
+          <Text style={[styles.centerText, { color: colors.text.secondary }]}>
             Failed to load pharmacies
           </Text>
           <TouchableOpacity onPress={onRetry} activeOpacity={0.7}>
@@ -264,9 +261,7 @@ export function ShopsBottomSheet({
             size={44}
             color={colors.text.faint}
           />
-          <Text
-            style={[styles.centerText, { color: colors.text.secondary }]}
-          >
+          <Text style={[styles.centerText, { color: colors.text.secondary }]}>
             No pharmacy stocks this medicine near you
           </Text>
         </View>
@@ -326,23 +321,15 @@ export function ShopsBottomSheet({
       >
         {/* Header */}
         <View
-          style={[
-            styles.header,
-            { borderBottomColor: colors.border.subtle },
-          ]}
+          style={[styles.header, { borderBottomColor: colors.border.subtle }]}
         >
           <View style={styles.headerText}>
-            <Text
-              style={[styles.headerTitle, { color: colors.text.primary }]}
-            >
+            <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
               Available at
             </Text>
             {!isLoading && !isError && shops.length > 0 ? (
-              <Text
-                style={[styles.headerCount, { color: colors.text.muted }]}
-              >
-                {shops.length}{" "}
-                {shops.length === 1 ? "pharmacy" : "pharmacies"}
+              <Text style={[styles.headerCount, { color: colors.text.muted }]}>
+                {shops.length} {shops.length === 1 ? "pharmacy" : "pharmacies"}
               </Text>
             ) : null}
           </View>
@@ -351,11 +338,7 @@ export function ShopsBottomSheet({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityLabel="Close"
           >
-            <Ionicons
-              name="close"
-              size={22}
-              color={colors.text.secondary}
-            />
+            <Ionicons name="close" size={22} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
 

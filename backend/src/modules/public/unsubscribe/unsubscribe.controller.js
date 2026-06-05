@@ -4,14 +4,14 @@ import {
   processUnsubscribe,
   isUnsubscribed,
   buildUnsubscribeUrl,
-} from '../../cadmin/broadcast/email/emailBroadcast.unsubscribe.js';
+} from "../../cadmin/broadcast/email/emailBroadcast.unsubscribe.js";
 
 // ============================================
 // CONFIGURATION
 // ============================================
 
-const APP_NAME = 'Cureli ERP';
-const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@cureli.com';
+const APP_NAME = "Cureli";
+const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || "support@cureli.com";
 
 // ============================================
 // UNSUBSCRIBE PAGE (GET)
@@ -27,7 +27,7 @@ export async function unsubscribePageController(req, res) {
     const { email } = req.query;
 
     if (!token || !email) {
-      return res.status(400).send(renderErrorPage('Invalid unsubscribe link'));
+      return res.status(400).send(renderErrorPage("Invalid unsubscribe link"));
     }
 
     // Check if already unsubscribed
@@ -40,8 +40,10 @@ export async function unsubscribePageController(req, res) {
     // Render confirmation page
     return res.send(renderConfirmationPage(email, token));
   } catch (err) {
-    console.error('[Unsubscribe] Page render failed:', err);
-    return res.status(500).send(renderErrorPage('Something went wrong. Please try again.'));
+    console.error("[Unsubscribe] Page render failed:", err);
+    return res
+      .status(500)
+      .send(renderErrorPage("Something went wrong. Please try again."));
   }
 }
 
@@ -59,19 +61,25 @@ export async function processUnsubscribeController(req, res) {
     const { email, reason } = req.body;
 
     if (!token || !email) {
-      return res.status(400).send(renderErrorPage('Invalid unsubscribe request'));
+      return res
+        .status(400)
+        .send(renderErrorPage("Invalid unsubscribe request"));
     }
 
     const result = await processUnsubscribe(token, email, reason);
 
     if (!result.success) {
-      return res.status(400).send(renderErrorPage(result.error || 'Failed to unsubscribe'));
+      return res
+        .status(400)
+        .send(renderErrorPage(result.error || "Failed to unsubscribe"));
     }
 
     return res.send(renderSuccessPage(email, result.alreadyUnsubscribed));
   } catch (err) {
-    console.error('[Unsubscribe] Process failed:', err);
-    return res.status(500).send(renderErrorPage('Something went wrong. Please try again.'));
+    console.error("[Unsubscribe] Process failed:", err);
+    return res
+      .status(500)
+      .send(renderErrorPage("Something went wrong. Please try again."));
   }
 }
 
@@ -82,7 +90,7 @@ export async function processUnsubscribeController(req, res) {
 /**
  * One-click unsubscribe handler (for email clients that support it)
  * POST /api/public/unsubscribe/one-click
- * 
+ *
  * RFC 8058 compliant - requires List-Unsubscribe-Post header
  */
 export async function oneClickUnsubscribeController(req, res) {
@@ -90,10 +98,14 @@ export async function oneClickUnsubscribeController(req, res) {
     const { token, email } = req.body;
 
     if (!token || !email) {
-      return res.status(400).json({ success: false, error: 'Invalid request' });
+      return res.status(400).json({ success: false, error: "Invalid request" });
     }
 
-    const result = await processUnsubscribe(token, email, 'One-click unsubscribe');
+    const result = await processUnsubscribe(
+      token,
+      email,
+      "One-click unsubscribe",
+    );
 
     if (!result.success) {
       return res.status(400).json({ success: false, error: result.error });
@@ -102,8 +114,8 @@ export async function oneClickUnsubscribeController(req, res) {
     // Return 200 OK for one-click (email clients expect this)
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error('[Unsubscribe] One-click failed:', err);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    console.error("[Unsubscribe] One-click failed:", err);
+    return res.status(500).json({ success: false, error: "Server error" });
   }
 }
 
@@ -122,7 +134,7 @@ export async function unsubscribeApiController(req, res) {
     if (!token || !email) {
       return res.status(400).json({
         success: false,
-        error: 'Token and email are required',
+        error: "Token and email are required",
       });
     }
 
@@ -130,10 +142,10 @@ export async function unsubscribeApiController(req, res) {
 
     return res.status(result.success ? 200 : 400).json(result);
   } catch (err) {
-    console.error('[Unsubscribe] API failed:', err);
+    console.error("[Unsubscribe] API failed:", err);
     return res.status(500).json({
       success: false,
-      error: 'An unexpected error occurred',
+      error: "An unexpected error occurred",
     });
   }
 }
@@ -153,7 +165,7 @@ export async function checkStatusController(req, res) {
     if (!email) {
       return res.status(400).json({
         success: false,
-        error: 'Email is required',
+        error: "Email is required",
       });
     }
 
@@ -165,10 +177,10 @@ export async function checkStatusController(req, res) {
       unsubscribed,
     });
   } catch (err) {
-    console.error('[Unsubscribe] Status check failed:', err);
+    console.error("[Unsubscribe] Status check failed:", err);
     return res.status(500).json({
       success: false,
-      error: 'Failed to check status',
+      error: "Failed to check status",
     });
   }
 }
@@ -383,8 +395,8 @@ function renderConfirmationPage(email, token) {
  */
 function renderSuccessPage(email, alreadyUnsubscribed = false) {
   const message = alreadyUnsubscribed
-    ? 'You were already unsubscribed from our broadcast emails.'
-    : 'You have been successfully unsubscribed from broadcast emails.';
+    ? "You were already unsubscribed from our broadcast emails."
+    : "You have been successfully unsubscribed from broadcast emails.";
 
   return `
 <!DOCTYPE html>
@@ -639,13 +651,13 @@ function renderErrorPage(errorMessage) {
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
-  if (!text) return '';
+  if (!text) return "";
   const htmlEntities = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
   };
   return String(text).replace(/[&<>"']/g, (char) => htmlEntities[char]);
 }

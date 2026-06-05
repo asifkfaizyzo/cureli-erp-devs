@@ -1,3 +1,4 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-mobile\src\store\layoutStore.ts
 import { create } from "zustand";
 
 interface LayoutStore {

@@ -1,6 +1,6 @@
 // src/features/marketplace/components/AddressDropdown.tsx
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,35 +17,47 @@ import Animated, {
   withTiming,
   Easing,
   interpolate,
-  runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { useAddresses } from '../../profile/hooks/useAddresses';
 import { useDeliveryLocationStore } from '../../../store/deliveryLocationStore';
+import { useTheme } from '../../../theme/ThemeContext';
 import { Typography } from '../../../theme/typography';
 import { Spacing } from '../../../theme/spacing';
-import { HEADER_HEIGHT } from './GradientHeader';
+import { Radius } from '../../../theme/radius';
+import { HEADER_HEIGHT } from '../constants/marketplace.constants';
+
 import type { Address } from '../../profile/types/profile.types';
 import type { DeliveryLocation } from '../../../store/deliveryLocationStore';
 
 // ── Constants ─────────────────────────────────────────────────
 
 const ANIMATION_DURATION = 250;
-const MAX_DROPDOWN_HEIGHT = 360;
+const MAX_LIST_HEIGHT     = 240;
 
-// ── Label icons ───────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
 function getLabelIcon(label: string): keyof typeof MaterialIcons.glyphMap {
   switch (label) {
-    case 'Home':
-      return 'home';
-    case 'Work':
-      return 'business';
-    default:
-      return 'location-on';
+    case 'Home': return 'home';
+    case 'Work': return 'business';
+    default:     return 'location-on';
   }
+}
+
+function buildDeliveryLocation(address: Address): DeliveryLocation {
+  return {
+    source:      'saved',
+    area:        address.city ?? address.label ?? 'Saved Address',
+    addressLine: [address.address_line_1, address.city, address.pincode]
+      .filter(Boolean)
+      .join(', '),
+    latitude:    address.latitude  ? Number(address.latitude)  : null,
+    longitude:   address.longitude ? Number(address.longitude) : null,
+    addressId:   address.id,
+  };
 }
 
 // ── Props ─────────────────────────────────────────────────────
@@ -53,144 +65,154 @@ function getLabelIcon(label: string): keyof typeof MaterialIcons.glyphMap {
 interface AddressDropdownProps {
   visible: boolean;
   onClose: () => void;
-  onAddressAdded?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────
 
 export function AddressDropdown({ visible, onClose }: AddressDropdownProps) {
-  const insets = useSafeAreaInsets();
+  const insets      = useSafeAreaInsets();
+  const { colors }  = useTheme();
   const { addresses, isLoading } = useAddresses();
   const { location, selectAddress } = useDeliveryLocationStore();
 
   const progress = useSharedValue(0);
 
-  // ── Animate in/out ──────────────────────────────────────────
+  // ── Animation ────────────────────────────────────────────────
 
   useEffect(() => {
     progress.value = withTiming(visible ? 1 : 0, {
       duration: ANIMATION_DURATION,
-      easing: Easing.out(Easing.cubic),
+      easing:   Easing.out(Easing.cubic),
     });
-  }, [visible]);
+  }, [visible, progress]);
 
-  // ── Animated styles ─────────────────────────────────────────
-
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0, 1], [0, 1]),
-    pointerEvents: progress.value > 0 ? 'auto' as const : 'none' as const,
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity:       interpolate(progress.value, [0, 1], [0, 1]),
+    pointerEvents: (progress.value > 0 ? 'auto' : 'none') as 'auto' | 'none',
   }));
 
-  const dropdownStyle = useAnimatedStyle(() => ({
+  const panelAnimStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.3, 1], [0, 0.5, 1]),
     transform: [
-      {
-        translateY: interpolate(progress.value, [0, 1], [-12, 0]),
-      },
-      {
-        scale: interpolate(progress.value, [0, 1], [0.97, 1]),
-      },
+      { translateY: interpolate(progress.value, [0, 1], [-10, 0]) },
+      { scale:      interpolate(progress.value, [0, 1], [0.98, 1]) },
     ],
-    pointerEvents: progress.value > 0.5 ? 'auto' as const : 'none' as const,
+    pointerEvents: (progress.value > 0.5 ? 'auto' : 'none') as 'auto' | 'none',
   }));
 
-  // ── Handlers ────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────
 
-  const handleSelectAddress = (address: Address) => {
-    const selected: DeliveryLocation = {
-      source: 'saved',
-      area: address.city ?? address.label ?? 'Saved Address',
-      addressLine: [
-        address.address_line_1,
-        address.city,
-        address.pincode,
-      ]
-        .filter(Boolean)
-        .join(', '),
-      latitude: address.latitude ? Number(address.latitude) : null,
-      longitude: address.longitude ? Number(address.longitude) : null,
-      addressId: address.id,
-    };
-
-    selectAddress(selected);
+  const handleSelect = useCallback((address: Address) => {
+    selectAddress(buildDeliveryLocation(address));
     onClose();
-  };
+  }, [selectAddress, onClose]);
 
-  const handleAddAddress = () => {
+  const handleAddAddress = useCallback(() => {
     onClose();
-    // Small delay to let the dropdown close animation start
-    setTimeout(() => {
-      router.push('/profile/address/new' as any);
-    }, 100);
-  };
+    setTimeout(() => router.push('/profile/address/new' as any), 120);
+  }, [onClose]);
 
-  // ── Check if address is currently selected ──────────────────
+  const isSelected = useCallback((address: Address): boolean =>
+    location.source === 'saved' && location.addressId === address.id,
+  [location]);
 
-  const isSelected = (address: Address): boolean => {
-    if (location.source !== 'saved') return false;
-    return location.addressId === address.id;
-  };
-
-  // ── Don't render anything if never opened ───────────────────
+  // ── Layout ───────────────────────────────────────────────────
 
   const topOffset = HEADER_HEIGHT + insets.top;
 
+  // ── Derived colours from theme ────────────────────────────────
+
+  const panelBg        = colors.background.elevated;
+  const headerBorder   = colors.border.subtle;
+  const titleColor     = colors.text.primary;
+  const badgeBg        = colors.background.accent;
+  const badgeText      = colors.brand.mid;
+  const mutedText      = colors.text.muted;
+  const faintText      = colors.text.faint;
+  const rowSelectedBg  = colors.background.tint;
+  const iconDefaultBg  = colors.background.card;
+  const iconSelectedBg = colors.brand.mid;
+  const labelSelected  = colors.brand.mid;
+  const checkColor     = colors.brand.soft;
+  const addIconBg      = colors.background.accent;
+  const addTextColor   = colors.brand.mid;
+  const dividerColor   = colors.border.subtle;
+  const emptyIconColor = colors.text.faint;
+  const defaultBadgeBg = colors.status.warningBg;
+  const defaultBadgeTx = colors.status.warning;
+
+  // ── Render ───────────────────────────────────────────────────
+
   return (
     <>
-      {/* ── Backdrop ── */}
+      {/* Backdrop */}
       <Animated.View
         style={[
           styles.backdrop,
           { top: topOffset },
-          backdropStyle,
+          backdropAnimStyle,
         ]}
       >
-        <Pressable style={styles.backdropPressable} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      {/* ── Dropdown panel ── */}
+      {/* Panel */}
       <Animated.View
         style={[
-          styles.dropdown,
-          { top: topOffset },
-          dropdownStyle,
+          styles.panel,
+          {
+            top:             topOffset,
+            backgroundColor: panelBg,
+            // Themed shadow colour (dark mode needs a lighter shadow tint)
+            shadowColor: colors.brand.primary,
+          },
+          panelAnimStyle,
         ]}
       >
-        {/* Header */}
-        <View style={styles.dropdownHeader}>
-          <Text style={styles.dropdownTitle}>Deliver to</Text>
+        {/* ── Header ── */}
+        <View style={[styles.panelHeader, { borderBottomColor: headerBorder }]}>
+          <Text style={[styles.panelTitle, { color: titleColor }]}>
+            Deliver to
+          </Text>
+
           {location.source !== 'fallback' && (
-            <View style={styles.currentBadge}>
+            <View style={[styles.sourceBadge, { backgroundColor: badgeBg }]}>
               <Ionicons
                 name={location.source === 'gps' ? 'navigate' : 'location'}
                 size={10}
-                color="#6366f1"
+                color={badgeText}
               />
-              <Text style={styles.currentBadgeText}>
+              <Text style={[styles.sourceBadgeText, { color: badgeText }]}>
                 {location.source === 'gps' ? 'GPS' : 'Saved'}
               </Text>
             </View>
           )}
         </View>
 
-        {/* Address list */}
+        {/* ── Body ── */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#6366f1" />
-            <Text style={styles.loadingText}>Loading addresses...</Text>
+          <View style={styles.centreSlot}>
+            <ActivityIndicator size="small" color={colors.brand.soft} />
+            <Text style={[styles.centreText, { color: mutedText }]}>
+              Loading addresses…
+            </Text>
           </View>
+
         ) : addresses.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="location-off" size={32} color="#94a3b8" />
-            <Text style={styles.emptyText}>No saved addresses</Text>
-            <Text style={styles.emptySubtext}>
+          <View style={styles.centreSlot}>
+            <MaterialIcons name="location-off" size={32} color={emptyIconColor} />
+            <Text style={[styles.emptyTitle, { color: colors.text.secondary }]}>
+              No saved addresses
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: faintText }]}>
               Add an address to get started
             </Text>
           </View>
+
         ) : (
           <ScrollView
-            style={styles.addressList}
-            contentContainerStyle={styles.addressListContent}
+            style={{ maxHeight: MAX_LIST_HEIGHT }}
+            contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
@@ -202,61 +224,79 @@ export function AddressDropdown({ visible, onClose }: AddressDropdownProps) {
                   key={address.id}
                   style={[
                     styles.addressRow,
-                    selected && styles.addressRowSelected,
+                    selected && { backgroundColor: rowSelectedBg },
                   ]}
-                  onPress={() => handleSelectAddress(address)}
+                  onPress={() => handleSelect(address)}
                   activeOpacity={0.7}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${address.label} — ${address.address_line_1}`}
                 >
                   {/* Icon */}
                   <View
                     style={[
-                      styles.addressIcon,
-                      selected && styles.addressIconSelected,
+                      styles.rowIcon,
+                      { backgroundColor: selected ? iconSelectedBg : iconDefaultBg },
                     ]}
                   >
                     <MaterialIcons
                       name={getLabelIcon(address.label)}
-                      size={18}
-                      color={selected ? '#ffffff' : '#64748b'}
+                      size={17}
+                      color={selected ? '#ffffff' : colors.text.muted}
                     />
                   </View>
 
                   {/* Text */}
-                  <View style={styles.addressTextBlock}>
-                    <View style={styles.addressLabelRow}>
+                  <View style={styles.rowText}>
+                    <View style={styles.rowLabelLine}>
                       <Text
                         style={[
-                          styles.addressLabel,
-                          selected && styles.addressLabelSelected,
+                          styles.rowLabel,
+                          { color: selected ? labelSelected : titleColor },
                         ]}
                       >
                         {address.label === 'Other' && address.custom_label
                           ? address.custom_label
                           : address.label}
                       </Text>
+
                       {address.is_default && (
-                        <View style={styles.defaultBadge}>
-                          <Text style={styles.defaultBadgeText}>Default</Text>
+                        <View
+                          style={[
+                            styles.defaultBadge,
+                            { backgroundColor: defaultBadgeBg },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.defaultBadgeText,
+                              { color: defaultBadgeTx },
+                            ]}
+                          >
+                            Default
+                          </Text>
                         </View>
                       )}
                     </View>
+
                     <Text
-                      style={styles.addressLine}
+                      style={[styles.rowAddressLine, { color: faintText }]}
                       numberOfLines={1}
                     >
-                      {[
-                        address.address_line_1,
-                        address.city,
-                        address.pincode,
-                      ]
+                      {[address.address_line_1, address.city, address.pincode]
                         .filter(Boolean)
                         .join(', ')}
                     </Text>
                   </View>
 
-                  {/* Check */}
+                  {/* Checkmark */}
                   {selected && (
-                    <Ionicons name="checkmark-circle" size={22} color="#6366f1" />
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={checkColor}
+                      style={styles.checkIcon}
+                    />
                   )}
                 </TouchableOpacity>
               );
@@ -264,16 +304,20 @@ export function AddressDropdown({ visible, onClose }: AddressDropdownProps) {
           </ScrollView>
         )}
 
-        {/* Add address button */}
+        {/* ── Add address ── */}
         <TouchableOpacity
-          style={styles.addButton}
+          style={[styles.addRow, { borderTopColor: dividerColor }]}
           onPress={handleAddAddress}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Add new address"
         >
-          <View style={styles.addButtonIcon}>
-            <MaterialIcons name="add" size={18} color="#6366f1" />
+          <View style={[styles.rowIcon, { backgroundColor: addIconBg }]}>
+            <MaterialIcons name="add" size={18} color={addTextColor} />
           </View>
-          <Text style={styles.addButtonText}>Add new address</Text>
+          <Text style={[styles.addText, { color: addTextColor }]}>
+            Add new address
+          </Text>
         </TouchableOpacity>
       </Animated.View>
     </>
@@ -281,192 +325,151 @@ export function AddressDropdown({ visible, onClose }: AddressDropdownProps) {
 }
 
 // ── Styles ────────────────────────────────────────────────────
+// Only structural / layout values live here.
+// All colour values are injected inline from the theme above.
 
 const styles = StyleSheet.create({
   // Backdrop
   backdrop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    zIndex: 98,
-  },
-  backdropPressable: {
-    flex: 1,
+    position:        'absolute',
+    left:            0,
+    right:           0,
+    bottom:          0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex:          98,
   },
 
-  // Dropdown panel
-  dropdown: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 99,
-    backgroundColor: '#ffffff',
-    borderBottomLeftRadius: 16,
+  // Panel
+  panel: {
+    position:              'absolute',
+    left:                  0,
+    right:                 0,
+    zIndex:                99,
+    borderBottomLeftRadius:  16,
     borderBottomRightRadius: 16,
-    maxHeight: MAX_DROPDOWN_HEIGHT,
     // Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
+    shadowOffset:  { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius:  20,
+    elevation:     16,
   },
 
-  // Header
-  dropdownHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  // Panel header
+  panelHeader: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    justifyContent:   'space-between',
     paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
+    paddingTop:        Spacing.md,
+    paddingBottom:     Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
   },
-  dropdownTitle: {
+  panelTitle: {
     ...Typography.h4,
-    color: '#0f172a',
   },
-  currentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#eef2ff',
+  sourceBadge: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            4,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical:   3,
+    borderRadius:   10,
   },
-  currentBadgeText: {
+  sourceBadgeText: {
     ...Typography.caption,
-    color: '#6366f1',
     fontFamily: 'Inter_600SemiBold',
   },
 
-  // Loading
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  // Centre slot (loading / empty)
+  centreSlot: {
+    alignItems:      'center',
+    justifyContent:  'center',
     paddingVertical: Spacing.xl,
-    gap: Spacing.sm,
+    gap:             Spacing.xs,
   },
-  loadingText: {
+  centreText: {
     ...Typography.small,
-    color: '#94a3b8',
   },
-
-  // Empty
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xl,
-    gap: Spacing.xs,
-  },
-  emptyText: {
+  emptyTitle: {
     ...Typography.bodyMedium,
-    color: '#475569',
     marginTop: Spacing.xs,
   },
-  emptySubtext: {
+  emptySubtitle: {
     ...Typography.caption,
-    color: '#94a3b8',
   },
 
   // Address list
-  addressList: {
-    maxHeight: 240,
-  },
-  addressListContent: {
+  listContent: {
     paddingVertical: Spacing.xs,
   },
 
   // Address row
   addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:              Spacing.md,
     paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    marginHorizontal: Spacing.sm,
-    marginVertical: 2,
-    borderRadius: 12,
-  },
-  addressRowSelected: {
-    backgroundColor: '#f0f0ff',
+    paddingVertical:   Spacing.md,
+    marginHorizontal:  Spacing.sm,
+    marginVertical:    2,
+    borderRadius:      Radius.md,
   },
 
-  // Address icon
-  addressIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
+  // Row icon
+  rowIcon: {
+    width:          36,
+    height:         36,
+    borderRadius:   10,
+    alignItems:     'center',
     justifyContent: 'center',
-    flexShrink: 0,
-  },
-  addressIconSelected: {
-    backgroundColor: '#6366f1',
+    flexShrink:     0,
   },
 
-  // Address text
-  addressTextBlock: {
+  // Row text block
+  rowText: {
     flex: 1,
-    gap: 2,
+    gap:  2,
   },
-  addressLabelRow: {
+  rowLabelLine: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    alignItems:    'center',
+    gap:           6,
   },
-  addressLabel: {
+  rowLabel: {
     ...Typography.bodySemiBold,
-    color: '#0f172a',
   },
-  addressLabelSelected: {
-    color: '#6366f1',
-  },
-  addressLine: {
+  rowAddressLine: {
     ...Typography.caption,
-    color: '#64748b',
   },
 
   // Default badge
   defaultBadge: {
-    backgroundColor: '#fef3c7',
     paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
+    paddingVertical:   1,
+    borderRadius:      6,
   },
   defaultBadgeText: {
-    fontSize: 9,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#92400e',
+    fontSize:      9,
+    fontFamily:    'Inter_600SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 
-  // Add button
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+  // Checkmark
+  checkIcon: {
+    flexShrink: 0,
+  },
+
+  // Add row
+  addRow: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    gap:               Spacing.md,
     paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    paddingVertical:   Spacing.md,
+    borderTopWidth:    1,
   },
-  addButtonIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButtonText: {
+  addText: {
     ...Typography.bodySemiBold,
-    color: '#6366f1',
   },
 });

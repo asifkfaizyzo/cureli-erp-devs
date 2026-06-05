@@ -195,7 +195,14 @@ function buildStrength(strengthValue, strengthUnit) {
   return `${strengthValue}${strengthUnit || ""}`;
 }
 
-function toFeedItem(variant) {
+/**
+ * Shape a single variant into the mobile feed item.
+ *
+ * @param {object} variant - The Prisma variant record
+ * @param {boolean|null} listingRxOverride - The branch-specific setting.
+ *        If null, falls back to master (scraped) data.
+ */
+function toFeedItem(variant, listingRxOverride = null) {
   const images = resolveVariantImages(variant.images);
   return {
     variantId: variant.variant_id,
@@ -207,7 +214,11 @@ function toFeedItem(variant) {
     manufacturer: variant.manufacturer ?? null,
     packSize: variant.pack_size ?? null,
     image: images[0] ?? null,
-    prescriptionRequired: variant.master?.prescription_required ?? false,
+    // Use branch override if provided, else fall back to master
+    prescriptionRequired:
+      listingRxOverride !== null
+        ? listingRxOverride
+        : (variant.master?.prescription_required ?? false),
     form: variant.master?.form ?? null,
     category: variant.master?.primary_category ?? null,
     genericName: variant.master?.generic_name ?? null,
@@ -446,7 +457,12 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
             return nameA.localeCompare(nameB);
           });
 
-          nearestBranch = shapeBranch(sorted[0], null, null, listedMedicineCount);
+          nearestBranch = shapeBranch(
+            sorted[0],
+            null,
+            null,
+            listedMedicineCount
+          );
         }
       }
 
@@ -635,6 +651,9 @@ export async function getShopProfile(shopId, lat, lng) {
  * Returns the same toFeedItem shape as the main feed so MedicineCard
  * and ProductCard work without modification.
  *
+ * prescriptionRequired is now driven by the branch-specific
+ * listing.requires_prescription value, not the master scraped flag.
+ *
  * @param {string} shopId
  * @param {string} branchId
  * @param {object} opts
@@ -642,7 +661,11 @@ export async function getShopProfile(shopId, lat, lng) {
  * @param {number} [opts.page]
  * @param {number} [opts.limit]
  */
-export async function getBranchMedicines(shopId, branchId, { search, page = 1, limit = 20 }) {
+export async function getBranchMedicines(
+  shopId,
+  branchId,
+  { search, page = 1, limit = 20 }
+) {
   const skip = (page - 1) * limit;
 
   // Verify the branch belongs to the shop and is marketplace-onboarded
@@ -715,17 +738,18 @@ export async function getBranchMedicines(shopId, branchId, { search, page = 1, l
   const totalPages = Math.ceil(total / limit);
 
   // Shape variants using toFeedItem — identical output to medicines feed.
-  // marketplace_price from the listing is included as a separate field
-  // so the frontend can show real pricing when available.
+  // Pass the branch-specific requires_prescription as the override so
+  // prescriptionRequired reflects what THIS branch has configured,
+  // not the scraped master value.
   const medicines = listings
     .filter((l) => l.linkedVariant)
     .map((l) => ({
-      ...toFeedItem(l.linkedVariant),
+      ...toFeedItem(l.linkedVariant, l.requires_prescription), // PASS BRANCH-SPECIFIC VALUE
       // Real listing price — non-null when the shop has set a price.
       // Frontend uses this if present, falls back to generateMarketplaceData
       // for the demo price display.
       listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
-      requiresPrescription: l.requires_prescription,
+      requiresPrescription: l.requires_prescription, // Keep for backward compatibility
       stockStatus: l.stock_status,
     }));
 

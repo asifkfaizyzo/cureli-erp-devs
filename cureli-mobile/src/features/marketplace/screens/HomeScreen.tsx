@@ -23,10 +23,12 @@ import { HomeFooter } from "../components/HomeFooter";
 
 import { useCategories } from "../hooks/useCategories";
 import { useHomeFeed } from "../hooks/useHomeFeed";
+import { useLayoutStore } from "../../../store/layoutStore";
 
 export function HomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const bottomTabBarHeight = useLayoutStore((s) => s.bottomTabBarHeight);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -51,10 +53,6 @@ export function HomeScreen() {
     router.push("/cart" as any);
   }, []);
 
-  const handlePressProfile = useCallback(() => {
-    router.push("/(tabs)/profile" as any);
-  }, []);
-
   const handlePressViewAll = useCallback(() => {
     router.push("/marketplace/categories" as any);
   }, []);
@@ -70,7 +68,6 @@ export function HomeScreen() {
       <GradientHeader
         onPressSearch={handlePressSearch}
         onPressCart={handlePressCart}
-        onPressProfile={handlePressProfile}
       />
 
       <ScrollView
@@ -79,7 +76,7 @@ export function HomeScreen() {
           styles.scrollContent,
           {
             paddingTop: HEADER_HEIGHT + insets.top,
-            paddingBottom: Spacing["3xl"] + insets.bottom,
+            paddingBottom: bottomTabBarHeight + Spacing.base,
           },
         ]}
         showsVerticalScrollIndicator={false}

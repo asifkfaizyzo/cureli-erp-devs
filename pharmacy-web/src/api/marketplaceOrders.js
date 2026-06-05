@@ -1,6 +1,4 @@
-// ============================================
 // pharmacy-web/src/api/marketplaceOrders.js
-// ============================================
 
 import API from './axios';
 
@@ -9,40 +7,40 @@ import API from './axios';
  * Supports ?status=PLACED or ?status=ACCEPTED,READY_FOR_PICKUP
  */
 export const getOrders = (params = {}) =>
-  API.get('/marketplace-orders', { params });
+  API.get('/marketplace-orders', { params }).then((r) => r.data);
 
 /**
  * GET /api/marketplace-orders/:orderId
  */
 export const getOrderDetail = (orderId) =>
-  API.get(`/marketplace-orders/${orderId}`);
+  API.get(`/marketplace-orders/${orderId}`).then((r) => r.data);
 
 /**
  * POST /api/marketplace-orders/:orderId/accept
  */
 export const acceptOrder = (orderId) =>
-  API.post(`/marketplace-orders/${orderId}/accept`);
+  API.post(`/marketplace-orders/${orderId}/accept`).then((r) => r.data);
 
 /**
  * POST /api/marketplace-orders/:orderId/reject
  */
 export const rejectOrder = (orderId, body) =>
-  API.post(`/marketplace-orders/${orderId}/reject`, body);
+  API.post(`/marketplace-orders/${orderId}/reject`, body).then((r) => r.data);
 
 /**
  * POST /api/marketplace-orders/:orderId/ready
  */
 export const markReady = (orderId) =>
-  API.post(`/marketplace-orders/${orderId}/ready`);
+  API.post(`/marketplace-orders/${orderId}/ready`).then((r) => r.data);
 
 /**
  * POST /api/marketplace-orders/:orderId/complete
  */
 export const completeOrder = (orderId) =>
-  API.post(`/marketplace-orders/${orderId}/complete`);
+  API.post(`/marketplace-orders/${orderId}/complete`).then((r) => r.data);
 
 /**
  * GET /api/marketplace-orders/:orderId/prescriptions/:prescriptionId/url
  */
 export const getPrescriptionUrl = (orderId, prescriptionId) =>
-  API.get(`/marketplace-orders/${orderId}/prescriptions/${prescriptionId}/url`);
+  API.get(`/marketplace-orders/${orderId}/prescriptions/${prescriptionId}/url`).then((r) => r.data);

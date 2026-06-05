@@ -27,14 +27,14 @@ import { Radius } from "../../../theme/radius";
 import { useCartStore } from "../../../store/cartStore";
 import { usePaymentStore } from "../../../store/paymentStore";
 import { usePrescriptionStore } from "../../../store/prescriptionStore";
-import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
 import { ordersApi } from "../../marketplace/api/orders.api";
-
-const HANDLING_CHARGE = 10;
-const HIGH_DEMAND_CHARGE = 5;
+import { CART_CONFIG } from "../../../constants/config";
+import { useAddresses } from "../../profile/hooks/useAddresses";
+import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
+import { AddressPickerSheet } from "../components/AddressPickerSheet";
 
 // ─────────────────────────────────────────────
-// Success state — shown inline after place order
+// Success state
 // ─────────────────────────────────────────────
 
 interface OrderSuccessProps {
@@ -83,12 +83,10 @@ function OrderSuccess({ onGoHome }: OrderSuccessProps) {
         <Text style={[styles.successTitle, { color: colors.text.primary }]}>
           Order Placed!
         </Text>
-
         <Text style={[styles.successSub, { color: colors.text.muted }]}>
           Your medicines will be delivered in 10–12 minutes.{"\n"}
           You'll receive updates on your phone.
         </Text>
-
         <TouchableOpacity
           onPress={onGoHome}
           activeOpacity={0.85}
@@ -108,24 +106,46 @@ function OrderSuccess({ onGoHome }: OrderSuccessProps) {
 
 export function CheckoutScreen() {
   const { colors } = useTheme();
+  const [addressSheetVisible, setAddressSheetVisible] = useState(false);
 
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
   const selectedMethod = usePaymentStore((s) => s.selectedMethod);
   const tempPrescriptions = usePrescriptionStore((s) => s.tempFiles);
   const clearPrescriptions = usePrescriptionStore((s) => s.clearTempFiles);
-  const selectedAddressId = useDeliveryLocationStore(
-    (s) => s.location.addressId ?? null,
-  );
+  const deliveryNotes = usePrescriptionStore((s) => s.deliveryNotes);
+
+  // ── Address resolution ─────────────────────────────────────
+  // Priority:
+  //   1. Address selected via the picker sheet (stored in deliveryLocationStore)
+  //   2. Default saved address from DB
+  //   3. First saved address
+  //   4. null → block order placement
+
+  const { addresses } = useAddresses();
+  const locationStore = useDeliveryLocationStore((s) => s.location);
+
+  // If user picked an address via the sheet, use that id.
+  // Otherwise fall back to the default/first saved address.
+  const pickedAddressId = locationStore.addressId ?? null;
+
+  const resolvedAddress = pickedAddressId
+    ? (addresses.find((a) => a.id === pickedAddressId) ?? null)
+    : (addresses.find((a) => a.is_default) ?? addresses[0] ?? null);
+
+  const selectedAddressId = resolvedAddress?.id ?? null;
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // ── Charges ────────────────────────────────────────────────
   const itemsTotal = items.reduce(
     (sum, item) => sum + item.pricePerUnit * item.quantity,
     0,
   );
-  const grandTotal = itemsTotal + HANDLING_CHARGE + HIGH_DEMAND_CHARGE;
+  const isFreeDelivery = itemsTotal >= CART_CONFIG.FREE_DELIVERY_ABOVE;
+  const deliveryCharge = isFreeDelivery ? 0 : CART_CONFIG.DELIVERY_CHARGE;
+  const grandTotal = itemsTotal + CART_CONFIG.HANDLING_CHARGE + deliveryCharge;
 
   const handleBack = useCallback(() => {
     router.back();
@@ -136,12 +156,15 @@ export function CheckoutScreen() {
   }, []);
 
   const handleChangeAddress = useCallback(() => {
-    router.push("/profile/addresses" as any);
+    setAddressSheetVisible(true);
   }, []);
 
   const handlePlaceOrder = useCallback(async () => {
     if (!selectedAddressId) {
-      Alert.alert("Address Required", "Please select a delivery address");
+      Alert.alert(
+        "Address Required",
+        "Please add a delivery address before placing your order.",
+      );
       return;
     }
 
@@ -158,6 +181,7 @@ export function CheckoutScreen() {
         variantId: i.variantId,
         quantity: i.quantity,
       })),
+      notes: deliveryNotes.trim().length > 0 ? deliveryNotes : undefined,
       prescription_files: tempPrescriptions,
     };
 
@@ -172,7 +196,8 @@ export function CheckoutScreen() {
     } catch (err: any) {
       Alert.alert(
         "Order Failed",
-        err.response?.data?.message || "Something went wrong",
+        err.response?.data?.message ||
+          "Something went wrong. Please try again.",
       );
     } finally {
       setIsLoading(false);
@@ -189,7 +214,7 @@ export function CheckoutScreen() {
     router.replace("/(tabs)" as any);
   }, []);
 
-  // ── Success state ──────────────────────────
+  // ── Success state ──────────────────────────────────────────
   if (isSuccess) {
     return (
       <SafeAreaView
@@ -201,256 +226,314 @@ export function CheckoutScreen() {
     );
   }
 
-  // ── Normal checkout ────────────────────────
+  // ── Address display ────────────────────────────────────────
+  const addressTypeLabel = resolvedAddress
+    ? (resolvedAddress.custom_label ?? resolvedAddress.label)
+    : "No address set";
+
+  const addressDetailLine = resolvedAddress
+    ? [
+        resolvedAddress.address_line_1,
+        resolvedAddress.city,
+        resolvedAddress.state,
+        resolvedAddress.pincode,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "Tap Change to add a delivery address";
+
+  // ── Render ─────────────────────────────────────────────────
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
-      edges={["top"]}
-    >
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background.card,
-            borderBottomColor: colors.border.subtle,
-          },
-        ]}
+    <>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
+        edges={["top"]}
       >
-        <TouchableOpacity
-          onPress={handleBack}
-          activeOpacity={0.7}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
-        </TouchableOpacity>
-
-        <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
-          Checkout
-        </Text>
-
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* ── Delivery Address ── */}
+        {/* Header */}
         <View
-          style={[styles.card, { backgroundColor: colors.background.card }]}
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.background.card,
+              borderBottomColor: colors.border.subtle,
+            },
+          ]}
         >
-          <View style={styles.cardHeader}>
-            <Ionicons
-              name="location-outline"
-              size={18}
-              color={colors.text.brand}
-            />
-            <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
-              Delivery Address
-            </Text>
-          </View>
+          <TouchableOpacity
+            onPress={handleBack}
+            activeOpacity={0.7}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
+            Checkout
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-          <View style={styles.addressContent}>
-            <View style={styles.addressLeft}>
-              <Text
-                style={[styles.addressType, { color: colors.text.primary }]}
-              >
-                Office
-              </Text>
-              <Text
-                style={[styles.addressLine, { color: colors.text.muted }]}
-                numberOfLines={2}
-              >
-                Kakkanad, Kochi, Kerala 682030
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* ── Delivery Address ─────────────────────────── */}
+          <View
+            style={[styles.card, { backgroundColor: colors.background.card }]}
+          >
+            <View style={styles.cardHeader}>
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={colors.text.brand}
+              />
+              <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
+                Delivery Address
               </Text>
             </View>
 
-            <TouchableOpacity
-              onPress={handleChangeAddress}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Change delivery address"
-            >
-              <Text style={[styles.changeText, { color: colors.text.brand }]}>
-                Change
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Payment Method ── */}
-        <View
-          style={[styles.card, { backgroundColor: colors.background.card }]}
-        >
-          <View style={styles.cardHeader}>
-            <Ionicons name="card-outline" size={18} color={colors.text.brand} />
-            <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
-              Payment Method
-            </Text>
-          </View>
-
-          <View style={styles.paymentContent}>
-            <View style={styles.paymentLeft}>
-              <View
-                style={[
-                  styles.paymentIconWrap,
-                  { backgroundColor: colors.background.tint },
-                ]}
-              >
-                <Ionicons
-                  name={selectedMethod.icon as any}
-                  size={18}
-                  color={colors.text.brand}
-                />
+            <View style={styles.addressContent}>
+              <View style={styles.addressLeft}>
+                <Text
+                  style={[
+                    styles.addressType,
+                    {
+                      color: resolvedAddress
+                        ? colors.text.primary
+                        : colors.status.warning,
+                    },
+                  ]}
+                >
+                  {addressTypeLabel}
+                </Text>
+                <Text
+                  style={[styles.addressLine, { color: colors.text.muted }]}
+                  numberOfLines={2}
+                >
+                  {addressDetailLine}
+                </Text>
               </View>
-              <Text
-                style={[styles.paymentLabel, { color: colors.text.primary }]}
-                numberOfLines={1}
+
+              <TouchableOpacity
+                onPress={handleChangeAddress}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Change delivery address"
               >
-                {selectedMethod.label}
+                <Text style={[styles.changeText, { color: colors.text.brand }]}>
+                  {resolvedAddress ? "Change" : "Add"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Payment Method ───────────────────────────── */}
+          <View
+            style={[styles.card, { backgroundColor: colors.background.card }]}
+          >
+            <View style={styles.cardHeader}>
+              <Ionicons
+                name="card-outline"
+                size={18}
+                color={colors.text.brand}
+              />
+              <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
+                Payment Method
               </Text>
             </View>
 
-            <TouchableOpacity
-              onPress={handleChangePayment}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Change payment method"
-            >
-              <Text style={[styles.changeText, { color: colors.text.brand }]}>
-                Change
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.paymentContent}>
+              <View style={styles.paymentLeft}>
+                <View
+                  style={[
+                    styles.paymentIconWrap,
+                    { backgroundColor: colors.background.tint },
+                  ]}
+                >
+                  <Ionicons
+                    name={selectedMethod.icon as any}
+                    size={18}
+                    color={colors.text.brand}
+                  />
+                </View>
+                <Text
+                  style={[styles.paymentLabel, { color: colors.text.primary }]}
+                  numberOfLines={1}
+                >
+                  {selectedMethod.label}
+                </Text>
+              </View>
 
-        {/* ── Order Summary ── */}
-        <View
-          style={[styles.card, { backgroundColor: colors.background.card }]}
-        >
-          <View style={styles.cardHeader}>
-            <Ionicons
-              name="receipt-outline"
-              size={18}
-              color={colors.text.brand}
-            />
-            <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
-              Order Summary
-            </Text>
-          </View>
-
-          {/* Line items */}
-          {items.map((item) => (
-            <View key={item.variantId} style={styles.summaryRow}>
-              <Text
-                style={[styles.summaryName, { color: colors.text.secondary }]}
-                numberOfLines={1}
+              <TouchableOpacity
+                onPress={handleChangePayment}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Change payment method"
               >
-                {item.name} × {item.quantity}
+                <Text style={[styles.changeText, { color: colors.text.brand }]}>
+                  Change
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Order Summary ────────────────────────────── */}
+          <View
+            style={[styles.card, { backgroundColor: colors.background.card }]}
+          >
+            <View style={styles.cardHeader}>
+              <Ionicons
+                name="receipt-outline"
+                size={18}
+                color={colors.text.brand}
+              />
+              <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
+                Order Summary
+              </Text>
+            </View>
+
+            {/* Line items */}
+            {items.map((item) => (
+              <View key={item.variantId} style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryName, { color: colors.text.secondary }]}
+                  numberOfLines={1}
+                >
+                  {item.name} × {item.quantity}
+                </Text>
+                <Text
+                  style={[styles.summaryPrice, { color: colors.text.primary }]}
+                >
+                  ₹{(item.pricePerUnit * item.quantity).toFixed(2)}
+                </Text>
+              </View>
+            ))}
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: colors.border.subtle },
+              ]}
+            />
+
+            {/* Items total */}
+            <View style={styles.summaryRow}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.text.secondary }]}
+              >
+                Items total
               </Text>
               <Text
                 style={[styles.summaryPrice, { color: colors.text.primary }]}
               >
-                ₹{(item.pricePerUnit * item.quantity).toFixed(2)}
+                ₹{itemsTotal.toFixed(2)}
               </Text>
             </View>
-          ))}
 
-          <View
-            style={[styles.divider, { backgroundColor: colors.border.subtle }]}
-          />
+            {/* Handling charge */}
+            <View style={styles.summaryRow}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.text.secondary }]}
+              >
+                Handling charge
+              </Text>
+              <Text
+                style={[styles.summaryPrice, { color: colors.text.primary }]}
+              >
+                ₹{CART_CONFIG.HANDLING_CHARGE.toFixed(2)}
+              </Text>
+            </View>
 
-          {/* Charges */}
-          <View style={styles.summaryRow}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.text.secondary }]}
-            >
-              Items total
-            </Text>
-            <Text style={[styles.summaryPrice, { color: colors.text.primary }]}>
-              ₹{itemsTotal.toFixed(2)}
-            </Text>
+            {/* Delivery charge */}
+            <View style={styles.summaryRow}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.text.secondary }]}
+              >
+                Delivery charge
+              </Text>
+              <Text
+                style={[
+                  styles.summaryPrice,
+                  {
+                    color: isFreeDelivery
+                      ? colors.status.success
+                      : colors.text.primary,
+                  },
+                ]}
+              >
+                {isFreeDelivery
+                  ? "FREE"
+                  : `₹${CART_CONFIG.DELIVERY_CHARGE.toFixed(2)}`}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: colors.border.default },
+              ]}
+            />
+
+            {/* Grand total */}
+            <View style={styles.summaryRow}>
+              <Text style={[styles.grandLabel, { color: colors.text.primary }]}>
+                Grand Total
+              </Text>
+              <Text style={[styles.grandValue, { color: colors.text.primary }]}>
+                ₹{grandTotal.toFixed(2)}
+              </Text>
+            </View>
           </View>
+        </ScrollView>
 
-          <View style={styles.summaryRow}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.text.secondary }]}
-            >
-              Handling charge
-            </Text>
-            <Text style={[styles.summaryPrice, { color: colors.text.primary }]}>
-              ₹{HANDLING_CHARGE.toFixed(2)}
-            </Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.text.secondary }]}
-            >
-              High demand charge
-            </Text>
-            <Text style={[styles.summaryPrice, { color: colors.text.primary }]}>
-              ₹{HIGH_DEMAND_CHARGE.toFixed(2)}
-            </Text>
-          </View>
-
-          <View
-            style={[styles.divider, { backgroundColor: colors.border.default }]}
-          />
-
-          {/* Grand total */}
-          <View style={styles.summaryRow}>
-            <Text style={[styles.grandLabel, { color: colors.text.primary }]}>
-              Grand Total
-            </Text>
-            <Text style={[styles.grandValue, { color: colors.text.primary }]}>
+        {/* ── Bottom: Place Order ─────────────────────────── */}
+        <View
+          style={[
+            styles.bottomBar,
+            {
+              backgroundColor: colors.background.card,
+              borderTopColor: colors.border.subtle,
+            },
+          ]}
+        >
+          <View style={styles.bottomLeft}>
+            <Text style={[styles.bottomTotal, { color: colors.text.primary }]}>
               ₹{grandTotal.toFixed(2)}
             </Text>
+            <Text style={[styles.bottomSub, { color: colors.text.muted }]}>
+              Total amount
+            </Text>
           </View>
-        </View>
-      </ScrollView>
 
-      {/* ── Bottom: Place Order ── */}
-      <View
-        style={[
-          styles.bottomBar,
-          {
-            backgroundColor: colors.background.card,
-            borderTopColor: colors.border.subtle,
-          },
-        ]}
-      >
-        <View style={styles.bottomLeft}>
-          <Text style={[styles.bottomTotal, { color: colors.text.primary }]}>
-            ₹{grandTotal.toFixed(2)}
-          </Text>
-          <Text style={[styles.bottomSub, { color: colors.text.muted }]}>
-            Total amount
-          </Text>
+          <TouchableOpacity
+            onPress={handlePlaceOrder}
+            activeOpacity={0.85}
+            style={[styles.placeBtn, isLoading && { opacity: 0.7 }]}
+            disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityLabel={`Place order for ₹${grandTotal.toFixed(2)}`}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.placeBtnText}>Place Order</Text>
+                <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+              </>
+            )}
+          </TouchableOpacity>
         </View>
+      </SafeAreaView>
 
-        <TouchableOpacity
-          onPress={handlePlaceOrder}
-          activeOpacity={0.85}
-          style={[styles.placeBtn, isLoading && { opacity: 0.7 }]}
-          disabled={isLoading}
-          accessibilityRole="button"
-          accessibilityLabel={`Place order for ₹${grandTotal.toFixed(2)}`}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <>
-              <Text style={styles.placeBtnText}>Place Order</Text>
-              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      {/* ── Address picker sheet ─────────────────────────────
+          Rendered outside SafeAreaView so it covers the full screen
+          including the bottom bar. Fragment ensures no extra layout node. */}
+      <AddressPickerSheet
+        visible={addressSheetVisible}
+        onClose={() => setAddressSheetVisible(false)}
+      />
+    </>
   );
 }
 
@@ -459,11 +542,8 @@ export function CheckoutScreen() {
 // ─────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
+  safe: { flex: 1 },
 
-  // Header
   header: {
     height: 60,
     flexDirection: "row",
@@ -482,18 +562,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Inter_600SemiBold",
   },
-  headerSpacer: {
-    width: 36,
-  },
+  headerSpacer: { width: 36 },
 
-  // Scroll
   scrollContent: {
     padding: 16,
     paddingBottom: 110,
     gap: 12,
   },
 
-  // Card shell
   card: {
     borderRadius: 16,
     padding: 16,
@@ -514,7 +590,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
 
-  // Address
   addressContent: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -539,7 +614,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
 
-  // Payment
   paymentContent: {
     flexDirection: "row",
     alignItems: "center",
@@ -564,7 +638,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Summary rows
   summaryRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -598,7 +671,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
 
-  // Bottom bar
   bottomBar: {
     position: "absolute",
     bottom: 0,
@@ -611,9 +683,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderTopWidth: 1,
   },
-  bottomLeft: {
-    gap: 2,
-  },
+  bottomLeft: { gap: 2 },
   bottomTotal: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
@@ -639,7 +709,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
 
-  // Success
   successRoot: {
     flex: 1,
     alignItems: "center",

@@ -161,10 +161,13 @@ function buildStrength(strengthValue, strengthUnit) {
 }
 
 /**
- * Shape a single variant (with included master) into the mobile feed item.
- * Only REAL fields. No pricing — pricing is generated client-side.
+ * Shape a single variant into the mobile feed item.
+ *
+ * @param {object} variant - The Prisma variant record
+ * @param {boolean|null} listingRxOverride - The branch-specific setting.
+ *        If null, falls back to master (scraped) data.
  */
-function toFeedItem(variant) {
+function toFeedItem(variant, listingRxOverride = null) {
   const images = resolveVariantImages(variant.images);
   return {
     variantId: variant.variant_id,
@@ -176,7 +179,11 @@ function toFeedItem(variant) {
     manufacturer: variant.manufacturer ?? null,
     packSize: variant.pack_size ?? null,
     image: images[0] ?? null,
-    prescriptionRequired: variant.master?.prescription_required ?? false,
+    // THE FIX: Use branch override if provided, else fall back to master
+    prescriptionRequired:
+      listingRxOverride !== null
+        ? listingRxOverride
+        : (variant.master?.prescription_required ?? false),
     form: variant.master?.form ?? null,
     category: variant.master?.primary_category ?? null,
     genericName: variant.master?.generic_name ?? null,
@@ -224,11 +231,13 @@ async function listVariantsFromCatalog(category, limit) {
     take: limit,
     select: VARIANT_SELECT,
   });
-  return variants.map(toFeedItem);
+  // Demo path: no listing data, fall back to master Rx status (null override)
+  return variants.map((v) => toFeedItem(v));
 }
 
 // ── Production path ───────────────────────────────────────────
 
+// Optimized production path: Derive global Rx status from the listings batch
 async function listVariantsFromListings(category, limit) {
   const listings = await prisma.marketplaceListing.findMany({
     where: {
@@ -249,7 +258,19 @@ async function listVariantsFromListings(category, limit) {
     },
     orderBy: { linkedVariant: { name: "asc" } },
     take: limit,
-    select: { linkedVariant: { select: VARIANT_SELECT } },
+    select: {
+      requires_prescription: true, // Fetch this here!
+      linkedVariant: { select: VARIANT_SELECT },
+    },
+  });
+
+  // OPTIMIZATION: Build a set of variant IDs that require Rx in ANY branch.
+  // This avoids extra DB roundtrips per item.
+  const rxRequiredVariants = new Set();
+  listings.forEach((l) => {
+    if (l.requires_prescription && l.linkedVariant) {
+      rxRequiredVariants.add(l.linkedVariant.variant_id);
+    }
   });
 
   const seen = new Set();
@@ -258,7 +279,9 @@ async function listVariantsFromListings(category, limit) {
     const v = listing.linkedVariant;
     if (!v || seen.has(v.variant_id)) continue;
     seen.add(v.variant_id);
-    items.push(toFeedItem(v));
+
+    // Pass the globally computed status (if any branch requires it)
+    items.push(toFeedItem(v, rxRequiredVariants.has(v.variant_id)));
   }
   return items;
 }
@@ -334,7 +357,7 @@ export async function listMobileMedicines({
 
   const totalPages = Math.ceil(total / limit);
   return {
-    medicines: variants.map(toFeedItem),
+    medicines: variants.map((v) => toFeedItem(v)),
     meta: {
       total,
       page,
@@ -397,6 +420,8 @@ export async function getMobileMedicine(idOrSku) {
   if (!variant) return null;
 
   let availableNearYou = true;
+  // Start with master Rx status as the default
+  let prescriptionRequired = variant.master?.prescription_required ?? false;
 
   if (!SHOW_UNLISTED) {
     const visibleListing = await prisma.marketplaceListing.findFirst({
@@ -414,6 +439,23 @@ export async function getMobileMedicine(idOrSku) {
       select: { listing_id: true },
     });
     availableNearYou = visibleListing !== null;
+
+    // Check if ANY live branch requires prescription for this specific medicine
+    const rxListing = await prisma.marketplaceListing.findFirst({
+      where: {
+        linked_variant_id: variant.variant_id,
+        requires_prescription: true,
+        is_visible: true,
+        branch: {
+          marketplaceSettings: {
+            marketplace_enabled: true,
+            marketplaceProfile: { is_live: true },
+          },
+        },
+      },
+      select: { listing_id: true },
+    });
+    prescriptionRequired = !!rxListing;
   }
 
   const siblings = await prisma.masterMedicineVariant.findMany({
@@ -428,23 +470,23 @@ export async function getMobileMedicine(idOrSku) {
 
   return {
     variant: {
-      ...toFeedItem(variant),
+      ...toFeedItem(variant, prescriptionRequired), // Pass derived status
       marketer: variant.marketer ?? null,
       description: variant.description ?? null,
       images: resolveVariantImages(variant.images),
       availableNearYou,
     },
-    siblings: siblings.map(toFeedItem),
+    siblings: siblings.map((s) => toFeedItem(s)), // Siblings use master fallback
   };
 }
 
-// ── getMedicineShops (new) ────────────────────────────────────
+// ── getMedicineShops ──────────────────────────────────────────
 //
 // Returns all branches that have a visible listing for a given variant.
 // One row per branch — cart enforcement is at the branch level.
 // Sorted by distance asc if lat/lng provided, else by shop name asc.
 //
-// Stock statuses included: IN_STOCK, LOW_STOCK.
+// Stock statuses included: IN_STOCK only.
 // OUT_OF_STOCK listings are excluded — no point showing them in the
 // "where to buy" list. The detail screen shows UnavailableBanner when
 // this list comes back empty.
@@ -562,7 +604,7 @@ export async function getMedicineShops(variantId, lat, lng) {
       deliveryEnabled: bs?.delivery_enabled ?? false,
       contact: bs?.contact_override ?? null,
 
-      // Listing specifics
+      // Listing specifics.
       // marketplace_price is null when the shop has not set a price.
       // Frontend shows "Price not set" in that case.
       listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,

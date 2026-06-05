@@ -10,7 +10,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { LogBox, View } from 'react-native';
+import { LogBox } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useAuthStore } from '../src/store/authStore';
 import { authEventEmitter } from '../src/services/api';
@@ -43,6 +44,7 @@ export default function RootLayout() {
     Inter_700Bold,
     Inter_800ExtraBold,
     Amulya: require('../assets/fonts/Amulya-Variable.ttf'),
+    'Amulya-Variable': require('../assets/fonts/Amulya-Variable.ttf'),
   });
 
   useEffect(() => {
@@ -65,10 +67,13 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <DialogProvider>
-          <View style={{ flex: 1 }}>
+    // GestureHandlerRootView must wrap the entire app for @gorhom/bottom-sheet
+    // to work correctly on Android. flex:1 is required — without it the app
+    // renders with zero height on Android.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <DialogProvider>
             <Stack>
               <Stack.Screen name="index"                  options={{ headerShown: false }} />
               <Stack.Screen name="splash"                 options={{ headerShown: false, animation: 'none' }} />
@@ -98,9 +103,9 @@ export default function RootLayout() {
             </Stack>
 
             <GlobalCartBar />
-          </View>
-        </DialogProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+          </DialogProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
