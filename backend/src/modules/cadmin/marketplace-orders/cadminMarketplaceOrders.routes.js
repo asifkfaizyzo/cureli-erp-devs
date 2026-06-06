@@ -2,7 +2,11 @@
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
-import { listOrders, getOrder } from "./cadminMarketplaceOrders.controller.js";
+import {
+  listOrders,
+  getOrder,
+  updateStatus,
+} from "./cadminMarketplaceOrders.controller.js";
 
 const router = express.Router();
 
@@ -17,5 +21,10 @@ router.get("/marketplace-orders", listOrders);
  * GET /cadmin/marketplace-orders/:orderId
  */
 router.get("/marketplace-orders/:orderId", getOrder);
+
+/**
+ * PATCH /cadmin/marketplace-orders/:orderId/status
+ */
+router.patch("/marketplace-orders/:orderId/status", updateStatus);
 
 export default router;

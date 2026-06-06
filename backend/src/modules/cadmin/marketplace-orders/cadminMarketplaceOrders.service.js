@@ -3,6 +3,21 @@
 import prisma from "../../../config/prisma.js";
 
 // ─────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────
+
+const TERMINAL_STATES = ["COMPLETED", "REJECTED", "CANCELLED"];
+
+const VALID_STATUSES = [
+  "PLACED",
+  "ACCEPTED",
+  "READY_FOR_PICKUP",
+  "COMPLETED",
+  "REJECTED",
+  "CANCELLED",
+];
+
+// ─────────────────────────────────────────────
 // LIST ALL ORDERS (across all shops)
 // ─────────────────────────────────────────────
 
@@ -179,6 +194,110 @@ export const getOrderDetail = async (order_id) => {
   if (!order) throw new Error("Order not found");
 
   return formatOrderDetail(order);
+};
+
+// ─────────────────────────────────────────────
+// UPDATE ORDER STATUS  (CAdmin override)
+// ─────────────────────────────────────────────
+
+/**
+ * CAdmin override: change order status.
+ * Records history with changed_by_type = "cadmin".
+ */
+export const updateOrderStatus = async ({
+  order_id,
+  new_status,
+  reason = "",
+  cadmin_name = "CAdmin",
+}) => {
+  if (!VALID_STATUSES.includes(new_status)) {
+    const err = new Error("Invalid status");
+    err.code = "INVALID_STATUS";
+    throw err;
+  }
+
+  const order = await prisma.marketplaceOrder.findUnique({
+    where: { order_id },
+    select: {
+      order_id: true,
+      status: true,
+      cancelled_by: true,
+    },
+  });
+
+  if (!order) {
+    const err = new Error("Order not found");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (TERMINAL_STATES.includes(order.status)) {
+    const err = new Error(
+      `Cannot change status — order is already ${order.status}`
+    );
+    err.code = "TERMINAL_STATE";
+    throw err;
+  }
+
+  if (order.status === new_status) {
+    const err = new Error("Order is already in this status");
+    err.code = "SAME_STATUS";
+    throw err;
+  }
+
+  // Reason required for REJECTED / CANCELLED
+  if (
+    (new_status === "REJECTED" || new_status === "CANCELLED") &&
+    !reason?.trim()
+  ) {
+    const err = new Error("Reason is required when rejecting or cancelling");
+    err.code = "REASON_REQUIRED";
+    throw err;
+  }
+
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    // Update order
+    const updated = await tx.marketplaceOrder.update({
+      where: { order_id },
+      data: {
+        status: new_status,
+        ...(new_status === "ACCEPTED" && { accepted_at: now }),
+        ...(new_status === "READY_FOR_PICKUP" && { ready_at: now }),
+        ...(new_status === "COMPLETED" && { completed_at: now }),
+        ...(new_status === "REJECTED" && {
+          rejected_at: now,
+          rejection_reason: "other",
+          rejection_reason_other: reason.trim(),
+        }),
+        ...(new_status === "CANCELLED" && {
+          cancelled_at: now,
+          cancelled_by: "cadmin",
+          // NOTE: Make sure your schema has `cancellation_reason` field.
+          // If it doesn't, remove the next line.
+          ...(reason.trim() && { cancellation_reason: reason.trim() }),
+        }),
+        updated_at: now,
+      },
+    });
+
+    // Status history entry
+    await tx.marketplaceOrderStatusHistory.create({
+      data: {
+        order_id,
+        from_status: order.status,
+        to_status: new_status,
+        changed_by_type: "cadmin",
+        // NOTE: If your schema doesn't have `changed_by_name`, remove next line
+        // and rely on changed_by_type only.
+        // changed_by_name: cadmin_name,
+        reason: reason?.trim() || null,
+      },
+    });
+
+    return updated;
+  });
 };
 
 // ─────────────────────────────────────────────

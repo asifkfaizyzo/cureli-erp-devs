@@ -1,6 +1,10 @@
 // backend/src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.controller.js
 
-import { listAllOrders, getOrderDetail } from "./cadminMarketplaceOrders.service.js";
+import {
+  listAllOrders,
+  getOrderDetail,
+  updateOrderStatus,
+} from "./cadminMarketplaceOrders.service.js";
 import { success, fail } from "../../../utils/response.js";
 
 /**
@@ -25,7 +29,6 @@ export async function listOrders(req, res) {
 
 /**
  * GET /cadmin/marketplace-orders/:orderId
- * Get full detail of a single order.
  */
 export async function getOrder(req, res) {
   try {
@@ -37,5 +40,43 @@ export async function getOrder(req, res) {
       return fail(res, "Order not found", 404);
     }
     return fail(res, "Failed to fetch order", 500);
+  }
+}
+
+/**
+ * PATCH /cadmin/marketplace-orders/:orderId/status
+ * Body: { status, reason? }
+ */
+export async function updateStatus(req, res) {
+  try {
+    const { status, reason = "" } = req.body || {};
+
+    if (!status) {
+      return fail(res, "status is required", 400);
+    }
+
+    const cadmin_name =
+      req.cadmin?.username || req.cadmin?.full_name || "CAdmin";
+
+    const data = await updateOrderStatus({
+      order_id: req.params.orderId,
+      new_status: status,
+      reason,
+      cadmin_name,
+    });
+
+    return success(res, data, "Order status updated");
+  } catch (err) {
+    console.error("[CAdmin Orders] updateStatus error:", err.message);
+
+    const statusMap = {
+      NOT_FOUND: 404,
+      INVALID_STATUS: 400,
+      TERMINAL_STATE: 409,
+      SAME_STATUS: 409,
+      REASON_REQUIRED: 400,
+    };
+
+    return fail(res, err.message, statusMap[err.code] || 500);
   }
 }

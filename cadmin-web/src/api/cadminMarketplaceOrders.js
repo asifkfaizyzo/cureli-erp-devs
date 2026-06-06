@@ -17,3 +17,16 @@ export function getMarketplaceOrders(params = {}) {
 export function getMarketplaceOrderById(orderId) {
   return CAdminAPI.get(`/marketplace-orders/${orderId}`);
 }
+
+/**
+ * CAdmin override: update order status.
+ * @param {string} orderId
+ * @param {string} status - PLACED | ACCEPTED | READY_FOR_PICKUP | COMPLETED | REJECTED | CANCELLED
+ * @param {string} [reason] - required for REJECTED / CANCELLED
+ */
+export function updateMarketplaceOrderStatus(orderId, status, reason = "") {
+  return CAdminAPI.patch(`/marketplace-orders/${orderId}/status`, {
+    status,
+    reason,
+  });
+}
