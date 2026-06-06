@@ -27,10 +27,14 @@ import { profileApi, extractErrorMessage } from '../api/profile.api';
 import { useAuthStore } from '../../../store/authStore';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useDialog } from '../../../components/Dialog/DialogProvider';
+import { useLayoutStore } from '../../../store/layoutStore';
+import { Spacing } from '../../../theme/spacing';
 
 export function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const { confirm, alert } = useDialog();
+  const bottomTabBarHeight = useLayoutStore((s) => s.bottomTabBarHeight);
+
   const {
     user,
     isLoading: profileLoading,
@@ -169,7 +173,10 @@ export function ProfileScreen() {
     >
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: bottomTabBarHeight + Spacing.md },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ProfileHeader user={user} isFetching={isFetching} />
@@ -308,7 +315,6 @@ export function ProfileScreen() {
         </Text>
 
         <LogoutButton />
-        <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -317,7 +323,7 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { flex: 1 },
-  content: { paddingBottom: 24 },
+  content: {},
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -380,5 +386,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginBottom: 16,
   },
-  bottomPad: { height: 32 },
 });

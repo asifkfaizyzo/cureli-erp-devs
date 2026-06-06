@@ -96,6 +96,12 @@ export const NOTIFICATION_EVENTS = {
   // SYSTEM / BROADCAST (Email Only)
   // ─────────────────────────────────────────
   SYSTEM_BROADCAST: "SYSTEM_BROADCAST",
+
+  // ─────────────────────────────────────────
+  // MARKETPLACE ORDERS
+  // ─────────────────────────────────────────
+  MARKETPLACE_ORDER_PLACED: "MARKETPLACE_ORDER_PLACED",
+  MARKETPLACE_ORDER_CANCELLED: "MARKETPLACE_ORDER_CANCELLED",
 };
 
 // ============================================
@@ -361,7 +367,7 @@ export const EVENT_CONFIG = {
     priority: "critical",
     dedupEntity: "inventory",
   },
-    [NOTIFICATION_EVENTS.MEDICINE_LINKED]: {
+  [NOTIFICATION_EVENTS.MEDICINE_LINKED]: {
     description: "Shop medicine linked to master catalog variant",
     defaultChannels: ["inapp"],
     audienceType: "shop_admins",
@@ -416,6 +422,21 @@ export const EVENT_CONFIG = {
     defaultChannels: ["email"],
     audienceType: "direct_cadmin",
     priority: "critical",
+  },
+  // ─────────────────────────────────────────
+  // MARKETPLACE ORDERS
+  // ─────────────────────────────────────────
+  [NOTIFICATION_EVENTS.MARKETPLACE_ORDER_PLACED]: {
+    description: "New marketplace order received by pharmacy",
+    defaultChannels: ["inapp"],
+    audienceType: "shop_users",
+    priority: "high",
+  },
+  [NOTIFICATION_EVENTS.MARKETPLACE_ORDER_CANCELLED]: {
+    description: "Marketplace order cancelled by customer",
+    defaultChannels: ["inapp"],
+    audienceType: "shop_users",
+    priority: "normal",
   },
 
   // ─────────────────────────────────────────

@@ -115,6 +115,12 @@ export const emailAttachmentUpload = createUploader("email_attachments", {
   maxFiles: 1,
 });
 
+export const prescriptionUpload = createUploader('order_prescriptions', {
+  fieldName: 'files',
+  maxFiles: 5,
+  maxFileSize: 10 * 1024 * 1024,
+});
+
 // ============================================
 //  NEW: GENERIC MULTER INSTANCE (for backwards compatibility)
 // ============================================

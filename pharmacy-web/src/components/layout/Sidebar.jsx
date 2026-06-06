@@ -8,6 +8,10 @@ import {
   selectNeedsRenewal,
 } from "../../store/useSubscriptionStore";
 import {
+  useNotificationStore,
+  selectNewOrderCount,
+} from '../../store/useNotificationStore';
+import {
   useAuthStore,
   selectIsSuperAdmin,
   selectIsGlobalMode,
@@ -266,12 +270,16 @@ const MarketplaceMenuItem = ({
   const isActive = activeMenu === item.id || isChildActive;
   const isOpen = openMenuId === item.id;
 
+  // New order badge — only on the Orders item
+  const newOrderCount = useNotificationStore(selectNewOrderCount);
+  const showOrderBadge = item.showOrderBadge && newOrderCount > 0;
+
   const handleClick = (e) => {
     e.preventDefault();
     if (isParent) {
       onToggle(item.id);
     } else {
-      onNavigate(item, false, "");
+      onNavigate(item, false, '');
     }
   };
 
@@ -284,23 +292,37 @@ const MarketplaceMenuItem = ({
           transition-colors duration-200
           ${
             isActive
-              ? "bg-white/[0.12] text-white shadow-lg shadow-black/30"
-              : "text-white/50 hover:bg-white/[0.07] hover:text-white/90"
+              ? 'bg-white/[0.12] text-white shadow-lg shadow-black/30'
+              : 'text-white/50 hover:bg-white/[0.07] hover:text-white/90'
           }
         `}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
-          <Icon size={20} />
+          {/* Icon with collapsed badge */}
+          <div className="relative">
+            <Icon size={20} />
+            {showOrderBadge && !isExpanded && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                {newOrderCount > 99 ? '99+' : newOrderCount}
+              </span>
+            )}
+          </div>
         </div>
 
         <motion.span
-          className="absolute left-[44px] text-sm font-medium whitespace-nowrap"
+          className="absolute left-[44px] text-sm font-medium whitespace-nowrap flex items-center gap-2"
           animate={{ opacity: isExpanded ? 1 : 0, x: isExpanded ? 0 : -12 }}
           transition={SIDEBAR_TRANSITION}
         >
           {item.label}
+          {/* Expanded badge */}
+          {showOrderBadge && isExpanded && (
+            <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
+              {newOrderCount > 99 ? '99+' : newOrderCount}
+            </span>
+          )}
         </motion.span>
 
         {isParent && (
@@ -331,14 +353,14 @@ const MarketplaceMenuItem = ({
                   key={sub.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(sub, false, "");
+                    onNavigate(sub, false, '');
                   }}
                   className={`
                     flex items-center h-9 px-3 rounded-lg text-sm
                     ${
                       isSubActive
-                        ? "bg-white/[0.12] text-white"
-                        : "text-white/40 hover:bg-white/[0.07] hover:text-white/80"
+                        ? 'bg-white/[0.12] text-white'
+                        : 'text-white/40 hover:bg-white/[0.07] hover:text-white/80'
                     }
                   `}
                   whileHover={{ x: 4 }}
@@ -574,6 +596,7 @@ const Sidebar = () => {
         path: "/marketplace/orders",
         breadcrumbs: ["Marketplace", "Orders"],
         permissionKey: "marketplaceOrders",
+        showOrderBadge: true, // ← flag for order count badge
       },
       {
         id: "marketplace-listings",

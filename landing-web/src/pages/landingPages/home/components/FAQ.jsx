@@ -10,31 +10,36 @@ import { ChevronDown } from "lucide-react";
 const FAQS_DATA = [
   {
     id: 1,
-    question: "Does Cureli allow creation of purchase orders and management of suppliers?",
+    question:
+      "Does Cureli allow creation of purchase orders and management of suppliers?",
     answer:
-      "Yes! Cureli ERP offers complete vendor management, purchase order creation, and detailed supplier tracking capabilities.",
+      "Yes! Cureli offers complete vendor management, purchase order creation, and detailed supplier tracking capabilities.",
   },
   {
     id: 2,
-    question: "How does the ERP handle the billing and invoice generation process?",
+    question:
+      "How does the ERP handle the billing and invoice generation process?",
     answer:
       "Our ERP delivers swift, GST-compliant billing with automated invoice creation and seamless payment tracking.",
   },
   {
     id: 3,
-    question: "Can the system monitor expiry dates of medicines and manage batch details?",
+    question:
+      "Can the system monitor expiry dates of medicines and manage batch details?",
     answer:
       "Absolutely! The system tracks batch numbers, expiry dates, and sends automated low-stock alerts.",
   },
   {
     id: 4,
-    question: "Does Cureli support barcode and QR code scanning directly at the billing counter?",
+    question:
+      "Does Cureli support barcode and QR code scanning directly at the billing counter?",
     answer:
-      "Yes, Cureli ERP is fully compatible with both barcode and QR code scanning for fast, error-free billing.",
+      "Yes, Cureli is fully compatible with both barcode and QR code scanning for fast, error-free billing.",
   },
   {
     id: 5,
-    question: "Is GST automatically applied and calculated within the billing module?",
+    question:
+      "Is GST automatically applied and calculated within the billing module?",
     answer:
       "Yes, every invoice is fully GST-compliant with built-in tax calculations and complete HSN code support.",
   },
@@ -46,7 +51,8 @@ const FAQS_DATA = [
   },
   {
     id: 7,
-    question: "Is the software manageable and easy to navigate for non-technical pharmacy staff?",
+    question:
+      "Is the software manageable and easy to navigate for non-technical pharmacy staff?",
     answer:
       "Absolutely! Our simple, intuitive interface is built for everyday ease of use, backed by full training and support.",
   },
@@ -180,7 +186,9 @@ const SectionHeader = memo(() => (
       data-aos="fade-up"
       data-aos-delay="150"
     >
-      Have questions about Cureli and its suitability for your pharmacy? We get these questions most often from pharmacists and owners considering our solution for their pharmacies.
+      Have questions about Cureli and its suitability for your pharmacy? We get
+      these questions most often from pharmacists and owners considering our
+      solution for their pharmacies.
     </p>
   </header>
 ));

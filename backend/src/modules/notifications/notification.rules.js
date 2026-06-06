@@ -35,6 +35,9 @@ export async function resolveAudience(
     case "shop_admins":
       return resolveShopAdmins(context);
 
+    case "shop_users":
+      return resolveShopUsers(context);
+
     case "shop_inventory_users":
       return resolveShopInventoryUsers(context);
 
@@ -53,7 +56,7 @@ export async function resolveAudience(
 }
 
 // ─────────────────────────────────────────
-// RESOLUTION STRATEGIES (unchanged)
+// RESOLUTION STRATEGIES
 // ─────────────────────────────────────────
 
 async function resolveDirectUser(context) {
@@ -202,6 +205,38 @@ async function resolveShopAdmins(context) {
     }));
 }
 
+async function resolveShopUsers(context) {
+  const { shop_id } = context;
+  if (!shop_id) {
+    console.warn('[Notifications] resolveShopUsers: No shop_id in context');
+    return [];
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      shop_id,
+      is_active: true,
+    },
+    select: {
+      user_id: true,
+      email: true,
+      full_name: true,
+      role: true,
+      branch_id: true,
+    },
+  });
+
+  return users.map((user) => ({
+    email: user.email || null,
+    name: user.full_name || 'User',
+    user_id: user.user_id,
+    shop_id,
+    branch_id: user.branch_id,
+    role: user.role,
+    type: 'user',
+  }));
+}
+
 async function resolveShopInventoryUsers(context) {
   const { shop_id, branch_id } = context;
   if (!shop_id) {
@@ -316,7 +351,7 @@ async function resolveTicketCreator(context) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BROADCAST AUDIENCE RESOLVER  ← main fix is here
+// BROADCAST AUDIENCE RESOLVER
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -344,8 +379,8 @@ async function resolveBroadcastAudience(filters = {}) {
   // ── Destructure all recognised keys ────────────────────────────────────
   const {
     // Audience type toggles
-    includeUsers = true, // default ON
-    includeCAdmins = false, // default OFF
+    includeUsers = true,
+    includeCAdmins = false,
 
     // User filters
     shop_ids,
@@ -356,7 +391,6 @@ async function resolveBroadcastAudience(filters = {}) {
 
     // CAdmin filters
     // Accept BOTH camelCase (cadminRoles) and snake_case (cadmin_roles)
-    // so the resolver works regardless of which the caller uses
     cadmin_roles,
     cadminRoles,
 
@@ -472,10 +506,10 @@ async function resolveBroadcastAudience(filters = {}) {
       });
     }
 
-    //  Do NOT filter by email — in-app only needs user_id
+    // Do NOT filter by email — in-app only needs user_id
     for (const user of users) {
       userRecipients.push({
-        email: user.email || null, // null-safe for in-app
+        email: user.email || null,
         name: user.full_name || "User",
         user_id: user.user_id,
         shop_id: user.shop_id || null,
@@ -491,12 +525,11 @@ async function resolveBroadcastAudience(filters = {}) {
 
   // ── 2. CADMINS ──────────────────────────────────────────────────────────
   if (includeCAdmins) {
-    //  CAdmin model has NO role column — roles live in CAdminRoleAssignment
+    // CAdmin model has NO role column — roles live in CAdminRoleAssignment
     // We join through roleAssignments → role → name
     let cadmins = [];
 
     if (cadminRoleFilter.length > 0) {
-      // Filter cadmins who have at least one role whose name matches
       console.log(
         `[Broadcast] Querying cadmins with roles: ${cadminRoleFilter.join(", ")}`,
       );
@@ -523,7 +556,6 @@ async function resolveBroadcastAudience(filters = {}) {
         },
       });
     } else {
-      // No role filter — all active cadmins
       console.log("[Broadcast] Querying all active cadmins");
       cadmins = await prisma.cAdmin.findMany({
         where: { is_active: true },
@@ -540,11 +572,10 @@ async function resolveBroadcastAudience(filters = {}) {
     }
 
     for (const admin of cadmins) {
-      // Collect all role names for this cadmin (for display / audit)
       const roleNames = admin.roleAssignments.map((a) => a.role.name);
 
       cadminRecipients.push({
-        email: admin.email || null, // null-safe for in-app
+        email: admin.email || null,
         name: admin.name || "Admin",
         cadmin_id: admin.cadmin_id,
         roles: roleNames,

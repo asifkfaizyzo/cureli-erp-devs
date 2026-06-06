@@ -1,32 +1,35 @@
-import React, { useCallback, useState } from "react";
+// src/features/cart/components/DeliveryInstructionCard.tsx
+
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   FlatList,
   StyleSheet,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../../theme/ThemeContext";
-import { Spacing } from "../../../theme/spacing";
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../../theme/ThemeContext';
+import { Spacing } from '../../../theme/spacing';
 
-const INSTRUCTIONS = [
-  { id: "bell", icon: "notifications-off-outline" as const, label: "Avoid ringing bell" },
-  { id: "call", icon: "call-outline" as const, label: "Avoid calling" },
-  { id: "door", icon: "home-outline" as const, label: "Leave at door" },
-  { id: "mask", icon: "shield-outline" as const, label: "Wear a mask" },
-  { id: "safe", icon: "hand-left-outline" as const, label: "Contactless" },
-];
+export const INSTRUCTIONS = [
+  { id: 'bell', icon: 'notifications-off-outline' as const, label: 'Avoid ringing bell' },
+  { id: 'call', icon: 'call-outline' as const,              label: 'Avoid calling' },
+  { id: 'door', icon: 'home-outline' as const,              label: 'Leave at door' },
+  { id: 'mask', icon: 'shield-outline' as const,            label: 'Wear a mask' },
+  { id: 'safe', icon: 'hand-left-outline' as const,         label: 'Contactless' },
+] as const;
 
-export function DeliveryInstructionCard() {
+interface DeliveryInstructionCardProps {
+  selected: string[];
+  onToggle: (id: string) => void;
+}
+
+export function DeliveryInstructionCard({
+  selected,
+  onToggle,
+}: DeliveryInstructionCardProps) {
   const { colors } = useTheme();
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const toggleSelect = useCallback((id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  }, []);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.background.card }]}>
@@ -44,7 +47,7 @@ export function DeliveryInstructionCard() {
           const isSelected = selected.includes(item.id);
           return (
             <TouchableOpacity
-              onPress={() => toggleSelect(item.id)}
+              onPress={() => onToggle(item.id)}
               activeOpacity={0.8}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: isSelected }}
@@ -52,7 +55,7 @@ export function DeliveryInstructionCard() {
                 styles.chip,
                 {
                   backgroundColor: colors.background.tint,
-                  borderColor: isSelected ? "#05015A" : "transparent",
+                  borderColor: isSelected ? colors.brand.primary : 'transparent',
                   borderWidth: isSelected ? 2 : 0,
                 },
               ]}
@@ -60,31 +63,30 @@ export function DeliveryInstructionCard() {
               <Ionicons
                 name={item.icon}
                 size={22}
-                color={
-                  isSelected ? "#05015A" : colors.text.secondary
-                }
+                color={isSelected ? colors.brand.primary : colors.text.secondary}
               />
               <Text
                 style={[
                   styles.chipLabel,
                   {
-                    color: isSelected ? "#05015A" : colors.text.secondary,
-                    fontFamily: isSelected
-                      ? "Inter_600SemiBold"
-                      : "Inter_400Regular",
+                    color: isSelected ? colors.brand.primary : colors.text.secondary,
+                    fontFamily: isSelected ? 'Inter_600SemiBold' : 'Inter_400Regular',
                   },
                 ]}
                 numberOfLines={2}
               >
                 {item.label}
               </Text>
-
               <View
                 style={[
                   styles.checkbox,
                   {
-                    borderColor: isSelected ? "#05015A" : colors.border.default,
-                    backgroundColor: isSelected ? "#05015A" : "transparent",
+                    borderColor: isSelected
+                      ? colors.brand.primary
+                      : colors.border.default,
+                    backgroundColor: isSelected
+                      ? colors.brand.primary
+                      : 'transparent',
                   },
                 ]}
               >
@@ -106,7 +108,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    shadowColor: "#090025",
+    shadowColor: '#090025',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -114,32 +116,32 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: 'Inter_600SemiBold',
     marginBottom: Spacing.md,
   },
   list: {
     gap: Spacing.sm,
   },
   chip: {
-    width: 80,
-    height: 90,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 6,
-    gap: 4,
+    width: 84,
+    height: 96,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    gap: 5,
   },
   chipLabel: {
     fontSize: 10,
-    textAlign: "center",
-    lineHeight: 13,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   checkbox: {
-    width: 14,
-    height: 14,
-    borderRadius: 3,
+    width: 15,
+    height: 15,
+    borderRadius: 4,
     borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

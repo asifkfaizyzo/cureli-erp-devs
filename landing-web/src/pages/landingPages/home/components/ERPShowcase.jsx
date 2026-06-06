@@ -63,7 +63,7 @@ const ERPShowcase = () => {
       setFrontIndex(index);
       setTimeout(() => setIsAnimating(false), 800);
     },
-    [frontIndex, isAnimating]
+    [frontIndex, isAnimating],
   );
 
   useEffect(() => {
@@ -125,10 +125,9 @@ const ERPShowcase = () => {
             </h2>
 
             <p className="text-white/80 mb-8 max-w-lg mx-auto lg:mx-0">
-              Cureli ERP streamlines pharmacy operations by centralizing
-              inventory, billing, purchases, suppliers, sales, and reporting
-              into one efficient, reliable, and scalable pharmacy management
-              system.
+              Cureli streamlines pharmacy operations by centralizing inventory,
+              billing, purchases, suppliers, sales, and reporting into one
+              efficient, reliable, and scalable pharmacy management system.
             </p>
 
             {/* UPDATED: Link to /contact */}
