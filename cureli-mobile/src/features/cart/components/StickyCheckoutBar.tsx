@@ -1,10 +1,4 @@
 // src/features/cart/components/StickyCheckoutBar.tsx
-//
-// CHANGED:
-//   - Button now says "Proceed · ₹X" instead of showing payment method
-//   - Address display reads from deliveryLocationStore first (picked address),
-//     falls back to default saved address
-//   - Payment method row removed — not needed before order confirmation
 
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -35,13 +29,6 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
   const items = useCartStore((s) => s.items);
   const tempFiles = usePrescriptionStore((s) => s.tempFiles);
 
-  // ── Address resolution ────────────────────────────────────
-  // Priority:
-  //   1. Address explicitly picked by the user via the sheet
-  //      (stored in deliveryLocationStore.location.addressId)
-  //   2. Default saved address from DB
-  //   3. First saved address
-  //   4. null → show "No address set" warning
   const { addresses } = useAddresses();
   const pickedAddressId = useDeliveryLocationStore(
     (s) => s.location.addressId ?? null,
@@ -54,7 +41,6 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
     return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
   })();
 
-  // ── Charges ───────────────────────────────────────────────
   const itemsTotal = items.reduce(
     (sum, item) => sum + item.pricePerUnit * item.quantity,
     0,
@@ -64,13 +50,11 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
   const grandTotal =
     itemsTotal + CART_CONFIG.HANDLING_CHARGE + deliveryCharge;
 
-  // ── Gate checks ───────────────────────────────────────────
   const requiresPrescription = items.some((i) => i.requiresPrescription);
   const prescriptionBlocked = requiresPrescription && tempFiles.length === 0;
   const noAddress = !resolvedAddress;
   const isBlocked = prescriptionBlocked || noAddress;
 
-  // ── Address display ───────────────────────────────────────
   const addressLabel = resolvedAddress
     ? (resolvedAddress.custom_label ?? resolvedAddress.label)
     : null;
@@ -80,6 +64,10 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
 
   const handleAddressPress = useCallback(() => {
     setAddressSheetVisible(true);
+  }, []);
+
+  const handleSheetClose = useCallback(() => {
+    setAddressSheetVisible(false);
   }, []);
 
   return (
@@ -197,18 +185,27 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
               isBlocked && styles.proceedBtnDisabled,
             ]}
           >
-            <Text style={styles.proceedBtnText}>
-              Place Order
-            </Text>
+            <Text style={styles.proceedBtnText}>Place Order</Text>
             <Ionicons name="arrow-forward" size={16} color="#ffffff" />
           </TouchableOpacity>
         </View>
       </View>
 
-      <AddressPickerSheet
-        visible={addressSheetVisible}
-        onClose={() => setAddressSheetVisible(false)}
-      />
+      {/* ──────────────────────────────────────────────────────────
+          IMPORTANT: AddressPickerSheet must be conditionally mounted.
+          On Android 15 + Fabric, @gorhom/bottom-sheet v5 renders an
+          invisible touch-capturing portal layer even when index={-1}
+          (closed), which blocks ALL touches on the underlying screen.
+          Only mounting the sheet when it should be visible fully fixes
+          this. The sheet's own enter animation still works correctly
+          because it runs on mount.
+      ────────────────────────────────────────────────────────── */}
+      {addressSheetVisible && (
+        <AddressPickerSheet
+          visible={addressSheetVisible}
+          onClose={handleSheetClose}
+        />
+      )}
     </>
   );
 }
