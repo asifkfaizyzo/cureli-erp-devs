@@ -1,6 +1,4 @@
-// ============================================
 // backend/src/modules/mobile/orders/mobile.orders.controller.js
-// ============================================
 
 import {
   placeOrder,
@@ -8,27 +6,22 @@ import {
   getMobileOrderDetail,
   cancelOrder,
   getPrescriptionSignedUrl,
+  getReorderItems,
 } from '../../marketplace-orders/marketplace.orders.service.js';
 import { placeOrderSchema, listMobileOrdersSchema } from './mobile.orders.schema.js';
 import { success, fail } from '../../../utils/response.js';
 
-/**
- * POST /mobile/orders
- * Place a new marketplace order.
- */
 export async function placeOrderHandler(req, res) {
   try {
     const parsed = placeOrderSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return fail(res, parsed.error.errors[0].message, 400);
-    }
+    if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
     const result = await placeOrder({
-      customer_id: req.mobileUser.id,
-      branch_id: parsed.data.branch_id,
-      items: parsed.data.items,
-      delivery_address_id: parsed.data.delivery_address_id,
-      notes: parsed.data.notes ?? null,
+      customer_id:        req.mobileUser.id,
+      branch_id:          parsed.data.branch_id,
+      items:              parsed.data.items,
+      delivery_address_id:parsed.data.delivery_address_id,
+      notes:              parsed.data.notes ?? null,
       prescription_files: parsed.data.prescription_files ?? [],
     });
 
@@ -49,24 +42,15 @@ export async function placeOrderHandler(req, res) {
       'Order must contain at least one item',
     ];
 
-    if (userFacingErrors.includes(err.message)) {
-      return fail(res, err.message, 400);
-    }
-
+    if (userFacingErrors.includes(err.message)) return fail(res, err.message, 400);
     return fail(res, 'Failed to place order', 500);
   }
 }
 
-/**
- * GET /mobile/orders
- * List customer's orders.
- */
 export async function listOrdersHandler(req, res) {
   try {
     const parsed = listMobileOrdersSchema.safeParse(req.query);
-    if (!parsed.success) {
-      return fail(res, parsed.error.errors[0].message, 400);
-    }
+    if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
     const result = await getMobileOrders(req.mobileUser.id, parsed.data);
     return success(res, result, 'Orders fetched');
@@ -76,50 +60,29 @@ export async function listOrdersHandler(req, res) {
   }
 }
 
-/**
- * GET /mobile/orders/:orderId
- * Get order detail.
- */
 export async function getOrderDetailHandler(req, res) {
   try {
-    const order = await getMobileOrderDetail(
-      req.params.orderId,
-      req.mobileUser.id,
-    );
+    const order = await getMobileOrderDetail(req.params.orderId, req.mobileUser.id);
     return success(res, order, 'Order fetched');
   } catch (err) {
     console.error('[Mobile Orders] getOrderDetail error:', err.message);
-    if (err.message === 'Order not found') {
-      return fail(res, 'Order not found', 404);
-    }
+    if (err.message === 'Order not found') return fail(res, 'Order not found', 404);
     return fail(res, 'Failed to fetch order', 500);
   }
 }
 
-/**
- * POST /mobile/orders/:orderId/cancel
- * Customer cancels their order (only when PLACED).
- */
 export async function cancelOrderHandler(req, res) {
   try {
     const result = await cancelOrder(req.params.orderId, req.mobileUser.id);
     return success(res, result, 'Order cancelled');
   } catch (err) {
     console.error('[Mobile Orders] cancelOrder error:', err.message);
-    if (err.message === 'Order not found') {
-      return fail(res, 'Order not found', 404);
-    }
-    if (err.message.startsWith('Cannot transition')) {
-      return fail(res, 'This order can no longer be cancelled', 409);
-    }
+    if (err.message === 'Order not found')            return fail(res, 'Order not found', 404);
+    if (err.message.startsWith('Cannot transition')) return fail(res, 'This order can no longer be cancelled', 409);
     return fail(res, 'Failed to cancel order', 500);
   }
 }
 
-/**
- * GET /mobile/orders/:orderId/prescriptions/:prescriptionId/url
- * Get signed URL for a prescription file.
- */
 export async function getPrescriptionUrlHandler(req, res) {
   try {
     const result = await getPrescriptionSignedUrl(
@@ -130,9 +93,19 @@ export async function getPrescriptionUrlHandler(req, res) {
     return success(res, result, 'Signed URL generated');
   } catch (err) {
     console.error('[Mobile Orders] getPrescriptionUrl error:', err.message);
-    if (err.message === 'Prescription not found') {
-      return fail(res, 'Prescription not found', 404);
-    }
+    if (err.message === 'Prescription not found') return fail(res, 'Prescription not found', 404);
+    if (err.message === 'Prescription expired')   return fail(res, 'Prescription has expired', 410);
     return fail(res, 'Failed to generate URL', 500);
+  }
+}
+
+export async function getReorderItemsHandler(req, res) {
+  try {
+    const result = await getReorderItems(req.params.orderId, req.mobileUser.id);
+    return success(res, result, 'Reorder items fetched');
+  } catch (err) {
+    console.error('[Mobile Orders] getReorderItems error:', err.message);
+    if (err.message === 'Order not found') return fail(res, 'Order not found', 404);
+    return fail(res, 'Failed to fetch reorder items', 500);
   }
 }

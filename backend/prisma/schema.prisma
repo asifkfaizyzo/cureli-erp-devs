@@ -880,28 +880,34 @@ model MarketplaceOrderItem {
 
 model MarketplaceOrderPrescription {
 
-  prescription_id   String   @id @default(uuid()) @db.Uuid
-  order_id          String   @db.Uuid
+  prescription_id   String    @id @default(uuid()) @db.Uuid
+  order_id          String    @db.Uuid
 
   // ── S3 storage ────────────────────────────────────────
-  // storage_key is the filename only (e.g. "1717000000-abc123.pdf").
-  // The S3 folder is always "order_prescriptions" — not stored in the DB.
-  // This matches the convention in ShopFile and TicketAttachment.
-  storage_key       String   @db.VarChar(500)
-  original_name     String   @db.VarChar(255)
-  mime_type         String   @db.VarChar(100)
+  storage_key       String    @db.VarChar(500)
+  original_name     String    @db.VarChar(255)
+  mime_type         String    @db.VarChar(100)
   file_size         Int
 
   // ── Display order ─────────────────────────────────────
-  sequence          Int      @default(0)
+  sequence          Int       @default(0)
 
-  uploaded_at       DateTime @default(now()) @db.Timestamptz(6)
+  // ── Expiry and soft-delete ────────────────────────────
+  // expires_at: set atomically when order reaches terminal state
+  //   COMPLETED / REJECTED → now + 10 days
+  //   CANCELLED            → now + 1 day
+  // deleted_at: set by cron after S3 file is purged
+  //   DB row is kept for audit. S3 file is gone.
+  expires_at        DateTime? @db.Timestamptz(6)
+  deleted_at        DateTime? @db.Timestamptz(6)
 
+  uploaded_at       DateTime  @default(now()) @db.Timestamptz(6)
 
   order             MarketplaceOrder @relation("OrderPrescriptions", fields: [order_id], references: [order_id], onDelete: Cascade)
 
-
   @@index([order_id])
+  // Cron query: find expired but not yet deleted prescriptions
+  @@index([expires_at, deleted_at])
   @@map("marketplace_order_prescriptions")
 }
 

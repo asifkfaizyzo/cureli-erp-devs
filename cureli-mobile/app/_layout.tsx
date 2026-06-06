@@ -1,3 +1,5 @@
+// app/_layout.tsx
+
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,6 +20,7 @@ import { authEventEmitter } from '../src/services/api';
 import { ThemeProvider } from '../src/theme/ThemeContext';
 import { DialogProvider } from '../src/components/Dialog/DialogProvider';
 import { GlobalCartBar } from '../src/components/CartBar/GlobalCartBar';
+import { useMobileSSE } from '../src/hooks/useMobileSSE';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,11 +31,22 @@ LogBox.ignoreLogs([
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry:     2,
       staleTime: 1000 * 60 * 5,
     },
   },
 });
+
+// ── SSE Manager ───────────────────────────────────────────────────────────────
+// Mounted inside QueryClientProvider and ThemeProvider so it has access to all
+// context, but outside DialogProvider/GlobalCartBar since it needs no UI.
+// useMobileSSE reads auth status from authStore — it will not connect until
+// status === 'authenticated', so mounting here at root level is safe.
+
+function SSEManager() {
+  useMobileSSE();
+  return null;
+}
 
 export default function RootLayout() {
   const { initialize, logout } = useAuthStore();
@@ -43,8 +57,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
-    Amulya: require('../assets/fonts/Amulya-Variable.ttf'),
-    'Amulya-Variable': require('../assets/fonts/Amulya-Variable.ttf'),
+    Amulya:           require('../assets/fonts/Amulya-Variable.ttf'),
+    'Amulya-Variable':require('../assets/fonts/Amulya-Variable.ttf'),
   });
 
   useEffect(() => {
@@ -67,12 +81,13 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    // GestureHandlerRootView must wrap the entire app for @gorhom/bottom-sheet
-    // to work correctly on Android. flex:1 is required — without it the app
-    // renders with zero height on Android.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
+          {/* SSEManager sits here — has access to QueryClient and Theme,
+              reads auth status from Zustand directly (no context needed) */}
+          <SSEManager />
+
           <DialogProvider>
             <Stack>
               <Stack.Screen name="index"                  options={{ headerShown: false }} />

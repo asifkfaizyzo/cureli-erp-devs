@@ -1,36 +1,158 @@
 // src/features/orders/components/OrderHistoryCard.tsx
+// Changes:
+//   - Removed onDelete prop and its usage
+//   - rejection_reason now uses getRejectionLabel helper
+//   - onReorder navigates to order detail (reorder handled there)
 
-import React from 'react';
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+
+import { useTheme } from "../../../theme/ThemeContext";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Image,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../theme/ThemeContext';
-import { RatingBanner } from './RatingBanner';
-import { formatDeliveryDate } from '../constants/orders.constants';
-import type { DispensedOrder } from '../../../types/order';
+  getStatusLabel,
+  getStatusColorKey,
+  getStatusIcon,
+  getRejectionLabel,
+  formatDeliveryDate,
+  type StatusColorKey,
+} from "../constants/orders.constants";
+import type { MobileOrderSummary, MobileOrderItem } from "../../../types/order";
 
+const MAX_VISIBLE_ITEMS = 3;
+
+// onDelete removed — no backend endpoint exists for hiding orders
 interface OrderHistoryCardProps {
-  order: DispensedOrder;
+  order: MobileOrderSummary;
   onOpen: () => void;
   onReorder: () => void;
-  onDelete: () => void;
+}
+
+function resolveStatusColors(
+  colorKey: StatusColorKey,
+  colors: any,
+): { fg: string; bg: string } {
+  switch (colorKey) {
+    case "success":
+      return { fg: colors.status.success, bg: colors.status.successBg };
+    case "warning":
+      return { fg: colors.status.warning, bg: colors.status.warningBg };
+    case "error":
+      return { fg: colors.status.error, bg: colors.status.errorBg };
+    default:
+      return { fg: colors.brand.primary, bg: colors.background.tint };
+  }
+}
+
+function ItemRow({
+  item,
+  isLast,
+  colors,
+}: {
+  item: MobileOrderItem;
+  isLast: boolean;
+  colors: any;
+}) {
+  return (
+    <View
+      style={[
+        styles.itemRow,
+        !isLast && {
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.subtle,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.itemThumb,
+          {
+            backgroundColor: colors.background.elevated,
+            borderColor: colors.border.subtle,
+          },
+        ]}
+      >
+        {item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={styles.itemThumbImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Ionicons
+            name="medkit-outline"
+            size={20}
+            color={colors.text.disabled}
+          />
+        )}
+      </View>
+
+      <View style={styles.itemDetails}>
+        <Text
+          style={[
+            styles.itemName,
+            { color: colors.text.primary, fontFamily: "Inter_600SemiBold" },
+          ]}
+          numberOfLines={1}
+        >
+          {item.medicine_name}
+        </Text>
+        {item.brand || item.pack_size ? (
+          <Text
+            style={[
+              styles.itemSub,
+              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+            ]}
+            numberOfLines={1}
+          >
+            {[item.brand, item.pack_size].filter(Boolean).join(" · ")}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.itemPriceCol}>
+        <Text
+          style={[
+            styles.itemPrice,
+            { color: colors.text.primary, fontFamily: "Inter_700Bold" },
+          ]}
+        >
+          ₹{item.line_total.toFixed(0)}
+        </Text>
+        <Text
+          style={[
+            styles.itemQty,
+            { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+          ]}
+        >
+          qty {item.quantity}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export function OrderHistoryCard({
   order,
   onOpen,
   onReorder,
-  onDelete,
 }: OrderHistoryCardProps) {
   const { colors, isDark } = useTheme();
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
-  const firstItem = order.items[0];
-  const extraCount = order.items.length - 1;
+
+  const colorKey = getStatusColorKey(order.status);
+  const { fg, bg } = resolveStatusColors(colorKey, colors);
+  const iconName = getStatusIcon(order.status) as any;
+  const statusLabel = getStatusLabel(order.status);
+
+  const visibleItems = order.items.slice(0, MAX_VISIBLE_ITEMS);
+  const hiddenCount = order.items.length - visibleItems.length;
+
+  const displayDate =
+    order.completed_at ??
+    order.cancelled_at ??
+    order.rejected_at ??
+    order.placed_at;
 
   return (
     <TouchableOpacity
@@ -44,295 +166,244 @@ export function OrderHistoryCard({
       onPress={onOpen}
       activeOpacity={0.95}
     >
-      {/* ── Order Header ─────────────────────────────── */}
-      <View style={styles.orderHeader}>
-        <View style={styles.orderHeaderLeft}>
-          {/* Success badge */}
-          <View
-            style={[
-              styles.successBadge,
-              { backgroundColor: colors.status.successBg },
-            ]}
-          >
-            <Ionicons
-              name="checkmark-circle"
-              size={16}
-              color={colors.status.success}
-            />
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <View style={styles.topLeft}>
+          <View style={[styles.statusBadge, { backgroundColor: bg }]}>
+            <Ionicons name={iconName} size={13} color={fg} />
             <Text
               style={[
-                styles.arrivedText,
-                {
-                  color: colors.status.success,
-                  fontFamily: 'Inter_600SemiBold',
-                },
+                styles.statusText,
+                { color: fg, fontFamily: "Inter_600SemiBold" },
               ]}
             >
-              Arrived in {order.arrivedInMinutes} mins
+              {statusLabel}
             </Text>
           </View>
-
           <Text
             style={[
               styles.dateText,
-              { color: colors.text.faint, fontFamily: 'Inter_400Regular' },
+              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
             ]}
           >
-            {formatDeliveryDate(order.deliveredAt)}
+            {formatDeliveryDate(displayDate)}
           </Text>
         </View>
 
-        <View style={styles.orderHeaderRight}>
+        <View style={styles.centre}>
           <Text
             style={[
-              styles.amountText,
-              { color: colors.text.primary, fontFamily: 'Inter_700Bold' },
+              styles.totalAmount,
+              { color: colors.text.primary, fontFamily: "Inter_700Bold" },
             ]}
           >
-            ₹{order.bill.billTotal}
+            ₹{order.total_amount.toFixed(0)}
           </Text>
-          <TouchableOpacity
-            onPress={onDelete}
-            style={styles.deleteButton}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        </View>
+      </View>
+
+      <View
+        style={[styles.divider, { backgroundColor: colors.border.subtle }]}
+      />
+
+      {/* Item rows */}
+      <View style={styles.itemList}>
+        {visibleItems.map((item, index) => (
+          <ItemRow
+            key={item.item_id}
+            item={item}
+            isLast={index === visibleItems.length - 1 && hiddenCount === 0}
+            colors={colors}
+          />
+        ))}
+
+        {hiddenCount > 0 && (
+          <View
+            style={[styles.moreRow, { borderTopColor: colors.border.subtle }]}
           >
             <Ionicons
-              name="trash-outline"
-              size={15}
+              name="ellipsis-horizontal"
+              size={14}
               color={colors.text.faint}
             />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ── Product Preview ───────────────────────── */}
-      <View
-        style={[
-          styles.divider,
-          { backgroundColor: colors.border.subtle },
-        ]}
-      />
-      <View style={styles.productPreview}>
-        <View style={styles.imageRow}>
-          {/* Show up to 3 product images */}
-          {order.items.slice(0, 3).map((item, index) => (
-            <View
-              key={item.id}
+            <Text
               style={[
-                styles.imageWrapper,
-                {
-                  backgroundColor: colors.background.elevated,
-                  borderColor: colors.border.subtle,
-                  marginLeft: index > 0 ? -8 : 0,
-                  zIndex: 3 - index,
-                },
+                styles.moreText,
+                { color: colors.text.faint, fontFamily: "Inter_400Regular" },
               ]}
             >
-              {item.image ? (
-                <Image
-                  source={{ uri: item.image }}
-                  style={styles.productImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Ionicons
-                  name="medkit-outline"
-                  size={20}
-                  color={colors.text.faint}
-                />
-              )}
-            </View>
-          ))}
-          {/* Extra count badge */}
-          {extraCount > 0 && (
-            <View
-              style={[
-                styles.extraBadge,
-                {
-                  backgroundColor: colors.background.tint,
-                  borderColor: colors.border.default,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.extraText,
-                  { color: colors.text.muted, fontFamily: 'Inter_600SemiBold' },
-                ]}
-              >
-                +{extraCount}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.itemInfo}>
-          <Text
-            style={[
-              styles.itemName,
-              { color: colors.text.primary, fontFamily: 'Inter_600SemiBold' },
-            ]}
-            numberOfLines={1}
-          >
-            {firstItem.name}
-          </Text>
-          <Text
-            style={[
-              styles.itemMeta,
-              { color: colors.text.faint, fontFamily: 'Inter_400Regular' },
-            ]}
-            numberOfLines={1}
-          >
-            {order.items.length} item{order.items.length > 1 ? 's' : ''}
-            {firstItem.packSize ? ` · ${firstItem.packSize}` : ''}
-          </Text>
-        </View>
+              +{hiddenCount} more item{hiddenCount > 1 ? "s" : ""}
+            </Text>
+          </View>
+        )}
       </View>
 
-      {/* ── Rating Banner ──────────────────────────── */}
-      <View
-        style={[
-          styles.divider,
-          { backgroundColor: colors.border.subtle },
-        ]}
-      />
-      <RatingBanner
-        submitted={order.ratingSubmitted}
-        ratingValue={order.ratingValue}
-        onEdit={() => {}}
-        compact
-      />
+      {/* Rejection reason — human-readable label */}
+      {order.status === "REJECTED" && order.rejection_reason ? (
+        <>
+          <View
+            style={[styles.divider, { backgroundColor: colors.border.subtle }]}
+          />
+          <View
+            style={[
+              styles.rejectionBanner,
+              { backgroundColor: colors.status.errorBg },
+            ]}
+          >
+            <Ionicons
+              name="close-circle-outline"
+              size={13}
+              color={colors.status.error}
+            />
+            <Text
+              style={[
+                styles.rejectionText,
+                { color: colors.status.error, fontFamily: "Inter_400Regular" },
+              ]}
+            >
+              {getRejectionLabel(order.rejection_reason)}
+            </Text>
+          </View>
+        </>
+      ) : null}
 
-      {/* ── Reorder Footer ──────────────────────────── */}
+      {/* Footer */}
       <View
-        style={[
-          styles.divider,
-          { backgroundColor: colors.border.subtle },
-        ]}
+        style={[styles.divider, { backgroundColor: colors.border.subtle }]}
       />
-      <TouchableOpacity
-        style={[
-          styles.reorderButton,
-          { backgroundColor: colors.background.tint },
-        ]}
-        onPress={onReorder}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="refresh-outline" size={16} color={brandColor} />
+      <View style={styles.footer}>
         <Text
           style={[
-            styles.reorderText,
-            { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+            styles.orderNumber,
+            { color: colors.text.disabled, fontFamily: "Inter_400Regular" },
           ]}
         >
-          Reorder
+          {order.order_number}
         </Text>
-      </TouchableOpacity>
+
+        {order.shop_name ? (
+          <Text
+            style={[
+              styles.shopName,
+              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+            ]}
+            numberOfLines={1}
+          >
+            {order.shop_name}
+          </Text>
+        ) : null}
+
+        {order.status === "COMPLETED" ? (
+          <TouchableOpacity
+            style={styles.reorderBtn}
+            onPress={onReorder}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh-outline" size={13} color={brandColor} />
+            <Text
+              style={[
+                styles.reorderText,
+                { color: brandColor, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              Reorder
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View />
+        )}
+      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     marginHorizontal: 16,
     marginBottom: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 14,
+
+  topBar: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
-  orderHeaderLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  orderHeaderRight: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  successBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
+  topLeft: { flex: 1, gap: 4 },
+  centre: { alignItems: "center", justifyContent: "center", gap: 6 },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
   },
-  arrivedText: {
-    fontSize: 12,
+  statusText: { fontSize: 12 },
+  dateText: { fontSize: 11 },
+  totalAmount: { fontSize: 17 },
+
+  divider: { height: 1 },
+
+  itemList: { paddingHorizontal: 14, paddingVertical: 4 },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
   },
-  dateText: {
-    fontSize: 12,
-  },
-  amountText: {
-    fontSize: 16,
-  },
-  deleteButton: {
-    padding: 2,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 14,
-  },
-  productPreview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-  },
-  imageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  imageWrapper: {
-    width: 48,
-    height: 48,
+  itemThumb: {
+    width: 44,
+    height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    overflow: "hidden",
   },
-  productImage: {
-    width: 40,
-    height: 40,
-  },
-  extraBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  extraText: {
-    fontSize: 11,
-  },
-  itemInfo: {
-    flex: 1,
-    gap: 3,
-  },
-  itemName: {
-    fontSize: 14,
-  },
-  itemMeta: {
-    fontSize: 12,
-  },
-  reorderButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  itemThumbImage: { width: 38, height: 38 },
+  itemDetails: { flex: 1, gap: 3 },
+  itemName: { fontSize: 13, lineHeight: 18 },
+  itemSub: { fontSize: 11 },
+  itemPriceCol: { alignItems: "flex-end", gap: 2, flexShrink: 0 },
+  itemPrice: { fontSize: 13 },
+  itemQty: { fontSize: 11 },
+
+  moreRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    paddingVertical: 13,
+    paddingVertical: 8,
+    borderTopWidth: 1,
   },
-  reorderText: {
-    fontSize: 14,
+  moreText: { fontSize: 12 },
+
+  rejectionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
+  rejectionText: { fontSize: 12, flex: 1 },
+
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  orderNumber: { fontSize: 11 },
+  shopName: { fontSize: 11, flex: 1, textAlign: "center" },
+  reorderBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+  reorderText: { fontSize: 12 },
 });

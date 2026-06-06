@@ -1,6 +1,6 @@
-// ============================================
 // pharmacy-web/src/store/useNotificationStore.js
-// ============================================
+// Full file — adds lastOrderUpdate state and receiveOrderStatusChangeSSE action.
+// Everything else is unchanged.
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
@@ -12,33 +12,29 @@ import {
   markAllNotificationsAsRead as markAllAsReadAPI,
 } from "../api/notifications";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Initial State
-// ─────────────────────────────────────────────────────────────────────────────
-
 const initialState = {
   // Recent / dropdown
   recentNotifications: [],
-  isRecentLoading: false,
-  recentError: null,
+  isRecentLoading:     false,
+  recentError:         null,
 
   // Badge counts
   unreadCount: 0,
-  byPriority: { critical: 0, high: 0, normal: 0, low: 0 },
+  byPriority:  { critical: 0, high: 0, normal: 0, low: 0 },
   hasCritical: false,
-  hasHigh: false,
+  hasHigh:     false,
 
   // Full notification list
   notifications: [],
   pagination: {
-    page: 1,
-    limit: 20,
-    total: 0,
+    page:       1,
+    limit:      20,
+    total:      0,
     totalPages: 0,
-    hasMore: false,
+    hasMore:    false,
   },
   isLoading: false,
-  error: null,
+  error:     null,
 
   // Detail view
   selectedNotification: null,
@@ -46,24 +42,26 @@ const initialState = {
   // Filters
   filters: {
     unreadOnly: false,
-    priority: null,
-    eventType: null,
+    priority:   null,
+    eventType:  null,
   },
 
   // SSE state
   hasNewNotifications: false,
 
-  // Marketplace order real-time state
+  // Marketplace — new order badge (existing)
   newOrderCount: 0,
 
+  // Marketplace — order status change signal
+  // Set by SSE when any order transitions status.
+  // Consumed by useOrdersPage to refresh list + detail panel.
+  // Reset to null after useOrdersPage processes it.
+  lastOrderUpdate: null,
+
   // Polling
-  lastFetched: null,
+  lastFetched:     null,
   pollingInterval: null,
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Store
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const useNotificationStore = create(
   devtools(
@@ -72,22 +70,12 @@ export const useNotificationStore = create(
 
       // ── SSE Actions ──────────────────────────────────────────────────────
 
-      /**
-       * Manually set the hasNewNotifications flag.
-       * Call with (false) when user opens the notification panel/page.
-       */
       setHasNewNotifications: (val) => set({ hasNewNotifications: val }),
 
-      /**
-       * Called by the SSE hook when a `new_notification` event arrives.
-       * Updates badge count, prepends the notification to recentNotifications,
-       * and raises the hasNewNotifications flag to trigger UI indicators.
-       */
       receiveSSENotification: (data) => {
         const { unread_count, notification } = data;
-
         set((state) => ({
-          unreadCount: unread_count,
+          unreadCount:         unread_count,
           hasNewNotifications: true,
           recentNotifications: notification
             ? [notification, ...state.recentNotifications].slice(0, 10)
@@ -95,48 +83,48 @@ export const useNotificationStore = create(
         }));
       },
 
-      /**
-       * Called by SSE hook when a marketplace_new_order event arrives.
-       * Increments the new order badge count on the sidebar Orders item.
-       * Cleared when user navigates to /marketplace/orders.
-       */
       receiveNewOrderSSE: () => {
         set((state) => ({
           newOrderCount: state.newOrderCount + 1,
         }));
       },
 
-      /**
-       * Call when user opens the Orders page.
-       */
       clearNewOrderCount: () => set({ newOrderCount: 0 }),
+
+      /**
+       * Called by useSSENotifications when marketplace_order_status_changed arrives.
+       * Stores the update payload so useOrdersPage can react.
+       *
+       * Payload shape: { order_id, order_number, new_status, customer_name }
+       */
+      receiveOrderStatusChangeSSE: (data) => {
+        set({ lastOrderUpdate: data });
+      },
+
+      /**
+       * Called by useOrdersPage after it has processed the update.
+       * Prevents stale updates from re-triggering on re-render.
+       */
+      clearLastOrderUpdate: () => set({ lastOrderUpdate: null }),
 
       // ── Badge Count ──────────────────────────────────────────────────────
 
       fetchUnreadCount: async () => {
         try {
           const response = await fetchUnreadCountAPI();
-
           if (response.success) {
-            const { total, by_priority, has_critical, has_high } =
-              response.data;
+            const { total, by_priority, has_critical, has_high } = response.data;
             set({
-              unreadCount: total,
-              byPriority: by_priority || {
-                critical: 0,
-                high: 0,
-                normal: 0,
-                low: 0,
-              },
-              hasCritical: has_critical || false,
-              hasHigh: has_high || false,
-              lastFetched: new Date().toISOString(),
+              unreadCount:  total,
+              byPriority:   by_priority || { critical: 0, high: 0, normal: 0, low: 0 },
+              hasCritical:  has_critical || false,
+              hasHigh:      has_high     || false,
+              lastFetched:  new Date().toISOString(),
             });
           }
-
           return response;
         } catch (error) {
-          console.error("[NotificationStore] fetchUnreadCount error:", error);
+          console.error('[NotificationStore] fetchUnreadCount error:', error);
           return { success: false, error };
         }
       },
@@ -145,27 +133,24 @@ export const useNotificationStore = create(
 
       fetchRecent: async (limit = 5) => {
         set({ isRecentLoading: true, recentError: null });
-
         try {
           const response = await fetchRecentAPI(limit);
-
           if (response.success) {
             set({
               recentNotifications: response.data.notifications || [],
-              unreadCount: response.data.unread_count || 0,
-              isRecentLoading: false,
-              lastFetched: new Date().toISOString(),
+              unreadCount:         response.data.unread_count  || 0,
+              isRecentLoading:     false,
+              lastFetched:         new Date().toISOString(),
             });
           } else {
             set({ isRecentLoading: false });
           }
-
           return response;
         } catch (error) {
-          console.error("[NotificationStore] fetchRecent error:", error);
+          console.error('[NotificationStore] fetchRecent error:', error);
           set({
             isRecentLoading: false,
-            recentError: error.message || "Failed to load notifications",
+            recentError:     error.message || 'Failed to load notifications',
           });
           return { success: false, error };
         }
@@ -179,17 +164,16 @@ export const useNotificationStore = create(
 
         try {
           const queryParams = {
-            page: params.page || pagination.page,
-            limit: params.limit || pagination.limit,
-            unread_only: params.unreadOnly ?? filters.unreadOnly,
-            priority: params.priority ?? filters.priority,
+            page:       params.page      || pagination.page,
+            limit:      params.limit     || pagination.limit,
+            unread_only:params.unreadOnly ?? filters.unreadOnly,
+            priority:   params.priority  ?? filters.priority,
             event_type: params.eventType ?? filters.eventType,
           };
 
-          // Strip falsy / null / undefined values
           Object.keys(queryParams).forEach((key) => {
             if (
-              queryParams[key] === null ||
+              queryParams[key] === null      ||
               queryParams[key] === undefined ||
               queryParams[key] === false
             ) {
@@ -200,47 +184,29 @@ export const useNotificationStore = create(
           const response = await fetchNotificationsAPI(queryParams);
 
           if (response.success) {
-            const {
-              notifications,
-              unread_count,
-              pagination: pg,
-            } = response.data;
+            const { notifications, unread_count, pagination: pg } = response.data;
             set({
-              notifications: notifications || [],
+              notifications,
               unreadCount: unread_count || 0,
-              pagination: pg || {
-                page: 1,
-                limit: 20,
-                total: 0,
-                totalPages: 0,
-                hasMore: false,
-              },
-              isLoading: false,
+              pagination:  pg || { page: 1, limit: 20, total: 0, totalPages: 0, hasMore: false },
+              isLoading:   false,
               lastFetched: new Date().toISOString(),
             });
           } else {
-            set({ isLoading: false, error: "Failed to load notifications" });
+            set({ isLoading: false, error: 'Failed to load notifications' });
           }
 
           return response;
         } catch (error) {
-          console.error("[NotificationStore] fetchNotifications error:", error);
-          set({
-            isLoading: false,
-            error: error.message || "Failed to load notifications",
-          });
+          console.error('[NotificationStore] fetchNotifications error:', error);
+          set({ isLoading: false, error: error.message || 'Failed to load notifications' });
           return { success: false, error };
         }
       },
 
       setFilters: async (newFilters) => {
         const updatedFilters = { ...get().filters, ...newFilters };
-
-        set({
-          filters: updatedFilters,
-          pagination: { ...get().pagination, page: 1 },
-        });
-
+        set({ filters: updatedFilters, pagination: { ...get().pagination, page: 1 } });
         return get().fetchNotifications({ page: 1, ...newFilters });
       },
 
@@ -251,7 +217,7 @@ export const useNotificationStore = create(
 
       clearFilters: async () => {
         set({
-          filters: { unreadOnly: false, priority: null, eventType: null },
+          filters:    { unreadOnly: false, priority: null, eventType: null },
           pagination: { ...get().pagination, page: 1 },
         });
         return get().fetchNotifications({ page: 1 });
@@ -262,9 +228,8 @@ export const useNotificationStore = create(
       markAsRead: async (notificationId) => {
         try {
           const response = await markAsReadAPI(notificationId);
-
           if (response.success) {
-            const now = new Date().toISOString();
+            const now        = new Date().toISOString();
             const alreadyRead = response.data?.already_read ?? false;
 
             set((state) => ({
@@ -280,22 +245,16 @@ export const useNotificationStore = create(
               ),
               selectedNotification:
                 state.selectedNotification?.notification_id === notificationId
-                  ? {
-                      ...state.selectedNotification,
-                      is_read: true,
-                      read_at: now,
-                    }
+                  ? { ...state.selectedNotification, is_read: true, read_at: now }
                   : state.selectedNotification,
-              // Only decrement if it was actually unread
               unreadCount: alreadyRead
                 ? state.unreadCount
                 : Math.max(0, state.unreadCount - 1),
             }));
           }
-
           return response;
         } catch (error) {
-          console.error("[NotificationStore] markAsRead error:", error);
+          console.error('[NotificationStore] markAsRead error:', error);
           return { success: false, error };
         }
       },
@@ -303,7 +262,6 @@ export const useNotificationStore = create(
       markAllAsRead: async (options = {}) => {
         try {
           const response = await markAllAsReadAPI(options);
-
           if (response.success) {
             const now = new Date().toISOString();
             set((state) => ({
@@ -324,18 +282,16 @@ export const useNotificationStore = create(
                     read_at: state.selectedNotification.read_at || now,
                   }
                 : null,
-              unreadCount: 0,
-              byPriority: { critical: 0, high: 0, normal: 0, low: 0 },
-              hasCritical: false,
-              hasHigh: false,
-              // Clear new-notification indicator when user reads everything
+              unreadCount:         0,
+              byPriority:          { critical: 0, high: 0, normal: 0, low: 0 },
+              hasCritical:         false,
+              hasHigh:             false,
               hasNewNotifications: false,
             }));
           }
-
           return response;
         } catch (error) {
-          console.error("[NotificationStore] markAllAsRead error:", error);
+          console.error('[NotificationStore] markAllAsRead error:', error);
           return { success: false, error };
         }
       },
@@ -353,16 +309,10 @@ export const useNotificationStore = create(
 
       // ── Polling ──────────────────────────────────────────────────────────
 
-      /**
-       * Start polling for unread count.
-       * Default raised to 5 minutes (300_000 ms) — SSE handles real-time,
-       * polling is a fallback for missed events / reconnections.
-       */
       startPolling: (intervalMs = 300000) => {
         const { pollingInterval } = get();
         if (pollingInterval) clearInterval(pollingInterval);
 
-        // Fetch immediately on mount
         get().fetchUnreadCount();
 
         const interval = setInterval(() => {
@@ -390,25 +340,24 @@ export const useNotificationStore = create(
         set(initialState);
       },
     }),
-    { name: "notification-store" },
+    { name: 'notification-store' },
   ),
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Selectors
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Selectors ─────────────────────────────────────────────────────────────────
 
-export const selectUnreadCount = (state) => state.unreadCount;
-export const selectHasCritical = (state) => state.hasCritical;
-export const selectHasHigh = (state) => state.hasHigh;
-export const selectHasNewNotifications = (state) => state.hasNewNotifications;
-export const selectNewOrderCount = (state) => state.newOrderCount;
-export const selectRecentNotifications = (state) => state.recentNotifications;
-export const selectIsRecentLoading = (state) => state.isRecentLoading;
-export const selectNotifications = (state) => state.notifications;
-export const selectPagination = (state) => state.pagination;
-export const selectFilters = (state) => state.filters;
+export const selectUnreadCount          = (state) => state.unreadCount;
+export const selectHasCritical          = (state) => state.hasCritical;
+export const selectHasHigh              = (state) => state.hasHigh;
+export const selectHasNewNotifications  = (state) => state.hasNewNotifications;
+export const selectNewOrderCount        = (state) => state.newOrderCount;
+export const selectLastOrderUpdate      = (state) => state.lastOrderUpdate;
+export const selectRecentNotifications  = (state) => state.recentNotifications;
+export const selectIsRecentLoading      = (state) => state.isRecentLoading;
+export const selectNotifications        = (state) => state.notifications;
+export const selectPagination           = (state) => state.pagination;
+export const selectFilters              = (state) => state.filters;
 export const selectSelectedNotification = (state) => state.selectedNotification;
-export const selectIsLoading = (state) => state.isLoading;
+export const selectIsLoading            = (state) => state.isLoading;
 
 export default useNotificationStore;

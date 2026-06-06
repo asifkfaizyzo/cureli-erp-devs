@@ -345,8 +345,8 @@ function FloatingNotchTabBar({
             label={getLabel(0)}
             isFocused={state.index === 0}
             onPress={() => handleTabPress(0)}
-            activeColor={colors.tab.active}
-            inactiveColor={colors.tab.inactive}
+            activeColor={colors.tab.itemactive}
+            inactiveColor={colors.tab.iteminactive}
           />
 
           <TabItem
@@ -354,8 +354,8 @@ function FloatingNotchTabBar({
             label={getLabel(1)}
             isFocused={state.index === 1}
             onPress={() => handleTabPress(1)}
-            activeColor={colors.tab.active}
-            inactiveColor={colors.tab.inactive}
+            activeColor={colors.tab.itemactive}
+            inactiveColor={colors.tab.iteminactive}
           />
 
           <SearchFAB
@@ -369,8 +369,8 @@ function FloatingNotchTabBar({
             label={getLabel(2)}
             isFocused={state.index === 2}
             onPress={() => handleTabPress(2)}
-            activeColor={colors.tab.active}
-            inactiveColor={colors.tab.inactive}
+            activeColor={colors.tab.itemactive}
+            inactiveColor={colors.tab.iteminactive}
           />
 
           <TabItem
@@ -378,8 +378,8 @@ function FloatingNotchTabBar({
             label={getLabel(3)}
             isFocused={state.index === 3}
             onPress={() => handleTabPress(3)}
-            activeColor={colors.tab.active}
-            inactiveColor={colors.tab.inactive}
+            activeColor={colors.tab.itemactive}
+            inactiveColor={colors.tab.iteminactive}
           />
         </View>
       </View>

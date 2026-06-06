@@ -68,6 +68,7 @@ import mobilePlacesRoutes from "./src/modules/mobile/places/mobile.places.routes
 import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js"; 
 import mobileOrdersRoutes from './src/modules/mobile/orders/mobile.orders.routes.js';
 import mobilePrescriptionsRoutes from './src/modules/mobile/prescriptions/mobile.prescriptions.routes.js';
+import mobileNotificationsRoutes from './src/modules/mobile/notifications/mobile.notifications.routes.js';
 
 
 
@@ -249,6 +250,9 @@ app.use("/mobile/places", mobilePlacesRoutes);
 app.use("/mobile/shops", mobileShopsRoutes); 
 app.use('/mobile/orders', mobileOrdersRoutes);
 app.use('/mobile/prescriptions', mobilePrescriptionsRoutes);
+app.use('/mobile/notifications', mobileNotificationsRoutes);
+
+
 // ============================================
 // HEALTH CHECK
 // ============================================

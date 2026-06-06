@@ -1,20 +1,30 @@
-// ============================================
-// components/RejectModal.jsx
-// ============================================
+// pharmacy-web/src/pages/marketplace-orders/components/RejectModal.jsx
+// Change: add useEffect to reset form state whenever modal closes.
+// Everything else unchanged.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 
 const REJECTION_REASONS = [
-  { value: 'OUT_OF_STOCK', label: 'Out of Stock' },
+  { value: 'OUT_OF_STOCK',         label: 'Out of Stock'         },
   { value: 'PRESCRIPTION_INVALID', label: 'Prescription Invalid' },
-  { value: 'STORE_CLOSED', label: 'Store Closed' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'STORE_CLOSED',         label: 'Store Closed'         },
+  { value: 'OTHER',                label: 'Other'                },
 ];
 
 const RejectModal = ({ open, onClose, onSubmit, isLoading, error }) => {
-  const [reason, setReason] = useState('');
+  const [reason,      setReason]      = useState('');
   const [reasonOther, setReasonOther] = useState('');
+
+  // Reset form state whenever the modal closes — regardless of how it closes
+  // (user clicks Cancel, clicks backdrop, or parent closes it programmatically
+  // after a successful rejection).
+  useEffect(() => {
+    if (!open) {
+      setReason('');
+      setReasonOther('');
+    }
+  }, [open]);
 
   if (!open) return null;
 
@@ -25,8 +35,7 @@ const RejectModal = ({ open, onClose, onSubmit, isLoading, error }) => {
   };
 
   const handleClose = () => {
-    setReason('');
-    setReasonOther('');
+    // State reset is handled by the useEffect above on the next render
     onClose();
   };
 
@@ -80,9 +89,7 @@ const RejectModal = ({ open, onClose, onSubmit, isLoading, error }) => {
                 />
                 <div
                   className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    reason === r.value
-                      ? 'border-red-400'
-                      : 'border-white/20'
+                    reason === r.value ? 'border-red-400' : 'border-white/20'
                   }`}
                 >
                   {reason === r.value && (
@@ -127,9 +134,7 @@ const RejectModal = ({ open, onClose, onSubmit, isLoading, error }) => {
               disabled={!reason || isLoading || (reason === 'OTHER' && !reasonOther.trim())}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : null}
+              {isLoading ? <Loader2 size={15} className="animate-spin" /> : null}
               Reject Order
             </button>
           </div>

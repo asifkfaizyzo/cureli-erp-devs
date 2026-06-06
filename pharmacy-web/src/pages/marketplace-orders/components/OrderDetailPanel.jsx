@@ -1,6 +1,5 @@
-// ============================================
-// components/OrderDetailPanel.jsx
-// ============================================
+// pharmacy-web/src/pages/marketplace-orders/components/OrderDetailPanel.jsx
+// Full file — adds completed/rejected/cancelled to timeline. Everything else unchanged.
 
 import { useState, useCallback } from 'react';
 import {
@@ -19,22 +18,22 @@ import {
 } from 'lucide-react';
 
 const STATUS_LABELS = {
-  PLACED: 'Placed',
-  ACCEPTED: 'Accepted',
+  PLACED:           'Placed',
+  ACCEPTED:         'Accepted',
   READY_FOR_PICKUP: 'Ready for Pickup',
-  COMPLETED: 'Completed',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
+  COMPLETED:        'Completed',
+  REJECTED:         'Rejected',
+  CANCELLED:        'Cancelled',
 };
 
 function formatDateTime(isoString) {
   if (!isoString) return '—';
   const d = new Date(isoString);
   return d.toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
+    day:    'numeric',
+    month:  'short',
+    year:   'numeric',
+    hour:   '2-digit',
     minute: '2-digit',
     hour12: true,
   });
@@ -136,14 +135,17 @@ const OrderDetailPanel = ({
     placed_at,
     accepted_at,
     ready_at,
+    completed_at,
+    rejected_at,
+    cancelled_at,
     payment_method,
   } = orderDetail;
 
-  const canAccept = status === 'PLACED';
-  const canReject = status === 'PLACED';
+  const canAccept   = status === 'PLACED';
+  const canReject   = status === 'PLACED';
   const canMarkReady = status === 'ACCEPTED';
   const canComplete = status === 'READY_FOR_PICKUP';
-  const isTerminal = ['COMPLETED', 'REJECTED', 'CANCELLED'].includes(status);
+  const isTerminal  = ['COMPLETED', 'REJECTED', 'CANCELLED'].includes(status);
 
   return (
     <div className="flex flex-col h-full">
@@ -167,7 +169,6 @@ const OrderDetailPanel = ({
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
-        {/* Action error */}
         {actionError && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300">
             <AlertCircle size={14} className="flex-shrink-0" />
@@ -177,7 +178,7 @@ const OrderDetailPanel = ({
 
         {/* Customer */}
         <SectionCard title="Customer" icon={User}>
-          <InfoRow label="Name" value={customer_name} />
+          <InfoRow label="Name"  value={customer_name}  />
           <InfoRow label="Phone" value={customer_phone} />
         </SectionCard>
 
@@ -282,19 +283,22 @@ const OrderDetailPanel = ({
         {/* Rejection reason */}
         {status === 'REJECTED' && rejection_reason && (
           <SectionCard title="Rejection Reason" icon={XCircle}>
-            <InfoRow label="Reason" value={rejection_reason.replace(/_/g, ' ')} />
+            <InfoRow label="Reason"  value={rejection_reason.replace(/_/g, ' ')} />
             {rejection_reason_other && (
               <InfoRow label="Details" value={rejection_reason_other} />
             )}
           </SectionCard>
         )}
 
-        {/* Timeline */}
+        {/* Timeline — now includes all terminal timestamps */}
         <SectionCard title="Timeline" icon={Clock}>
           <div className="space-y-2">
-            {placed_at && <InfoRow label="Placed" value={formatDateTime(placed_at)} />}
-            {accepted_at && <InfoRow label="Accepted" value={formatDateTime(accepted_at)} />}
-            {ready_at && <InfoRow label="Ready" value={formatDateTime(ready_at)} />}
+            {placed_at    && <InfoRow label="Placed"    value={formatDateTime(placed_at)}    />}
+            {accepted_at  && <InfoRow label="Accepted"  value={formatDateTime(accepted_at)}  />}
+            {ready_at     && <InfoRow label="Ready"     value={formatDateTime(ready_at)}     />}
+            {completed_at && <InfoRow label="Completed" value={formatDateTime(completed_at)} />}
+            {rejected_at  && <InfoRow label="Rejected"  value={formatDateTime(rejected_at)}  />}
+            {cancelled_at && <InfoRow label="Cancelled" value={formatDateTime(cancelled_at)} />}
           </div>
         </SectionCard>
       </div>

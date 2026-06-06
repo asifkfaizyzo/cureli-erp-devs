@@ -5,6 +5,8 @@ import prisma from "../config/prisma.js";
 import { withCronLock, getInstanceId } from "./cronLock.js";
 import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
 import { cleanupExpiredSessions } from "../utils/session.js";
+import { deleteFile } from "../services/fileStorage.service.js";
+
 import {
   cleanupOldPendingUsers,
   cleanupIncompleteUsers,
@@ -64,9 +66,8 @@ async function processScheduledBroadcasts() {
           `Sending broadcast: ${campaign.campaign_id} - "${campaign.title}"`,
         );
 
-        const { sendScheduled } = await import(
-          "../modules/cadmin/broadcast/inapp/cadminInAppBroadcast.service.js"
-        );
+        const { sendScheduled } =
+          await import("../modules/cadmin/broadcast/inapp/cadminInAppBroadcast.service.js");
 
         const result = await sendScheduled(campaign.campaign_id);
 
@@ -222,9 +223,7 @@ function initializePaymentStatusSyncJob() {
         const result = await transitionPendingToOverdue();
 
         if (result.updated > 0) {
-          cronLogger.info(
-            `Pending → Overdue: ${result.updated} subscriptions`,
-          );
+          cronLogger.info(`Pending → Overdue: ${result.updated} subscriptions`);
         }
 
         cronLogger.info("Payment status sync complete");
@@ -371,32 +370,101 @@ function initializeInventoryExpiryJob() {
   cronLogger.info("Inventory expiry job scheduled (daily at 6:00 AM)");
 }
 
+async function cleanupExpiredPrescriptions() {
+  cronLogger.info("Checking for expired prescriptions to purge...");
+
+  try {
+    const now = new Date();
+
+    // Find prescriptions whose expiry has passed and have not yet been deleted
+    const expired = await prisma.marketplaceOrderPrescription.findMany({
+      where: {
+        expires_at: { lt: now },
+        deleted_at: null,
+      },
+      select: {
+        prescription_id: true,
+        storage_key: true,
+        original_name: true,
+      },
+    });
+
+    if (expired.length === 0) {
+      cronLogger.info("No expired prescriptions to purge");
+      return;
+    }
+
+    cronLogger.info(`Found ${expired.length} expired prescription(s) to purge`);
+
+    let purged = 0;
+    let failed = 0;
+
+    for (const prescription of expired) {
+      try {
+        // Delete from S3
+        await deleteFile({
+          folder: "order_prescriptions",
+          filename: prescription.storage_key,
+        });
+
+        // Mark as deleted in DB (keep row for audit)
+        await prisma.marketplaceOrderPrescription.update({
+          where: { prescription_id: prescription.prescription_id },
+          data: { deleted_at: now },
+        });
+
+        cronLogger.info(
+          `  - Purged: ${prescription.original_name} (${prescription.prescription_id})`,
+        );
+        purged++;
+      } catch (err) {
+        // Log but continue — do not let one failure block the rest
+        cronLogger.error(
+          `  - Failed to purge ${prescription.prescription_id}: ${err.message}`,
+        );
+        failed++;
+      }
+    }
+
+    cronLogger.info(
+      `Prescription purge complete: ${purged} purged, ${failed} failed`,
+    );
+  } catch (err) {
+    cronLogger.error("Prescription cleanup job failed", err);
+  }
+}
+
+function initializePrescriptionCleanupJob() {
+  cron.schedule("30 2 * * *", () =>
+    withCronLock("prescription-cleanup", 15, cleanupExpiredPrescriptions),
+  );
+  cronLogger.info("Prescription cleanup job scheduled (daily at 2:30 AM)");
+}
+
 // ============================================
 // MARKETPLACE ORDER AUTO-COMPLETE - Every hour
 // ============================================
 
 async function autoCompleteStaleOrders() {
-  cronLogger.info('Checking for stale READY_FOR_PICKUP orders...');
+  cronLogger.info("Checking for stale READY_FOR_PICKUP orders...");
 
   try {
-    // Orders stuck in READY_FOR_PICKUP for more than 48 hours
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
 
     const staleOrders = await prisma.marketplaceOrder.findMany({
       where: {
-        status: 'READY_FOR_PICKUP',
+        status: "READY_FOR_PICKUP",
         ready_at: { lt: cutoff },
         auto_completed: false,
       },
       select: {
         order_id: true,
         order_number: true,
-        shop_id: true,
       },
     });
 
     if (staleOrders.length === 0) {
-      cronLogger.info('No stale orders found');
+      cronLogger.info("No stale orders found");
       return;
     }
 
@@ -404,40 +472,27 @@ async function autoCompleteStaleOrders() {
       `Found ${staleOrders.length} stale order(s) to auto-complete`,
     );
 
-    const now = new Date();
+    // Import here to avoid circular dep at module level
+    const { transitionOrderStatus } =
+      await import("../modules/marketplace-orders/marketplace.orders.service.js");
+
     let completed = 0;
     let failed = 0;
 
     for (const order of staleOrders) {
       try {
-        await prisma.$transaction(async (tx) => {
-          await tx.marketplaceOrder.update({
-            where: { order_id: order.order_id },
-            data: {
-              status: 'COMPLETED',
-              completed_at: now,
-              auto_completed: true,
-            },
-          });
-
-          await tx.marketplaceOrderStatusHistory.create({
-            data: {
-              order_id: order.order_id,
-              from_status: 'READY_FOR_PICKUP',
-              to_status: 'COMPLETED',
-              changed_by_type: 'system',
-              changed_by_id: null,
-              reason: 'auto_completed',
-            },
-          });
+        await transitionOrderStatus({
+          order_id: order.order_id,
+          target_status: "COMPLETED",
+          actor_type: "system",
+          actor_id: null,
         });
 
         cronLogger.info(`  - Auto-completed order ${order.order_number}`);
         completed++;
       } catch (err) {
         cronLogger.error(
-          `  - Failed to auto-complete ${order.order_number}`,
-          err,
+          `  - Failed to auto-complete ${order.order_number}: ${err.message}`,
         );
         failed++;
       }
@@ -447,15 +502,15 @@ async function autoCompleteStaleOrders() {
       `Marketplace auto-complete done: ${completed} completed, ${failed} failed`,
     );
   } catch (err) {
-    cronLogger.error('Marketplace order auto-complete job failed', err);
+    cronLogger.error("Marketplace order auto-complete job failed", err);
   }
 }
 
 function initializeMarketplaceOrderAutoComplete() {
-  cron.schedule('0 * * * *', () =>
-    withCronLock('marketplace-order-autocomplete', 10, autoCompleteStaleOrders),
+  cron.schedule("0 * * * *", () =>
+    withCronLock("marketplace-order-autocomplete", 10, autoCompleteStaleOrders),
   );
-  cronLogger.info('Marketplace order auto-complete scheduled (every hour)');
+  cronLogger.info("Marketplace order auto-complete scheduled (every hour)");
 }
 
 // ============================================
@@ -472,6 +527,7 @@ export function initializeCronJobs() {
   initializeFileCleanupWorker();
   cronLogger.info("Email broadcast worker: Every 1 minute");
   cronLogger.info("Email file cleanup: Daily at 4:00 AM");
+  cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
 
   // Session cleanup (every hour)
   setInterval(
@@ -489,6 +545,7 @@ export function initializeCronJobs() {
   initializeInventoryExpiryJob();
   initializeScheduledBroadcastsJob();
   initializeMarketplaceOrderAutoComplete();
+  initializePrescriptionCleanupJob();
 
   // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
