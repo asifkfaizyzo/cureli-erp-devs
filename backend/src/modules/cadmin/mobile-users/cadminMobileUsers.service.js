@@ -7,6 +7,38 @@ function hashPhoneForTombstone(phone) {
   return crypto.createHash("sha256").update(phone).digest("hex");
 }
 
+// ── Phone search helper ───────────────────────────────────────
+/**
+ * Given any phone input, returns all stored-format variants to
+ * match against the DB. Handles:
+ *   "8086415357"      → raw 10-digit
+ *   "918086415357"    → with 91 prefix
+ *   "+918086415357"   → with +91 prefix
+ *   "+91 8086415357"  → with space (legacy bad saves)
+ *
+ * Returns null if the input doesn't look like a phone number.
+ */
+function expandPhoneVariants(query) {
+  // Strip all spaces, dashes, parens first
+  const cleaned = query.replace(/[\s\-()]/g, "");
+
+  // Must look like a phone (digits only, optionally leading +)
+  if (!/^\+?\d{7,15}$/.test(cleaned)) return null;
+
+  // Extract raw 10-digit portion
+  const raw10 = cleaned.replace(/^\+?91/, "");
+
+  // Must be a valid Indian mobile number
+  if (!/^[6-9]\d{9}$/.test(raw10)) return null;
+
+  return [
+    raw10,                  // 8086415357
+    `+91${raw10}`,          // +918086415357   ← canonical stored format
+    `91${raw10}`,           // 918086415357
+    `+91 ${raw10}`,         // +91 8086415357  ← legacy bad saves
+  ];
+}
+
 // ─────────────────────────────────────────────
 // LIST
 // ─────────────────────────────────────────────
@@ -19,17 +51,36 @@ export const listMobileUsers = async ({
 }) => {
   const skip = (page - 1) * limit;
 
+  // ── Build search WHERE ──
+  let searchWhere = {};
+  if (search) {
+    const phoneVariants = expandPhoneVariants(search);
+
+    if (phoneVariants) {
+      // Phone search — match any stored format exactly,
+      // OR partial contains for incomplete numbers typed by admin
+      searchWhere = {
+        OR: [
+          { phone: { in: phoneVariants } },
+          { phone: { contains: search.replace(/[\s\-()]/g, "") } },
+        ],
+      };
+    } else {
+      // Name / email search
+      searchWhere = {
+        OR: [
+          { full_name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+          // Also allow partial phone search for non-standard inputs
+          { phone: { contains: search } },
+        ],
+      };
+    }
+  }
+
   const where = {
     deleted_at: null,
-    ...(search
-      ? {
-          OR: [
-            { full_name: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
+    ...searchWhere,
     ...(status === "active" ? { status: "active" } : {}),
     ...(status === "suspended" ? { status: "suspended" } : {}),
   };
@@ -143,7 +194,6 @@ export const getMobileUserDetail = async (user_id) => {
 
 // ─────────────────────────────────────────────
 // EDIT PROFILE
-// Editable fields: full_name, email
 // ─────────────────────────────────────────────
 
 export const editMobileUser = async (user_id, data) => {
@@ -168,7 +218,6 @@ export const editMobileUser = async (user_id, data) => {
   if (data.email !== undefined) {
     const email = data.email?.trim() || null;
 
-    // If setting an email, check it's not taken by another active user
     if (email) {
       const taken = await prisma.cureliMobileUser.findFirst({
         where: {
@@ -211,8 +260,6 @@ export const editMobileUser = async (user_id, data) => {
 
 // ─────────────────────────────────────────────
 // EDIT PHONE
-// Changes the phone directly (cadmin override —
-// no OTP flow needed on admin side).
 // ─────────────────────────────────────────────
 
 export const editMobileUserPhone = async (user_id, new_phone) => {
@@ -220,8 +267,7 @@ export const editMobileUserPhone = async (user_id, new_phone) => {
 
   if (!phone) throw new Error("Phone number is required");
 
-  // Basic Indian mobile number validation
-  const stripped = phone.replace(/^\+?91/, "");
+  const stripped = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
   if (!/^[6-9]\d{9}$/.test(stripped)) {
     throw new Error("Invalid Indian mobile number");
   }
@@ -236,14 +282,17 @@ export const editMobileUserPhone = async (user_id, new_phone) => {
   if (!user) throw new Error("User not found");
   if (user.deleted_at) throw new Error("Cannot edit a deleted account");
 
-  if (user.phone === normalized) {
+  // Normalize existing stored phone too before comparing
+  const currentNormalized = user.phone?.replace(/\s+/g, "");
+  if (currentNormalized === normalized) {
     throw new Error("New phone number is the same as current");
   }
 
-  // Check not taken by another active user
+  // Check all variants aren't taken by another user
+  const variants = expandPhoneVariants(normalized) || [normalized];
   const taken = await prisma.cureliMobileUser.findFirst({
     where: {
-      phone: normalized,
+      phone: { in: variants },
       NOT: { id: user_id },
       deleted_at: null,
     },
@@ -258,12 +307,11 @@ export const editMobileUserPhone = async (user_id, new_phone) => {
     throw err;
   }
 
-  // Clear any pending phone-change flow fields + set new phone
   return prisma.cureliMobileUser.update({
     where: { id: user_id },
     data: {
       phone: normalized,
-      phone_verified: false, // phone changed by admin — reset verification
+      phone_verified: false,
       phone_change_new: null,
       phone_change_otp_hash: null,
       phone_change_expires: null,
@@ -280,7 +328,6 @@ export const editMobileUserPhone = async (user_id, new_phone) => {
 
 // ─────────────────────────────────────────────
 // BLOCK / UNBLOCK
-// Blocking revokes all active sessions.
 // ─────────────────────────────────────────────
 
 export const setBlockStatus = async (
@@ -330,7 +377,6 @@ export const setBlockStatus = async (
       },
     });
 
-    // Revoke all active sessions when suspending
     if (block) {
       await tx.cureliMobileSession.updateMany({
         where: { user_id, is_active: true },
@@ -348,8 +394,6 @@ export const setBlockStatus = async (
 
 // ─────────────────────────────────────────────
 // FORCE REVOKE ALL SESSIONS
-// Logs the user out of all devices immediately.
-// Does NOT suspend — account stays active.
 // ─────────────────────────────────────────────
 
 export const forceRevokeAllSessions = async (user_id) => {
@@ -370,8 +414,6 @@ export const forceRevokeAllSessions = async (user_id) => {
     },
   });
 
-  // Also set logout_all_issued_at so any valid token
-  // that hasn't hit the session table yet is also invalidated
   await prisma.cureliMobileUser.update({
     where: { id: user_id },
     data: {
@@ -384,9 +426,7 @@ export const forceRevokeAllSessions = async (user_id) => {
 };
 
 // ─────────────────────────────────────────────
-// DELETE ACCOUNT (cadmin-initiated)
-// Hard deletes the user row after creating a tombstone.
-// Cascades: sessions, addresses deleted automatically.
+// DELETE ACCOUNT
 // ─────────────────────────────────────────────
 
 export const deleteMobileUserAccount = async (user_id, reason = "") => {
@@ -406,12 +446,10 @@ export const deleteMobileUserAccount = async (user_id, reason = "") => {
   if (user.deleted_at) throw new Error("Account is already deleted");
 
   await prisma.$transaction(async (tx) => {
-    // Count addresses for tombstone metadata
     const addressCount = await tx.cureliMobileAddress.count({
       where: { user_id },
     });
 
-    // Create tombstone — survives user deletion permanently
     await tx.cureliMobileDeletedAccount.create({
       data: {
         original_user_id: user.id,
@@ -424,7 +462,6 @@ export const deleteMobileUserAccount = async (user_id, reason = "") => {
       },
     });
 
-    // Hard delete — cascades sessions + addresses
     await tx.cureliMobileUser.delete({
       where: { id: user_id },
     });

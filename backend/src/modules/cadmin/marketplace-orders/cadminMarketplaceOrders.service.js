@@ -1,0 +1,309 @@
+// backend/src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.service.js
+
+import prisma from "../../../config/prisma.js";
+
+// ─────────────────────────────────────────────
+// LIST ALL ORDERS (across all shops)
+// ─────────────────────────────────────────────
+
+export const listAllOrders = async ({
+  page = 1,
+  limit = 20,
+  search = "",
+  status = "",
+}) => {
+  const skip = (page - 1) * limit;
+
+  const where = {};
+
+  // Status filter — supports comma-separated values
+  if (status) {
+    const statuses = status
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (statuses.length === 1) {
+      where.status = statuses[0];
+    } else if (statuses.length > 1) {
+      where.status = { in: statuses };
+    }
+  }
+
+  // Search — by order_number or customer name/phone
+  if (search) {
+    where.OR = [
+      { order_number: { contains: search, mode: "insensitive" } },
+      { customer_name_snapshot: { contains: search, mode: "insensitive" } },
+      { customer_phone_snapshot: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const [orders, total] = await Promise.all([
+    prisma.marketplaceOrder.findMany({
+      where,
+      orderBy: { placed_at: "desc" },
+      skip,
+      take: limit,
+      select: {
+        order_id: true,
+        order_number: true,
+        status: true,
+        customer_name_snapshot: true,
+        customer_phone_snapshot: true,
+        total_amount: true,
+        subtotal: true,
+        requires_prescription: true,
+        payment_method: true,
+        payment_status: true,
+        notes: true,
+        rejection_reason: true,
+        rejection_reason_other: true,
+        cancelled_by: true,
+        placed_at: true,
+        accepted_at: true,
+        ready_at: true,
+        completed_at: true,
+        rejected_at: true,
+        cancelled_at: true,
+        shop: {
+          select: {
+            shop_id: true,
+            business_name: true,
+            city: true,
+            state: true,
+          },
+        },
+        branch: {
+          select: {
+            branch_id: true,
+            branch_name: true,
+            city: true,
+          },
+        },
+        _count: {
+          select: {
+            items: true,
+            prescriptions: true,
+          },
+        },
+      },
+    }),
+    prisma.marketplaceOrder.count({ where }),
+  ]);
+
+  return {
+    orders: orders.map(formatOrderSummary),
+    total,
+    page,
+    limit,
+    total_pages: Math.ceil(total / limit),
+  };
+};
+
+// ─────────────────────────────────────────────
+// GET ORDER DETAIL
+// ─────────────────────────────────────────────
+
+export const getOrderDetail = async (order_id) => {
+  const order = await prisma.marketplaceOrder.findUnique({
+    where: { order_id },
+    include: {
+      shop: {
+        select: {
+          shop_id: true,
+          business_name: true,
+          city: true,
+          state: true,
+          address_line_1: true,
+        },
+      },
+      branch: {
+        select: {
+          branch_id: true,
+          branch_name: true,
+          branch_type: true,
+          city: true,
+          state: true,
+          contact_number: true,
+        },
+      },
+      customer: {
+        select: {
+          id: true,
+          phone: true,
+          full_name: true,
+          email: true,
+          status: true,
+        },
+      },
+      items: {
+        select: {
+          item_id: true,
+          medicine_name_snapshot: true,
+          variant_sku_snapshot: true,
+          brand_snapshot: true,
+          pack_size_snapshot: true,
+          unit_price_snapshot: true,
+          mrp_snapshot: true,
+          requires_prescription_snapshot: true,
+          quantity: true,
+          line_total: true,
+        },
+      },
+      prescriptions: {
+        orderBy: { sequence: "asc" },
+        select: {
+          prescription_id: true,
+          original_name: true,
+          mime_type: true,
+          file_size: true,
+          sequence: true,
+          uploaded_at: true,
+        },
+      },
+      statusHistory: {
+        orderBy: { created_at: "asc" },
+        select: {
+          history_id: true,
+          from_status: true,
+          to_status: true,
+          changed_by_type: true,
+          changed_by_id: true,
+          reason: true,
+          created_at: true,
+        },
+      },
+    },
+  });
+
+  if (!order) throw new Error("Order not found");
+
+  return formatOrderDetail(order);
+};
+
+// ─────────────────────────────────────────────
+// FORMATTERS
+// ─────────────────────────────────────────────
+
+function formatOrderSummary(order) {
+  return {
+    order_id: order.order_id,
+    order_number: order.order_number,
+    status: order.status,
+    customer_name: order.customer_name_snapshot,
+    customer_phone: order.customer_phone_snapshot,
+    total_amount: Number(order.total_amount),
+    requires_prescription: order.requires_prescription,
+    payment_method: order.payment_method,
+    payment_status: order.payment_status,
+    notes: order.notes,
+    rejection_reason: order.rejection_reason,
+    cancelled_by: order.cancelled_by,
+    item_count: order._count?.items ?? 0,
+    prescription_count: order._count?.prescriptions ?? 0,
+    shop: order.shop
+      ? {
+          shop_id: order.shop.shop_id,
+          business_name: order.shop.business_name,
+          city: order.shop.city,
+          state: order.shop.state,
+        }
+      : null,
+    branch: order.branch
+      ? {
+          branch_id: order.branch.branch_id,
+          branch_name: order.branch.branch_name,
+          city: order.branch.city,
+        }
+      : null,
+    placed_at: order.placed_at,
+    accepted_at: order.accepted_at,
+    ready_at: order.ready_at,
+    completed_at: order.completed_at,
+    rejected_at: order.rejected_at,
+    cancelled_at: order.cancelled_at,
+  };
+}
+
+function formatOrderDetail(order) {
+  return {
+    order_id: order.order_id,
+    order_number: order.order_number,
+    status: order.status,
+    customer_name: order.customer_name_snapshot,
+    customer_phone: order.customer_phone_snapshot,
+    delivery_address: order.delivery_address_snapshot,
+    total_amount: Number(order.total_amount),
+    subtotal: Number(order.subtotal),
+    requires_prescription: order.requires_prescription,
+    payment_method: order.payment_method,
+    payment_status: order.payment_status,
+    notes: order.notes,
+    rejection_reason: order.rejection_reason,
+    rejection_reason_other: order.rejection_reason_other,
+    cancelled_by: order.cancelled_by,
+    auto_completed: order.auto_completed,
+    placed_at: order.placed_at,
+    accepted_at: order.accepted_at,
+    ready_at: order.ready_at,
+    completed_at: order.completed_at,
+    rejected_at: order.rejected_at,
+    cancelled_at: order.cancelled_at,
+    shop: order.shop
+      ? {
+          shop_id: order.shop.shop_id,
+          business_name: order.shop.business_name,
+          city: order.shop.city,
+          state: order.shop.state,
+          address_line_1: order.shop.address_line_1,
+        }
+      : null,
+    branch: order.branch
+      ? {
+          branch_id: order.branch.branch_id,
+          branch_name: order.branch.branch_name,
+          branch_type: order.branch.branch_type,
+          city: order.branch.city,
+          state: order.branch.state,
+          contact_number: order.branch.contact_number,
+        }
+      : null,
+    customer: order.customer
+      ? {
+          id: order.customer.id,
+          full_name: order.customer.full_name,
+          phone: order.customer.phone,
+          email: order.customer.email,
+          status: order.customer.status,
+        }
+      : null,
+    items: order.items.map((item) => ({
+      item_id: item.item_id,
+      medicine_name: item.medicine_name_snapshot,
+      sku: item.variant_sku_snapshot,
+      brand: item.brand_snapshot,
+      pack_size: item.pack_size_snapshot,
+      unit_price: Number(item.unit_price_snapshot),
+      mrp: Number(item.mrp_snapshot),
+      requires_prescription: item.requires_prescription_snapshot,
+      quantity: item.quantity,
+      line_total: Number(item.line_total),
+    })),
+    prescriptions: order.prescriptions.map((p) => ({
+      prescription_id: p.prescription_id,
+      original_name: p.original_name,
+      mime_type: p.mime_type,
+      file_size: p.file_size,
+      sequence: p.sequence,
+      uploaded_at: p.uploaded_at,
+    })),
+    status_history: order.statusHistory.map((h) => ({
+      history_id: h.history_id,
+      from_status: h.from_status,
+      to_status: h.to_status,
+      changed_by_type: h.changed_by_type,
+      reason: h.reason,
+      created_at: h.created_at,
+    })),
+  };
+}

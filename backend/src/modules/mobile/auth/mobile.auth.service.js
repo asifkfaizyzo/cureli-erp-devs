@@ -103,9 +103,9 @@ function formatUserForResponse(user) {
  * @returns {Promise<{ timeout: number }>}
  */
 export async function sendMobileOtp(phone) {
-  
+  // phone is already normalized to +91XXXXXXXXXX by the Zod schema
+
   // ── 1. Daily SMS limit ──────────────────────────────────
-  // Namespace: "mobile:sms:" to isolate from ERP OTP counters
   const limitCheck = await checkSmsOtpLimit(`mobile:${phone}`);
   if (!limitCheck.allowed) {
     const err = new Error("Daily OTP limit reached. Please try again tomorrow.");
@@ -114,13 +114,26 @@ export async function sendMobileOtp(phone) {
   }
 
   // ── 2. Find existing user ───────────────────────────────
-  let user = await prisma.cureliMobileUser.findUnique({
-    where: { phone },
+  // Must search all stored formats because legacy rows may have been
+  // saved with a space (+91 XXXXXXXXXX) or without the +91 prefix.
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,                  // +91XXXXXXXXXX  ← canonical (what schema gives us)
+    `+91 ${raw10}`,         // +91 XXXXXXXXXX ← legacy bad saves WITH SPACE
+    `91${raw10}`,           // 91XXXXXXXXXX
+    raw10,                  // XXXXXXXXXX
+  ];
+
+  let user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
   });
 
-  // ── 3. Account state checks (only if user exists) ───────
+  // ── 3. Account state checks ─────────────────────────────
   if (user) {
-    if (user.deleted_at || user.status === "deleted") {
+    if (user.status === "deleted") {
       const err = new Error("Account not found.");
       err.code = "ACCOUNT_DELETED";
       throw err;
@@ -132,6 +145,17 @@ export async function sendMobileOtp(phone) {
       );
       err.code = "ACCOUNT_SUSPENDED";
       throw err;
+    }
+
+    // ── Heal phone format if stored incorrectly ───────────
+    // If the existing user's phone is NOT in canonical format,
+    // silently normalize it now so future lookups work correctly.
+    if (user.phone !== phone) {
+      await prisma.cureliMobileUser.update({
+        where: { id: user.id },
+        data: { phone, updated_at: new Date() },
+      });
+      user = { ...user, phone };
     }
 
     // ── 4. Cooldown check ─────────────────────────────────
@@ -177,7 +201,6 @@ export async function sendMobileOtp(phone) {
   const otpExpires = new Date(Date.now() + OTP_VALIDITY_MS);
 
   if (user) {
-    // Update existing user's OTP fields
     await prisma.cureliMobileUser.update({
       where: { id: user.id },
       data: {
@@ -187,11 +210,10 @@ export async function sendMobileOtp(phone) {
       },
     });
   } else {
-    // Create stub user for new phone number.
-    // phone_verified remains false until verify-otp succeeds.
+    // New user — create stub with canonical phone format
     user = await prisma.cureliMobileUser.create({
       data: {
-        phone,
+        phone,                // always canonical +91XXXXXXXXXX
         phone_verified: false,
         status: "active",
         login_otp_hash: otpHash,
@@ -206,14 +228,9 @@ export async function sendMobileOtp(phone) {
     await msg91SendSms({
       templateId: process.env.MSG91_LOGIN_TEMPLATE,
       mobile: formatPhoneNumber(phone, process.env.MC_COUNTRY || "91"),
-      variables: {
-        // Template uses {{number}} variable (same as ERP login template)
-        number: otp,
-      },
+      variables: { number: otp },
     });
   } catch (providerErr) {
-    // SMS failed — clear the OTP we just stored so the user
-    // is not stuck with a hash that was never sent
     await prisma.cureliMobileUser.update({
       where: { id: user.id },
       data: {
@@ -250,9 +267,20 @@ export async function sendMobileOtp(phone) {
  * @returns {Promise<{ accessToken, refreshToken, expiresIn, isNewUser, user }>}
  */
 export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta = {}) {
-  // ── 1. Find user ────────────────────────────────────────
-  const user = await prisma.cureliMobileUser.findUnique({
-    where: { phone },
+  // ── 1. Find user — same multi-variant search as sendMobileOtp ──
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
   });
 
   if (!user) {

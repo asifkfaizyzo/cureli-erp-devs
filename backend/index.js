@@ -74,6 +74,7 @@ import mobilePrescriptionsRoutes from './src/modules/mobile/prescriptions/mobile
 // ── cadmin marketplace routes App Routes ──────────────────────────────────────────
 import cadminMarketplaceRoutes from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
 import cadminMobileUsersRoutes from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
+import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.routes.js";
 
 // ============================================
 // APP SETUP
@@ -239,6 +240,7 @@ app.use("/cadmin", cadminDashboardRoutes);
 app.use("/cadmin", cadminMasterMedicinesRoutes);
 app.use("/cadmin", cadminMarketplaceRoutes);
 app.use("/cadmin", cadminMobileUsersRoutes);
+app.use("/cadmin", cadminMarketplaceOrdersRoutes);
 
 app.use("/mobile/auth", mobileAuthRoutes);
 app.use("/mobile/users", mobileUsersRoutes);
