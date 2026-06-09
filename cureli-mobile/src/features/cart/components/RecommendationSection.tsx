@@ -1,4 +1,4 @@
-// "You might also like" — products from same categories as cart items.
+// src/features/cart/components/RecommendationSection.tsx
 
 import React, { useCallback, useMemo } from "react";
 import {
@@ -9,68 +9,124 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { router } from "expo-router";
-
 import { useTheme } from "../../../theme/ThemeContext";
-import { Spacing } from "../../../theme/spacing";
-
-import { ProductCard } from "../../marketplace/components/ProductCard";
-import { useMedicineFeed } from "../../marketplace/hooks/useMedicineFeed";
 import { useCartStore } from "../../../store/cartStore";
-import type { EnrichedMedicine } from "../../marketplace/types/marketplace.types";
+import { useShopMedicines } from "../../marketplace/hooks/useShopMedicines";
+import { ProductCard } from "../../marketplace/components/ProductCard";
+import { RECOMMENDATIONS_LIMIT } from "../../../constants/config";
+
+// EnrichedBranchMedicine extends EnrichedMedicine with listing fields.
+// ProductCard expects EnrichedMedicine for its onPress prop.
+// We widen the handler to accept EnrichedBranchMedicine (a subtype)
+// and cast to satisfy ProductCard's narrower prop type.
+import type { EnrichedBranchMedicine } from "../../marketplace/hooks/useShopMedicines";
+import type { EnrichedMedicine } from "../../../types/medicine";
 
 export function RecommendationSection() {
   const { colors } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const items = useCartStore((s) => s.items);
+  const cartPharmacy = useCartStore((s) => s.cartPharmacy);
 
-  const cardWidth = useMemo(() => {
-    return Math.floor((screenWidth - 48) / 3);
-  }, [screenWidth]);
+  const pharmacy = cartPharmacy();
 
-  // Get the first unique category from cart items if available.
-  // Fall back to no filter (general feed).
-  const categoryHint = items[0]
-    ? undefined
-    : undefined;
+  const cartVariantIds = useMemo(
+    () => new Set(items.map((i) => i.variantId)),
+    [items],
+  );
 
-  const { medicines } = useMedicineFeed({ limit: 6 } as any);
+  // Primary category from first cart item that has one
+  const primaryCategory = useMemo(() => {
+    for (const item of items) {
+      if (item.category) return item.category;
+    }
+    return null;
+  }, [items]);
 
-  const handlePressProduct = useCallback((medicine: EnrichedMedicine) => {
+  // ── Fetch 1: same branch, any medicines ──────────────────
+  // useShopMedicines does not support category filtering via its
+  // current API (search param is free-text, not category).
+  // We fetch the branch medicines and filter by category client-side.
+  // This is acceptable at limit=6 — no extra network cost.
+  const branchFetch = useShopMedicines(
+    pharmacy?.shopId ?? "",
+    pharmacy?.branchId ?? "",
+    "",
+    // Fetch more than we need so client-side category filter has enough
+    // candidates to find 6 matches without a second request.
+    RECOMMENDATIONS_LIMIT * 4,
+  );
+
+  // ── Derive final list ─────────────────────────────────────
+  // Priority:
+  //   1. Same branch + same category (client-side filtered)
+  //   2. Same branch + any category  (fallback when category yields nothing)
+  //   3. Empty → section hidden
+  //
+  // Cart items are always excluded from recommendations.
+  const recommendations = useMemo(() => {
+    const all = branchFetch.medicines.filter(
+      (m) => !cartVariantIds.has(m.variantId),
+    );
+
+    if (primaryCategory) {
+      const sameCategory = all.filter(
+        (m) => m.category?.toLowerCase() === primaryCategory.toLowerCase(),
+      );
+      if (sameCategory.length > 0) {
+        return sameCategory.slice(0, RECOMMENDATIONS_LIMIT);
+      }
+    }
+
+    // Fallback: any medicine from same branch
+    return all.slice(0, RECOMMENDATIONS_LIMIT);
+  }, [branchFetch.medicines, cartVariantIds, primaryCategory]);
+
+  const cardWidth = Math.floor((screenWidth - 48) / 2.4);
+
+  // ProductCard.onPress expects (medicine: EnrichedMedicine) => void.
+  // EnrichedBranchMedicine extends EnrichedMedicine, so the cast is safe.
+  const handlePress = useCallback((medicine: EnrichedMedicine) => {
     router.push(`/product/${medicine.skuId}` as any);
   }, []);
 
   const keyExtractor = useCallback(
-    (item: EnrichedMedicine) => item.variantId,
+    (item: EnrichedBranchMedicine) => item.variantId,
     [],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: EnrichedMedicine }) => (
+    ({ item }: { item: EnrichedBranchMedicine }) => (
       <ProductCard
-        medicine={item}
+        medicine={item as EnrichedMedicine}
         width={cardWidth}
-        onPress={handlePressProduct}
+        onPress={handlePress}
       />
     ),
-    [cardWidth, handlePressProduct],
+    [cardWidth, handlePress],
   );
 
-  if (medicines.length === 0) return null;
+  // Hide if no pharmacy context, still loading, or no results
+   if (!pharmacy || branchFetch.isLoading || recommendations.length === 0) {
+    return null;
+  }
 
   return (
     <View style={styles.section}>
-      <Text style={[styles.title, { color: colors.text.primary }]}>
-        You might also like
+      <Text
+        style={[styles.title, { color: colors.text.primary }]}
+        numberOfLines={1}
+      >
+        Also available at {pharmacy.shopName}
       </Text>
 
       <FlatList
-        data={medicines.slice(0, 6)}
+        data={recommendations}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
-        numColumns={3}
-        scrollEnabled={false}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.grid}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.rail}
       />
     </View>
   );
@@ -79,18 +135,16 @@ export function RecommendationSection() {
 const styles = StyleSheet.create({
   section: {
     marginTop: 20,
-    paddingHorizontal: 16,
   },
   title: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     marginBottom: 12,
+    paddingHorizontal: 16,
   },
-  grid: {
-    gap: 8,
-  },
-  row: {
-    justifyContent: "space-between",
-    marginBottom: 8,
+  rail: {
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingBottom: 4,
   },
 });

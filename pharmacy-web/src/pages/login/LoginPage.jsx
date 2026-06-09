@@ -51,15 +51,15 @@ const LoginPage = () => {
   // ── Auth store reads ───────────────────────────────────────────────────────
   // Read all three independently so the component only re-renders when
   // something it actually cares about changes.
-  const isInitialized   = useAuthStore((s) => s.isInitialized);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const user            = useAuthStore((s) => s.user);
+  const user = useAuthStore((s) => s.user);
 
   // ── Local UI state ─────────────────────────────────────────────────────────
-  const [showOtp, setShowOtp]           = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
-  const [sessionMessage, setSessionMessage] = useState(
-    () => getInitialSessionMessage(searchParams),
+  const [sessionMessage, setSessionMessage] = useState(() =>
+    getInitialSessionMessage(searchParams),
   );
 
   // ── Redirect state ─────────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ const LoginPage = () => {
             >
               <img
                 src={logo}
-                alt="Cureli ERP"
+                alt="Cureli"
                 className="h-8 sm:h-10 md:h-12 w-auto"
               />
             </a>

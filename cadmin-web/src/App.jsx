@@ -1,4 +1,4 @@
-// cadmin-web\src\App.jsx
+// cadmin-web/src/App.jsx
 
 import {
   BrowserRouter as Router,
@@ -26,9 +26,17 @@ import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage"
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
 import EmailBroadcastPage from "./pages/Communications/pages/Broadcast/Email/EmailBroadcastPage";
+import MobileBroadcastPage from "./pages/Communications/pages/Broadcast/Mobile/MobileBroadcastPage";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
+
+
+// ── Marketplace ──────────────────────────────────────────────────────────────
+import MarketplaceDashboard  from "./pages/marketplace/Dashboard/MarketplaceDashboard";
+import MarketplaceUsersPage  from "./pages/marketplace/Users/MarketplaceUsersPage";
+import MarketplaceOrdersPage from "./pages/marketplace/Orders/MarketplaceOrdersPage";
+import MarketplaceShopsPage from "./pages/marketplace/Shops/MarketplaceShopsPage";
 
 import AppLayout from "./components/layout/AppLayout";
 import { AuthProvider } from "./context/AuthContext";
@@ -81,7 +89,8 @@ function App() {
 
         {/* ── Protected ───────────────────────────────────────────────── */}
         <Route element={<ProtectedLayout />}>
-          {/* Dashboard — the page itself handles the no-permission state */}
+
+          {/* Dashboard */}
           <Route path="/dashboard" element={<AdminDashboard />} />
 
           {/* Shops */}
@@ -138,7 +147,7 @@ function App() {
             }
           />
 
-          {/* Orders — no permission gate */}
+          {/* Orders */}
           <Route path="/orders" element={<OrdersPage />} />
 
           {/* Audit */}
@@ -173,12 +182,10 @@ function App() {
             }
           />
 
-          {/* Notifications — all authenticated admins */}
+          {/* Notifications */}
           <Route path="/notifications" element={<NotificationsPage />} />
 
-          {/* ── Communications ─────────────────────────────────────────── */}
-
-          {/* Communications hub — visible if admin can access ANY child */}
+          {/* ── Communications ──────────────────────────────────────────── */}
           <Route
             path="/communications"
             element={
@@ -201,8 +208,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/* Tickets */}
           <Route
             path="/communications/tickets"
             element={
@@ -211,8 +216,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/* Enquiries */}
           <Route
             path="/communications/enquiries"
             element={
@@ -221,8 +224,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/* Broadcast hub — visible if admin has any broadcast permission */}
           <Route
             path="/communications/broadcast"
             element={
@@ -243,8 +244,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/* In-App Broadcast */}
           <Route
             path="/communications/broadcast/in-app"
             element={
@@ -261,8 +260,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/* Email Broadcast */}
           <Route
             path="/communications/broadcast/email"
             element={
@@ -280,6 +277,24 @@ function App() {
             }
           />
 
+          {/*Mobile Push Broadcast */}
+          <Route
+            path="/communications/broadcast/mobile"
+            element={
+              <PermissionGuard
+                permissions={[
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
+                ]}
+                requireAll={false}
+              >
+                <MobileBroadcastPage />
+              </PermissionGuard>
+            }
+          />
+
           {/* Settings */}
           <Route
             path="/settings"
@@ -289,9 +304,27 @@ function App() {
               </PermissionGuard>
             }
           />
+
+          {/* ── Marketplace ─────────────────────────────────────────────── */}
+          <Route
+            path="/marketplace/dashboard"
+            element={<MarketplaceDashboard />}
+          />
+          <Route
+            path="/marketplace/users"
+            element={<MarketplaceUsersPage />}
+          />
+          <Route
+            path="/marketplace/orders"
+            element={<MarketplaceOrdersPage />}
+          />
+
+          <Route path="/marketplace/shops" element={<MarketplaceShopsPage />} />
+
+
         </Route>
 
-        {/* ── Catch-all → always dashboard ────────────────────────────── */}
+        {/* ── Catch-all ───────────────────────────────────────────────── */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>

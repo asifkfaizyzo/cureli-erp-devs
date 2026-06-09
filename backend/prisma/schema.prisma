@@ -42,6 +42,7 @@ model CAdmin {
   planActivities      PlanActivityLog[]   @relation("PlanActivityByCAdmin")
   createdPlans        Plan[]              @relation("PlanCreator")
   emailBroadcastCampaigns EmailBroadcastCampaign[] @relation("EmailBroadcastCampaigns")
+  mobileBroadcastCampaigns CureliMobileBroadcastCampaign[] @relation("MobileBroadcastCampaigns")
 
   @@map("cadmins")
 }
@@ -280,6 +281,7 @@ model Shop {
   users                   User[]               @relation("UsersInShop")
   marketplaceListings     MarketplaceListing[]       @relation("ShopMarketplaceListings")
   categoryVisibility      BranchCategoryVisibility[] @relation("ShopCategoryVisibility")
+  marketplaceOrders       MarketplaceOrder[]         @relation("ShopMarketplaceOrders")
   marketplaceProfile      MarketplaceProfile?
 
   @@map("shops")
@@ -314,6 +316,7 @@ model Branch {
   tickets          Ticket[]          @relation("BranchTickets")
   marketplaceListings     MarketplaceListing[]       @relation("BranchMarketplaceListings")
   categoryVisibility      BranchCategoryVisibility[] @relation("BranchCategoryVisibility")
+  marketplaceOrders       MarketplaceOrder[]         @relation("BranchMarketplaceOrders")
 
   users            User[]
   marketplaceSettings BranchMarketplaceSettings?
@@ -460,7 +463,7 @@ model MasterMedicineVariant {
   master             MasterMedicine @relation(fields: [master_medicine_id], references: [master_medicine_id], onDelete: Cascade)
   linkedMedicines  Medicine[] @relation("MedicineVariantLink")
   marketplaceListings     MarketplaceListing[]       @relation("VariantMarketplaceListings")
-
+  marketplaceOrderItems   MarketplaceOrderItem[]     @relation("VariantOrderItems")
   // Indexes
   @@index([master_medicine_id])
   @@index([sku_id])
@@ -552,7 +555,7 @@ model Medicine {
   stockLedger      StockLedger[]         @relation("MedicineStockLedger")
   linkedVariant    MasterMedicineVariant? @relation("MedicineVariantLink", fields: [linked_variant_id], references: [variant_id])
   marketplaceListings     MarketplaceListing[]        @relation("MedicineMarketplaceListing")
-
+  marketplaceOrderItems   MarketplaceOrderItem[]     @relation("MedicineOrderItems")
   // ═══════════════════════════════════════════════════════
   // INDEXES & CONSTRAINTS - LAST
   // ═══════════════════════════════════════════════════════
@@ -697,7 +700,7 @@ model MarketplaceListing {
   branch                Branch                 @relation("BranchMarketplaceListings", fields: [branch_id], references: [branch_id], onDelete: Cascade)
   medicine              Medicine               @relation("MedicineMarketplaceListing", fields: [medicine_id], references: [medicine_id], onDelete: Cascade)
   linkedVariant         MasterMedicineVariant  @relation("VariantMarketplaceListings", fields: [linked_variant_id], references: [variant_id])
-
+  orderItems              MarketplaceOrderItem[]     @relation("ListingOrderItems")
   @@unique([medicine_id, branch_id])
   @@index([shop_id, branch_id])
   @@index([branch_id, is_visible])
@@ -727,7 +730,222 @@ model BranchCategoryVisibility {
 
 
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// MARKETPLACE ORDERS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+model MarketplaceOrder {
+  order_id                  String    @id @default(uuid()) @db.Uuid
+
+  // Human-readable order number — populated from Postgres sequence at insert time
+  // Format: MKT-000001. Generated in service layer via $queryRaw before create.
+  order_number              String    @unique @db.VarChar(20)
+
+  // ── Ownership ──────────────────────────────────────────
+  shop_id                   String    @db.Uuid
+  branch_id                 String    @db.Uuid
+  customer_id               String    @db.Uuid
+
+  // ── Delivery address ──────────────────────────────────
+  // The address_id is stored for reference only.
+  // The full address is snapshotted into delivery_address_snapshot
+  // because addresses can be deleted or edited after order placement.
+  delivery_address_id       String?   @db.Uuid
+  delivery_address_snapshot Json
+  // Shape: { label, address_line_1, address_line_2, landmark,
+  //          city, state, pincode, latitude, longitude,
+  //          recipient_name, recipient_phone }
+
+  // ── Customer snapshot ─────────────────────────────────
+  // Frozen at order placement. Customer profile can change after.
+  customer_name_snapshot    String    @db.VarChar(200)
+  customer_phone_snapshot   String    @db.VarChar(15)
+
+  // ── Order status ──────────────────────────────────────
+  status                    MarketplaceOrderStatus @default(PLACED)
+
+  // ── Payment ───────────────────────────────────────────
+  // V1: payment_method is always COD, payment_status is always PENDING.
+  // These fields are present now so the column exists when payments are added.
+  payment_method            String    @default("COD") @db.VarChar(30)
+  payment_status            String    @default("PENDING") @db.VarChar(30)
+
+  // ── Amounts ───────────────────────────────────────────
+  subtotal                  Decimal   @db.Decimal(10, 2)
+  total_amount              Decimal   @db.Decimal(10, 2)
+
+  // ── Prescription ──────────────────────────────────────
+  // Denormalised flag — true if any item in this order requires prescription.
+  // Set at order creation time from item snapshots. Never mutated after.
+  requires_prescription     Boolean   @default(false)
+
+  // ── Customer notes ────────────────────────────────────
+  notes                     String?   @db.VarChar(500)
+
+  // ── Rejection ─────────────────────────────────────────
+  // Only populated when status = REJECTED.
+  // Values: OUT_OF_STOCK | PRESCRIPTION_INVALID | STORE_CLOSED | OTHER
+  rejection_reason          String?   @db.VarChar(50)
+  rejection_reason_other    String?   @db.VarChar(300)
+
+  // ── Cancellation ──────────────────────────────────────
+  // Only populated when status = CANCELLED.
+  // Values: "customer" | "pharmacy"
+  cancelled_by              String?   @db.VarChar(20)
+
+  // ── Auto-completion ───────────────────────────────────
+  // Set to true by the cron job when auto-completing a stuck READY_FOR_PICKUP order.
+  auto_completed            Boolean   @default(false)
+
+  // ── Timestamps ────────────────────────────────────────
+  // placed_at is explicit and separate from created_at.
+  // created_at is the DB row creation time.
+  // placed_at is the business event time (set = now() at creation, but kept separate for clarity).
+  placed_at                 DateTime  @db.Timestamptz(6)
+  accepted_at               DateTime? @db.Timestamptz(6)
+  ready_at                  DateTime? @db.Timestamptz(6)
+  completed_at              DateTime? @db.Timestamptz(6)
+  rejected_at               DateTime? @db.Timestamptz(6)
+  cancelled_at              DateTime? @db.Timestamptz(6)
+  created_at                DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime  @updatedAt @db.Timestamptz(6)
+
+
+  shop                      Shop                           @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
+  branch                    Branch                         @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  customer                  CureliMobileUser               @relation("CustomerMarketplaceOrders", fields: [customer_id], references: [id], onDelete: Restrict)
+  deliveryAddress           CureliMobileAddress?           @relation("OrderDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
+  items                     MarketplaceOrderItem[]         @relation("OrderItems")
+  prescriptions             MarketplaceOrderPrescription[] @relation("OrderPrescriptions")
+  statusHistory             MarketplaceOrderStatusHistory[] @relation("OrderStatusHistory")
+
+
+  // (shop_id, status) — ERP tab queries: New Orders, Active, Completed, Rejected
+  // (customer_id, placed_at DESC) — Mobile order list, most recent first
+  // (branch_id, status, placed_at DESC) — ERP new orders sorted by arrival time
+  // (shop_id, placed_at DESC) — ERP history/date range queries
+  // (status, ready_at) — Cron auto-complete job: find stuck READY_FOR_PICKUP orders
+  @@index([shop_id, status])
+  @@index([customer_id, placed_at(sort: Desc)])
+  @@index([branch_id, status, placed_at(sort: Desc)])
+  @@index([shop_id, placed_at(sort: Desc)])
+  @@index([status, ready_at])
+  @@map("marketplace_orders")
+}
+
+model MarketplaceOrderItem {
+
+  item_id                       String  @id @default(uuid()) @db.Uuid
+  order_id                      String  @db.Uuid
+
+  // ── Listing reference ─────────────────────────────────
+  // listing_id is stored for traceability only.
+  // It is NOT used for price or name lookups after order creation.
+  // All financial data comes from the snapshots below.
+  listing_id                    String  @db.Uuid
+
+  // ── Denormalised FKs ──────────────────────────────────
+  // Kept for future analytics and cross-referencing.
+  // Do NOT join to these for order display — use snapshots.
+  medicine_id                   String  @db.Uuid
+  variant_id                    String  @db.Uuid
+
+  // ── Snapshots (immutable after creation) ──────────────
+  // Everything a pharmacy or customer needs to understand this line item
+  // without joining to any other table.
+  medicine_name_snapshot        String  @db.VarChar(500)
+  variant_sku_snapshot          String  @db.VarChar(50)
+  brand_snapshot                String? @db.VarChar(350)
+  pack_size_snapshot            String? @db.VarChar(100)
+  unit_price_snapshot           Decimal @db.Decimal(10, 2)
+  mrp_snapshot                  Decimal @db.Decimal(10, 2)
+  requires_prescription_snapshot Boolean
+
+  // ── Quantity and total ────────────────────────────────
+  quantity                      Int
+  line_total                    Decimal @db.Decimal(10, 2)
+
+
+  order                         MarketplaceOrder      @relation("OrderItems", fields: [order_id], references: [order_id], onDelete: Cascade)
+  listing                       MarketplaceListing    @relation("ListingOrderItems", fields: [listing_id], references: [listing_id], onDelete: Restrict)
+  medicine                      Medicine              @relation("MedicineOrderItems", fields: [medicine_id], references: [medicine_id], onDelete: Restrict)
+  variant                       MasterMedicineVariant @relation("VariantOrderItems", fields: [variant_id], references: [variant_id], onDelete: Restrict)
+
+
+  @@index([order_id])
+  @@index([listing_id])
+  @@index([medicine_id])
+  @@index([variant_id])
+  @@map("marketplace_order_items")
+}
+
+model MarketplaceOrderPrescription {
+
+  prescription_id   String    @id @default(uuid()) @db.Uuid
+  order_id          String    @db.Uuid
+
+  // ── S3 storage ────────────────────────────────────────
+  storage_key       String    @db.VarChar(500)
+  original_name     String    @db.VarChar(255)
+  mime_type         String    @db.VarChar(100)
+  file_size         Int
+
+  // ── Display order ─────────────────────────────────────
+  sequence          Int       @default(0)
+
+  // ── Expiry and soft-delete ────────────────────────────
+  // expires_at: set atomically when order reaches terminal state
+  //   COMPLETED / REJECTED → now + 10 days
+  //   CANCELLED            → now + 1 day
+  // deleted_at: set by cron after S3 file is purged
+  //   DB row is kept for audit. S3 file is gone.
+  expires_at        DateTime? @db.Timestamptz(6)
+  deleted_at        DateTime? @db.Timestamptz(6)
+
+  uploaded_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  order             MarketplaceOrder @relation("OrderPrescriptions", fields: [order_id], references: [order_id], onDelete: Cascade)
+
+  @@index([order_id])
+  // Cron query: find expired but not yet deleted prescriptions
+  @@index([expires_at, deleted_at])
+  @@map("marketplace_order_prescriptions")
+}
+
+model MarketplaceOrderStatusHistory {
+
+  history_id        String   @id @default(uuid()) @db.Uuid
+  order_id          String   @db.Uuid
+
+  // ── Transition ────────────────────────────────────────
+  // from_status is null only for the initial PLACED entry.
+  from_status       MarketplaceOrderStatus?
+  to_status         MarketplaceOrderStatus
+
+  // ── Actor ─────────────────────────────────────────────
+  // changed_by_type: "customer" | "pharmacy" | "system"
+  // changed_by_id: CureliMobileUser.id for customer,
+  //                User.user_id for pharmacy,
+  //                null for system (cron)
+  changed_by_type   String   @db.VarChar(20)
+  changed_by_id     String?  @db.Uuid
+
+  // ── Optional context ──────────────────────────────────
+  // For rejection: stores the rejection_reason value.
+  // For cancellation: stores "customer" or "pharmacy".
+  // For system: stores "auto_completed".
+  reason            String?  @db.VarChar(300)
+
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+
+  order             MarketplaceOrder @relation("OrderStatusHistory", fields: [order_id], references: [order_id], onDelete: Cascade)
+
+
+  // Ascending because status history is always read chronologically.
+  @@index([order_id, created_at(sort: Asc)])
+  @@map("marketplace_order_status_history")
+}
 
 
 
@@ -794,7 +1012,9 @@ model CureliMobileUser {
   // ── Relations ─────────────────────────────────────────────
   sessions               CureliMobileSession[]
   addresses              CureliMobileAddress[]
-
+  marketplaceOrders       MarketplaceOrder[]         @relation("CustomerMarketplaceOrders")
+  pushPreference        CureliMobilePushPreference?
+  mobileNotifications   CureliMobileNotification[]
   @@index([phone])
   @@index([status])
   @@index([deleted_at])
@@ -856,7 +1076,7 @@ model CureliMobileAddress {
 
   // ── Relations ─────────────────────────────────────────────
   user             CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
+  orders                  MarketplaceOrder[]         @relation("OrderDeliveryAddress")
   @@index([user_id])
   @@index([user_id, is_default])
   @@index([deleted_at])
@@ -895,6 +1115,133 @@ model CureliMobileDeletedAccount {
   @@map("cureli_mobile_deleted_accounts")
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI MOBILE — PUSH NOTIFICATIONS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// Per-user notification preferences.
+// One row per user — upserted on first login or when user changes preferences.
+// category values must match PUSH_CATEGORIES constant in push service.
+model CureliMobilePushPreference {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @unique @db.Uuid
+  
+  // Master toggle — if false, no push sent regardless of categories
+  master_enabled Boolean @default(true)
+
+  // Per-category toggles
+  // All default true except promotions which some users may opt out of
+  order_updates           Boolean @default(true)
+  promotions              Boolean @default(true)
+  prescription_updates    Boolean @default(true)
+  system_messages         Boolean @default(true)
+  cart_abandonment        Boolean @default(true)
+
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  user        CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("cureli_mobile_push_preferences")
+}
+
+// Mobile notification inbox — persisted push notifications for the mobile app.
+// Separate from the ERP Notification model which serves ERP users and cadmins.
+// This table is the source of truth for the mobile notification center.
+model CureliMobileNotification {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+
+  // Notification content
+  title           String    @db.VarChar(200)
+  body            String    @db.VarChar(500)
+  
+  // Category — matches PUSH_CATEGORIES constant
+  // Values: order_updates | promotions | prescription_updates | system_messages | cart_abandonment
+  category        String    @db.VarChar(50)
+
+  // Deep link data — determines where tapping the notification goes
+  // Shape: { screen: 'order_detail', params: { orderId: '...' } }
+  //        { screen: 'product', params: { productId: '...' } }
+  //        { screen: 'home' }
+  //        { screen: 'cart' }
+  //        { screen: 'prescription_upload' }
+  data            Json?
+
+  // Read state
+  is_read         Boolean   @default(false)
+  read_at         DateTime? @db.Timestamptz(6)
+
+  // Push delivery state
+  // push_sent = false means it was created in inbox but push failed or user had no token
+  push_sent       Boolean   @default(false)
+  push_ticket_id  String?   @db.VarChar(200)  // Expo push ticket ID for receipt checking
+
+  // Campaign link — set when sent via cadmin mobile broadcast
+  campaign_id     String?   @db.Uuid
+
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  user            CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([category])
+  @@index([campaign_id])
+  @@index([created_at(sort: Desc)])
+  @@map("cureli_mobile_notifications")
+}
+
+// Mobile push broadcast campaigns — cadmin → mobile customers.
+// Separate from BroadcastCampaign which targets ERP users.
+model CureliMobileBroadcastCampaign {
+  id                String    @id @default(uuid()) @db.Uuid
+
+  // Content
+  title             String    @db.VarChar(200)
+  body              String    @db.VarChar(500)
+  category          String    @default("promotions") @db.VarChar(50)
+
+  // Deep link — where tapping the notification goes on mobile
+  // screen values: home | cart | order_detail | product | category | prescription_upload
+  tap_action        String    @default("home") @db.VarChar(50)
+  tap_params        Json?     // e.g. { productId: '...' } or { categoryName: '...' }
+
+  // Targeting
+  // target_all = true → send to all active users with push tokens
+  // target_all = false → use target_user_ids
+  target_all        Boolean   @default(true)
+  target_user_ids   String[]  @db.Uuid  // populated when target_all = false
+
+  // Audience filters (stored for display/audit — actual resolution happens at send time)
+  audience_filters  Json?
+
+  // Status lifecycle: draft → scheduled → sending → sent | failed | cancelled
+  status            String    @default("draft") @db.VarChar(20)
+  scheduled_for     DateTime? @db.Timestamptz(6)
+  sent_at           DateTime? @db.Timestamptz(6)
+
+  // Results
+  targeted_count    Int       @default(0)   // how many users were targeted
+  sent_count        Int       @default(0)   // how many push tickets created
+  delivered_count   Int       @default(0)   // confirmed delivered (from receipts)
+  failed_count      Int       @default(0)
+
+  // Audit
+  created_by_cadmin String    @db.Uuid
+  cadmin_name       String    @db.VarChar(100)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @updatedAt @db.Timestamptz(6)
+
+  cadmin            CAdmin    @relation("MobileBroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
+
+  @@index([status, scheduled_for])
+  @@index([created_by_cadmin])
+  @@index([created_at(sort: Desc)])
+  @@map("cureli_mobile_broadcast_campaigns")
+}
 
 
 
@@ -2243,4 +2590,13 @@ enum TicketActivityType {
 enum MarketplaceStockStatus {
   IN_STOCK
   OUT_OF_STOCK
+}
+
+enum MarketplaceOrderStatus {
+  PLACED
+  ACCEPTED
+  READY_FOR_PICKUP
+  COMPLETED
+  REJECTED
+  CANCELLED
 }

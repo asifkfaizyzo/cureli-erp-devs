@@ -548,11 +548,12 @@ const InventoryFilters = ({
           {/* Add Medicine Button */}
           {onAddMedicine && (
             <button
-              onClick={onAddMedicine}
+              onClick={null}
+              // onClick={onAddMedicine}
               className="h-10 sm:h-9 px-3 sm:px-4 flex items-center gap-2 text-sm font-semibold text-white bg-[#05015A] hover:bg-[#0a0280] rounded-lg transition-all shadow-sm hover:shadow-md"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Add Medicine</span>
+              <span className="hidden sm:inline">Upload Inventory</span>
             </button>
           )}
         </div>

@@ -130,36 +130,44 @@ export async function getUsersService(query = {}) {
 
   const [total, users] = await Promise.all([
     prisma.user.count({ where }),
-    prisma.user.findMany({
-      where,
-      orderBy,
-      skip,
-      take: limit,
+   prisma.user.findMany({
+  where,
+  orderBy,
+  skip,
+  take: limit,
+  select: {
+    user_id: true,
+    full_name: true,
+    username: true,
+    email: true,
+    role: true,
+    is_active: true,
+    last_login_at: true,
+    created_at: true,
+    shop_id: true,        // ← ADD THIS
+    shop: {
       select: {
-        user_id: true,
-        full_name: true,
-        username: true,
-        email: true,
-        role: true,
-        is_active: true,
-        last_login_at: true,
-        created_at: true,
+        business_name: true,
       },
-    }),
+    },
+  },
+}),
   ]);
+ 
 
   const totalPages = Math.max(Math.ceil(total / limit), 1);
 
   const data = users.map((u) => ({
-    id: u.user_id,
-    name: u.full_name,
-    username: u.username,
-    email: u.email,
-    role: formatRole(u.role),
-    is_active: u.is_active,
-    lastLogin: u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
-    created_at: u.created_at,
-  }));
+  id: u.user_id,
+  name: u.full_name,
+  username: u.username,
+  email: u.email,
+  role: formatRole(u.role),
+  is_active: u.is_active,
+  lastLogin: u.last_login_at ? formatDateDDMMYYYY(u.last_login_at) : "Never",
+  created_at: u.created_at,
+  shop_name: u.shop?.business_name || null,
+}));
 
   return {
     data,

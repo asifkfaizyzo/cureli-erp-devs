@@ -2,7 +2,7 @@
 
 /**
  * Builds complete HTML email for broadcast
- * 
+ *
  * Features:
  * - Responsive design (mobile-friendly)
  * - Inline image support (with CID)
@@ -17,22 +17,22 @@
 // ============================================
 
 const BRAND_COLORS = {
-  primary: '#05015A',
-  primaryLight: '#0a0280',
-  secondary: '#1f2937',
-  accent: '#4f46e5',
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
+  primary: "#05015A",
+  primaryLight: "#0a0280",
+  secondary: "#1f2937",
+  accent: "#4f46e5",
+  success: "#10b981",
+  warning: "#f59e0b",
+  error: "#ef4444",
   text: {
-    primary: '#1f2937',
-    secondary: '#4b5563',
-    muted: '#9ca3af',
+    primary: "#1f2937",
+    secondary: "#4b5563",
+    muted: "#9ca3af",
   },
   background: {
-    main: '#f4f6fb',
-    card: '#ffffff',
-    footer: '#1f2937',
+    main: "#f4f6fb",
+    card: "#ffffff",
+    footer: "#1f2937",
   },
 };
 
@@ -76,7 +76,7 @@ function buildHeader(subject) {
  * Build greeting section
  */
 function buildGreeting(recipientName) {
-  const name = recipientName || 'there';
+  const name = recipientName || "there";
   return `
     <p style="
       margin: 0 0 20px 0;
@@ -94,19 +94,17 @@ function buildGreeting(recipientName) {
  */
 function buildInlineImage(inlineImage) {
   if (!inlineImage || !inlineImage.url) {
-    return '';
+    return "";
   }
 
   // Use CID if available (for embedded images), otherwise use URL
-  const src = inlineImage.cid 
-    ? `cid:${inlineImage.cid}` 
-    : inlineImage.url;
+  const src = inlineImage.cid ? `cid:${inlineImage.cid}` : inlineImage.url;
 
   return `
     <div style="margin: 24px 0; text-align: center;">
       <img 
         src="${src}" 
-        alt="${escapeHtml(inlineImage.original_name || 'Image')}"
+        alt="${escapeHtml(inlineImage.original_name || "Image")}"
         style="
           max-width: 100%;
           height: auto;
@@ -124,7 +122,7 @@ function buildInlineImage(inlineImage) {
  */
 function buildActionButton(actionUrl, actionLabel) {
   if (!actionUrl || !actionLabel) {
-    return '';
+    return "";
   }
 
   return `
@@ -156,12 +154,12 @@ function buildActionButton(actionUrl, actionLabel) {
  */
 function buildAttachmentsList(attachments) {
   if (!attachments || !Array.isArray(attachments) || attachments.length === 0) {
-    return '';
+    return "";
   }
 
   const attachmentItems = attachments
     .map((att) => {
-      const size = att.size ? formatFileSize(att.size) : '';
+      const size = att.size ? formatFileSize(att.size) : "";
       return `
         <div style="
           display: flex;
@@ -184,13 +182,13 @@ function buildAttachmentsList(attachments) {
               flex: 1;
             "
           >
-            ${escapeHtml(att.original_name || att.filename || 'Attachment')}
+            ${escapeHtml(att.original_name || att.filename || "Attachment")}
           </a>
-          ${size ? `<span style="color: ${BRAND_COLORS.text.muted}; font-size: 12px;">${size}</span>` : ''}
+          ${size ? `<span style="color: ${BRAND_COLORS.text.muted}; font-size: 12px;">${size}</span>` : ""}
         </div>
       `;
     })
-    .join('');
+    .join("");
 
   return `
     <div style="
@@ -218,7 +216,7 @@ function buildAttachmentsList(attachments) {
  */
 function buildFooter(unsubscribeUrl) {
   const currentYear = new Date().getFullYear();
-  
+
   return `
     <tr>
       <td style="
@@ -230,12 +228,14 @@ function buildFooter(unsubscribeUrl) {
           <tr>
             <td style="text-align: center;">
               <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 13px;">
-                This email was sent by the Cureli ERP team.
+                This email was sent by the Cureli team.
               </p>
               <p style="margin: 0 0 12px 0; color: #6b7280; font-size: 12px;">
-                © ${currentYear} Cureli ERP. All rights reserved.
+                © ${currentYear} Cureli. All rights reserved.
               </p>
-              ${unsubscribeUrl ? `
+              ${
+                unsubscribeUrl
+                  ? `
                 <p style="margin: 0;">
                   <a 
                     href="${escapeHtml(unsubscribeUrl)}" 
@@ -249,7 +249,9 @@ function buildFooter(unsubscribeUrl) {
                     Unsubscribe from broadcast emails
                   </a>
                 </p>
-              ` : ''}
+              `
+                  : ""
+              }
             </td>
           </tr>
         </table>
@@ -264,7 +266,7 @@ function buildFooter(unsubscribeUrl) {
 
 /**
  * Build complete HTML email
- * 
+ *
  * @param {Object} options
  * @param {string} options.subject - Email subject
  * @param {string} options.messageHtml - Converted HTML message body
@@ -289,7 +291,8 @@ export function buildEmailHtml({
   isTest = false,
 }) {
   // Test email banner
-  const testBanner = isTest ? `
+  const testBanner = isTest
+    ? `
     <tr>
       <td style="
         background-color: #fef3c7;
@@ -303,7 +306,8 @@ export function buildEmailHtml({
         </p>
       </td>
     </tr>
-  ` : '';
+  `
+    : "";
 
   const html = `
 <!DOCTYPE html>
@@ -429,13 +433,13 @@ export function buildEmailHtml({
  * Escape HTML special characters
  */
 function escapeHtml(text) {
-  if (!text) return '';
+  if (!text) return "";
   const htmlEntities = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
   };
   return String(text).replace(/[&<>"']/g, (char) => htmlEntities[char]);
 }
@@ -444,24 +448,24 @@ function escapeHtml(text) {
  * Format file size for display
  */
 function formatFileSize(bytes) {
-  if (!bytes || bytes === 0) return '';
+  if (!bytes || bytes === 0) return "";
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
 /**
  * Extract preheader text from message (first ~100 chars)
  */
 function getPreheaderText(messageHtml) {
-  if (!messageHtml) return '';
-  
+  if (!messageHtml) return "";
+
   const stripped = messageHtml
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
     .trim();
-  
+
   return stripped.substring(0, 100);
 }
 
@@ -471,19 +475,22 @@ function getPreheaderText(messageHtml) {
 
 /**
  * Format attachments for Nodemailer
- * 
+ *
  * @param {Object} inlineImage - Single inline image
  * @param {Array} fileAttachments - File attachments array
  * @returns {Array} - Nodemailer attachments array
  */
-export function formatAttachmentsForNodemailer(inlineImage, fileAttachments = []) {
+export function formatAttachmentsForNodemailer(
+  inlineImage,
+  fileAttachments = [],
+) {
   const nodemailerAttachments = [];
 
   // Add inline image (embedded with CID)
   if (inlineImage && inlineImage.url) {
     const cid = `inline-image-${Date.now()}`;
     nodemailerAttachments.push({
-      filename: inlineImage.original_name || 'image.jpg',
+      filename: inlineImage.original_name || "image.jpg",
       path: inlineImage.url,
       cid: cid,
     });
@@ -496,7 +503,7 @@ export function formatAttachmentsForNodemailer(inlineImage, fileAttachments = []
     for (const att of fileAttachments) {
       if (att.url) {
         nodemailerAttachments.push({
-          filename: att.original_name || att.filename || 'attachment',
+          filename: att.original_name || att.filename || "attachment",
           path: att.url,
         });
       }

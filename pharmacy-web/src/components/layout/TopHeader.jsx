@@ -27,6 +27,10 @@ import {
   selectIsGlobalMode,
   BRANCH_MODE,
 } from "../../store/useAuthStore";
+import {
+  useNotificationStore,
+  selectNewOrderCount,
+} from "../../store/useNotificationStore";
 import { useMenuStore } from "../../store/useMenuStore";
 import { usePermission } from "../../hooks/usePermission";
 import { PERMISSIONS } from "../../config/permissions";
@@ -49,7 +53,7 @@ const AuthenticatedTopHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-
+  const newOrderCount = useNotificationStore(selectNewOrderCount);
   useSSENotifications();
 
   const profileRef = useRef(null);
@@ -137,8 +141,6 @@ const AuthenticatedTopHeader = () => {
 
   const currentRole = roleConfig[userRole] || roleConfig.staff;
 
-  // ── user.name = full name ("Men Dona")
-  // ── user.username = login handle ("mendona")
   const userName = user?.name?.trim() || "User";
   const userHandle = user?.username?.trim() || "";
 
@@ -468,10 +470,12 @@ const AuthenticatedTopHeader = () => {
               >
                 ERP
               </button>
+
+              {/* ── Marketplace mode switcher button with new order badge ── */}
               <button
                 onClick={handleSwitchToMarketplace}
                 className={`
-                  px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
+                  relative px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-150
                   ${
                     isMarketplace
                       ? "bg-white text-[#010015] shadow-sm"
@@ -480,6 +484,12 @@ const AuthenticatedTopHeader = () => {
                 `}
               >
                 Marketplace
+                {/* New order badge — only show when NOT already in marketplace mode */}
+                {!isMarketplace && newOrderCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                    {newOrderCount > 99 ? "99+" : newOrderCount}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -536,7 +546,9 @@ const AuthenticatedTopHeader = () => {
                   <div
                     className={`absolute right-0 top-full mt-1.5 w-64 rounded-lg border overflow-hidden z-50 ${dropdownBg}`}
                   >
-                    <div className={`px-3 py-2.5 border-b ${dropdownHeaderBg}`}>
+                    <div
+                      className={`px-3 py-2.5 border-b ${dropdownHeaderBg}`}
+                    >
                       <div className="flex items-center justify-between">
                         <span
                           className={`text-xs font-semibold uppercase tracking-wider ${textSecondary}`}
@@ -861,7 +873,6 @@ const AuthenticatedTopHeader = () => {
                         <p className={`font-semibold truncate ${textPrimary}`}>
                           {userName}
                         </p>
-
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded mt-1 ${currentRole.color}`}
                         >

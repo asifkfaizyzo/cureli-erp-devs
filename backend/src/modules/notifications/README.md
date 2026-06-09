@@ -1,6 +1,6 @@
 # Notifications Module
 
-Centralized notification system for Cureli ERP.
+Centralized notification system for Cureli.
 
 ## Usage
 

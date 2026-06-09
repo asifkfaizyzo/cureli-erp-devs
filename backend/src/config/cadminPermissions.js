@@ -11,7 +11,7 @@
  * ARCHITECTURE OVERVIEW:
  * ┌─────────────────────────────────────────────────────────────────┐
  * │  SUPER_CADMIN → is_super_cadmin = true → bypasses all checks   │
- * │  Other admins → assigned custom roles → union of permissions    │
+ * │  Other admins → assigned custom roles → union of permissions   │
  * └─────────────────────────────────────────────────────────────────┘
  *
  * HOW TO ADD A NEW PERMISSION (for future developers or LLMs):
@@ -182,6 +182,12 @@ export const CADMIN_PERMISSIONS = {
   BROADCAST_INAPP_MANAGE_TEMPLATES: "broadcast_inapp.manage_templates", // Create, list, and use broadcast templates
 
   // ─────────────────────────────────────────────────────────────────────────
+  // MODULE: BROADCAST - MOBILE
+  // Covers: SMS / Mobile push notifications sent to platform users/admins
+  // ─────────────────────────────────────────────────────────────────────────
+  BROADCAST_MOBILE_SEND: "broadcast_mobile.send", // Preview recipient count, check quota, send now, access filter helpers
+
+  // ─────────────────────────────────────────────────────────────────────────
   // MODULE: EMAIL BROADCAST
   // Covers: Mass email campaigns sent to platform users/admins
   // ─────────────────────────────────────────────────────────────────────────
@@ -196,7 +202,7 @@ export const CADMIN_PERMISSIONS = {
   // MODULE: SETTINGS
   // Covers: Personal-Cadmin Settings of their profile
   // ─────────────────────────────────────────────────────────────────────────
-  SETTINGS_VIEW: "settings.view", // List settigns
+  SETTINGS_VIEW: "settings.view", // List settings
   SETTINGS_EDIT_IDENTITY: "settings.edit_identity", // Update name and username
   SETTINGS_EDIT_CONTACT: "settings.edit_contact", // Update email and phone
   SETTINGS_EDIT_PASSWORD: "settings.edit_password", // Update account password
@@ -663,6 +669,18 @@ export const CADMIN_PERMISSION_GROUPS = [
         label: "Manage Broadcast Templates",
         description:
           "Create, view, and apply reusable in-app broadcast message templates",
+      },
+    ],
+  },
+  {
+    module: "Broadcast — Mobile",
+    key: "broadcast_mobile",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+        label: "Send Mobile Broadcast",
+        description:
+          "Preview recipient count, check sending limits, and dispatch mobile/SMS broadcasts immediately",
       },
     ],
   },

@@ -1,120 +1,155 @@
 // src/features/marketplace/components/GradientHeader.tsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+  Image,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Typography } from "../../../theme/typography";
-import { Spacing } from "../../../theme/spacing";
+import { Typography } from '../../../theme/typography';
+import { Spacing } from '../../../theme/spacing';
+import { useTheme } from '../../../theme/ThemeContext';
+import { HEADER_HEIGHT } from '../constants/marketplace.constants';
 
-import { SearchBar } from "./SearchBar";
-import { CartButton } from "./CartButton";
-import { AddressDropdown } from "./AddressDropdown";
-import { useDeliveryLocation } from "../../../hooks/useDeliveryLocation";
-import { useAddresses } from "../../profile/hooks/useAddresses";
-import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
-import type { DeliveryLocation } from "../../../store/deliveryLocationStore";
+import { SearchBar } from './SearchBar';
+import { CartButton } from './CartButton';
+import { AddressDropdown } from './AddressDropdown';
+import { useDeliveryLocation } from '../../../hooks/useDeliveryLocation';
+import { useState } from 'react';
 
-// ── Constants ─────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────
 
-export const HEADER_HEIGHT = 180;
-const GRADIENT_COLORS: [string, string] = ["#05015A", "#BBAEF9"];
+const GRADIENT_COLORS: [string, string] = ['#05015A', '#a291f8'];
+
+// The white-on-dark logo — cureliwhitenew.png has the icon only,
+// cureliwhitewithtext.png has icon + text if you prefer a single image.
+// We use the icon-only asset here and render the wordmark ourselves
+// so Amulya is guaranteed to match any future brand updates.
+const LOGO = require('../../../../assets/images/cureliwhitenew.png');
 
 // ── Props ─────────────────────────────────────────────────────
 
 interface GradientHeaderProps {
-  onPressProfile?: () => void;
   onPressSearch?: () => void;
   onPressCart?: () => void;
 }
 
-// ── Component ─────────────────────────────────────────────────
+// ── Subcomponent: location pill ───────────────────────────────
+// Extracted so it can be memoised independently from dropdown state.
 
-function GradientHeaderBase({
-  onPressProfile,
-  onPressSearch,
-  onPressCart,
-}: GradientHeaderProps) {
-  const insets = useSafeAreaInsets();
-  const { location, isResolving } = useDeliveryLocation();
-  const { addresses } = useAddresses();
-  const { selectAddress } = useDeliveryLocationStore();
+interface LocationPillProps {
+  isResolving: boolean;
+  hasLocation: boolean;
+  area: string;
+  addressLine: string;
+  source: string;
+  dropdownVisible: boolean;
+  onPress: () => void;
+}
 
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-
-  // ── Track newly added address ─────────────────────────────
-  const prevAddressCountRef = useRef(addresses.length);
-
-  useEffect(() => {
-    const prevCount = prevAddressCountRef.current;
-    const currentCount = addresses.length;
-
-    if (currentCount > prevCount && prevCount > 0) {
-      // A new address was added — find it (most recent by created_at)
-      const sorted = [...addresses].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      const newest = sorted[0];
-
-      if (newest) {
-        const newLocation: DeliveryLocation = {
-          source: 'saved',
-          area: newest.city ?? newest.label ?? 'Saved Address',
-          addressLine: [
-            newest.address_line_1,
-            newest.city,
-            newest.pincode,
-          ]
-            .filter(Boolean)
-            .join(', '),
-          latitude: newest.latitude ? Number(newest.latitude) : null,
-          longitude: newest.longitude ? Number(newest.longitude) : null,
-          addressId: newest.id,
-        };
-
-        selectAddress(newLocation);
-      }
-    }
-
-    prevAddressCountRef.current = currentCount;
-  }, [addresses, selectAddress]);
-
-  // ── Derived state ─────────────────────────────────────────
-
-  const hasLocation = location.source === 'gps' || location.source === 'saved';
-
+const LocationPill = React.memo(function LocationPill({
+  isResolving,
+  hasLocation,
+  area,
+  addressLine,
+  source,
+  dropdownVisible,
+  onPress,
+}: LocationPillProps) {
   const locationIcon =
-    location.source === 'gps'
+    source === 'gps'
       ? 'navigate'
-      : location.source === 'saved'
+      : source === 'saved'
         ? 'location'
         : 'location-outline';
 
+  // Use theme status colours instead of hardcoded hex
   const iconColor =
-    location.source === 'gps'
-      ? '#4ade80'
-      : location.source === 'saved'
-        ? '#facc15'
-        : 'rgba(255,255,255,0.75)';
+    source === 'gps'
+      ? '#4ade80'                    // status.success — GPS active
+      : source === 'saved'
+        ? '#c9b7ff'                  // status.warning — saved address
+        : 'rgba(255,255,255,0.60)';  // fallback / unset
 
-  // ── Handlers ──────────────────────────────────────────────
+  const areaLabel = isResolving
+    ? 'Detecting location…'
+    : hasLocation
+      ? area
+      : 'Set delivery location';
 
-  const toggleDropdown = () => {
+  const lineLabel = isResolving
+    ? 'Please wait…'
+    : hasLocation
+      ? addressLine
+      : 'Tap to set your address';
+
+return (
+  <TouchableOpacity
+    style={styles.locationPill}
+    onPress={onPress}
+    activeOpacity={0.75}
+    accessibilityRole="button"
+    accessibilityLabel={
+      hasLocation
+        ? `Delivering to ${area}. Tap to change.`
+        : 'Set delivery location'
+    }
+    accessibilityState={{ expanded: dropdownVisible }}
+  >
+    <View style={styles.locationTextStack}>
+      <View style={styles.locationAreaRow}>
+        {isResolving ? (
+          <ActivityIndicator size={11} color="rgba(255,255,255,0.75)" />
+        ) : (
+          <Ionicons name={locationIcon} size={14} color={iconColor} />
+        )}
+
+        <Text style={styles.locationAreaText} numberOfLines={1}>
+          {areaLabel}
+        </Text>
+
+        <Ionicons
+          name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
+          size={11}
+          color="rgba(255,255,255,0.55)"
+        />
+      </View>
+
+      {/* Address line below */}
+      <Text style={styles.locationLineText} numberOfLines={1}>
+        {lineLabel}
+      </Text>
+    </View>
+  </TouchableOpacity>
+);
+
+});
+
+// ── Main component ────────────────────────────────────────────
+
+function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps) {
+  const insets = useSafeAreaInsets();
+  const { location, isResolving } = useDeliveryLocation();
+
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+
+  const hasLocation =
+    location.source === 'gps' || location.source === 'saved';
+
+  const toggleDropdown = useCallback(() => {
     setDropdownVisible((prev) => !prev);
-  };
+  }, []);
 
-  const closeDropdown = () => {
+  const closeDropdown = useCallback(() => {
     setDropdownVisible(false);
-  };
+  }, []);
 
   return (
     <>
@@ -130,63 +165,30 @@ function GradientHeaderBase({
           },
         ]}
       >
-        {/* ── Top row: wordmark + location + profile ── */}
+        {/* ── Top row: logo + wordmark | location pill ── */}
         <View style={styles.topRow}>
-          <View style={styles.left}>
-            <Text style={styles.wordmark}>cureli</Text>
 
-            <TouchableOpacity
-              style={styles.locationRow}
-              onPress={toggleDropdown}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={
-                hasLocation
-                  ? `Delivering to ${location.area}. Tap to change.`
-                  : 'Set delivery location'
-              }
-            >
-              {isResolving ? (
-                <ActivityIndicator size={12} color="rgba(255,255,255,0.75)" />
-              ) : (
-                <Ionicons name={locationIcon} size={13} color={iconColor} />
-              )}
-
-              <Text style={styles.areaName} numberOfLines={1}>
-                {isResolving
-                  ? 'Detecting location...'
-                  : hasLocation
-                    ? location.area
-                    : 'Set delivery location'}
-              </Text>
-
-              <Ionicons
-                name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
-                size={13}
-                color="rgba(255,255,255,0.55)"
-              />
-            </TouchableOpacity>
-
-            {/* Address line */}
-            <Text style={styles.address} numberOfLines={1}>
-              {isResolving
-                ? 'Please wait...'
-                : hasLocation
-                  ? location.addressLine
-                  : 'Tap here to set your address'}
-            </Text>
+          {/* Left: logo image + Amulya wordmark */}
+          <View style={styles.brand}>
+            <Image
+              source={LOGO}
+              style={styles.logoImage}
+              resizeMode="contain"
+              accessibilityLabel="Cureli logo"
+            />
+            <Text style={styles.wordmark}>Cureli</Text>
           </View>
 
-          {/* Right: profile avatar */}
-          <TouchableOpacity
-            style={styles.avatarButton}
-            onPress={onPressProfile}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Profile"
-          >
-            <Ionicons name="person" size={18} color="#ffffff" />
-          </TouchableOpacity>
+          {/* Right: location pill */}
+          <LocationPill
+            isResolving={isResolving}
+            hasLocation={hasLocation}
+            area={location.area}
+            addressLine={location.addressLine}
+            source={location.source}
+            dropdownVisible={dropdownVisible}
+            onPress={toggleDropdown}
+          />
         </View>
 
         {/* ── Bottom row: search + cart ── */}
@@ -198,11 +200,8 @@ function GradientHeaderBase({
         </View>
       </LinearGradient>
 
-      {/* ── Address dropdown (renders outside gradient, overlays content) ── */}
-      <AddressDropdown
-        visible={dropdownVisible}
-        onClose={closeDropdown}
-      />
+      {/* Dropdown renders outside the gradient so it overlays page content */}
+      <AddressDropdown visible={dropdownVisible} onClose={closeDropdown} />
     </>
   );
 }
@@ -211,66 +210,99 @@ function GradientHeaderBase({
 
 const styles = StyleSheet.create({
   gradient: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
-    justifyContent: "space-between",
+    justifyContent: 'space-between',
     paddingBottom: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
+
+  // ── Top row ─────────────────────────────────────────────────
   topRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: Spacing.sm,
   },
-  left: {
-    flex: 1,
-    paddingRight: Spacing.md,
+
+  // ── Brand (left) ─────────────────────────────────────────────
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  logoImage: {
+    width: 50,
+    height: 50,
   },
   wordmark: {
-    ...Typography.h2,
-    color: "#ffffff",
-    letterSpacing: -0.5,
-    textTransform: "lowercase",
-    marginBottom: 2,
+    ...Typography.wordmark,
+    fontSize: 30,
+  lineHeight: 34,
+  letterSpacing: -0.3,
+fontWeight: '800',
+
+    color: '#ffffff',
   },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  areaName: {
-    ...Typography.bodySemiBold,
-    color: "rgba(255,255,255,0.90)",
-    flexShrink: 1,
-  },
-  address: {
-    ...Typography.caption,
-    color: "rgba(255,255,255,0.55)",
-    marginTop: 1,
-  },
-  avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.15)",
+
+  // ── Location pill (right) ────────────────────────────────────
+  locationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    maxWidth: '40%',             // never crowd the logo
   },
+  locationIconWrap: {
+    width: 22,
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  locationTextStack: {
+    flex: 1,
+    gap: 1,
+    
+  },
+  locationAreaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    justifyContent: 'flex-end',
+
+  },
+  locationAreaText: {
+    ...Typography.smallMedium,
+    color: 'rgba(255,255,255,0.95)',
+    flexShrink: 1,
+    textAlign: 'right',
+
+    
+  },
+  locationLineText: {
+    ...Typography.caption,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'right',
+
+  },
+
+  // ── Search row ───────────────────────────────────────────────
   searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
   },
   searchFlex: {
     flex: 1,
   },
 });
+export { HEADER_HEIGHT };
 
 export const GradientHeader = React.memo(GradientHeaderBase);

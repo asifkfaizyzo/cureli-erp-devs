@@ -164,7 +164,7 @@ export async function selectPlanController(req, res) {
           order_id: orderData.razorpay_order_id,
           amount: orderData.amount,
           currency: orderData.currency,
-          name: "Cureli ERP",
+          name: "Cureli",
           description: orderData.is_intro_charge
             ? `${plan.name} - Intro Period`
             : `${plan.name} - Annual Subscription`,
