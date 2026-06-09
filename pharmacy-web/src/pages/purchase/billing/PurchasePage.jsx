@@ -131,6 +131,7 @@ const PurchasePage = () => {
   const [importNewProducts, setImportNewProducts] = useState([]);
   const [importProgress, setImportProgress] = useState(null);
   const [isBatchSaving, setIsBatchSaving] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   // ============================================
   // LOADING STATES
   // ============================================
@@ -1484,6 +1485,9 @@ const PurchasePage = () => {
           hasUnsavedData={hasData}
           isEditingConfirmed={isEditingConfirmed}
           billedBy={billedByName}
+            importModalOpen={importModalOpen}
+  onOpenImportModal={() => setImportModalOpen(true)}
+  onCloseImportModal={() => setImportModalOpen(false)}
         />
       </div>
 
