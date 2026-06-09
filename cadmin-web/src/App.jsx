@@ -26,9 +26,11 @@ import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage"
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
 import EmailBroadcastPage from "./pages/Communications/pages/Broadcast/Email/EmailBroadcastPage";
+import MobileBroadcastPage from "./pages/Communications/pages/Broadcast/Mobile/MobileBroadcastPage";
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
+
 
 // ── Marketplace ──────────────────────────────────────────────────────────────
 import MarketplaceDashboard  from "./pages/marketplace/Dashboard/MarketplaceDashboard";
@@ -271,6 +273,24 @@ function App() {
                 requireAll={false}
               >
                 <EmailBroadcastPage />
+              </PermissionGuard>
+            }
+          />
+
+          {/*Mobile Push Broadcast */}
+          <Route
+            path="/communications/broadcast/mobile"
+            element={
+              <PermissionGuard
+                permissions={[
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
+                  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
+                ]}
+                requireAll={false}
+              >
+                <MobileBroadcastPage />
               </PermissionGuard>
             }
           />

@@ -60,6 +60,7 @@ import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboar
 import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
 import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js";
 
+
 // ── Mobile App Routes ──────────────────────────────────────────
 import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
@@ -69,13 +70,15 @@ import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js
 import mobileOrdersRoutes from './src/modules/mobile/orders/mobile.orders.routes.js';
 import mobilePrescriptionsRoutes from './src/modules/mobile/prescriptions/mobile.prescriptions.routes.js';
 import mobileNotificationsRoutes from './src/modules/mobile/notifications/mobile.notifications.routes.js';
-
+import mobilePushRoutes from './src/modules/mobile/push/mobile.push.routes.js';
+import cadminMobileBroadcastRoutes from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
 
 
 // ── cadmin marketplace routes App Routes ──────────────────────────────────────────
 import cadminMarketplaceRoutes from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
 import cadminMobileUsersRoutes from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
 import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.routes.js";
+
 
 // ============================================
 // APP SETUP
@@ -251,6 +254,8 @@ app.use("/mobile/shops", mobileShopsRoutes);
 app.use('/mobile/orders', mobileOrdersRoutes);
 app.use('/mobile/prescriptions', mobilePrescriptionsRoutes);
 app.use('/mobile/notifications', mobileNotificationsRoutes);
+app.use('/mobile/push', mobilePushRoutes);
+app.use('/cadmin', cadminMobileBroadcastRoutes);
 
 
 // ============================================

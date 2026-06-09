@@ -204,6 +204,13 @@ const ADMIN_CHILD_ROUTES = {
     parentId: "communications",
     breadcrumbs: ["Communications", "Broadcast", "In-App"],
   },
+
+  // ✅ ADD THIS ENTRY
+  "/communications/broadcast/mobile": {
+    parentId:    "communications",
+    breadcrumbs: ["Communications", "Broadcast", "Mobile Push"],
+  },
+
   "/subscriptions/manage": {
     parentId: "subscriptions",
     breadcrumbs: ["Subscriptions", "Plans"],

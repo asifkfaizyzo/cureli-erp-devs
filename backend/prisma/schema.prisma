@@ -42,6 +42,7 @@ model CAdmin {
   planActivities      PlanActivityLog[]   @relation("PlanActivityByCAdmin")
   createdPlans        Plan[]              @relation("PlanCreator")
   emailBroadcastCampaigns EmailBroadcastCampaign[] @relation("EmailBroadcastCampaigns")
+  mobileBroadcastCampaigns CureliMobileBroadcastCampaign[] @relation("MobileBroadcastCampaigns")
 
   @@map("cadmins")
 }
@@ -1012,6 +1013,8 @@ model CureliMobileUser {
   sessions               CureliMobileSession[]
   addresses              CureliMobileAddress[]
   marketplaceOrders       MarketplaceOrder[]         @relation("CustomerMarketplaceOrders")
+  pushPreference        CureliMobilePushPreference?
+  mobileNotifications   CureliMobileNotification[]
   @@index([phone])
   @@index([status])
   @@index([deleted_at])
@@ -1112,6 +1115,133 @@ model CureliMobileDeletedAccount {
   @@map("cureli_mobile_deleted_accounts")
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI MOBILE — PUSH NOTIFICATIONS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// Per-user notification preferences.
+// One row per user — upserted on first login or when user changes preferences.
+// category values must match PUSH_CATEGORIES constant in push service.
+model CureliMobilePushPreference {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @unique @db.Uuid
+  
+  // Master toggle — if false, no push sent regardless of categories
+  master_enabled Boolean @default(true)
+
+  // Per-category toggles
+  // All default true except promotions which some users may opt out of
+  order_updates           Boolean @default(true)
+  promotions              Boolean @default(true)
+  prescription_updates    Boolean @default(true)
+  system_messages         Boolean @default(true)
+  cart_abandonment        Boolean @default(true)
+
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  user        CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("cureli_mobile_push_preferences")
+}
+
+// Mobile notification inbox — persisted push notifications for the mobile app.
+// Separate from the ERP Notification model which serves ERP users and cadmins.
+// This table is the source of truth for the mobile notification center.
+model CureliMobileNotification {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+
+  // Notification content
+  title           String    @db.VarChar(200)
+  body            String    @db.VarChar(500)
+  
+  // Category — matches PUSH_CATEGORIES constant
+  // Values: order_updates | promotions | prescription_updates | system_messages | cart_abandonment
+  category        String    @db.VarChar(50)
+
+  // Deep link data — determines where tapping the notification goes
+  // Shape: { screen: 'order_detail', params: { orderId: '...' } }
+  //        { screen: 'product', params: { productId: '...' } }
+  //        { screen: 'home' }
+  //        { screen: 'cart' }
+  //        { screen: 'prescription_upload' }
+  data            Json?
+
+  // Read state
+  is_read         Boolean   @default(false)
+  read_at         DateTime? @db.Timestamptz(6)
+
+  // Push delivery state
+  // push_sent = false means it was created in inbox but push failed or user had no token
+  push_sent       Boolean   @default(false)
+  push_ticket_id  String?   @db.VarChar(200)  // Expo push ticket ID for receipt checking
+
+  // Campaign link — set when sent via cadmin mobile broadcast
+  campaign_id     String?   @db.Uuid
+
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  user            CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([category])
+  @@index([campaign_id])
+  @@index([created_at(sort: Desc)])
+  @@map("cureli_mobile_notifications")
+}
+
+// Mobile push broadcast campaigns — cadmin → mobile customers.
+// Separate from BroadcastCampaign which targets ERP users.
+model CureliMobileBroadcastCampaign {
+  id                String    @id @default(uuid()) @db.Uuid
+
+  // Content
+  title             String    @db.VarChar(200)
+  body              String    @db.VarChar(500)
+  category          String    @default("promotions") @db.VarChar(50)
+
+  // Deep link — where tapping the notification goes on mobile
+  // screen values: home | cart | order_detail | product | category | prescription_upload
+  tap_action        String    @default("home") @db.VarChar(50)
+  tap_params        Json?     // e.g. { productId: '...' } or { categoryName: '...' }
+
+  // Targeting
+  // target_all = true → send to all active users with push tokens
+  // target_all = false → use target_user_ids
+  target_all        Boolean   @default(true)
+  target_user_ids   String[]  @db.Uuid  // populated when target_all = false
+
+  // Audience filters (stored for display/audit — actual resolution happens at send time)
+  audience_filters  Json?
+
+  // Status lifecycle: draft → scheduled → sending → sent | failed | cancelled
+  status            String    @default("draft") @db.VarChar(20)
+  scheduled_for     DateTime? @db.Timestamptz(6)
+  sent_at           DateTime? @db.Timestamptz(6)
+
+  // Results
+  targeted_count    Int       @default(0)   // how many users were targeted
+  sent_count        Int       @default(0)   // how many push tickets created
+  delivered_count   Int       @default(0)   // confirmed delivered (from receipts)
+  failed_count      Int       @default(0)
+
+  // Audit
+  created_by_cadmin String    @db.Uuid
+  cadmin_name       String    @db.VarChar(100)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @updatedAt @db.Timestamptz(6)
+
+  cadmin            CAdmin    @relation("MobileBroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
+
+  @@index([status, scheduled_for])
+  @@index([created_by_cadmin])
+  @@index([created_at(sort: Desc)])
+  @@map("cureli_mobile_broadcast_campaigns")
+}
 
 
 
