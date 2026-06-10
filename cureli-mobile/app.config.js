@@ -13,42 +13,43 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
-      supportsTablet: true,
-      bundleIdentifier: "com.cureli.mobile",
-      infoPlist: {
-        NSLocationWhenInUseUsageDescription:
-          "Cureli needs your location to help fill your delivery address.",
-        NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Cureli needs your location to help fill your delivery address.",
-      },
-      config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
-      },
-    },
+  supportsTablet: true,
+  bundleIdentifier: "com.cureli.mobile",
+  infoPlist: {
+    ITSAppUsesNonExemptEncryption: false,  // ← ADD THIS
+    NSLocationWhenInUseUsageDescription:
+      "Cureli needs your location to help fill your delivery address.",
+    NSLocationAlwaysAndWhenInUseUsageDescription:
+      "Cureli needs your location to help fill your delivery address.",
+  },
+  config: {
+    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+  },
+},
     android: {
-      adaptiveIcon: {
-        backgroundColor: "#090025",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png",
-      },
-      edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false,
-      package: "com.cureli.mobile",
-      // ── FCM / Google Services ─────────────────────────────────────────────
-      googleServicesFile: "./google-services.json",
-      // ── Push notification permissions ─────────────────────────────────────
-      permissions: [
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-      ],
-      // ── Maps ──────────────────────────────────────────────────────────────
-      config: {
-        googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
-        },
-      },
+  adaptiveIcon: {
+    backgroundColor: "#090025",
+    foregroundImage: "./assets/images/android-icon-foreground.png",
+    monochromeImage: "./assets/images/android-icon-monochrome.png",
+  },
+  edgeToEdgeEnabled: true,
+  predictiveBackGestureEnabled: false,
+  package: "com.cureli.mobile",
+  // ── FCM / Google Services ─────────────────────────────────────────────
+  googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",  // ← UPDATED
+  // ── Push notification permissions ─────────────────────────────────────
+  permissions: [
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.VIBRATE",
+  ],
+  // ── Maps ──────────────────────────────────────────────────────────────
+  config: {
+    googleMaps: {
+      apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
     },
+  },
+},
     web: {
       output: "static",
       favicon: "./assets/images/favicon.png",
