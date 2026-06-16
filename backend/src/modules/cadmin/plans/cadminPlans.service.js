@@ -110,9 +110,7 @@ async function generateCloneName(originalName) {
     select: { name: true },
   });
 
-  const existingNames = new Set(
-    existingPlans.map((p) => p.name.toLowerCase())
-  );
+  const existingNames = new Set(existingPlans.map((p) => p.name.toLowerCase()));
 
   let cloneName = `${baseName} (Copy)`;
   let counter = 1;
@@ -135,7 +133,7 @@ async function logPlanActivity(
     changes = null,
     meta = null,
   },
-  tx = null
+  tx = null,
 ) {
   const db = tx || prisma;
   await db.planActivityLog.create({
@@ -160,7 +158,7 @@ function formatPlan(plan, subscriberCount = 0) {
   const introActive = isIntroPriceActive(plan);
   const totalDuration = getTotalDurationMonths(
     plan.billing_cycle_months,
-    plan.bonus_months
+    plan.bonus_months,
   );
 
   return {
@@ -295,7 +293,7 @@ export async function listPlans({
         subscriberCount = await getSubscriberCount(plan.plan_id);
       }
       return formatPlan(plan, subscriberCount);
-    })
+    }),
   );
 
   if (sort_by === "status") {
@@ -406,7 +404,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     if (compare_at_price <= price) {
       throw createError(
         "Compare-at price must be greater than the actual price",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
@@ -415,7 +413,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     if (new Date(promo_free_until) <= new Date()) {
       throw createError(
         "Promo free until date must be in the future",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
@@ -425,20 +423,20 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     if (!intro_trigger_type) {
       throw createError(
         "intro_trigger_type is required when intro_price is set",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
     if (intro_trigger_type === INTRO_TRIGGER_TYPE.DATE) {
       if (!intro_end_date) {
         throw createError(
           "intro_end_date is required when trigger type is 'date'",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
       if (new Date(intro_end_date) <= new Date()) {
         throw createError(
           "Intro end date must be in the future",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
       if (
@@ -447,7 +445,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
       ) {
         throw createError(
           "Intro end date must be after promo free until date",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
     }
@@ -457,7 +455,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
       if (!intro_duration_years) {
         throw createError(
           "intro_duration_years is required when trigger type is 'duration'",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
     }
@@ -537,7 +535,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
           intro_trigger_type: intro_trigger_type || null,
         },
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -564,7 +562,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
           intro_price: intro_price ? Number(intro_price) : null,
         },
       },
-      { tx }
+      { tx },
     );
 
     return plan;
@@ -581,7 +579,7 @@ export async function updatePlan(
   plan_id,
   updates,
   cadmin_id,
-  auditContext = {}
+  auditContext = {},
 ) {
   const existingPlan = await prisma.plan.findUnique({ where: { plan_id } });
 
@@ -591,7 +589,7 @@ export async function updatePlan(
   if (existingPlan.status !== PLAN_STATUS.DRAFT)
     throw createError(
       "Only draft plans can be edited. Clone this plan to make changes.",
-      "NOT_DRAFT"
+      "NOT_DRAFT",
     );
 
   // ── Price validation ──────────────────────────────────────────────────────
@@ -602,13 +600,13 @@ export async function updatePlan(
     updates.compare_at_price !== undefined
       ? updates.compare_at_price
       : existingPlan.compare_at_price
-      ? Number(existingPlan.compare_at_price)
-      : null;
+        ? Number(existingPlan.compare_at_price)
+        : null;
 
   if (newCompareAtPrice !== null && newCompareAtPrice <= newPrice) {
     throw createError(
       "Compare-at price must be greater than the actual price",
-      "VALIDATION_ERROR"
+      "VALIDATION_ERROR",
     );
   }
 
@@ -619,7 +617,7 @@ export async function updatePlan(
     if (new Date(updates.promo_free_until) <= new Date()) {
       throw createError(
         "Promo free until date must be in the future",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
   }
@@ -632,8 +630,8 @@ export async function updatePlan(
     updates.intro_price !== undefined
       ? updates.intro_price
       : existingPlan.intro_price
-      ? Number(existingPlan.intro_price)
-      : null;
+        ? Number(existingPlan.intro_price)
+        : null;
 
   const resolvedIntroTrigger =
     updates.intro_trigger_type !== undefined
@@ -666,20 +664,20 @@ export async function updatePlan(
     if (!resolvedIntroTrigger) {
       throw createError(
         "intro_trigger_type is required when intro_price is set",
-        "VALIDATION_ERROR"
+        "VALIDATION_ERROR",
       );
     }
     if (resolvedIntroTrigger === INTRO_TRIGGER_TYPE.DATE) {
       if (!resolvedIntroEndDate) {
         throw createError(
           "intro_end_date is required when trigger type is 'date'",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
       if (new Date(resolvedIntroEndDate) <= new Date()) {
         throw createError(
           "Intro end date must be in the future",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
       if (
@@ -688,7 +686,7 @@ export async function updatePlan(
       ) {
         throw createError(
           "Intro end date must be after promo free until date",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
     }
@@ -698,7 +696,7 @@ export async function updatePlan(
       if (!resolvedIntroDuration) {
         throw createError(
           "intro_duration_years is required when trigger type is 'duration'",
-          "VALIDATION_ERROR"
+          "VALIDATION_ERROR",
         );
       }
     }
@@ -749,10 +747,7 @@ export async function updatePlan(
       ) {
         oldValue = existingPlan[field] ? Number(existingPlan[field]) : null;
         newValue = updates[field];
-      } else if (
-        field === "promo_free_until" ||
-        field === "intro_end_date"
-      ) {
+      } else if (field === "promo_free_until" || field === "intro_end_date") {
         oldValue = existingPlan[field]
           ? existingPlan[field].toISOString()
           : null;
@@ -774,10 +769,7 @@ export async function updatePlan(
           updateData[field] = BigInt(newValue);
         } else if (field === "compare_at_price" || field === "intro_price") {
           updateData[field] = newValue !== null ? BigInt(newValue) : null;
-        } else if (
-          field === "promo_free_until" ||
-          field === "intro_end_date"
-        ) {
+        } else if (field === "promo_free_until" || field === "intro_end_date") {
           updateData[field] = newValue ? new Date(newValue) : null;
         } else if (field === "name" || field === "description") {
           updateData[field] =
@@ -807,7 +799,7 @@ export async function updatePlan(
 
     await logPlanActivity(
       { plan_id, cadmin_id, action: "updated", changes },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -821,14 +813,14 @@ export async function updatePlan(
         metadata: {
           changed_fields: Object.keys(changes),
           before: Object.fromEntries(
-            Object.entries(changes).map(([k, v]) => [k, v.old])
+            Object.entries(changes).map(([k, v]) => [k, v.old]),
           ),
           after: Object.fromEntries(
-            Object.entries(changes).map(([k, v]) => [k, v.new])
+            Object.entries(changes).map(([k, v]) => [k, v.new]),
           ),
         },
       },
-      { tx }
+      { tx },
     );
 
     return updatedPlan;
@@ -854,7 +846,7 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (!nameAvailable) {
     throw createError(
       `An active plan named "${plan.name}" already exists. Please rename before activating.`,
-      "NAME_CONFLICT"
+      "NAME_CONFLICT",
     );
   }
 
@@ -882,7 +874,7 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
           intro_trigger_type: activatedPlan.intro_trigger_type || null,
         },
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -903,7 +895,7 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
           intro_trigger_type: activatedPlan.intro_trigger_type || null,
         },
       },
-      { tx }
+      { tx },
     );
 
     return activatedPlan;
@@ -946,7 +938,7 @@ export async function suspendPlan(plan_id, cadmin_id, auditContext = {}) {
         to_status: newStatus,
         meta: { subscriber_count: subscriberCount },
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -967,7 +959,7 @@ export async function suspendPlan(plan_id, cadmin_id, auditContext = {}) {
           active_subscriptions_count: subscriberCount,
         },
       },
-      { tx }
+      { tx },
     );
 
     return updatedPlan;
@@ -990,21 +982,21 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (plan.status !== PLAN_STATUS.SUSPENDED)
     throw createError(
       "Only suspended plans can be reactivated. Deprecated plans must wait until all subscribers finish their term.",
-      "NOT_SUSPENDED"
+      "NOT_SUSPENDED",
     );
 
   const subscriberCount = await getSubscriberCount(plan_id);
   if (subscriberCount > 0)
     throw createError(
       "Cannot reactivate plan with active subscribers",
-      "HAS_SUBSCRIBERS"
+      "HAS_SUBSCRIBERS",
     );
 
   const nameAvailable = await isNameAvailable(plan.name, plan_id);
   if (!nameAvailable)
     throw createError(
       `An active plan named "${plan.name}" already exists. Clone this plan with a different name instead.`,
-      "NAME_CONFLICT"
+      "NAME_CONFLICT",
     );
 
   const result = await prisma.$transaction(async (tx) => {
@@ -1029,7 +1021,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
         from_status: PLAN_STATUS.SUSPENDED,
         to_status: PLAN_STATUS.ACTIVE,
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -1045,7 +1037,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
           name: reactivatedPlan.name,
         },
       },
-      { tx }
+      { tx },
     );
 
     return reactivatedPlan;
@@ -1062,7 +1054,7 @@ export async function clonePlan(
   plan_id,
   cadmin_id,
   customName = null,
-  auditContext = {}
+  auditContext = {},
 ) {
   const originalPlan = await prisma.plan.findUnique({ where: { plan_id } });
 
@@ -1146,7 +1138,7 @@ export async function clonePlan(
             new Date(originalPlan.intro_end_date) <= new Date(),
         },
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -1167,7 +1159,7 @@ export async function clonePlan(
             new Date(originalPlan.intro_end_date) <= new Date(),
         },
       },
-      { tx }
+      { tx },
     );
 
     return clonedPlan;
@@ -1186,11 +1178,14 @@ export async function softDeletePlan(plan_id, cadmin_id, auditContext = {}) {
   if (!plan) throw createError("Plan not found", "NOT_FOUND");
   if (plan.deleted_at)
     throw createError("Plan is already deleted", "ALREADY_DELETED");
-  if (plan.status !== PLAN_STATUS.DRAFT)
+  const allowableStatuses = [PLAN_STATUS.DRAFT, PLAN_STATUS.SUSPENDED];
+  if (!allowableStatuses.includes(plan.status)) {
     throw createError(
-      "Only draft plans can be deleted. Active, deprecated, and suspended plans must be retained for billing records.",
-      "NOT_DRAFT"
+      "Only draft or suspended plans can be deleted. Active and deprecated plans must be retained for billing records.",
+      "INVALID_STATUS",
     );
+  }
+  // ───────────────────────────────────────────────────────────────────────
 
   const result = await prisma.$transaction(async (tx) => {
     const deletedPlan = await tx.plan.update({
@@ -1207,9 +1202,9 @@ export async function softDeletePlan(plan_id, cadmin_id, auditContext = {}) {
         plan_id,
         cadmin_id,
         action: "deleted",
-        from_status: PLAN_STATUS.DRAFT,
+        from_status: plan.status, // record whether it was a draft or suspended plan
       },
-      tx
+      tx,
     );
 
     await audit.log(
@@ -1222,11 +1217,12 @@ export async function softDeletePlan(plan_id, cadmin_id, auditContext = {}) {
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
           deleted_by_cadmin_id: cadmin_id,
-          reason: "Draft plan deleted",
+          reason: `${plan.status} plan moved to trash`,
           name: deletedPlan.name,
+          previous_status: plan.status,
         },
       },
-      { tx }
+      { tx },
     );
 
     return deletedPlan;
@@ -1285,12 +1281,11 @@ export async function transitionDeprecatedPlans() {
               plan_name: plan.name,
             },
           },
-          { tx }
+          { tx },
         );
       });
 
       transitioned.push({ plan_id: plan.plan_id, name: plan.name });
-      
     }
   }
 

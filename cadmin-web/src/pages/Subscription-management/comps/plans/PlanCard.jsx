@@ -1,3 +1,5 @@
+// cadmin-web/src/pages/Subscription-management/comps/plans/PlanCard.jsx
+
 import {
   Pencil,
   Eye,
@@ -39,30 +41,30 @@ export default function PlanCard({
   plan,
   onAction,
   needsReview = false,
-  canEdit = true,
+  canEdit   = true,
   canDelete = true,
 }) {
   const statusConfig = STATUS_CONFIG[plan.status];
-  const features = generateFeatures(plan);
-  const actions = ALLOWED_ACTIONS[plan.status];
+  const features     = generateFeatures(plan);
+  const actions      = ALLOWED_ACTIONS[plan.status] ?? [];
 
-  // ── Promo state ───────────────────────────────────────────────────────────
-  const isFree = plan.price === 0;
-  const isCustom = plan.type === "CUSTOM";
-  const promoActive = isPromoActive(plan);
-  const introActive = isIntroPriceActive(plan);
+  // ── Promo / intro state ───────────────────────────────────────────────────
+  const isFree         = plan.price === 0;
+  const isCustom       = plan.type === "CUSTOM";
+  const promoActive    = isPromoActive(plan);
+  const introActive    = isIntroPriceActive(plan);
   const priceComparison = formatPriceComparison(plan);
   const bonusMonthsBadge = getBonusMonthsBadge(plan);
-  const freeUntilBadge = getFreeUntilBadge(plan);
-  const discountPercent = getDiscountPercentage(plan);
-  const totalDuration = getTotalDurationMonths(plan);
-  const introBadge = getIntroPhaseBadge(plan);
+  const freeUntilBadge   = getFreeUntilBadge(plan);
+  const discountPercent  = getDiscountPercentage(plan);
+  const totalDuration    = getTotalDurationMonths(plan);
+  const introBadge       = getIntroPhaseBadge(plan);
 
   // ── Theme ─────────────────────────────────────────────────────────────────
   const themeKey = (() => {
-    if (promoActive) return "promo";
-    if (introActive) return "intro";
-    if (isFree) return "free";
+    if (promoActive)    return "promo";
+    if (introActive)    return "intro";
+    if (isFree)         return "free";
     if (plan.is_featured) return "featured";
     return "default";
   })();
@@ -100,21 +102,23 @@ export default function PlanCard({
       className={`group relative h-full flex flex-col rounded-xl p-5
         shadow-md border transition-all duration-300
         bg-gradient-to-b ${theme.container}
-        ${isCustom ? "ring-2 ring-violet-200" : ""}
-        ${needsReview ? "ring-2 ring-red-300" : ""}
+        ${isCustom    ? "ring-2 ring-violet-200" : ""}
+        ${needsReview ? "ring-2 ring-red-300"    : ""}
         hover:shadow-xl hover:-translate-y-1`}
     >
       {/* Needs-review indicator */}
       {needsReview && (
         <div className="absolute -top-2 -right-2 z-10">
-          <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center
-                          shadow-md" title="Needs review">
+          <div
+            className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shadow-md"
+            title="Needs review"
+          >
             <AlertTriangle size={11} className="text-white" />
           </div>
         </div>
       )}
 
-      {/* ── Top row: badges + actions ──────────────────────────────────────── */}
+      {/* ── Top row: badges + action icons ───────────────────────────────── */}
       <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
 
         {/* Left: status & feature badges */}
@@ -189,6 +193,16 @@ export default function PlanCard({
               className="bg-red-500 text-black"
             />
           )}
+          {/* ── NEW: Trash button for suspended plans ─────────────────────── */}
+          {actions.includes("trash") && canDelete && (
+            <ActionButton
+              icon={Trash2}
+              tooltip="Move to Trash"
+              onClick={() => handleAction("trash")}
+              className="hover:bg-red-50 hover:text-red-600"
+            />
+          )}
+          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
       </div>
 
@@ -227,32 +241,43 @@ export default function PlanCard({
           </div>
         )}
 
-        {/* ── INTRO PRICING BANNER ─────────────────────────────────────────── */}
-{introActive && !promoActive && (
-  <div className="mb-2 p-2 rounded-lg bg-sky-100 group-hover:bg-sky-900/30
-                  border border-sky-200 group-hover:border-sky-400">
-    <div className="flex items-start gap-1.5">
-      <TrendingDown size={14} className="text-sky-600 group-hover:text-sky-300 mt-0.5 flex-shrink-0" />
-      <div>
-        <span className="text-xs font-semibold text-sky-700 group-hover:text-sky-200 block">
-          Two-Phase Pricing
-        </span>
-        <span className="text-[10px] text-sky-600 group-hover:text-sky-300">
-          {plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION && plan.intro_duration_years
-            ? `${formatPrice(plan.intro_price)} for first ${plan.intro_duration_years} month${plan.intro_duration_years !== 1 ? "s" : ""}`
-            : plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DATE && plan.intro_end_date
-            ? `${formatPrice(plan.intro_price)} until ${new Date(plan.intro_end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
-            : `Intro: ${formatPrice(plan.intro_price)}`
-          }
-          {" → then "}
-          {formatPrice(plan.price)}{BILLING.displayText}
-        </span>
-      </div>
-    </div>
-  </div>
-)}
+        {/* Intro pricing banner */}
+        {introActive && !promoActive && (
+          <div className="mb-2 p-2 rounded-lg bg-sky-100 group-hover:bg-sky-900/30
+                          border border-sky-200 group-hover:border-sky-400">
+            <div className="flex items-start gap-1.5">
+              <TrendingDown
+                size={14}
+                className="text-sky-600 group-hover:text-sky-300 mt-0.5 flex-shrink-0"
+              />
+              <div>
+                <span className="text-xs font-semibold text-sky-700 group-hover:text-sky-200 block">
+                  Two-Phase Pricing
+                </span>
+                <span className="text-[10px] text-sky-600 group-hover:text-sky-300">
+                  {plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION &&
+                  plan.intro_duration_years
+                    ? `${formatPrice(plan.intro_price)} for first ${plan.intro_duration_years} month${plan.intro_duration_years !== 1 ? "s" : ""}`
+                    : plan.intro_trigger_type === INTRO_TRIGGER_TYPE.DATE &&
+                      plan.intro_end_date
+                    ? `${formatPrice(plan.intro_price)} until ${new Date(
+                        plan.intro_end_date,
+                      ).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}`
+                    : `Intro: ${formatPrice(plan.intro_price)}`}
+                  {" → then "}
+                  {formatPrice(plan.price)}
+                  {BILLING.displayText}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* ── Price section ────────────────────────────────────────────────── */}
+        {/* Price section */}
         <div className="mb-3">
           {/* Strike-through compare price */}
           {priceComparison && (
@@ -313,10 +338,9 @@ export default function PlanCard({
           )}
         </div>
 
-        {/* ── Promo / Intro badges row ───────────────────────────────────── */}
+        {/* Promo / Intro badges row */}
         {(bonusMonthsBadge || introBadge || (priceComparison && !promoActive)) && (
           <div className="flex flex-wrap gap-1.5 mb-3">
-            {/* Intro phase badge */}
             {introBadge && (
               <span className="inline-flex items-center gap-1 px-2 py-1
                                bg-sky-100 text-sky-700 rounded-full text-[10px]
@@ -326,7 +350,6 @@ export default function PlanCard({
               </span>
             )}
 
-            {/* Bonus months */}
             {bonusMonthsBadge && (
               <span className="inline-flex items-center gap-1 px-2 py-1
                                bg-emerald-100 text-emerald-700 rounded-full
@@ -337,7 +360,6 @@ export default function PlanCard({
               </span>
             )}
 
-            {/* Savings badge */}
             {priceComparison && !promoActive && (
               <span className="inline-flex items-center gap-1 px-2 py-1
                                bg-amber-100 text-amber-700 rounded-full
