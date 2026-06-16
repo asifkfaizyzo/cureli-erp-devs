@@ -1,6 +1,4 @@
 // src/components/common/BatchProductModal.jsx
-// Key change: onSaveAll now receives { formData, originalName } pairs
-// so PurchasePage can match by originalName (the name from the import row)
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
@@ -58,12 +56,23 @@ const BatchProductModal = ({
   onSkipAll,
   isSaving = false,
 }) => {
-  const [currentIndex, setCurrentIndex]       = useState(0);
-  const [savedProducts, setSavedProducts]     = useState([]);
+  const [currentIndex, setCurrentIndex]         = useState(0);
+  const [savedProducts, setSavedProducts]       = useState([]);
   const [showProductModal, setShowProductModal] = useState(false);
   const [processingStatus, setProcessingStatus] = useState({});
   const addButtonRef = useRef(null);
 
+  // ── KEY: always-current refs so callbacks never read stale closure values ──
+  const currentIndexRef   = useRef(0);
+  const savedProductsRef  = useRef([]);
+  const newProductsRef    = useRef(newProducts);
+
+  // Keep refs in sync with state/props on every render
+  currentIndexRef.current  = currentIndex;
+  savedProductsRef.current = savedProducts;
+  newProductsRef.current   = newProducts;
+
+  // ── Reset when modal opens ──
   useEffect(() => {
     if (open && newProducts.length > 0) {
       setCurrentIndex(0);
@@ -73,7 +82,7 @@ const BatchProductModal = ({
     }
   }, [open, newProducts]);
 
-  // Auto-focus "Add Product Details" button whenever current product changes
+  // ── Auto-focus "Add Product Details" button ──
   useEffect(() => {
     if (open && !showProductModal && !isSaving) {
       const t = setTimeout(() => addButtonRef.current?.focus(), 80);
@@ -82,7 +91,6 @@ const BatchProductModal = ({
   }, [open, currentIndex, showProductModal, isSaving]);
 
   const currentProduct = newProducts[currentIndex];
-  const hasMore        = currentIndex < newProducts.length - 1;
 
   const progress = newProducts.length > 0
     ? (Object.keys(processingStatus).length / newProducts.length) * 100
@@ -98,52 +106,71 @@ const BatchProductModal = ({
   );
   const remainingCount = newProducts.length - Object.keys(processingStatus).length;
 
-  const handleSkipProduct = useCallback(() => {
-    setProcessingStatus((prev) => ({ ...prev, [currentIndex]: "skipped" }));
-    if (hasMore) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setSavedProducts((prev) => { onSaveAll(prev); return prev; });
-      onClose();
+  // ─────────────────────────────────────────────────────────────────────────
+  // CORE: advance to next product or finish
+  // Uses refs so it ALWAYS reads the current index/products, never stale ones
+  // ─────────────────────────────────────────────────────────────────────────
+  const advance = useCallback((statusToMark, enrichedProduct = null) => {
+    const idx      = currentIndexRef.current;
+    const products = newProductsRef.current;
+    const isLast   = idx >= products.length - 1;
+
+    // 1. Mark this index as processed
+    setProcessingStatus((prev) => ({ ...prev, [idx]: statusToMark }));
+
+    // 2. If saving, add enriched product to the list
+    if (enrichedProduct) {
+      setSavedProducts((prev) => [...prev, enrichedProduct]);
     }
-  }, [currentIndex, hasMore, onSaveAll, onClose]);
 
-  // ── KEY FIX: attach the original import name to what we pass to onSaveAll ──
-  // This lets PurchasePage match the created medicine back to the correct table row
-  // even if the user edits the name inside ProductMasterModal.
-  const handleSaveProduct = useCallback(
-    (productFormData) => {
-      const enriched = {
-        ...productFormData,
-        // The name as it appeared in the import / table row (before the user
-        // may have tweaked it inside ProductMasterModal)
-        _originalImportName: currentProduct?.name || productFormData.name,
-      };
+    // 3. Close inner modal
+    setShowProductModal(false);
 
-      setSavedProducts((prev) => {
-        const updated = [...prev, enriched];
-        setProcessingStatus((ps) => ({ ...ps, [currentIndex]: "saved" }));
-        setShowProductModal(false);
+    if (isLast) {
+      // 4a. Last product — fire onSaveAll with everything saved so far
+      //     We read savedProductsRef because setSavedProducts above
+      //     hasn't flushed yet; we manually append enrichedProduct if present.
+      const finalList = enrichedProduct
+        ? [...savedProductsRef.current, enrichedProduct]
+        : savedProductsRef.current;
 
-        if (hasMore) {
-          setTimeout(() => setCurrentIndex((ci) => ci + 1), 300);
-        } else {
-          onSaveAll(updated);
-          onClose();
-        }
+      onSaveAll(finalList);
+      onClose();
+    } else {
+      // 4b. Move to next — plain increment, no stale closure risk
+      setCurrentIndex(idx + 1);
+    }
+  }, [onSaveAll, onClose]);
+  // Note: currentIndexRef / savedProductsRef / newProductsRef are stable refs,
+  // so they don't need to be in the dep array.
 
-        return updated;
-      });
-    },
-    [currentIndex, currentProduct, hasMore, onSaveAll, onClose],
-  );
+  // ── Skip single product ──
+  const handleSkipProduct = useCallback(() => {
+    if (isSaving) return;
+    advance("skipped");
+  }, [isSaving, advance]);
 
-  const handleSkipAll = useCallback(() => { onSkipAll(); onClose(); }, [onSkipAll, onClose]);
+  // ── Save single product ──
+  const handleSaveProduct = useCallback((productFormData) => {
+    const enriched = {
+      ...productFormData,
+      _originalImportName:
+        newProductsRef.current[currentIndexRef.current]?.name ||
+        productFormData.name,
+    };
+    advance("saved", enriched);
+  }, [advance]);
 
-  // Keyboard shortcuts — only when inner modal is closed
+  // ── Skip all remaining ──
+  const handleSkipAll = useCallback(() => {
+    onSkipAll();
+    onClose();
+  }, [onSkipAll, onClose]);
+
+  // ── Keyboard shortcuts (only when inner modal is closed) ──
   useEffect(() => {
     if (!open || showProductModal) return;
-    const handleKeyDown = (e) => {
+    const onKey = (e) => {
       switch (e.key) {
         case "Enter":
           e.preventDefault();
@@ -160,19 +187,21 @@ const BatchProductModal = ({
           e.preventDefault();
           onClose();
           break;
-        default: break;
+        default:
+          break;
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open, showProductModal, isSaving, handleSkipProduct, onClose]);
 
   if (!open || !currentProduct) return null;
 
-  const hasHsn         = !!(currentProduct.hsnCode    || currentProduct.hsn);
-  const hasRack        = !!(currentProduct.rackNo      || currentProduct.rack);
-  const hasPack        = !!(currentProduct.packSize    || currentProduct.pack);
-  const hasGst         = !!(currentProduct.gst         || currentProduct.cgstPercent);
+  // ── Derived display values ──
+  const hasHsn          = !!(currentProduct.hsnCode    || currentProduct.hsn);
+  const hasRack         = !!(currentProduct.rackNo      || currentProduct.rack);
+  const hasPack         = !!(currentProduct.packSize    || currentProduct.pack);
+  const hasGst          = !!(currentProduct.gst         || currentProduct.cgstPercent);
   const hasManufacturer = !!(currentProduct.manufacturer || currentProduct.mfac);
   const detectedFieldCount = [hasHsn, hasRack, hasPack, hasGst, hasManufacturer].filter(Boolean).length;
 
@@ -216,23 +245,44 @@ const BatchProductModal = ({
                   <Package size={18} className="text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-white text-base font-bold leading-tight">Add New Products to Shop</h2>
-                  <p className="text-white/60 text-xs mt-0.5">{currentIndex + 1} of {newProducts.length} products to review</p>
+                  <h2 className="text-white text-base font-bold leading-tight">
+                    Add New Products to Shop
+                  </h2>
+                  <p className="text-white/60 text-xs mt-0.5">
+                    {currentIndex + 1} of {newProducts.length} products to review
+                  </p>
                 </div>
               </div>
-              <button type="button" onClick={onClose} className="p-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all shrink-0 ml-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all shrink-0 ml-3"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-indigo-400 rounded-full transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+              <div
+                className="h-full bg-indigo-400 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${progress}%` }}
+              />
             </div>
 
             <div className="mt-1.5 flex items-center gap-4 text-[11px]">
-              {savedCount  > 0 && <span className="flex items-center gap-1 text-emerald-300"><Check size={11} />{savedCount} added</span>}
-              {skippedCount > 0 && <span className="flex items-center gap-1 text-white/40"><SkipForward size={11} />{skippedCount} skipped</span>}
-              {remainingCount > 0 && <span className="text-white/40">{remainingCount} remaining</span>}
+              {savedCount  > 0 && (
+                <span className="flex items-center gap-1 text-emerald-300">
+                  <Check size={11} />{savedCount} added
+                </span>
+              )}
+              {skippedCount > 0 && (
+                <span className="flex items-center gap-1 text-white/40">
+                  <SkipForward size={11} />{skippedCount} skipped
+                </span>
+              )}
+              {remainingCount > 0 && (
+                <span className="text-white/40">{remainingCount} remaining</span>
+              )}
             </div>
           </div>
 
@@ -241,7 +291,9 @@ const BatchProductModal = ({
             {/* Left: queue */}
             <div className="hidden sm:flex w-44 lg:w-52 shrink-0 bg-gray-50 border-r border-gray-200 flex-col overflow-hidden">
               <div className="p-2.5 overflow-y-auto flex-1">
-                <h3 className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">Queue ({newProducts.length})</h3>
+                <h3 className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-1">
+                  Queue ({newProducts.length})
+                </h3>
                 <div className="space-y-0.5">
                   {newProducts.map((product, index) => {
                     const status    = processingStatus[index];
@@ -255,16 +307,32 @@ const BatchProductModal = ({
                         onClick={() => isPast && setCurrentIndex(index)}
                         disabled={isFuture}
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all ${
-                          isCurrent   ? "bg-indigo-50 text-indigo-800 font-medium border border-indigo-200"
-                          : status === "saved"    ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                          : status === "skipped"  ? "bg-gray-100 text-gray-400 line-through"
-                          : "text-gray-400 cursor-not-allowed"
+                          isCurrent
+                            ? "bg-indigo-50 text-indigo-800 font-medium border border-indigo-200"
+                            : status === "saved"
+                              ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              : status === "skipped"
+                                ? "bg-gray-100 text-gray-400 line-through"
+                                : "text-gray-400 cursor-not-allowed"
                         }`}
                       >
-                        {status === "saved"   ? <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center shrink-0"><Check size={9} className="text-emerald-600" /></span>
-                        : status === "skipped" ? <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><SkipForward size={9} className="text-gray-400" /></span>
-                        : isCurrent            ? <span className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center shrink-0"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /></span>
-                        : <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0"><span className="text-[8px] font-bold text-gray-400">{index + 1}</span></span>}
+                        {status === "saved" ? (
+                          <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                            <Check size={9} className="text-emerald-600" />
+                          </span>
+                        ) : status === "skipped" ? (
+                          <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                            <SkipForward size={9} className="text-gray-400" />
+                          </span>
+                        ) : isCurrent ? (
+                          <span className="w-4 h-4 rounded-full bg-indigo-500 flex items-center justify-center shrink-0">
+                            <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                          </span>
+                        ) : (
+                          <span className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                            <span className="text-[8px] font-bold text-gray-400">{index + 1}</span>
+                          </span>
+                        )}
                         <span className="truncate text-[11px]">{product.name}</span>
                       </button>
                     );
@@ -276,8 +344,14 @@ const BatchProductModal = ({
             {/* Right: current product */}
             <div className="flex-1 overflow-y-auto p-4 lg:p-5">
               <div className="sm:hidden mb-3 flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg">
-                <span className="text-xs text-indigo-700 font-medium">Product {currentIndex + 1} of {newProducts.length}</span>
-                {savedCount > 0 && <span className="ml-auto text-[10px] text-emerald-600 font-medium">{savedCount} added</span>}
+                <span className="text-xs text-indigo-700 font-medium">
+                  Product {currentIndex + 1} of {newProducts.length}
+                </span>
+                {savedCount > 0 && (
+                  <span className="ml-auto text-[10px] text-emerald-600 font-medium">
+                    {savedCount} added
+                  </span>
+                )}
               </div>
 
               <div className="flex items-start gap-3 p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl mb-4">
@@ -285,9 +359,17 @@ const BatchProductModal = ({
                   <Package size={20} className="text-indigo-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-gray-900 truncate">{currentProduct.name}</h3>
-                  <p className="text-xs text-gray-600 mt-0.5">Needs to be added to your shop's medicine list.</p>
-                  {currentProduct.catalogMatch && <div className="mt-2"><CatalogBadge catalogMatch={currentProduct.catalogMatch} /></div>}
+                  <h3 className="text-base font-bold text-gray-900 truncate">
+                    {currentProduct.name}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Needs to be added to your shop's medicine list.
+                  </p>
+                  {currentProduct.catalogMatch && (
+                    <div className="mt-2">
+                      <CatalogBadge catalogMatch={currentProduct.catalogMatch} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -302,12 +384,12 @@ const BatchProductModal = ({
               )}
 
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-                <DetailField icon={Building2} label="Manufacturer" value={currentProduct.manufacturer || currentProduct.mfac} detected={hasManufacturer} />
-                <DetailField icon={Hash}      label="HSN Code"     value={currentProduct.hsnCode || currentProduct.hsn}         detected={hasHsn} />
-                <DetailField icon={MapPin}    label="Rack Location" value={currentProduct.rackNo || currentProduct.rack}         detected={hasRack} />
-                <DetailField icon={Package}   label="Pack Size"    value={currentProduct.packSize || currentProduct.pack}        detected={hasPack} />
-                <DetailField icon={Percent}   label="GST Rate"     value={gstDisplay || "Default 12%"}                          detected={hasGst} />
-                <DetailField icon={Percent}   label="CGST / SGST"  value={cgstSgstDisplay || "6% / 6%"}                         detected={!!currentProduct.cgstPercent} />
+                <DetailField icon={Building2} label="Manufacturer"  value={currentProduct.manufacturer || currentProduct.mfac} detected={hasManufacturer} />
+                <DetailField icon={Hash}      label="HSN Code"      value={currentProduct.hsnCode || currentProduct.hsn}        detected={hasHsn} />
+                <DetailField icon={MapPin}    label="Rack Location" value={currentProduct.rackNo || currentProduct.rack}        detected={hasRack} />
+                <DetailField icon={Package}   label="Pack Size"     value={currentProduct.packSize || currentProduct.pack}      detected={hasPack} />
+                <DetailField icon={Percent}   label="GST Rate"      value={gstDisplay || "Default 12%"}                        detected={hasGst} />
+                <DetailField icon={Percent}   label="CGST / SGST"   value={cgstSgstDisplay || "6% / 6%"}                       detected={!!currentProduct.cgstPercent} />
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2.5">
@@ -327,7 +409,9 @@ const BatchProductModal = ({
                     <>
                       <Plus size={16} />
                       Add Product Details
-                      <kbd className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/20 text-white/70 border border-white/20 leading-none">Enter</kbd>
+                      <kbd className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/20 text-white/70 border border-white/20 leading-none">
+                        Enter
+                      </kbd>
                     </>
                   )}
                 </button>
@@ -343,7 +427,9 @@ const BatchProductModal = ({
                 >
                   <SkipForward size={16} />
                   Skip
-                  <kbd className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-gray-100 text-gray-500 border border-gray-300 leading-none">Tab</kbd>
+                  <kbd className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-mono bg-gray-100 text-gray-500 border border-gray-300 leading-none">
+                    Tab
+                  </kbd>
                 </button>
               </div>
             </div>
@@ -352,9 +438,13 @@ const BatchProductModal = ({
           {/* ── FOOTER ── */}
           <div className="shrink-0 flex items-center justify-between px-5 py-2.5 bg-gray-50 border-t border-gray-200">
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-gray-500"><span className="font-bold text-emerald-600">{savedCount}</span> added</span>
+              <span className="text-gray-500">
+                <span className="font-bold text-emerald-600">{savedCount}</span> added
+              </span>
               <span className="text-gray-300">•</span>
-              <span className="text-gray-500"><span className="font-bold text-gray-600">{skippedCount}</span> skipped</span>
+              <span className="text-gray-500">
+                <span className="font-bold text-gray-600">{skippedCount}</span> skipped
+              </span>
             </div>
             <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400">
               <span className="flex items-center gap-1">

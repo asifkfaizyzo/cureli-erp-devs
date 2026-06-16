@@ -31,7 +31,9 @@ const FIELD_ORDER = [
   "sch",
 ];
 
-//  Dropdown component that renders via Portal
+// ─────────────────────────────────────────────────────────────────────────────
+// ProductDropdown — renders via Portal
+// ─────────────────────────────────────────────────────────────────────────────
 const ProductDropdown = ({
   isOpen,
   anchorRef,
@@ -49,11 +51,9 @@ const ProductDropdown = ({
       const rect = anchorRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
       const dropdownHeight = 280;
-
       const spaceBelow = viewportHeight - rect.bottom;
       const showAbove =
         spaceBelow < dropdownHeight && rect.top > dropdownHeight;
-
       setPosition({
         top: showAbove ? rect.top - dropdownHeight - 4 : rect.bottom + 2,
         left: rect.left,
@@ -64,24 +64,18 @@ const ProductDropdown = ({
 
   useEffect(() => {
     if (!isOpen) return;
-
     const handleClickOutside = (e) => {
       if (anchorRef.current && !anchorRef.current.contains(e.target)) {
         onClose();
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, anchorRef, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
-
-    const handleScroll = () => {
-      onClose();
-    };
-
+    const handleScroll = () => onClose();
     let scrollParent = anchorRef.current?.parentElement;
     while (scrollParent) {
       if (scrollParent.scrollHeight > scrollParent.clientHeight) {
@@ -90,14 +84,11 @@ const ProductDropdown = ({
       }
       scrollParent = scrollParent.parentElement;
     }
-
     window.addEventListener("scroll", handleScroll, true);
-
     return () => {
       window.removeEventListener("scroll", handleScroll, true);
-      if (scrollParent) {
+      if (scrollParent)
         scrollParent.removeEventListener("scroll", handleScroll);
-      }
     };
   }, [isOpen, anchorRef, onClose]);
 
@@ -112,6 +103,8 @@ const ProductDropdown = ({
         width: `${position.width}px`,
         zIndex: 9999,
       }}
+      // Prevent mousedown from triggering input blur before click fires on children
+      onMouseDown={(e) => e.preventDefault()}
     >
       {products.length > 0 ? (
         <>
@@ -121,9 +114,12 @@ const ProductDropdown = ({
           {products.map((product, idx) => (
             <div
               key={product.id || product.medicine_id || idx}
-              onClick={() => onSelect(product)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(product);
+              }}
               className={`
-                px-3 py-2.5 cursor-pointer text-[10px] border-b border-slate-100 last:border-b-0 
+                px-3 py-2.5 cursor-pointer text-[10px] border-b border-slate-100 last:border-b-0
                 transition-all duration-150
                 ${
                   idx === highlightedIndex
@@ -150,7 +146,10 @@ const ProductDropdown = ({
         </>
       ) : searchTerm.trim().length >= 2 ? (
         <div
-          onClick={onAddNew}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onAddNew();
+          }}
           className="px-4 py-4 cursor-pointer text-[10px] hover:bg-blue-50 border-l-2 border-l-blue-500 bg-blue-25"
         >
           <div className="font-semibold text-blue-600 flex items-center gap-1.5 mb-1">
@@ -171,6 +170,9 @@ const ProductDropdown = ({
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PurchaseRowFixed
+// ─────────────────────────────────────────────────────────────────────────────
 const PurchaseRowFixed = memo(
   forwardRef(
     (
@@ -201,7 +203,6 @@ const PurchaseRowFixed = memo(
       const rowRef = useRef(null);
       const fieldRefs = useRef({});
       const nameInputRef = useRef(null);
-
       const schBlurTimeoutRef = useRef(null);
 
       const isFreeItem = item.isFreeItem === true;
@@ -251,7 +252,6 @@ const PurchaseRowFixed = memo(
               block: "center",
             });
           },
-          //  NEW: Expose method to close dropdown
           closeDropdown: () => {
             setShowProductDropdown(false);
           },
@@ -271,9 +271,8 @@ const PurchaseRowFixed = memo(
       const checkProductExists = useCallback(
         (productName) => {
           if (!productName || productName.trim().length < 2) return true;
-
           const searchLower = productName.toLowerCase().trim();
-          const exists = productMaster.some((product) => {
+          return productMaster.some((product) => {
             const nameLower = product.name?.toLowerCase() || "";
             return (
               nameLower === searchLower ||
@@ -281,23 +280,16 @@ const PurchaseRowFixed = memo(
               searchLower.includes(nameLower)
             );
           });
-
-          return exists;
         },
         [productMaster],
       );
 
-      //  FIXED: Close dropdown before calling onAddNewProduct
       const handleProductNameBlur = useCallback(
         (productName) => {
           if (!productName || productName.trim().length < 2) return;
-
           const exists = checkProductExists(productName);
-
           if (!exists && onAddNewProduct) {
-            //  Close dropdown FIRST
             setShowProductDropdown(false);
-
             onAddNewProduct({
               rowIndex: index,
               productName: productName.trim(),
@@ -329,14 +321,10 @@ const PurchaseRowFixed = memo(
       const handleSchBlur = useCallback(
         (value) => {
           if (isFreeItem) return;
-
-          if (schBlurTimeoutRef.current) {
+          if (schBlurTimeoutRef.current)
             clearTimeout(schBlurTimeoutRef.current);
-          }
-
           schBlurTimeoutRef.current = setTimeout(() => {
             const trimmedValue = value?.toString().trim();
-
             if (trimmedValue && trimmedValue !== "" && trimmedValue !== "0") {
               onCreateFreeRow?.(index);
             } else {
@@ -349,18 +337,15 @@ const PurchaseRowFixed = memo(
 
       useEffect(() => {
         return () => {
-          if (schBlurTimeoutRef.current) {
+          if (schBlurTimeoutRef.current)
             clearTimeout(schBlurTimeoutRef.current);
-          }
         };
       }, []);
 
       const getCurrentFieldIndex = useCallback(() => {
         const activeElement = document.activeElement;
         for (let i = 0; i < FIELD_ORDER.length; i++) {
-          if (fieldRefs.current[FIELD_ORDER[i]] === activeElement) {
-            return i;
-          }
+          if (fieldRefs.current[FIELD_ORDER[i]] === activeElement) return i;
         }
         return -1;
       }, []);
@@ -368,12 +353,8 @@ const PurchaseRowFixed = memo(
       const focusNextFieldInRow = useCallback(() => {
         const currentIndex = getCurrentFieldIndex();
         if (currentIndex === -1) return false;
-
         const nextIndex = currentIndex + 1;
-        if (nextIndex >= FIELD_ORDER.length) {
-          return false;
-        }
-
+        if (nextIndex >= FIELD_ORDER.length) return false;
         const nextField = fieldRefs.current[FIELD_ORDER[nextIndex]];
         if (nextField) {
           nextField.focus();
@@ -386,12 +367,8 @@ const PurchaseRowFixed = memo(
       const focusPrevFieldInRow = useCallback(() => {
         const currentIndex = getCurrentFieldIndex();
         if (currentIndex === -1) return false;
-
         const prevIndex = currentIndex - 1;
-        if (prevIndex < 0) {
-          return false;
-        }
-
+        if (prevIndex < 0) return false;
         const prevField = fieldRefs.current[FIELD_ORDER[prevIndex]];
         if (prevField) {
           prevField.focus();
@@ -408,7 +385,6 @@ const PurchaseRowFixed = memo(
             return;
           }
 
-          // Dropdown navigation
           if (showProductDropdown && filteredProducts.length > 0) {
             if (e.key === "ArrowDown") {
               e.preventDefault();
@@ -443,13 +419,10 @@ const PurchaseRowFixed = memo(
 
           if (e.key === "Enter") {
             e.preventDefault();
-
             if (fieldKey === "name" && item.name && !showProductDropdown) {
-              //  Close dropdown before triggering modal
               setShowProductDropdown(false);
               handleProductNameBlur(item.name);
             }
-
             const movedWithinRow = focusNextFieldInRow();
             if (!movedWithinRow) {
               if (isLast) {
@@ -462,11 +435,8 @@ const PurchaseRowFixed = memo(
           }
 
           if (e.key === "Tab") {
-            //  FIXED: Close dropdown on Tab press
             if (fieldKey === "name") {
               setShowProductDropdown(false);
-
-              // Check if it's a new product and trigger modal
               if (item.name && item.name.trim().length >= 2) {
                 const exists = checkProductExists(item.name);
                 if (!exists && onAddNewProduct) {
@@ -485,7 +455,6 @@ const PurchaseRowFixed = memo(
                     cgstPercent: item.cgstPercent || "6",
                     sgstPercent: item.sgstPercent || "6",
                   });
-                  // Don't prevent default - let Tab navigation continue
                 }
               }
             }
@@ -512,25 +481,19 @@ const PurchaseRowFixed = memo(
 
           if (e.ctrlKey && e.key === "Backspace" && onRemoveRow) {
             e.preventDefault();
-            if (!isFreeItem) {
-              onRemoveRow(index);
-            }
+            if (!isFreeItem) onRemoveRow(index);
             return;
           }
 
           if (e.key === "ArrowUp" && e.altKey) {
             e.preventDefault();
-            if (index > 0) {
-              onNavigateToPrevRow?.(index, fieldKey);
-            }
+            if (index > 0) onNavigateToPrevRow?.(index, fieldKey);
             return;
           }
 
           if (e.key === "ArrowDown" && e.altKey) {
             e.preventDefault();
-            if (!isLast) {
-              onNavigateToNextRow?.(index, fieldKey);
-            }
+            if (!isLast) onNavigateToNextRow?.(index, fieldKey);
             return;
           }
         },
@@ -560,9 +523,8 @@ const PurchaseRowFixed = memo(
         setHighlightedIndex(0);
       }, [productSearch]);
 
-      const formatNumber = (value, decimals = 2) => {
-        return Number(value || 0).toFixed(decimals);
-      };
+      const formatNumber = (value, decimals = 2) =>
+        Number(value || 0).toFixed(decimals);
 
       const handleChange = useCallback(
         (key, value) => {
@@ -587,30 +549,132 @@ const PurchaseRowFixed = memo(
         [index, onProductSelect],
       );
 
-      //  FIXED: Close dropdown before triggering add new
       const handleDropdownAddNew = useCallback(() => {
         setShowProductDropdown(false);
+        const trimmedSearch = productSearch.trim();
+        if (!trimmedSearch || trimmedSearch.length < 2) return;
+        if (onAddNewProduct) {
+          setTimeout(() => {
+            onAddNewProduct({
+              rowIndex: index,
+              productName: trimmedSearch,
+              name: trimmedSearch,
+              manufacturer: item.mfac || "",
+              mfac: item.mfac || "",
+              hsn: item.hsn || "",
+              hsnCode: item.hsn || "",
+              rack: item.rack || "",
+              rackNo: item.rack || "",
+              pack: item.pack || "",
+              packSize: item.pack || "",
+              cgstPercent: item.cgstPercent || "6",
+              sgstPercent: item.sgstPercent || "6",
+            });
+          }, 50);
+        }
+      }, [productSearch, onAddNewProduct, index, item]);
 
-        // Small delay to ensure dropdown is closed before modal opens
-        setTimeout(() => {
-          handleProductNameBlur(productSearch);
-        }, 10);
-      }, [productSearch, handleProductNameBlur]);
-
-      //  NEW: Close dropdown handler
       const handleCloseDropdown = useCallback(() => {
         setShowProductDropdown(false);
       }, []);
 
+      // ─────────────────────────────────────────────────────────────────────
+      // EXPIRY AUTO-FORMAT  ── NEW
+      // Formats raw digit input into MM/YY automatically:
+      //   "1"   → "1"       (waiting for 2nd month digit)
+      //   "11"  → "11/"     (month complete, slash auto-inserted)
+      //   "112" → "11/2"    (year starts)
+      //   "1127"→ "11/27"   (done)
+      // Clamps month to 01–12.
+      // Smart backspace: if cursor sits right after the slash, removes it too.
+      // ─────────────────────────────────────────────────────────────────────
+      const handleExpInput = useCallback(
+        (e) => {
+          if (isFreeItem) return;
+
+          const input = e.target;
+          const raw = input.value;
+
+          // Allow full clear
+          if (raw === "") {
+            handleChange("exp", "");
+            return;
+          }
+
+          // Strip everything that is not a digit
+          const digits = raw.replace(/\D/g, "");
+
+          let formatted = "";
+
+          if (digits.length === 0) {
+            formatted = "";
+          } else if (digits.length <= 2) {
+            // Still typing the month — auto-append slash once 2 digits entered
+            if (digits.length === 2) {
+              const month = parseInt(digits, 10);
+              const clampedMonth =
+                month < 1 ? "01" : month > 12 ? "12" : digits;
+              formatted = clampedMonth + "/"; // slash appended → cursor jumps past it
+            } else {
+              formatted = digits; // single digit, keep as-is
+            }
+          } else {
+            // 3+ digits → split into month (2) + year (up to 2)
+            const monthDigits = digits.slice(0, 2);
+            const yearDigits = digits.slice(2, 4); // max 2 year digits (YY)
+            const month = parseInt(monthDigits, 10);
+            const clampedMonth =
+              month < 1 ? "01" : month > 12 ? "12" : monthDigits;
+            formatted = `${clampedMonth}/${yearDigits}`;
+          }
+
+          handleChange("exp", formatted);
+
+          // Keep cursor at the end after React re-renders
+          requestAnimationFrame(() => {
+            if (input) {
+              input.setSelectionRange(formatted.length, formatted.length);
+            }
+          });
+        },
+        [isFreeItem, handleChange],
+      );
+
+      const handleExpKeyDown = useCallback(
+        (e) => {
+          // Smart backspace: when cursor is right after "MM/", delete the slash too
+          if (e.key === "Backspace") {
+            const input = e.target;
+            const val = input.value;
+            const pos = input.selectionStart;
+
+            // pos === 3 means cursor is right after "MM/" (e.g. "11/|")
+            if (pos === 3 && val[2] === "/") {
+              e.preventDefault();
+              const newVal = val.slice(0, 2); // keep "MM" only
+              handleChange("exp", newVal);
+              requestAnimationFrame(() => {
+                input.setSelectionRange(2, 2);
+              });
+              return;
+            }
+          }
+
+          // All other keys fall through to the shared row keydown handler
+          handleKeyDown(e, "exp");
+        },
+        [handleKeyDown, handleChange],
+      );
+
       const inputBase = `
-    w-full h-full bg-transparent border-0 outline-none
-    text-slate-800 text-[9px] 2xl:text-[10px]
-    focus:bg-indigo-50 focus:ring-1 focus:ring-inset focus:ring-indigo-400
-    transition-all duration-100
-    placeholder:text-slate-300
-    truncate
-    ${isFreeItem ? "cursor-not-allowed opacity-75" : ""}
-  `;
+        w-full h-full bg-transparent border-0 outline-none
+        text-slate-800 text-[9px] 2xl:text-[10px]
+        focus:bg-indigo-50 focus:ring-1 focus:ring-inset focus:ring-indigo-400
+        transition-all duration-100
+        placeholder:text-slate-300
+        truncate
+        ${isFreeItem ? "cursor-not-allowed opacity-75" : ""}
+      `;
 
       const cellBase =
         "border-b border-r border-slate-200 last:border-r-0 p-0 overflow-hidden";
@@ -622,18 +686,18 @@ const PurchaseRowFixed = memo(
       const productExists = item.name && checkProductExists(item.name);
 
       const rowClassName = `
-    group transition-all duration-100
-    ${
-      isFreeItem
-        ? "bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500"
-        : isEven
-          ? "bg-white"
-          : "bg-slate-50/50"
-    }
-    ${!isFreeItem && "hover:bg-indigo-50/40 focus-within:bg-indigo-50/60"}
-    ${hasData && !isFreeItem ? "border-l-2 border-l-indigo-400" : !isFreeItem ? "border-l-2 border-l-transparent" : ""}
-    ${isNewProduct && !isFreeItem ? "bg-yellow-50/30" : ""}
-  `;
+        group transition-all duration-100
+        ${
+          isFreeItem
+            ? "bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-l-green-500"
+            : isEven
+              ? "bg-white"
+              : "bg-slate-50/50"
+        }
+        ${!isFreeItem && "hover:bg-indigo-50/40 focus-within:bg-indigo-50/60"}
+        ${hasData && !isFreeItem ? "border-l-2 border-l-indigo-400" : !isFreeItem ? "border-l-2 border-l-transparent" : ""}
+        ${isNewProduct && !isFreeItem ? "bg-yellow-50/30" : ""}
+      `;
 
       return (
         <tr
@@ -656,9 +720,9 @@ const PurchaseRowFixed = memo(
               ) : (
                 <span
                   className={`
-              inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-bold
-              ${hasData ? "bg-indigo-500 text-white" : "bg-slate-200 text-slate-500"}
-            `}
+                    inline-flex items-center justify-center w-4 h-4 rounded text-[8px] font-bold
+                    ${hasData ? "bg-indigo-500 text-white" : "bg-slate-200 text-slate-500"}
+                  `}
                 >
                   {rowNumber}
                 </span>
@@ -668,7 +732,7 @@ const PurchaseRowFixed = memo(
                   className="absolute -top-0.5 -right-0.5"
                   title="New product - will be added to master"
                 >
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
                 </div>
               )}
               {productExists && item.name && !isFreeItem && (
@@ -716,22 +780,9 @@ const PurchaseRowFixed = memo(
                     setShowProductDropdown(true);
                   }
                 }}
-                onBlur={(e) => {
-                  //  FIXED: Don't trigger blur handler here since Tab already handles it
-                  // Only handle blur for mouse clicks outside
-                  // The setTimeout allows click on dropdown to register first
-                  setTimeout(() => {
-                    // Check if focus moved to another element outside this row
-                    const activeElement = document.activeElement;
-                    const isInDropdown = activeElement?.closest?.(
-                      '[data-dropdown="true"]',
-                    );
-
-                    if (!isInDropdown && !showProductDropdown) {
-                      // Focus moved elsewhere, don't trigger modal
-                      // Modal is already triggered by Tab handler
-                    }
-                  }, 250);
+                onBlur={() => {
+                  // intentionally minimal — Tab & keyboard handlers manage
+                  // modal triggering; blur alone does nothing to avoid race conditions
                 }}
                 onKeyDown={(e) => handleKeyDown(e, "name")}
                 readOnly={isFreeItem}
@@ -770,6 +821,7 @@ const PurchaseRowFixed = memo(
                 )}
                 {!isFreeItem && item.name && (
                   <button
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       handleChange("name", "");
                       setProductSearch("");
@@ -783,7 +835,7 @@ const PurchaseRowFixed = memo(
                 )}
               </div>
 
-              {/* Product dropdown using Portal */}
+              {/* Product dropdown via Portal */}
               <ProductDropdown
                 isOpen={showProductDropdown && !isFreeItem}
                 anchorRef={nameInputRef}
@@ -797,7 +849,6 @@ const PurchaseRowFixed = memo(
             </div>
           </td>
 
-          {/* Rest of the cells remain the same... */}
           {/* 3. MFAC */}
           <td
             className={`${cellBase} ${isFreeItem ? "bg-green-50/50" : "bg-violet-50/20"}`}
@@ -856,7 +907,7 @@ const PurchaseRowFixed = memo(
             />
           </td>
 
-          {/* 6. EXPIRY */}
+          {/* 6. EXPIRY ── updated with auto-format handlers */}
           <td
             className={`${cellBase} ${isFreeItem ? "bg-green-50/50" : "bg-cyan-50/30"}`}
           >
@@ -864,12 +915,11 @@ const PurchaseRowFixed = memo(
               ref={(el) => registerFieldRef("exp", el)}
               type="text"
               value={item.exp || ""}
-              onChange={(e) =>
-                !isFreeItem && handleChange("exp", e.target.value)
-              }
-              onKeyDown={(e) => handleKeyDown(e, "exp")}
+              onChange={handleExpInput}       
+              onKeyDown={handleExpKeyDown}    
               readOnly={isFreeItem}
               tabIndex={isFreeItem ? -1 : 0}
+              maxLength={5}                   
               className={`${inputBase} px-1 py-1 text-center font-mono text-[8px]`}
               placeholder={isFreeItem ? "" : "MM/YY"}
             />
@@ -1014,9 +1064,15 @@ const PurchaseRowFixed = memo(
                 </span>
               ) : (
                 <span
-                  className={`font-bold text-[10px] ${Number(item.amount) > 0 ? "text-emerald-700" : "text-slate-400"}`}
+                  className={`font-bold text-[10px] ${
+                    Number(item.amount) > 0
+                      ? "text-emerald-700"
+                      : "text-slate-400"
+                  }`}
                 >
-                  {Number(item.amount) > 0 ? formatNumber(item.amount) : "0.00"}
+                  {Number(item.amount) > 0
+                    ? formatNumber(item.amount)
+                    : "0.00"}
                 </span>
               )}
             </div>
@@ -1115,14 +1171,10 @@ const PurchaseRowFixed = memo(
               type="text"
               value={item.sch || ""}
               onChange={(e) => {
-                if (!isFreeItem) {
-                  handleSchChange(e.target.value);
-                }
+                if (!isFreeItem) handleSchChange(e.target.value);
               }}
               onBlur={(e) => {
-                if (!isFreeItem) {
-                  handleSchBlur(e.target.value);
-                }
+                if (!isFreeItem) handleSchBlur(e.target.value);
               }}
               onKeyDown={(e) => handleKeyDown(e, "sch")}
               disabled={isFreeItem}

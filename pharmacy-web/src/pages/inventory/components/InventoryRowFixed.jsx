@@ -2,7 +2,6 @@
 
 import { memo, forwardRef, useImperativeHandle, useRef } from "react";
 import {
-  Eye,
   Pencil,
   Trash2,
   RefreshCw,
@@ -124,7 +123,7 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
   );
 };
 
-// Safely extract string from any value
+// ── Safely extract string from any value ──
 const display = (value) => {
   if (value === null || value === undefined) return "-";
   if (typeof value === "object") {
@@ -137,6 +136,37 @@ const display = (value) => {
     );
   }
   return String(value) || "-";
+};
+
+// ── NEW: format any expiry value → "MM/YY" ──
+// Handles all these input shapes:
+//   • ISO string  "2027-05-31T00:00:00.000Z"
+//   • Date-only   "2027-05-31"
+//   • Already MM/YYYY or MM/YY → re-normalise to MM/YY
+//   • Anything else → "-"
+const formatExpiryMMYY = (value) => {
+  if (!value) return "-";
+
+  const str = String(value).trim();
+
+  // Already in MM/YY (5 chars) or MM/YYYY (7 chars) shape
+  if (/^\d{2}\/\d{2}$/.test(str)) return str; // already MM/YY
+  if (/^\d{2}\/\d{4}$/.test(str)) {
+    // MM/YYYY → MM/YY
+    const [mm, yyyy] = str.split("/");
+    return `${mm}/${yyyy.slice(-2)}`;
+  }
+
+  // ISO / date string → parse via Date
+  try {
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return "-";
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${mm}/${yy}`;
+  } catch {
+    return "-";
+  }
 };
 
 const InventoryRowFixed = memo(
@@ -221,6 +251,11 @@ const InventoryRowFixed = memo(
         if (canAdjustStock && onDelete) onDelete(item);
       };
 
+      // ── Compute MM/YY once per render ──
+      const expiryDisplay = formatExpiryMMYY(
+        item.expiry_date || item.expiry
+      );
+
       return (
         <tr
           ref={rowRef}
@@ -265,7 +300,7 @@ const InventoryRowFixed = memo(
             </div>
           </td>
 
-          {/* 3. Category — left */}
+          {/* 3. Category — center */}
           <td className={`${cellBase} text-center`}>
             <div className="px-1.5 py-1 h-full flex items-center justify-center">
               <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
@@ -285,7 +320,7 @@ const InventoryRowFixed = memo(
             </div>
           </td>
 
-          {/* 5. Manufacturer — left */}
+          {/* 5. Manufacturer — center */}
           <td className={`${cellBase} text-center bg-violet-50/20`}>
             <div className="px-1.5 py-1 h-full flex items-center justify-center">
               <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
@@ -307,13 +342,13 @@ const InventoryRowFixed = memo(
             </div>
           </td>
 
-          {/* 7. Expiry — center */}
+          {/* 7. Expiry — center  ← UPDATED: now shows MM/YY */}
           <td className={`${cellBase} bg-cyan-50/30`}>
             <div className="px-1 py-1 h-full flex items-center justify-center">
               <span
                 className={`text-[8px] 2xl:text-[9px] font-mono ${getExpiryColor(item.status)}`}
               >
-                {display(item.expiry || item.expiry_date)}
+                {expiryDisplay}
               </span>
             </div>
           </td>
@@ -332,7 +367,7 @@ const InventoryRowFixed = memo(
             </td>
           )}
 
-          {/* 9. Supplier — left */}
+          {/* 9. Supplier — center */}
           <td className={`${cellBase} bg-purple-50/20`}>
             <div className="px-1.5 py-1 h-full flex items-center justify-center">
               <span className="text-[9px] 2xl:text-[10px] text-slate-600 truncate">
@@ -341,7 +376,7 @@ const InventoryRowFixed = memo(
             </div>
           </td>
 
-          {/* 10. Qty — right */}
+          {/* 10. Qty — center */}
           <td className={`${cellBase} bg-emerald-50/60`}>
             <div className="px-1.5 py-1 h-full flex items-center justify-center">
               <span
@@ -358,7 +393,7 @@ const InventoryRowFixed = memo(
             </div>
           </td>
 
-          {/* 11. MRP — right */}
+          {/* 11. MRP — center */}
           <td className={`${cellBase}`}>
             <div className="px-1.5 py-1 h-full flex items-center justify-center">
               <span className="text-[9px] 2xl:text-[10px] text-slate-600 font-medium">
@@ -400,18 +435,12 @@ const InventoryRowFixed = memo(
                     ? "hover:bg-amber-100 cursor-pointer"
                     : "cursor-not-allowed opacity-40"
                 }`}
-                title={
-                  canAdjustStock
-                    ? "Edit"
-                    : "Select a branch to edit"
-                }
+                title={canAdjustStock ? "Edit" : "Select a branch to edit"}
               >
                 <Pencil
                   size={11}
                   className={
-                    canAdjustStock
-                      ? "text-amber-600"
-                      : "text-slate-400"
+                    canAdjustStock ? "text-amber-600" : "text-slate-400"
                   }
                 />
               </button>
@@ -446,17 +475,13 @@ const InventoryRowFixed = memo(
                     : "cursor-not-allowed opacity-40"
                 }`}
                 title={
-                  canAdjustStock
-                    ? "Delete"
-                    : "Select a branch to delete"
+                  canAdjustStock ? "Delete" : "Select a branch to delete"
                 }
               >
                 <Trash2
                   size={11}
                   className={
-                    canAdjustStock
-                      ? "text-red-600"
-                      : "text-slate-400"
+                    canAdjustStock ? "text-red-600" : "text-slate-400"
                   }
                 />
               </button>
