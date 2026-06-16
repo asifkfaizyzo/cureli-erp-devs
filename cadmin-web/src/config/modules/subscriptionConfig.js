@@ -57,7 +57,7 @@ export const ALLOWED_ACTIONS = {
   [PLAN_STATUS.DRAFT]: ["edit", "activate", "clone", "delete"],
   [PLAN_STATUS.ACTIVE]: ["view", "suspend", "clone"],
   [PLAN_STATUS.DEPRECATED]: ["view", "clone"],
-  [PLAN_STATUS.SUSPENDED]: ["view", "reactivate", "clone"],
+  [PLAN_STATUS.SUSPENDED]: ["view", "reactivate", "clone", "trash"],
 };
 
 // ============================================

@@ -28,7 +28,7 @@ import {
 import StyledSelect from "../../../components/common/StyledSelect";
 
 // ════════════════════════════════════════════════════════════════════════════
-// SEARCHABLE DROPDOWN COMPONENT (CSS FIX VERSION - NO PORTAL)
+// SEARCHABLE DROPDOWN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
 const SearchableDropdown = ({
@@ -48,7 +48,6 @@ const SearchableDropdown = ({
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  // Filter options based on search
   const filteredOptions = useMemo(() => {
     if (!search.trim()) return options;
     const query = search.toLowerCase().trim();
@@ -59,12 +58,10 @@ const SearchableDropdown = ({
     );
   }, [options, search]);
 
-  // Find selected option
   const selectedOption = useMemo(() => {
     return options.find((opt) => opt.value === value);
   }, [options, value]);
 
-  // Click outside handler
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -76,14 +73,12 @@ const SearchableDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Focus input when opening
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen]);
 
-  // Scroll selected into view
   useEffect(() => {
     if (isOpen && listRef.current && value) {
       const selectedEl = listRef.current.querySelector(
@@ -95,7 +90,6 @@ const SearchableDropdown = ({
     }
   }, [isOpen, value]);
 
-  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === "Escape") {
@@ -183,7 +177,7 @@ const SearchableDropdown = ({
         </div>
       </button>
 
-      {/* Dropdown Panel - Absolute positioned */}
+      {/* Dropdown Panel */}
       {isOpen && (
         <div
           className="absolute z-[9999] top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl"
@@ -321,7 +315,6 @@ const InventoryFilters = ({
   const searchInputRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Build filter options
   const statusOptions = useMemo(
     () => [
       { value: "", label: "All Stock Status" },
@@ -369,7 +362,6 @@ const InventoryFilters = ({
     [branches],
   );
 
-  // Calculate active filters
   const activeFilters = useMemo(() => {
     const active = [];
     if (filters.search)
@@ -447,11 +439,10 @@ const InventoryFilters = ({
   };
 
   return (
-    //  KEY FIX: Changed overflow-hidden to overflow-visible
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-visible">
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* PRIMARY HEADER BAR */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* PRIMARY HEADER BAR                                                */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
       <div className="px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Left Section - Search */}
         <div className="flex-1 flex items-center gap-2 sm:gap-3">
@@ -480,7 +471,6 @@ const InventoryFilters = ({
               value={filters.search}
               onChange={(e) => onChange("search", e.target.value)}
             />
-
             {filters.search && (
               <button
                 onClick={clearSearch}
@@ -545,7 +535,9 @@ const InventoryFilters = ({
             </button>
           )}
 
-          {/* Add Medicine Button */}
+          
+
+          {/* ── FIXED: Add Medicine Button — onClick restored ───────────── */}
           {onAddMedicine && (
             <button
               onClick={onAddMedicine}
@@ -555,12 +547,21 @@ const InventoryFilters = ({
               <span className="hidden sm:inline">Add Medicine</span>
             </button>
           )}
+
+          {/* Import Inventory — placeholder, no handler yet */}
+          <button
+            type="button"
+            className="h-10 sm:h-9 px-3 sm:px-4 flex items-center gap-2 text-sm font-semibold text-white bg-[#05015A] hover:bg-[#0a0280] rounded-lg transition-all shadow-sm hover:shadow-md "
+          >
+            <span className="hidden sm:inline">Import Inventory</span>
+          </button>
+          {/* ─────────────────────────────────────────────────────────────── */}
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* EXPANDABLE FILTERS SECTION - overflow-visible when open */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* EXPANDABLE FILTERS SECTION                                        */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
       <div
         className={`
           transition-all duration-300 ease-in-out
@@ -571,7 +572,7 @@ const InventoryFilters = ({
         }}
       >
         <div className="px-3 sm:px-4 py-4 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white overflow-visible">
-          {/* Filter Grid - overflow-visible */}
+          {/* Filter Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 overflow-visible">
             {/* Stock Status */}
             <div className="space-y-1.5">
@@ -601,7 +602,7 @@ const InventoryFilters = ({
               />
             </div>
 
-            {/* SEARCHABLE Supplier Filter */}
+            {/* Supplier Filter */}
             {suppliers.length > 0 && (
               <div className="space-y-1.5 overflow-visible">
                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
@@ -620,7 +621,7 @@ const InventoryFilters = ({
               </div>
             )}
 
-            {/* SEARCHABLE Category Filter */}
+            {/* Category Filter */}
             {categories.length > 0 && (
               <div className="space-y-1.5 overflow-visible">
                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold uppercase tracking-wide">
@@ -678,19 +679,15 @@ const InventoryFilters = ({
                   />
                   <div
                     className={`
-                    w-9 h-5 rounded-full transition-all duration-200
-                    ${
-                      filters.lowStock
-                        ? "bg-amber-500"
-                        : "bg-slate-200 group-hover:bg-slate-300"
-                    }
-                  `}
+                      w-9 h-5 rounded-full transition-all duration-200
+                      ${filters.lowStock ? "bg-amber-500" : "bg-slate-200 group-hover:bg-slate-300"}
+                    `}
                   />
                   <div
                     className={`
-                    absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
-                    ${filters.lowStock ? "translate-x-4" : "translate-x-0"}
-                  `}
+                      absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
+                      ${filters.lowStock ? "translate-x-4" : "translate-x-0"}
+                    `}
                   />
                 </div>
                 <span
@@ -718,19 +715,15 @@ const InventoryFilters = ({
                   />
                   <div
                     className={`
-                    w-9 h-5 rounded-full transition-all duration-200
-                    ${
-                      filters.includeExpired
-                        ? "bg-red-500"
-                        : "bg-slate-200 group-hover:bg-slate-300"
-                    }
-                  `}
+                      w-9 h-5 rounded-full transition-all duration-200
+                      ${filters.includeExpired ? "bg-red-500" : "bg-slate-200 group-hover:bg-slate-300"}
+                    `}
                   />
                   <div
                     className={`
-                    absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
-                    ${filters.includeExpired ? "translate-x-4" : "translate-x-0"}
-                  `}
+                      absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
+                      ${filters.includeExpired ? "translate-x-4" : "translate-x-0"}
+                    `}
                   />
                 </div>
                 <span
@@ -760,9 +753,9 @@ const InventoryFilters = ({
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* ACTIVE FILTERS CHIPS (Always visible when filters active) */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ACTIVE FILTERS CHIPS                                              */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
       {hasActiveFilters && !showFilters && (
         <div className="px-3 sm:px-4 py-2.5 border-t border-slate-100 bg-gradient-to-r from-indigo-50/50 to-slate-50/50">
           <div className="flex items-center gap-2 flex-wrap">
@@ -797,9 +790,9 @@ const InventoryFilters = ({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* MOBILE ACTIVE FILTER COUNT (When collapsed and has filters) */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* MOBILE ACTIVE FILTER COUNT                                        */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
       {hasActiveFilters && showFilters && (
         <div className="sm:hidden px-3 py-2 border-t border-slate-100 bg-indigo-50/50">
           <div className="flex items-center justify-between">

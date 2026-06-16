@@ -1,0 +1,10 @@
+node_modules
+android/app/build
+android/build
+ios/build
+ios/Pods
+.git
+.expo
+docs
+screenshots
+*.log

@@ -1,4 +1,5 @@
 // app/_layout.tsx
+// Only showing the changes — add PushManager import and component
 
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
@@ -21,6 +22,8 @@ import { ThemeProvider } from '../src/theme/ThemeContext';
 import { DialogProvider } from '../src/components/Dialog/DialogProvider';
 import { GlobalCartBar } from '../src/components/CartBar/GlobalCartBar';
 import { useMobileSSE } from '../src/hooks/useMobileSSE';
+// ── NEW ───────────────────────────────────────────────────────────────────────
+import { PushManager } from '../src/components/PushManager/PushManager';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,12 +39,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// ── SSE Manager ───────────────────────────────────────────────────────────────
-// Mounted inside QueryClientProvider and ThemeProvider so it has access to all
-// context, but outside DialogProvider/GlobalCartBar since it needs no UI.
-// useMobileSSE reads auth status from authStore — it will not connect until
-// status === 'authenticated', so mounting here at root level is safe.
 
 function SSEManager() {
   useMobileSSE();
@@ -84,9 +81,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          {/* SSEManager sits here — has access to QueryClient and Theme,
-              reads auth status from Zustand directly (no context needed) */}
           <SSEManager />
+          {/* ── NEW: PushManager sits alongside SSEManager ──────────────── */}
+          {/* Same pattern — reads auth from Zustand, renders nothing        */}
+          <PushManager />
 
           <DialogProvider>
             <Stack>

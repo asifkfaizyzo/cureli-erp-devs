@@ -15,6 +15,7 @@ import {
   Sparkles,
   Archive,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useToast } from "../../components/common/Toast";
@@ -57,13 +58,14 @@ import {
 // Plans per page (2 rows × 4 columns = 8)
 const PLANS_PER_PAGE = 8;
 
-// Status filter options
+// ── REPLACED: now includes "trash" tab ────────────────────────────────────────
 const STATUS_FILTERS = [
-  { key: "all", label: "All", icon: Package },
-  { key: PLAN_STATUS.ACTIVE, label: "Active", icon: CheckCircle },
-  { key: PLAN_STATUS.DRAFT, label: "Draft", icon: Clock },
+  { key: "all",                  label: "All",        icon: Package },
+  { key: PLAN_STATUS.ACTIVE,     label: "Active",     icon: CheckCircle },
+  { key: PLAN_STATUS.DRAFT,      label: "Draft",      icon: Clock },
   { key: PLAN_STATUS.DEPRECATED, label: "Deprecated", icon: Archive },
-  { key: PLAN_STATUS.SUSPENDED, label: "Suspended", icon: Ban },
+  { key: PLAN_STATUS.SUSPENDED,  label: "Suspended",  icon: Ban },
+  { key: "trash",                label: "Trash",      icon: Trash2 },
 ];
 
 export default function SubscriptionPage() {
@@ -72,7 +74,7 @@ export default function SubscriptionPage() {
   const { hasPermission } = useCAdminPermission();
 
   // Permission checks
-  const canEdit = hasPermission(CADMIN_PERMISSIONS.PLANS_EDIT);
+  const canEdit   = hasPermission(CADMIN_PERMISSIONS.PLANS_EDIT);
   const canCreate = hasPermission(CADMIN_PERMISSIONS.PLANS_CREATE);
   const canDelete = hasPermission(CADMIN_PERMISSIONS.PLANS_DELETE);
 
@@ -87,25 +89,26 @@ export default function SubscriptionPage() {
     deprecated: 0,
     suspended: 0,
     with_active_promo: 0,
+    trashed: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Filters
   const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery]       = useState("");
+  const [statusFilter, setStatusFilter]     = useState("all");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
   // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [planModalOpen, setPlanModalOpen] = useState(false);
-  const [planModalMode, setPlanModalMode] = useState("view");
-  const [selectedPlan, setSelectedPlan] = useState(null);
-  const [confirmModal, setConfirmModal] = useState({
+  const [planModalOpen, setPlanModalOpen]     = useState(false);
+  const [planModalMode, setPlanModalMode]     = useState("view");
+  const [selectedPlan, setSelectedPlan]       = useState(null);
+  const [confirmModal, setConfirmModal]       = useState({
     open: false,
     action: null,
     plan: null,
@@ -117,13 +120,15 @@ export default function SubscriptionPage() {
   }, [setBreadcrumbs]);
 
   // ============================================
-  // DATA FETCHING
+  // DATA FETCHING — REPLACED
+  // statusFilter added to deps; include_deleted passed for trash view
   // ============================================
-
   const fetchPlans = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
+      const isTrashView = statusFilter === "trash";
 
       const [plansResponse, statsResponse] = await Promise.all([
         getPlans({
@@ -131,6 +136,7 @@ export default function SubscriptionPage() {
           sort_by: "created_at",
           sort_order: "desc",
           type: planTypeFilter,
+          include_deleted: isTrashView,
         }),
         getPlanStats(),
       ]);
@@ -143,12 +149,15 @@ export default function SubscriptionPage() {
 
         setPlans(normalizedPlans);
 
-        const reviewCount = countPlansNeedingReview(normalizedPlans);
-        if (reviewCount > 0) {
-          toast.warning(
-            "Expired Promos Detected",
-            `${reviewCount} plan(s) have expired promos that need attention.`,
-          );
+        // Don't show expired promo warnings when viewing trash
+        if (!isTrashView) {
+          const reviewCount = countPlansNeedingReview(normalizedPlans);
+          if (reviewCount > 0) {
+            toast.warning(
+              "Expired Promos Detected",
+              `${reviewCount} plan(s) have expired promos that need attention.`,
+            );
+          }
         }
       }
 
@@ -163,7 +172,7 @@ export default function SubscriptionPage() {
     } finally {
       setLoading(false);
     }
-  }, [planTypeFilter, toast]);
+  }, [planTypeFilter, statusFilter, toast]); // ← statusFilter added
 
   useEffect(() => {
     fetchPlans();
@@ -187,16 +196,25 @@ export default function SubscriptionPage() {
   // ============================================
   // DERIVED DATA
   // ============================================
-
   const plansNeedingReview = useMemo(() => {
     return countPlansNeedingReview(plans);
   }, [plans]);
 
+  // ── REPLACED filteredPlans — handles trash view and hides deleted from others
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
       const matchesSearch =
         p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
       if (!matchesSearch) return false;
+
+      // Trash view: show only soft-deleted plans
+      if (statusFilter === "trash") {
+        return p.deleted_at !== null && p.deleted_at !== undefined;
+      }
+
+      // All other views: never show deleted plans
+      if (p.deleted_at !== null && p.deleted_at !== undefined) return false;
+
       if (statusFilter === "all") return true;
       return p.status === statusFilter;
     });
@@ -209,19 +227,37 @@ export default function SubscriptionPage() {
 
   const planCounts = useMemo(
     () => ({
-      all: plans.length,
+      all: plans.filter(
+        (p) => p.deleted_at === null || p.deleted_at === undefined,
+      ).length,
       [PLAN_STATUS.ACTIVE]:
         stats.active ||
-        plans.filter((p) => p.status === PLAN_STATUS.ACTIVE).length,
+        plans.filter(
+          (p) =>
+            p.status === PLAN_STATUS.ACTIVE &&
+            (p.deleted_at === null || p.deleted_at === undefined),
+        ).length,
       [PLAN_STATUS.DRAFT]:
         stats.draft ||
-        plans.filter((p) => p.status === PLAN_STATUS.DRAFT).length,
+        plans.filter(
+          (p) =>
+            p.status === PLAN_STATUS.DRAFT &&
+            (p.deleted_at === null || p.deleted_at === undefined),
+        ).length,
       [PLAN_STATUS.DEPRECATED]:
         stats.deprecated ||
-        plans.filter((p) => p.status === PLAN_STATUS.DEPRECATED).length,
+        plans.filter(
+          (p) =>
+            p.status === PLAN_STATUS.DEPRECATED &&
+            (p.deleted_at === null || p.deleted_at === undefined),
+        ).length,
       [PLAN_STATUS.SUSPENDED]:
         stats.suspended ||
-        plans.filter((p) => p.status === PLAN_STATUS.SUSPENDED).length,
+        plans.filter(
+          (p) =>
+            p.status === PLAN_STATUS.SUSPENDED &&
+            (p.deleted_at === null || p.deleted_at === undefined),
+        ).length,
     }),
     [plans, stats],
   );
@@ -232,9 +268,7 @@ export default function SubscriptionPage() {
   // ============================================
   // PLAN ACTIONS
   // ============================================
-
   const handlePlanAction = (actionType, plan) => {
-    // Check permissions for edit/delete actions
     if ((actionType === "edit" || actionType === "clone") && !canEdit) {
       toast.warning(
         "Permission Denied",
@@ -243,7 +277,7 @@ export default function SubscriptionPage() {
       return;
     }
 
-    if (actionType === "delete" && !canDelete) {
+    if ((actionType === "delete" || actionType === "trash") && !canDelete) {
       toast.warning(
         "Permission Denied",
         "You don't have permission to delete plans",
@@ -276,7 +310,18 @@ export default function SubscriptionPage() {
         });
         break;
 
-      case "clone":
+      // ── NEW: trash action ──────────────────────────────────────────────
+      case "trash":
+        setConfirmModal({
+          open: true,
+          action: "trash",
+          plan: plan,
+          newName: null,
+        });
+        break;
+      // ──────────────────────────────────────────────────────────────────
+
+      case "clone": {
         const cloneName = generateCloneName(plan.name, plans);
         setConfirmModal({
           open: true,
@@ -285,6 +330,7 @@ export default function SubscriptionPage() {
           newName: cloneName,
         });
         break;
+      }
 
       default:
         break;
@@ -314,6 +360,11 @@ export default function SubscriptionPage() {
         case "delete":
           response = await deletePlan(plan.plan_id);
           break;
+        // ── NEW: trash reuses deletePlan API call ────────────────────────
+        case "trash":
+          response = await deletePlan(plan.plan_id);
+          break;
+        // ────────────────────────────────────────────────────────────────
         default:
           break;
       }
@@ -321,12 +372,14 @@ export default function SubscriptionPage() {
       if (response?.success) {
         await fetchPlans();
 
+        // ── UPDATED: includes trash message ───────────────────────────────
         const actionMessages = {
-          activate: `Plan "${plan.name}" activated successfully.`,
-          suspend: `Plan "${plan.name}" suspended successfully.`,
+          activate:   `Plan "${plan.name}" activated successfully.`,
+          suspend:    `Plan "${plan.name}" suspended successfully.`,
           reactivate: `Plan "${plan.name}" reactivated successfully.`,
-          clone: `Plan "${newName}" created successfully.`,
-          delete: `Plan "${plan.name}" deleted successfully.`,
+          clone:      `Plan "${newName}" created successfully.`,
+          delete:     `Plan "${plan.name}" deleted successfully.`,
+          trash:      `Plan "${plan.name}" moved to trash.`,
         };
 
         toast.success(
@@ -357,14 +410,14 @@ export default function SubscriptionPage() {
     console.log("🚀 API Payload:", JSON.stringify(formData, null, 2));
     try {
       const apiData = {
-        name: formData.name,
-        description: formData.description,
-        price: Number(formData.price),
-        max_users: formData.max_users,
-        max_branches: formData.max_branches,
+        name:                 formData.name,
+        description:          formData.description,
+        price:                Number(formData.price),
+        max_users:            formData.max_users,
+        max_branches:         formData.max_branches,
         billing_cycle_months: formData.billing_cycle_months || 12,
-        is_featured: formData.is_featured,
-        type: "PRE_MADE",
+        is_featured:          formData.is_featured,
+        type:                 "PRE_MADE",
       };
 
       if (formData.compare_at_price) {
@@ -377,14 +430,13 @@ export default function SubscriptionPage() {
         apiData.promo_free_until = formData.promo_free_until;
       }
 
-      // ── Intro pricing fields ──────────────────────────────────────────
       if (
         formData.intro_price !== undefined &&
         formData.intro_price !== null &&
         formData.intro_price !== "" &&
         formData.intro_trigger_type
       ) {
-        apiData.intro_price = Number(formData.intro_price);
+        apiData.intro_price        = Number(formData.intro_price);
         apiData.intro_trigger_type = formData.intro_trigger_type;
 
         if (
@@ -393,11 +445,13 @@ export default function SubscriptionPage() {
         ) {
           apiData.intro_duration_years = Number(formData.intro_duration_years);
         }
-        if (formData.intro_trigger_type === "date" && formData.intro_end_date) {
+        if (
+          formData.intro_trigger_type === "date" &&
+          formData.intro_end_date
+        ) {
           apiData.intro_end_date = formData.intro_end_date;
         }
       }
-      // ─────────────────────────────────────────────────────────────────
 
       const response = await createPlan(apiData);
 
@@ -427,34 +481,31 @@ export default function SubscriptionPage() {
 
     try {
       const updateData = {
-        name: updatedPlan.name,
-        description: updatedPlan.description,
-        price: Number(updatedPlan.price),
-        max_users: updatedPlan.max_users,
-        max_branches: updatedPlan.max_branches,
+        name:                 updatedPlan.name,
+        description:          updatedPlan.description,
+        price:                Number(updatedPlan.price),
+        max_users:            updatedPlan.max_users,
+        max_branches:         updatedPlan.max_branches,
         billing_cycle_months: updatedPlan.billing_cycle_months || 12,
-        is_featured: updatedPlan.is_featured,
-        compare_at_price: updatedPlan.compare_at_price
+        is_featured:          updatedPlan.is_featured,
+        compare_at_price:     updatedPlan.compare_at_price
           ? Number(updatedPlan.compare_at_price)
           : null,
-        bonus_months: updatedPlan.bonus_months
+        bonus_months:         updatedPlan.bonus_months
           ? Number(updatedPlan.bonus_months)
           : 0,
-        promo_free_until: updatedPlan.promo_free_until || null,
-
-        // ── Intro pricing fields ────────────────────────────────────────
+        promo_free_until:     updatedPlan.promo_free_until || null,
         intro_price:
           updatedPlan.intro_price !== null &&
           updatedPlan.intro_price !== undefined &&
           updatedPlan.intro_price !== ""
             ? Number(updatedPlan.intro_price)
             : null,
-        intro_trigger_type: updatedPlan.intro_trigger_type || null,
+        intro_trigger_type:   updatedPlan.intro_trigger_type   || null,
         intro_duration_years: updatedPlan.intro_duration_years
           ? Number(updatedPlan.intro_duration_years)
           : null,
-        intro_end_date: updatedPlan.intro_end_date || null,
-        // ─────────────────────────────────────────────────────────────────
+        intro_end_date:       updatedPlan.intro_end_date || null,
       };
 
       const response = await updatePlan(updatedPlan.plan_id, updateData);
@@ -544,7 +595,7 @@ export default function SubscriptionPage() {
       )}
 
       {/* Expired Promo Warning Banner */}
-      {plansNeedingReview > 0 && (
+      {plansNeedingReview > 0 && statusFilter !== "trash" && (
         <div className="flex-shrink-0 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-amber-600" />
@@ -573,7 +624,7 @@ export default function SubscriptionPage() {
               <p className="text-sm text-gray-500">
                 {stats.total} total plan{stats.total !== 1 ? "s" : ""} •{" "}
                 {stats.active} active
-                {plansNeedingReview > 0 && (
+                {plansNeedingReview > 0 && statusFilter !== "trash" && (
                   <span className="text-amber-600 ml-2">
                     • {plansNeedingReview} need review
                   </span>
@@ -584,7 +635,7 @@ export default function SubscriptionPage() {
 
           {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {canCreate && planTypeFilter === "PRE_MADE" && (
+            {canCreate && planTypeFilter === "PRE_MADE" && statusFilter !== "trash" && (
               <button
                 onClick={() => setCreateModalOpen(true)}
                 disabled={actionLoading}
@@ -649,14 +700,14 @@ export default function SubscriptionPage() {
                 placeholder="Search plans..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm 
-                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20 
+                className="w-full h-10 sm:h-11 pl-10 pr-10 border border-gray-300 rounded-lg text-sm
+                           bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#000060]/20
                            focus:border-[#000060] transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded
                              text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
                 >
                   <X size={16} />
@@ -669,16 +720,23 @@ export default function SubscriptionPage() {
           {planTypeFilter === "PRE_MADE" && (
             <div className="pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 flex-wrap">
+                {/* ── REPLACED STATUS_FILTERS render loop ─────────────────── */}
                 {STATUS_FILTERS.map((filterOption) => {
-                  const Icon = filterOption.icon;
-                  const count = planCounts[filterOption.key] || 0;
+                  const Icon    = filterOption.icon;
+                  const count   = planCounts[filterOption.key] || 0;
                   const isActive = statusFilter === filterOption.key;
 
+                  // Hide Deprecated and Suspended if empty (existing behaviour)
                   if (
                     (filterOption.key === PLAN_STATUS.DEPRECATED ||
                       filterOption.key === PLAN_STATUS.SUSPENDED) &&
                     count === 0
                   ) {
+                    return null;
+                  }
+
+                  // Hide Trash tab when there are no trashed plans
+                  if (filterOption.key === "trash" && !stats.trashed) {
                     return null;
                   }
 
@@ -689,29 +747,46 @@ export default function SubscriptionPage() {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                         ${
                           isActive
-                            ? "bg-[#000060] text-white shadow-sm"
+                            ? filterOption.key === "trash"
+                              ? "bg-red-600 text-white shadow-sm"
+                              : "bg-[#000060] text-white shadow-sm"
+                            : filterOption.key === "trash"
+                            ? "bg-red-50 text-red-600 hover:bg-red-100"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                     >
                       <Icon size={14} />
                       {filterOption.label}
-                      <span
-                        className={`px-1.5 py-0.5 rounded-full text-xs ${
-                          isActive
-                            ? "bg-white/20 text-white"
-                            : "bg-gray-200 text-gray-600"
-                        }`}
-                      >
-                        {count}
-                      </span>
+                      {filterOption.key === "trash" ? (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-xs ${
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-red-100 text-red-600"
+                          }`}
+                        >
+                          {stats.trashed || 0}
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-xs ${
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-gray-200 text-gray-600"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
+                {/* ──────────────────────────────────────────────────────── */}
 
                 {stats.with_active_promo > 0 && (
                   <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
-                               bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700 
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+                               bg-gradient-to-r from-amber-50 to-orange-50 text-amber-700
                                border border-amber-200 hover:border-amber-300 transition-all"
                   >
                     <Sparkles size={14} />
@@ -722,9 +797,9 @@ export default function SubscriptionPage() {
                   </button>
                 )}
 
-                {plansNeedingReview > 0 && (
+                {plansNeedingReview > 0 && statusFilter !== "trash" && (
                   <button
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium 
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
                                bg-red-50 text-red-700 border border-red-200 hover:border-red-300 transition-all"
                   >
                     <AlertTriangle size={14} />
@@ -738,7 +813,7 @@ export default function SubscriptionPage() {
                 {hasActiveFilters && (
                   <button
                     onClick={handleClearFilters}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 hover:text-red-700 
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm text-red-600 hover:text-red-700
                                hover:bg-red-50 rounded-lg transition-all ml-auto"
                   >
                     <X size={16} />
@@ -776,21 +851,36 @@ export default function SubscriptionPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
             <div className="p-5 bg-gray-100 rounded-full mb-4">
-              <BadgeIndianRupee size={40} className="text-gray-400" />
+              {statusFilter === "trash" ? (
+                <Trash2 size={40} className="text-gray-400" />
+              ) : (
+                <BadgeIndianRupee size={40} className="text-gray-400" />
+              )}
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">
-              {planTypeFilter === "CUSTOM"
+              {statusFilter === "trash"
+                ? "Trash is Empty"
+                : planTypeFilter === "CUSTOM"
                 ? "No Custom Plans"
                 : "No Plans Found"}
             </h3>
             <p className="text-gray-500 mb-5 text-center max-w-md text-sm">
-              {planTypeFilter === "CUSTOM"
+              {statusFilter === "trash"
+                ? "No deleted plans found."
+                : planTypeFilter === "CUSTOM"
                 ? "Custom plans are created when assigning subscriptions to individual shops."
                 : hasActiveFilters
-                  ? "No plans match your current filters. Try adjusting your search or filter criteria."
-                  : "Get started by creating your first subscription plan."}
+                ? "No plans match your current filters. Try adjusting your search or filter criteria."
+                : "Get started by creating your first subscription plan."}
             </p>
-            {planTypeFilter === "PRE_MADE" && hasActiveFilters ? (
+            {statusFilter === "trash" ? (
+              <button
+                onClick={() => setStatusFilter("all")}
+                className="px-5 py-2.5 bg-[#000060] text-white rounded-xl text-sm font-semibold hover:bg-[#000080] transition-all"
+              >
+                Back to All Plans
+              </button>
+            ) : planTypeFilter === "PRE_MADE" && hasActiveFilters ? (
               <button
                 onClick={handleClearFilters}
                 className="px-5 py-2.5 bg-[#000060] text-white rounded-xl text-sm font-semibold hover:bg-[#000080] transition-all"

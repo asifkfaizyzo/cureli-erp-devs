@@ -136,7 +136,7 @@ const UserTable = ({
       setShowSuspendConfirm(false);
       setUserToSuspend(null);
     } catch (err) {
-      console.error("Suspend/Activate failed:", err);
+      
       alert(err.response?.data?.message || "Failed to update user status");
     } finally {
       setSuspendLoading(false);
@@ -299,15 +299,26 @@ const UserTable = ({
                       {startIndex + index + 1}
                     </td>
 
-                    {/* Full Name */}
-                    <td className={`${styles.cell.base} ${styles.cell.primary}`}>
-                      <div className="flex items-center gap-2">
-                        {user.name}
-                        {!user.is_active && (
-                          <Ban size={14} className="text-red-400 flex-shrink-0" />
-                        )}
-                      </div>
-                    </td>
+                    {/* Full Name + Shop Name */}
+<td className={`${styles.cell.base} ${styles.cell.primary}`}>
+  <div className="flex items-center gap-2">
+    <div className="flex flex-col min-w-0">
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium text-gray-900 truncate">
+          {user.name}
+        </span>
+        {!user.is_active && (
+          <Ban size={12} className="text-red-400 flex-shrink-0" />
+        )}
+      </div>
+      {user.shop_name && (
+        <span className="text-xs text-gray-400 truncate">
+          Shop Name :{user.shop_name}
+        </span>
+      )}
+    </div>
+  </div>
+</td>
 
                     {/* Username */}
                     <td className={`${styles.cell.base} ${styles.cell.secondary}`}>

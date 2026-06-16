@@ -182,12 +182,18 @@ export function AddressPickerSheet({
 
   // ── Open / close ──────────────────────────────────────────
   useEffect(() => {
-    if (visible) {
+  if (visible) {
+    // Use a small delay so the sheet mounts before we try to open it.
+    // Without this, snapToIndex can run before the native view is ready
+    // on first mount, especially on Android 15.
+    const t = setTimeout(() => {
       sheetRef.current?.snapToIndex(1);
-    } else {
-      sheetRef.current?.close();
-    }
-  }, [visible]);
+    }, 50);
+    return () => clearTimeout(t);
+  } else {
+    sheetRef.current?.close();
+  }
+}, [visible]);
 
   const handleSheetChange = useCallback(
     (index: number) => {

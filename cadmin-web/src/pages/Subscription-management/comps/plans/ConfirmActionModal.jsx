@@ -1,5 +1,16 @@
-// ConfirmActionModal.jsx - Simplified version using ConfirmDialog pattern
-import { AlertTriangle, CheckCircle, Users, Copy, Trash2, PlayCircle, PauseCircle, Power } from "lucide-react";
+// cadmin-web/src/pages/Subscription-management/comps/plans/ConfirmActionModal.jsx
+
+import {
+  AlertTriangle,
+  CheckCircle,
+  Users,
+  Copy,
+  Trash2,
+  PlayCircle,
+  PauseCircle,
+  Power,
+  Archive,
+} from "lucide-react";
 
 const ACTION_CONFIG = {
   activate: {
@@ -32,16 +43,24 @@ const ACTION_CONFIG = {
     icon: Trash2,
     confirmText: "Delete Draft",
   },
+  // ── NEW ────────────────────────────────────────────────────────────────────
+  trash: {
+    title: "Move to Trash",
+    type: "danger",
+    icon: Archive,
+    confirmText: "Move to Trash",
+  },
+  // ──────────────────────────────────────────────────────────────────────────
 };
 
-export default function ConfirmActionModal({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  action, 
+export default function ConfirmActionModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  action,
   plan,
   newName = null,
-  loading = false
+  loading = false,
 }) {
   if (!isOpen || !action || !plan) return null;
 
@@ -85,9 +104,14 @@ export default function ConfirmActionModal({
             </p>
             <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
               <div className="flex items-start gap-2">
-                <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                <AlertTriangle
+                  size={16}
+                  className="text-amber-600 mt-0.5 flex-shrink-0"
+                />
                 <div className="text-xs text-amber-800">
-                  <p className="font-semibold mb-1">This action is irreversible:</p>
+                  <p className="font-semibold mb-1">
+                    This action is irreversible:
+                  </p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Plan will become live and billable</li>
                     <li>Plan details can no longer be modified</li>
@@ -99,7 +123,7 @@ export default function ConfirmActionModal({
           </div>
         );
 
-      case "suspend":
+      case "suspend": {
         const subscriberCount = plan.subscriber_count || 0;
         const hasSubscribers = subscriberCount > 0;
         return (
@@ -110,15 +134,23 @@ export default function ConfirmActionModal({
             {hasSubscribers ? (
               <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
                 <div className="flex items-start gap-2">
-                  <Users size={16} className="text-orange-600 mt-0.5 flex-shrink-0" />
+                  <Users
+                    size={16}
+                    className="text-orange-600 mt-0.5 flex-shrink-0"
+                  />
                   <div className="text-xs text-orange-800">
                     <p className="font-semibold mb-1">
-                      This plan has {subscriberCount} active subscriber{subscriberCount !== 1 ? 's' : ''}
+                      This plan has {subscriberCount} active subscriber
+                      {subscriberCount !== 1 ? "s" : ""}
                     </p>
                     <ul className="list-disc list-inside space-y-0.5">
                       <li>New signups will be blocked immediately</li>
-                      <li>Existing subscriptions will continue until expiry</li>
-                      <li>Plan will become <strong>DEPRECATED</strong></li>
+                      <li>
+                        Existing subscriptions will continue until expiry
+                      </li>
+                      <li>
+                        Plan will become <strong>DEPRECATED</strong>
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -126,7 +158,10 @@ export default function ConfirmActionModal({
             ) : (
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-start gap-2">
-                  <CheckCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                  <CheckCircle
+                    size={16}
+                    className="text-blue-600 mt-0.5 flex-shrink-0"
+                  />
                   <div className="text-xs text-blue-800">
                     <p className="font-semibold mb-1">No active subscribers</p>
                     <ul className="list-disc list-inside space-y-0.5">
@@ -139,6 +174,7 @@ export default function ConfirmActionModal({
             )}
           </div>
         );
+      }
 
       case "reactivate":
         return (
@@ -148,7 +184,10 @@ export default function ConfirmActionModal({
             </p>
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
               <div className="flex items-start gap-2">
-                <CheckCircle size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+                <CheckCircle
+                  size={16}
+                  className="text-emerald-600 mt-0.5 flex-shrink-0"
+                />
                 <div className="text-xs text-emerald-800">
                   <p className="font-semibold mb-1">Plan will become active:</p>
                   <ul className="list-disc list-inside space-y-0.5">
@@ -190,9 +229,14 @@ export default function ConfirmActionModal({
             </p>
             <div className="p-3 bg-red-50 rounded-lg border border-red-200">
               <div className="flex items-start gap-2">
-                <AlertTriangle size={16} className="text-red-600 mt-0.5 flex-shrink-0" />
+                <AlertTriangle
+                  size={16}
+                  className="text-red-600 mt-0.5 flex-shrink-0"
+                />
                 <div className="text-xs text-red-800">
-                  <p className="font-semibold mb-1">This action cannot be undone:</p>
+                  <p className="font-semibold mb-1">
+                    This action cannot be undone:
+                  </p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>Draft plan will be permanently deleted</li>
                     <li>All plan details will be lost</li>
@@ -203,6 +247,37 @@ export default function ConfirmActionModal({
           </div>
         );
 
+      // ── NEW ──────────────────────────────────────────────────────────────
+      case "trash":
+        return (
+          <div className="space-y-3 text-left">
+            <p className="text-gray-600 text-sm">
+              You are about to move <strong>"{plan.name}"</strong> to trash.
+            </p>
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-start gap-2">
+                <Archive
+                  size={16}
+                  className="text-red-600 mt-0.5 flex-shrink-0"
+                />
+                <div className="text-xs text-red-800">
+                  <p className="font-semibold mb-1">What happens:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Plan will be hidden from all plan views</li>
+                    <li>No new subscriptions can be created for it</li>
+                    <li>Existing billing records are preserved</li>
+                    <li>
+                      Accessible only via the{" "}
+                      <strong>Trash</strong> filter
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      // ─────────────────────────────────────────────────────────────────────
+
       default:
         return null;
     }
@@ -210,14 +285,16 @@ export default function ConfirmActionModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleClose}
       />
-      
+
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
         {/* Icon */}
-        <div className={`w-12 h-12 rounded-full ${styles.icon} flex items-center justify-center mx-auto mb-4`}>
+        <div
+          className={`w-12 h-12 rounded-full ${styles.icon} flex items-center justify-center mx-auto mb-4`}
+        >
           <Icon size={24} />
         </div>
 
@@ -227,16 +304,14 @@ export default function ConfirmActionModal({
         </h3>
 
         {/* Message */}
-        <div className="mb-6">
-          {renderMessage()}
-        </div>
+        <div className="mb-6">{renderMessage()}</div>
 
         {/* Buttons */}
         <div className="flex gap-3">
           <button
             onClick={handleClose}
             disabled={loading}
-            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 
+            className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700
                        font-medium hover:bg-gray-50 transition-all disabled:opacity-50"
           >
             Cancel
@@ -244,7 +319,7 @@ export default function ConfirmActionModal({
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all 
+            className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all
                        disabled:opacity-50 flex items-center justify-center gap-2 ${styles.button}`}
           >
             {loading && (

@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Loader2,
   RefreshCw,
+  Smartphone, // ✅ ADD THIS
 } from "lucide-react";
 import { getEnquiryStats } from "../../api/cadminEnquiries";
 import { getAllTickets } from "../../api/cadminTickets";
@@ -38,10 +39,15 @@ const BROADCAST_ANY_PERMISSIONS = [
   CADMIN_PERMISSIONS.BROADCAST_INAPP_UPLOAD,
   CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_SEGMENTS,
   CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_TEMPLATES,
+  // ✅ ADD THESE
+  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+  CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
+  CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
+  CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
 ];
 
 // ============================================
-// STAT ITEM COMPONENT
+// STAT ITEM COMPONENT (unchanged)
 // ============================================
 const StatItem = ({ icon: Icon, label, value, color }) => (
   <div className="flex items-center gap-2">
@@ -60,7 +66,7 @@ const StatItem = ({ icon: Icon, label, value, color }) => (
 );
 
 // ============================================
-// COMMUNICATION CARD COMPONENT
+// COMMUNICATION CARD COMPONENT (unchanged)
 // ============================================
 const CommunicationCard = ({
   title,
@@ -284,10 +290,27 @@ const CommunicationsPage = () => {
         iconColor: "text-violet-600",
         isLoading: false,
         isComingSoon: false,
-        //  THE FIX: spread the array — hook uses rest params (...perms)
-        // Without the spread, the array is passed as a single argument
-        // and perms.some() checks if permissions.includes([...array]) → always false
         visible: hasAnyPermission(...BROADCAST_ANY_PERMISSIONS),
+        stats: null,
+      },
+      // ✅ ADD THIS ENTRY
+      {
+        id: "broadcast-mobile",
+        title: "Mobile Push",
+        description: "Send push notifications directly to app users' devices",
+        icon: Smartphone,
+        path: "/communications/broadcast/mobile",
+        breadcrumbs: ["Communications", "Broadcast", "Mobile Push"],
+        iconBg: "bg-sky-100",
+        iconColor: "text-sky-600",
+        isLoading: false,
+        isComingSoon: false,
+        visible: hasAnyPermission(
+          CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+          CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
+          CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
+          CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
+        ),
         stats: null,
       },
     ];

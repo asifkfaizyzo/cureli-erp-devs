@@ -1,21 +1,15 @@
 // backend/src/modules/marketplace-orders/marketplace.orders.events.js
+// Full replacement — adds MobilePush calls alongside existing SSE calls
 
 import prisma from '../../config/prisma.js';
 import { sseService } from '../../services/sse.service.js';
 import { notifyAsync, NOTIFICATION_EVENTS } from '../notifications/notification.service.js';
+import { MobilePush } from '../mobile/push/mobile.push.service.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Fetch all active ERP user IDs for a shop.
- * Extracted to avoid duplication between fireOrderPlacedEvents
- * and fireOrderStatusChangedEvents.
- *
- * @param {string} shop_id
- * @returns {Promise<string[]>} Array of user_id strings
- */
 async function getActiveShopUserIds(shop_id) {
   const users = await prisma.user.findMany({
     where: { shop_id, is_active: true },
@@ -28,12 +22,6 @@ async function getActiveShopUserIds(shop_id) {
 // ORDER PLACED
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Fire all events after a new order is placed.
- * Called AFTER the database transaction commits.
- *
- * @param {Object} order - The created MarketplaceOrder record (with items)
- */
 export async function fireOrderPlacedEvents(order) {
   const {
     order_id,
@@ -50,7 +38,7 @@ export async function fireOrderPlacedEvents(order) {
 
   const item_count = items?.length ?? 0;
 
-  // ── 1. In-app notification via existing pipeline ──────────────────────────
+  // ── 1. In-app notification to ERP (existing) ──────────────────────────────
   notifyAsync({
     type: NOTIFICATION_EVENTS.MARKETPLACE_ORDER_PLACED,
     context: {
@@ -64,7 +52,7 @@ export async function fireOrderPlacedEvents(order) {
     },
   });
 
-  // ── 2. Direct SSE to all active ERP users of the shop ────────────────────
+  // ── 2. SSE to ERP users (existing) ───────────────────────────────────────
   try {
     const userIds = await getActiveShopUserIds(shop_id);
 
@@ -72,7 +60,7 @@ export async function fireOrderPlacedEvents(order) {
       order_id,
       order_number,
       customer_name: customer_name_snapshot,
-      total_amount: Number(total_amount).toFixed(2),
+      total_amount:  Number(total_amount).toFixed(2),
       item_count,
       requires_prescription,
       placed_at,
@@ -86,30 +74,20 @@ export async function fireOrderPlacedEvents(order) {
       `[OrderEvents] Fired marketplace_new_order SSE to ${userIds.length} users for shop ${shop_id}`,
     );
   } catch (err) {
-    // SSE failure must never crash the order flow
     console.error('[OrderEvents] SSE dispatch failed (new order):', err.message);
   }
+
+  // ── 3. Push notification to mobile customer (NEW) ─────────────────────────
+  // Fire-and-forget — push failure must never affect the order flow
+  MobilePush.orderPlacedConfirmation(customer_id, order_id, order_number).catch(
+    (err) => console.error('[OrderEvents] Push (order placed) failed:', err.message),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORDER STATUS CHANGED
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Fire events after an order status changes.
- * Called AFTER the database transaction commits.
- * Fires to:
- *   - All active ERP users of the shop (via SSE)
- *   - The mobile customer (via SSE)
- *
- * @param {Object} options
- * @param {string} options.order_id
- * @param {string} options.order_number
- * @param {string} options.shop_id
- * @param {string} options.customer_id
- * @param {string} options.new_status
- * @param {string} options.customer_name
- */
 export async function fireOrderStatusChangedEvents({
   order_id,
   order_number,
@@ -125,7 +103,7 @@ export async function fireOrderStatusChangedEvents({
     customer_name,
   };
 
-  // ── 1. Notify all active ERP users of the shop ────────────────────────────
+  // ── 1. SSE to ERP users (existing) ───────────────────────────────────────
   try {
     const userIds = await getActiveShopUserIds(shop_id);
 
@@ -134,14 +112,13 @@ export async function fireOrderStatusChangedEvents({
     }
 
     console.log(
-      `[OrderEvents] Fired marketplace_order_status_changed (${new_status}) SSE to ${userIds.length} ERP users for shop ${shop_id}`,
+      `[OrderEvents] Fired marketplace_order_status_changed (${new_status}) SSE to ${userIds.length} ERP users`,
     );
   } catch (err) {
     console.error('[OrderEvents] ERP SSE dispatch failed (status change):', err.message);
   }
 
-  // ── 2. Notify the mobile customer ─────────────────────────────────────────
-  // Fire independently so ERP failure doesn't block mobile notification
+  // ── 2. SSE to mobile customer (existing) ─────────────────────────────────
   try {
     if (customer_id) {
       sseService.notifyMobile(customer_id, 'order_status_changed', {
@@ -156,5 +133,16 @@ export async function fireOrderStatusChangedEvents({
     }
   } catch (err) {
     console.error('[OrderEvents] Mobile SSE dispatch failed (status change):', err.message);
+  }
+
+  // ── 3. Push notification to mobile customer (NEW) ─────────────────────────
+  // Only send push for statuses the customer cares about.
+  // PLACED is handled by fireOrderPlacedEvents above.
+  const pushStatuses = ['ACCEPTED', 'REJECTED', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'];
+
+  if (customer_id && pushStatuses.includes(new_status)) {
+    MobilePush.orderStatusChanged(customer_id, order_id, order_number, new_status).catch(
+      (err) => console.error(`[OrderEvents] Push (${new_status}) failed:`, err.message),
+    );
   }
 }

@@ -9,7 +9,39 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 import { loginUser } from "../../../api/auth";
 import LoginOtpVerification from "./LoginOtpVerification";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore } from "../../../store/useAuthStore";
+import { useSetupStore } from "../../../store/useSetupStore";
+import { determineAuthDestination } from "../../../utils/authRouting";
+
 const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mirrors clearAllStaleData from LoginOtpVerification — must be called in
+// the same order: resetSetup → clearStale → setAuth
+// Defined here so the trusted-IP direct-login path also clears stale data.
+// ─────────────────────────────────────────────────────────────────────────────
+const clearAllStaleData = () => {
+  const keysToRemove = [
+    "cureli-auth-storage",
+    "cureli-setup-storage",
+    "menu-storage",
+    "access_token",
+    "user_id",
+    "shop_id",
+    "user_name",
+    "branch_name",
+    "shop_name",
+  ];
+  keysToRemove.forEach((key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.warn(`Failed to remove ${key}:`, e);
+    }
+  });
+  sessionStorage.clear();
+};
+
 const LoginForm = ({ onRegisterClick }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -17,7 +49,7 @@ const LoginForm = ({ onRegisterClick }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // OTP Step
+  // OTP step
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [tempToken, setTempToken] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
@@ -29,6 +61,9 @@ const LoginForm = ({ onRegisterClick }) => {
   const navigate = useNavigate();
   const toast = useToast();
 
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const resetSetup = useSetupStore((state) => state.resetSetup);
+
   const validateForm = () => {
     const newErrors = {};
     if (!username.trim()) newErrors.username = "Username is required";
@@ -37,18 +72,11 @@ const LoginForm = ({ onRegisterClick }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  /**
-   * Get user-friendly error message from API response
-   * Always show generic message for security (don't reveal if user exists)
-   */
   const getLoginErrorMessage = (err) => {
     const status = err?.response?.status;
     const responseMessage = err?.response?.data?.message;
 
-    // For security: Always show generic message for auth failures
-    // Don't reveal if username exists or if password format is wrong
     if (status === 400 || status === 401) {
-      // These are auth-related errors - show generic message
       if (
         responseMessage?.toLowerCase().includes("validation") ||
         responseMessage?.toLowerCase().includes("invalid") ||
@@ -58,31 +86,67 @@ const LoginForm = ({ onRegisterClick }) => {
       }
     }
 
-    // For 403, check if suspended
-    if (status === 403) {
-      return null; // Handle separately as suspended
-    }
+    if (status === 403) return null;
 
-    // For specific known messages, return them
-    if (responseMessage?.includes("signup was not completed")) {
-      return responseMessage;
-    }
+    if (responseMessage?.includes("signup was not completed")) return responseMessage;
+    if (responseMessage?.includes("Google login")) return responseMessage;
+    if (responseMessage?.includes("phone number")) return responseMessage;
 
-    if (responseMessage?.includes("Google login")) {
-      return responseMessage;
-    }
-
-    if (responseMessage?.includes("phone number")) {
-      return responseMessage;
-    }
-
-    // Rate limiting
     if (status === 429) {
       return responseMessage || "Too many attempts. Please try again later.";
     }
 
-    // Default fallback
     return "Invalid username or password";
+  };
+
+  // ── Direct login (trusted IP path) ──────────────────────────────────────
+  // Called when the backend returns otp_required: false.
+  // Follows the exact same state mutation order as LoginOtpVerification:
+  //   1. resetSetup()
+  //   2. clearAllStaleData()
+  //   3. setAuth()
+  //   4. navigate to destination
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleDirectLogin = async (data) => {
+    resetSetup();
+    clearAllStaleData();
+    setAuth({
+      access_token: data.access_token,
+      user_id: data.user_id,
+      shop_id: data.shop_id,
+      branch_id: data.branch_id,
+      branch_name: data.branch_name,
+      shop_name: data.shop_name,
+      role: data.role,
+      user_name: data.user_name,
+      username: data.username,
+    });
+
+    toast.success("Welcome back!", "Logged in successfully.");
+
+    // Small delay so Zustand state settles before navigation
+    setTimeout(async () => {
+      const { next_step } = data;
+
+      if (next_step === -1) {
+        const destination = await determineAuthDestination(data.role);
+        navigate(destination, { replace: true });
+        return;
+      }
+
+      if ([12, 14, 15].includes(next_step)) {
+        navigate("/verification", {
+          state: { resume_step: next_step },
+          replace: true,
+        });
+        return;
+      }
+
+      navigate("/onboarding", {
+        state: { resume_step: next_step },
+        replace: true,
+      });
+    }, 300);
   };
 
   const handleLogin = async () => {
@@ -94,13 +158,19 @@ const LoginForm = ({ onRegisterClick }) => {
 
     try {
       const res = await loginUser({ username, password });
-      const { temp_token, phone_hint } = res.data.data;
+      const responseData = res.data.data;
 
-      // Show OTP screen
+      // ── Trusted IP: skip OTP entirely ──────────────────────────────────
+      if (responseData.otp_required === false) {
+        await handleDirectLogin(responseData);
+        return;
+      }
+
+      // ── Standard path: show OTP screen ────────────────────────────────
+      const { temp_token, phone_hint } = responseData;
       setTempToken(temp_token);
       setPhoneHint(phone_hint);
       setShowOtpScreen(true);
-
       toast.success("OTP Sent", `Verification code sent to ${phone_hint}`);
     } catch (err) {
       console.error("Login error:", err);
@@ -109,14 +179,12 @@ const LoginForm = ({ onRegisterClick }) => {
       const response = err?.response?.data;
       const errorCode = response?.data?.code;
 
-      // Handle suspended account
       if (errorCode === "ACCOUNT_SUSPENDED" || status === 403) {
         setIsSuspended(true);
         toast.error("Account Suspended", "Your account has been suspended");
         return;
       }
 
-      // Get appropriate error message
       const message = getLoginErrorMessage(err);
       setErrors({ general: message });
       toast.error("Login Failed", message);
@@ -133,11 +201,8 @@ const LoginForm = ({ onRegisterClick }) => {
   };
 
   const handleTokenUpdate = (newToken, newPhoneHint) => {
-  
     setTempToken(newToken);
-    if (newPhoneHint) {
-      setPhoneHint(newPhoneHint);
-    }
+    if (newPhoneHint) setPhoneHint(newPhoneHint);
   };
 
   const handleBackFromSuspended = () => {
@@ -147,7 +212,7 @@ const LoginForm = ({ onRegisterClick }) => {
     setErrors({});
   };
 
-  // Show OTP screen if needed
+  // ── OTP screen ────────────────────────────────────────────────────────────
   if (showOtpScreen) {
     return (
       <AnimatePresence mode="wait">
@@ -161,7 +226,7 @@ const LoginForm = ({ onRegisterClick }) => {
     );
   }
 
-  // Suspended Account View
+  // ── Suspended view ────────────────────────────────────────────────────────
   if (isSuspended) {
     return (
       <motion.div
@@ -187,7 +252,9 @@ const LoginForm = ({ onRegisterClick }) => {
           </p>
 
           <button
-            onClick={() => { window.location.href = `${LANDING_PAGE_URL}/contact`; }}
+            onClick={() => {
+              window.location.href = `${LANDING_PAGE_URL}/contact`;
+            }}
             className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-[#000060] text-white rounded-xl font-semibold hover:bg-[#000080] transition-colors"
           >
             Contact Support
@@ -223,7 +290,7 @@ const LoginForm = ({ onRegisterClick }) => {
     );
   }
 
-  // Normal Login Form
+  // ── Normal login form ─────────────────────────────────────────────────────
   return (
     <form
       onSubmit={(e) => {
@@ -250,17 +317,11 @@ const LoginForm = ({ onRegisterClick }) => {
         {/* USERNAME */}
         <div className="mb-6">
           <label className="text-sm font-medium text-[#000060]">Username</label>
-
           <div
             className={`flex items-center gap-4 mt-2 px-4 py-4 rounded-2xl shadow-md 
-                        ${
-                          errors.username
-                            ? "bg-red-100 border-red-500 border"
-                            : "bg-[#F7F7FF]"
-                        }`}
+              ${errors.username ? "bg-red-100 border-red-500 border" : "bg-[#F7F7FF]"}`}
           >
             <FaUser className="text-gray-500 text-lg" />
-
             <input
               type="text"
               placeholder="Enter your username"
@@ -275,7 +336,6 @@ const LoginForm = ({ onRegisterClick }) => {
               className="w-full bg-transparent outline-none text-gray-700"
             />
           </div>
-
           {errors.username && (
             <p className="text-red-600 text-sm mt-1">{errors.username}</p>
           )}
@@ -284,17 +344,11 @@ const LoginForm = ({ onRegisterClick }) => {
         {/* PASSWORD */}
         <div className="mb-4">
           <label className="text-sm font-medium text-[#000060]">Password</label>
-
           <div
             className={`flex items-center gap-4 mt-2 px-4 py-4 rounded-2xl shadow-md 
-                        ${
-                          errors.password
-                            ? "bg-red-100 border-red-500 border"
-                            : "bg-[#F7F7FF]"
-                        }`}
+              ${errors.password ? "bg-red-100 border-red-500 border" : "bg-[#F7F7FF]"}`}
           >
             <FaLock className="text-gray-500 text-lg" />
-
             <input
               type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
@@ -309,7 +363,6 @@ const LoginForm = ({ onRegisterClick }) => {
               }}
               className="w-full bg-transparent outline-none text-gray-700"
             />
-
             {showPassword ? (
               <IoEyeOutline
                 className="text-gray-600 cursor-pointer text-xl"
@@ -322,16 +375,14 @@ const LoginForm = ({ onRegisterClick }) => {
               />
             )}
           </div>
-
           {errors.password && (
             <p className="text-red-600 text-sm mt-1">{errors.password}</p>
           )}
         </div>
 
-        {/* STAY LOGGED IN + FORGOT */}
+        {/* FORGOT */}
         <div className="flex items-center justify-between text-sm my-4">
           <label className="flex items-center gap-2 text-gray-600"></label>
-
           <span
             onClick={() => navigate("/forgot-password")}
             className="text-[#000060] font-medium hover:underline cursor-pointer"
@@ -345,12 +396,12 @@ const LoginForm = ({ onRegisterClick }) => {
           type="submit"
           disabled={loading}
           className="w-full bg-[#000060] text-white py-3 rounded-xl font-semibold mt-4 
-                    hover:bg-[#000060d1] transition disabled:bg-gray-400"
+            hover:bg-[#000060d1] transition disabled:bg-gray-400"
         >
           {loading ? "Logging in..." : "Log in"}
         </button>
 
-        {/* SIGN UP LINK */}
+        {/* SIGN UP */}
         <p className="text-center mt-5 text-sm text-gray-600">
           Don't have an account?
           <span

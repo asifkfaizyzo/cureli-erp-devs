@@ -134,4 +134,25 @@ export const StorageService = {
   clearCart(userId: string): void {
     storage.remove(`cart.${userId}`);
   },
+
+  getPushToken(): string | null {
+  return storage.getString('push_token') ?? null;
+},
+
+setPushToken(token: string): void {
+  storage.set('push_token', token);
+},
+
+removePushToken(): void {
+  storage.remove('push_token');
+},
+
+getString(key: string): string | null {
+  return storage.getString(key) ?? null;
+},
+
+setString(key: string, value: string): void {
+  storage.set(key, value);
+},
+
 };

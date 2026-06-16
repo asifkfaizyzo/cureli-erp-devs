@@ -106,6 +106,8 @@ const UserPage = () => {
       const root = resp.data;
       const payload = root?.data || {};
 
+     
+
       setUsers(payload.data || []);
       setTotalItems(payload.meta?.total || 0);
     } catch (err) {
@@ -352,6 +354,7 @@ const UserPage = () => {
 
       {/* Table Container */}
       <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+        
         <UserTable
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}

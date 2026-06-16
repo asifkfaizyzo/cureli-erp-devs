@@ -91,12 +91,15 @@ export function ShopsBottomSheet({
 
   // Open/close the sheet based on visible prop
   React.useEffect(() => {
-    if (visible) {
+  if (visible) {
+    const t = setTimeout(() => {
       sheetRef.current?.snapToIndex(0);
-    } else {
-      sheetRef.current?.close();
-    }
-  }, [visible]);
+    }, 50);
+    return () => clearTimeout(t);
+  } else {
+    sheetRef.current?.close();
+  }
+}, [visible]);
 
   // ── Backdrop ──────────────────────────────────────────────
   const renderBackdrop = useCallback(
