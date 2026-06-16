@@ -60,7 +60,7 @@ export function parseUserAgent(userAgent) {
 /**
  * Get client IP address from request
  */
-function getClientIp(req) {
+export function getClientIp(req) {
   return (
     req.ip ||
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||

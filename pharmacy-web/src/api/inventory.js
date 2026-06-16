@@ -55,6 +55,15 @@ const inventoryAPI = {
     return response.data;
   },
 
+  // ── NEW ──────────────────────────────────────────────────────────────────
+  createWithMedicine: async (data) => {
+    const response = await api.post("/inventory/create-with-medicine", data, {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+
   update: async (inventoryId, data) => {
     const response = await api.put(`/inventory/${inventoryId}`, data, {
       headers: getBranchHeaders(),

@@ -208,6 +208,7 @@ model User {
   sessions                       UserSession[]
   branch                         Branch?                     @relation(fields: [branch_id], references: [branch_id])
   shop                           Shop?                       @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  trustedIps   UserTrustedIp[]
 
   @@map("users")
 }
@@ -233,6 +234,20 @@ model UserSession {
   @@map("user_sessions")
 }
 
+
+model UserTrustedIp {
+  id                   String   @id @default(uuid()) @db.Uuid
+  user_id              String   @db.Uuid
+  ip_address           String
+  last_otp_verified_at DateTime @default(now()) @db.Timestamptz(6)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([user_id, ip_address])
+  @@index([user_id])
+  @@map("user_trusted_ips")
+}
 
 
 

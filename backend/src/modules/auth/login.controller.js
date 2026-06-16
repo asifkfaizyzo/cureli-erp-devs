@@ -1,3 +1,5 @@
+// backend/src/modules/auth/login.controller.js
+
 import prisma from "../../config/prisma.js";
 import { comparePassword } from "../../utils/hash.js";
 import jwt from "jsonwebtoken";
@@ -14,7 +16,119 @@ import {
   createUserSession,
   invalidateUserSession,
   validateUserSession,
+  getClientIp,                    // ← now exported from session.js
 } from "../../utils/session.js";
+import { isIpTrusted, markIpAsTrusted } from "../../utils/trustedIp.js";  // ← new
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared helper — builds the full auth response payload.
+//
+// Used by BOTH the OTP-skip path (loginController) and the OTP-verify path
+// (verifyLoginOtpController) so the two responses are always identical.
+//
+// @param {Object} user     — full Prisma user record with shop + branch included
+// @param {Object} req      — Express request (needed for session creation)
+// @param {Object} res      — Express response (needed for cookie)
+// @returns {Object}        — the data payload to pass to success()
+// ─────────────────────────────────────────────────────────────────────────────
+async function buildAuthResponse(user, req, res) {
+  const sessionToken = await createUserSession(user.user_id, req);
+
+  const jwtPayload = {
+    user_id: user.user_id,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id || null,
+    role: user.role,
+    status: user.status,
+    session_id: sessionToken,
+  };
+
+  const accessToken = jwt.sign(jwtPayload, ACCESS_SECRET, {
+    expiresIn: ACCESS_EXPIRES,
+  });
+
+  const refreshToken = jwt.sign(
+    {
+      user_id: user.user_id,
+      branch_id: user.branch_id || null,
+      session_id: sessionToken,
+    },
+    REFRESH_SECRET,
+    { expiresIn: REFRESH_EXPIRES },
+  );
+
+  res.cookie("refresh_token", refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  // Determine next_step — identical logic to what was in verifyLoginOtpController
+  let nextStep = -1;
+  const shopStatus = user.shop?.verification_status;
+
+  if (user.role === "staff" || user.role === "branch_admin") {
+    nextStep = -1;
+  } else if (user.role === "super_admin") {
+    if (user.status === "pending_setup") {
+      nextStep = user.onboarding_step || 4;
+    } else if (user.status === "pending_verification") {
+      if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
+        nextStep = 14;
+      } else {
+        nextStep = 12;
+      }
+    } else if (user.status === "verified" || user.status === "active") {
+      if (!user.first_login_after_verification) {
+        nextStep = 15;
+      } else {
+        nextStep = -1;
+      }
+    }
+  }
+
+  return {
+    access_token: accessToken,
+    next_step: nextStep,
+    user_id: user.user_id,
+    shop_id: user.shop_id,
+    branch_id: user.branch_id || null,
+    branch_name: user.branch?.branch_name || null,
+    shop_name: user.shop?.business_name || null,
+    role: user.role,
+    user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
+    username: user.username || null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared user fetch — used by both loginController (OTP skip) and
+// verifyLoginOtpController. Includes the exact same relations both need.
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchFullUser(userId) {
+  return prisma.user.findUnique({
+    where: { user_id: userId },
+    include: {
+      shop: {
+        select: {
+          verification_status: true,
+          business_name: true,
+        },
+      },
+      branch: {
+        select: {
+          branch_id: true,
+          branch_name: true,
+        },
+      },
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onboarding controllers — unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function getOnboardingStatusController(req, res) {
   try {
@@ -118,6 +232,13 @@ export async function completeOnboardingController(req, res) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// loginController
+//
+// CHANGED: After password verification, check if user+IP is trusted.
+//   Trusted  → skip OTP, return tokens directly with otp_required: false
+//   Untrusted → send OTP as before, return temp_token with otp_required: true
+// ─────────────────────────────────────────────────────────────────────────────
 export async function loginController(req, res) {
   try {
     const { username, password } = req.validated;
@@ -158,6 +279,34 @@ export async function loginController(req, res) {
       return fail(res, "Invalid credentials", 401);
     }
 
+    // ── Trusted IP check ──────────────────────────────────────────────────
+    // Only runs after credentials are confirmed valid.
+    // If this user+IP combo was OTP-verified within the last 7 days,
+    // skip OTP entirely and issue tokens immediately.
+    // ─────────────────────────────────────────────────────────────────────
+    const ipAddress = getClientIp(req);
+    const trusted = await isIpTrusted(user.user_id, ipAddress);
+
+    if (trusted) {
+      const fullUser = await fetchFullUser(user.user_id);
+
+      if (!fullUser) {
+        return fail(res, "User not found", 404);
+      }
+
+      const authData = await buildAuthResponse(fullUser, req, res);
+
+      return success(
+        res,
+        {
+          otp_required: false,
+          ...authData,
+        },
+        "Login successful",
+      );
+    }
+
+    // ── Standard OTP flow ─────────────────────────────────────────────────
     await sendLoginOtp(user.user_id);
 
     const tempToken = jwt.sign(
@@ -169,6 +318,7 @@ export async function loginController(req, res) {
     return success(
       res,
       {
+        otp_required: true,
         temp_token: tempToken,
         phone_hint: user.phone_number
           ? `***${user.phone_number.slice(-4)}`
@@ -188,8 +338,6 @@ export async function loginController(req, res) {
       );
     }
 
-    // FIX: Pass waitTime in the response data so the pharmacy-web
-    // can show the correct countdown timer instead of a generic message
     if (err.code === "OTP_COOLDOWN") {
       return fail(res, err.message, 429, { waitTime: err.waitTime });
     }
@@ -206,6 +354,9 @@ export async function loginController(req, res) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// resendLoginOtpController — unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 export async function resendLoginOtpController(req, res) {
   try {
     const { temp_token } = req.validated;
@@ -256,9 +407,6 @@ export async function resendLoginOtpController(req, res) {
       );
     }
 
-    // FIX: All OTP error codes now handled correctly.
-    // Previously OTP_DAILY_LIMIT and OTP_LOCKED fell through
-    // to the generic 500 handler giving users a confusing error.
     if (err.code === "OTP_COOLDOWN") {
       return fail(res, err.message, 429, { waitTime: err.waitTime || 30 });
     }
@@ -279,6 +427,12 @@ export async function resendLoginOtpController(req, res) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// verifyLoginOtpController
+//
+// CHANGED: After successful OTP verification, call markIpAsTrusted()
+// so future logins from this IP within 7 days skip OTP.
+// ─────────────────────────────────────────────────────────────────────────────
 export async function verifyLoginOtpController(req, res) {
   try {
     const { temp_token, otp } = req.validated;
@@ -296,96 +450,28 @@ export async function verifyLoginOtpController(req, res) {
 
     await verifyLoginOtp(decoded.user_id, otp);
 
-    const user = await prisma.user.findUnique({
-      where: { user_id: decoded.user_id },
-      include: {
-        shop: {
-          select: {
-            verification_status: true,
-            business_name: true,
-          },
-        },
-        branch: {
-          select: {
-            branch_id: true,
-            branch_name: true,
-          },
-        },
-      },
-    });
+    const user = await fetchFullUser(decoded.user_id);
 
     if (!user) {
       return fail(res, "User not found", 404);
     }
 
-    const sessionToken = await createUserSession(user.user_id, req);
-
-    const jwtPayload = {
-      user_id: user.user_id,
-      shop_id: user.shop_id,
-      branch_id: user.branch_id || null,
-      role: user.role,
-      status: user.status,
-      session_id: sessionToken,
-    };
-
-    const accessToken = jwt.sign(jwtPayload, ACCESS_SECRET, {
-      expiresIn: ACCESS_EXPIRES,
+    // ── Mark this IP as trusted after successful OTP ───────────────────
+    // Non-blocking: if this fails (e.g. DB hiccup), login still succeeds.
+    // The user will just be asked for OTP again next time, which is safe.
+    // ─────────────────────────────────────────────────────────────────────
+    const ipAddress = getClientIp(req);
+    markIpAsTrusted(user.user_id, ipAddress).catch((err) => {
+      console.error("[verifyLoginOtp] Failed to mark IP as trusted:", err);
     });
 
-    const refreshToken = jwt.sign(
-      {
-        user_id: user.user_id,
-        branch_id: user.branch_id || null,
-        session_id: sessionToken,
-      },
-      REFRESH_SECRET,
-      { expiresIn: REFRESH_EXPIRES },
-    );
-
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    let nextStep = -1;
-    const shopStatus = user.shop?.verification_status;
-
-    if (user.role === "staff" || user.role === "branch_admin") {
-      nextStep = -1;
-    } else if (user.role === "super_admin") {
-      if (user.status === "pending_setup") {
-        nextStep = user.onboarding_step || 4;
-      } else if (user.status === "pending_verification") {
-        if (shopStatus === "partially_rejected" || shopStatus === "rejected") {
-          nextStep = 14;
-        } else {
-          nextStep = 12;
-        }
-      } else if (user.status === "verified" || user.status === "active") {
-        if (!user.first_login_after_verification) {
-          nextStep = 15;
-        } else {
-          nextStep = -1;
-        }
-      }
-    }
+    const authData = await buildAuthResponse(user, req, res);
 
     return success(
       res,
       {
-        access_token: accessToken,
-        next_step: nextStep,
-        user_id: user.user_id,
-        shop_id: user.shop_id,
-        branch_id: user.branch_id || null,
-        branch_name: user.branch?.branch_name || null,
-        shop_name: user.shop?.business_name || null,
-        role: user.role,
-        user_name: `${user.first_name} ${user.last_name || ""}`.trim(),
-        username: user.username || null, // ← ADD THIS ONE LINE
+        otp_required: false, // consistent field — always false after verify
+        ...authData,
       },
       "Login successful",
     );
@@ -406,6 +492,9 @@ export async function verifyLoginOtpController(req, res) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// refreshTokenController — unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 export async function refreshTokenController(req, res) {
   try {
     const refreshToken = req.cookies.refresh_token;
@@ -506,6 +595,9 @@ export async function refreshTokenController(req, res) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// logoutController — unchanged
+// ─────────────────────────────────────────────────────────────────────────────
 export async function logoutController(req, res) {
   try {
     const { user_id, session_id } = req.user;

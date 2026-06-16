@@ -9,7 +9,7 @@ import { success, fail } from "../../utils/response.js";
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";
   const headerBranchId = req.headers["x-branch-id"] || null;
-  
+
   // For super_admin: use header branch context
   if (req.user.role === "super_admin") {
     return {
@@ -17,7 +17,7 @@ function extractBranchContext(req) {
       branchMode,
     };
   }
-  
+
   // branch_admin/staff: always use their assigned branch
   return {
     branchId: req.user.branch_id,
@@ -32,8 +32,6 @@ class InventoryController {
       const role = req.user.role;
       const { branchId, branchMode } = extractBranchContext(req);
 
-      
-
       const filters = {
         medicineId: req.query.medicineId,
         search: req.query.search,
@@ -41,19 +39,18 @@ class InventoryController {
         lowStock: req.query.lowStock === "true",
         limit: parseInt(req.query.limit) || 100,
         offset: parseInt(req.query.offset) || 0,
-        // Sorting params
         sortBy: req.query.sortBy || null,
         sortOrder: req.query.sortOrder || "asc",
       };
 
       const result = await inventoryService.getInventory(
-        shopId, 
-        branchId, 
-        role, 
-        branchMode, 
-        filters
+        shopId,
+        branchId,
+        role,
+        branchMode,
+        filters,
       );
-      
+
       return success(res, result, "Inventory retrieved successfully");
     } catch (error) {
       console.error("getInventory error:", error);
@@ -73,14 +70,14 @@ class InventoryController {
       };
 
       const inventory = await inventoryService.getInventoryByMedicine(
-        shopId, 
-        medicineId, 
+        shopId,
+        medicineId,
         branchId,
         role,
         branchMode,
-        filters
+        filters,
       );
-      
+
       return success(res, inventory, "Medicine inventory retrieved successfully");
     } catch (error) {
       console.error("getByMedicine error:", error);
@@ -95,12 +92,12 @@ class InventoryController {
       const { branchId, branchMode } = extractBranchContext(req);
 
       const items = await inventoryService.getLowStockItems(
-        shopId, 
+        shopId,
         branchId,
         role,
-        branchMode
+        branchMode,
       );
-      
+
       return success(res, items, "Low stock items retrieved successfully");
     } catch (error) {
       console.error("getLowStock error:", error);
@@ -116,13 +113,13 @@ class InventoryController {
       const daysAhead = parseInt(req.query.daysAhead) || 90;
 
       const items = await inventoryService.getExpiringSoonItems(
-        shopId, 
-        daysAhead, 
+        shopId,
+        daysAhead,
         branchId,
         role,
-        branchMode
+        branchMode,
       );
-      
+
       return success(res, items, "Expiring items retrieved successfully");
     } catch (error) {
       console.error("getExpiringSoon error:", error);
@@ -147,13 +144,13 @@ class InventoryController {
       };
 
       const result = await inventoryService.getStockLedger(
-        shopId, 
+        shopId,
         branchId,
         role,
         branchMode,
-        filters
+        filters,
       );
-      
+
       return success(res, result, "Stock ledger retrieved successfully");
     } catch (error) {
       console.error("getStockLedger error:", error);
@@ -168,14 +165,17 @@ class InventoryController {
       const { branchId } = extractBranchContext(req);
 
       if (!branchId) {
-        return fail(res, "Please select a specific branch to create adjustments", 400, {
-          code: "BRANCH_REQUIRED"
-        });
+        return fail(
+          res,
+          "Please select a specific branch to create adjustments",
+          400,
+          { code: "BRANCH_REQUIRED" },
+        );
       }
 
       const adjustment = await inventoryService.createStockAdjustment(
         { ...req.validated, shopId, branchId },
-        userId
+        userId,
       );
 
       return success(res, adjustment, "Stock adjustment created successfully", 201);
@@ -192,12 +192,12 @@ class InventoryController {
       const { branchId, branchMode } = extractBranchContext(req);
 
       const summary = await inventoryService.getStockSummary(
-        shopId, 
+        shopId,
         branchId,
         role,
-        branchMode
+        branchMode,
       );
-      
+
       return success(res, summary, "Stock summary retrieved successfully");
     } catch (error) {
       console.error("getStockSummary error:", error);
@@ -205,7 +205,6 @@ class InventoryController {
     }
   }
 
-  // Update inventory item
   async updateInventory(req, res) {
     try {
       const shopId = req.user.shop_id;
@@ -213,12 +212,13 @@ class InventoryController {
       const { inventoryId } = req.params;
       const { branchId } = extractBranchContext(req);
 
-     
-
       if (!branchId) {
-        return fail(res, "Please select a specific branch to update inventory", 400, {
-          code: "BRANCH_REQUIRED"
-        });
+        return fail(
+          res,
+          "Please select a specific branch to update inventory",
+          400,
+          { code: "BRANCH_REQUIRED" },
+        );
       }
 
       const updated = await inventoryService.updateInventory(
@@ -226,7 +226,7 @@ class InventoryController {
         shopId,
         branchId,
         req.validated,
-        userId
+        userId,
       );
 
       return success(res, updated, "Inventory updated successfully");
@@ -236,7 +236,6 @@ class InventoryController {
     }
   }
 
-  // Delete inventory item (soft delete)
   async deleteInventory(req, res) {
     try {
       const shopId = req.user.shop_id;
@@ -244,24 +243,68 @@ class InventoryController {
       const { inventoryId } = req.params;
       const { branchId } = extractBranchContext(req);
 
-      
-
       if (!branchId) {
-        return fail(res, "Please select a specific branch to delete inventory", 400, {
-          code: "BRANCH_REQUIRED"
-        });
+        return fail(
+          res,
+          "Please select a specific branch to delete inventory",
+          400,
+          { code: "BRANCH_REQUIRED" },
+        );
       }
 
       const result = await inventoryService.deleteInventory(
         inventoryId,
         shopId,
         branchId,
-        userId
+        userId,
       );
 
       return success(res, result, "Inventory item deleted successfully");
     } catch (error) {
       console.error("deleteInventory error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEW METHOD: createInventoryWithMedicine
+  // ─────────────────────────────────────────────────────────────────────────
+  async createInventoryWithMedicine(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const userId = req.user.user_id;
+      const { branchId, branchMode } = extractBranchContext(req);
+
+      if (!branchId || branchMode === "GLOBAL") {
+        return fail(
+          res,
+          "Please select a specific branch to add inventory",
+          400,
+          { code: "BRANCH_REQUIRED" },
+        );
+      }
+
+      const result = await inventoryService.createInventoryWithMedicine(
+        req.validated,
+        shopId,
+        branchId,
+        userId,
+      );
+
+      return success(res, result, "Medicine added to inventory successfully", 201);
+    } catch (error) {
+      console.error("createInventoryWithMedicine error:", error);
+
+      if (error.code === "DUPLICATE_BATCH") {
+        return fail(res, error.message, 409);
+      }
+      if (error.code === "BRANCH_REQUIRED") {
+        return fail(res, error.message, 400, { code: "BRANCH_REQUIRED" });
+      }
+      if (error.code === "INVALID_EXPIRY") {
+        return fail(res, error.message, 400);
+      }
+
       return fail(res, error.message, error.statusCode || 500);
     }
   }

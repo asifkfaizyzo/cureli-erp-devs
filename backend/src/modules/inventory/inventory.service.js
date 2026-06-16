@@ -39,21 +39,15 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 function buildSortOrder(sortBy, sortOrder) {
   const direction = sortOrder === "desc" ? "desc" : "asc";
 
-  // Map of sortable column keys to Prisma orderBy
   const sortMap = {
-    // Direct inventory fields
     batch: { batch_number: direction },
     expiry: { expiry_date: direction },
     qty: { current_stock: direction },
     mrp: { mrp: direction },
     rack: { rack_no: direction },
-
-    // Medicine relation fields
     name: { medicine: { name: direction } },
     category: { medicine: { category: direction } },
     manufacturer: { medicine: { manufacturer: direction } },
-
-    // Branch relation field
     branch: { branch: { branch_name: direction } },
   };
 
@@ -61,7 +55,6 @@ function buildSortOrder(sortBy, sortOrder) {
     return [sortMap[sortBy]];
   }
 
-  // Default sort: expiry ascending, then batch ascending
   return [{ expiry_date: "asc" }, { batch_number: "asc" }];
 }
 
@@ -116,6 +109,32 @@ class InventoryService {
     if (effectiveMinStock !== null && stock < effectiveMinStock)
       return "Low Stock";
     return "In Stock";
+  }
+
+  _parseExpiryDate(dateInput) {
+    if (!dateInput) return null;
+
+    if (dateInput instanceof Date) {
+      return isNaN(dateInput.getTime()) ? null : dateInput;
+    }
+
+    const str = String(dateInput).trim();
+
+    if (/^\d{1,2}\/\d{4}$/.test(str)) {
+      const [month, year] = str.split("/");
+      const date = new Date(parseInt(year), parseInt(month), 0);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    if (/^\d{1,2}\/\d{2}$/.test(str)) {
+      const [month, year] = str.split("/");
+      const fullYear = parseInt(year) + 2000;
+      const date = new Date(fullYear, parseInt(month), 0);
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(str);
+    return isNaN(date.getTime()) ? null : date;
   }
 
   async getOrCreateInventory(
@@ -354,7 +373,6 @@ class InventoryService {
       }),
     };
 
-    // Build sort order from query params
     const orderBy = buildSortOrder(sortBy, sortOrder);
 
     const rawInventories = await prisma.inventory.findMany({
@@ -375,7 +393,6 @@ class InventoryService {
             min_stock_level: true,
             max_stock_level: true,
             reorder_point: true,
-            // Include master medicine category for linked medicines
             master_medicine_id: true,
             link_status: true,
             masterMedicine: {
@@ -455,7 +472,6 @@ class InventoryService {
         rest.expiry_date,
       );
 
-      // Resolve category: use shop-level category, fallback to master catalog category
       const resolvedCategory =
         rest.medicine?.category ||
         rest.medicine?.masterMedicine?.primary_category ||
@@ -479,7 +495,6 @@ class InventoryService {
       };
     });
 
-    // Post-query filtering for computed fields (status-based)
     let filteredInventories = inventories;
     if (lowStock) {
       filteredInventories = inventories.filter(
@@ -487,7 +502,6 @@ class InventoryService {
       );
     }
 
-    // Status sorting — must be done post-query since status is computed
     if (sortBy === "status") {
       const statusOrder = [
         "Out of Stock",
@@ -504,7 +518,6 @@ class InventoryService {
       });
     }
 
-    // Supplier sorting — must be done post-query since supplier comes from a separate join
     if (sortBy === "supplier") {
       const dir = sortOrder === "desc" ? -1 : 1;
       filteredInventories.sort((a, b) => {
@@ -989,32 +1002,6 @@ class InventoryService {
     return { sent: expiringItems.length };
   }
 
-  _parseExpiryDate(dateInput) {
-    if (!dateInput) return null;
-
-    if (dateInput instanceof Date) {
-      return isNaN(dateInput.getTime()) ? null : dateInput;
-    }
-
-    const str = String(dateInput).trim();
-
-    if (/^\d{1,2}\/\d{4}$/.test(str)) {
-      const [month, year] = str.split("/");
-      const date = new Date(parseInt(year), parseInt(month), 0);
-      return isNaN(date.getTime()) ? null : date;
-    }
-
-    if (/^\d{1,2}\/\d{2}$/.test(str)) {
-      const [month, year] = str.split("/");
-      const fullYear = parseInt(year) + 2000;
-      const date = new Date(fullYear, parseInt(month), 0);
-      return isNaN(date.getTime()) ? null : date;
-    }
-
-    const date = new Date(str);
-    return isNaN(date.getTime()) ? null : date;
-  }
-
   async updateInventory(inventoryId, shopId, branchId, data, userId) {
     return prisma.$transaction(async (tx) => {
       const inventory = await tx.inventory.findUnique({
@@ -1047,7 +1034,6 @@ class InventoryService {
         );
       }
 
-      // UPDATE MEDICINE MASTER
       const medicineUpdateData = {};
 
       if (data.name !== undefined && data.name && data.name.trim()) {
@@ -1066,7 +1052,6 @@ class InventoryService {
       if (data.hsn_code !== undefined) {
         medicineUpdateData.hsn_code = data.hsn_code?.trim() || null;
       }
-
       if (data.min_stock_level !== undefined) {
         medicineUpdateData.min_stock_level = this._toNumber(
           data.min_stock_level,
@@ -1080,7 +1065,6 @@ class InventoryService {
       if (data.reorder_point !== undefined) {
         medicineUpdateData.reorder_point = this._toNumber(data.reorder_point);
       }
-
       if (data.rack_no !== undefined) {
         medicineUpdateData.rack_no = data.rack_no?.trim() || null;
       }
@@ -1117,7 +1101,6 @@ class InventoryService {
         });
       }
 
-      // UPDATE INVENTORY RECORD
       const inventoryUpdateData = {};
 
       if (
@@ -1168,11 +1151,9 @@ class InventoryService {
           data.last_purchase_rate,
         );
       }
-
       if (data.rack_no !== undefined) {
         inventoryUpdateData.rack_no = data.rack_no?.trim() || null;
       }
-
       if (data.minimum_stock !== undefined) {
         inventoryUpdateData.minimum_stock = this._toNumber(data.minimum_stock);
       }
@@ -1184,7 +1165,6 @@ class InventoryService {
         });
       }
 
-      // FETCH COMPLETE UPDATED RECORD
       const finalInventory = await tx.inventory.findUnique({
         where: { inventory_id: inventoryId },
         include: {
@@ -1305,6 +1285,225 @@ class InventoryService {
         inventory_id: inventoryId,
         medicine_name: inventory.medicine?.name,
         deleted_at: new Date(),
+      };
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // NEW METHOD: createInventoryWithMedicine
+  // ─────────────────────────────────────────────────────────────────────────
+  async createInventoryWithMedicine(data, shopId, branchId, userId) {
+    if (!branchId) {
+      throw new ApiError(
+        "Branch selection is required to add inventory",
+        400,
+        "BRANCH_REQUIRED",
+      );
+    }
+
+    const {
+      // Medicine fields
+      name,
+      manufacturer,
+      generic_name,
+      category,
+      sub_category,
+      schedule,
+      hsn_code,
+      pack_size,
+      unit_of_measure = "UNIT",
+      gst_percentage = 12,
+      cgst_percentage = 6,
+      sgst_percentage = 6,
+      rack_no,
+      min_stock_level,
+      max_stock_level,
+      reorder_point,
+
+      // Inventory / batch fields
+      batch_number,
+      expiry_date,
+      quantity,
+      mrp,
+      selling_rate,
+      purchase_rate,
+      minimum_stock,
+    } = data;
+
+    return prisma.$transaction(async (tx) => {
+      // ── 1. Duplicate medicine check ──────────────────────────────────────
+      const existingMedicine = await tx.medicine.findFirst({
+        where: {
+          shop_id: shopId,
+          branch_id: branchId,
+          name: { equals: name.trim(), mode: "insensitive" },
+          manufacturer: { equals: manufacturer.trim(), mode: "insensitive" },
+        },
+      });
+
+      let medicine;
+
+      if (existingMedicine) {
+        medicine = existingMedicine;
+      } else {
+        // ── 2. Create medicine master record ─────────────────────────────
+        medicine = await tx.medicine.create({
+          data: {
+            // ── Required relations — must use connect ──────────────────────────
+            shop: {
+              connect: { shop_id: shopId },
+            },
+            creator: {
+              connect: { user_id: userId },
+            },
+
+            // ── Optional relation — branch_id is nullable so connect only if present
+            ...(branchId && {
+              branch: {
+                connect: { branch_id: branchId },
+              },
+            }),
+
+            // ── Plain scalar fields — no relation defined for these ────────────
+            name: name.trim(),
+            manufacturer: manufacturer.trim(),
+            generic_name: generic_name?.trim() || null,
+            category: category?.trim() || null,
+            sub_category: sub_category?.trim() || null,
+            schedule: schedule || null,
+            hsn_code: hsn_code?.trim() || null,
+            pack_size: pack_size?.trim() || null,
+            unit_of_measure: unit_of_measure,
+            gst_percentage: gst_percentage,
+            cgst_percentage: cgst_percentage,
+            sgst_percentage: sgst_percentage,
+            rack_no: rack_no?.trim() || null,
+            min_stock_level: min_stock_level ?? null,
+            max_stock_level: max_stock_level ?? null,
+            reorder_point: reorder_point ?? null,
+            // link_status omitted — uses @default(PENDING)
+            // master_medicine_id omitted — nullable, defaults to null
+          },
+        });
+      }
+
+      // ── 3. Duplicate batch check ─────────────────────────────────────────
+      const existingBatch = await tx.inventory.findFirst({
+        where: {
+          shop_id: shopId,
+          branch_id: branchId,
+          medicine_id: medicine.medicine_id,
+          batch_number: batch_number.trim(),
+          is_active: true,
+        },
+      });
+
+      if (existingBatch) {
+        throw new ApiError(
+          `Batch "${batch_number}" already exists for ${name}. Use stock adjustment to update quantity.`,
+          409,
+          "DUPLICATE_BATCH",
+        );
+      }
+
+      // ── 4. Parse and validate expiry date ────────────────────────────────
+      const parsedExpiry = this._parseExpiryDate(expiry_date);
+      if (!parsedExpiry) {
+        throw new ApiError("Invalid expiry date format", 400, "INVALID_EXPIRY");
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isExpired = parsedExpiry < today;
+
+      // ── 5. Create inventory record ───────────────────────────────────────
+      const inventory = await tx.inventory.create({
+        data: {
+          shop_id: shopId,
+          branch_id: branchId,
+          medicine_id: medicine.medicine_id,
+          batch_number: batch_number.trim(),
+          expiry_date: parsedExpiry,
+          current_stock: quantity,
+          available_stock: quantity,
+          reserved_stock: 0,
+          mrp: mrp,
+          selling_rate: selling_rate ?? null,
+          last_purchase_rate: purchase_rate ?? null,
+          minimum_stock: minimum_stock ?? null,
+          rack_no: rack_no?.trim() || null,
+          is_expired: isExpired,
+          is_active: true,
+        },
+      });
+
+      // ── 6. Stock ledger entry ────────────────────────────────────────────
+      if (quantity > 0) {
+        await tx.stockLedger.create({
+          data: {
+            shop_id: shopId,
+            branch_id: branchId,
+            medicine_id: medicine.medicine_id,
+            inventory_id: inventory.inventory_id,
+            movement_type: "OPENING_STOCK",
+            reference_type: "MANUAL_ENTRY",
+            reference_id: null,
+            reference_number: `OPEN-${inventory.inventory_id.slice(-8).toUpperCase()}`,
+            batch_number: batch_number.trim(),
+            expiry_date: parsedExpiry,
+            quantity_in: quantity,
+            quantity_out: 0,
+            quantity_net: quantity,
+            balance_after: quantity,
+            rate: purchase_rate ?? null,
+            amount: purchase_rate ? quantity * purchase_rate : null,
+            transaction_date: new Date(),
+            created_by: userId,
+            remarks: "Opening stock — added manually from inventory page",
+          },
+        });
+      }
+
+      // ── 7. Compute status for response ───────────────────────────────────
+      const status = this._calculateStockStatus(
+        quantity,
+        minimum_stock,
+        {
+          min_stock_level: medicine.min_stock_level,
+          max_stock_level: medicine.max_stock_level,
+          reorder_point: medicine.reorder_point,
+        },
+        isExpired,
+        parsedExpiry,
+      );
+
+      return {
+        inventory_id: inventory.inventory_id,
+        medicine_id: medicine.medicine_id,
+        shop_id: shopId,
+        branch_id: branchId,
+        batch_number: inventory.batch_number,
+        expiry_date: inventory.expiry_date,
+        current_stock: quantity,
+        available_stock: quantity,
+        mrp: inventory.mrp,
+        selling_rate: inventory.selling_rate,
+        last_purchase_rate: inventory.last_purchase_rate,
+        minimum_stock: inventory.minimum_stock,
+        rack_no: inventory.rack_no,
+        is_expired: isExpired,
+        is_active: true,
+        status,
+        medicine_name: medicine.name,
+        medicine_manufacturer: medicine.manufacturer,
+        medicine_category: medicine.category,
+        medicine_hsn_code: medicine.hsn_code,
+        medicine_pack_size: medicine.pack_size,
+        medicine_rack_no: medicine.rack_no,
+        medicine_min_stock: medicine.min_stock_level,
+        medicine_max_stock: medicine.max_stock_level,
+        medicine_reorder_point: medicine.reorder_point,
+        catalog_status: "NOT_LINKED",
       };
     });
   }

@@ -19,8 +19,7 @@ import InventoryTable from "./components/InventoryTable";
 import ViewInventoryModal from "./components/ViewInventoryModal";
 import StockAdjustmentModal from "./components/StockAdjustmentModal";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
-import ProductMasterModal from "../../components/common/ProductMasterModal";
-import medicinesAPI from "../../api/medicines";
+import AddInventoryModal from "./components/AddInventoryModal";
 import inventoryAPI from "../../api/inventory";
 import {
   RefreshCw,
@@ -186,8 +185,12 @@ const InventoryPage = () => {
   const [adjustmentItem, setAdjustmentItem] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [productModalOpen, setProductModalOpen] = useState(false);
 
+  // ── NEW state ─────────────────────────────────────────────────────────────
+  const [addInventoryModalOpen, setAddInventoryModalOpen] = useState(false);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── REPLACED handleAddMedicine ────────────────────────────────────────────
   const handleAddMedicine = useCallback(() => {
     if (isGlobalMode) {
       toast.warning(
@@ -196,57 +199,35 @@ const InventoryPage = () => {
       );
       return;
     }
-    setProductModalOpen(true);
+    setAddInventoryModalOpen(true);
   }, [isGlobalMode, toast]);
+  // ─────────────────────────────────────────────────────────────────────────
 
-  const handleMedicineSave = useCallback(
-    async (medicineData) => {
+  // ── NEW handler ───────────────────────────────────────────────────────────
+  const handleAddInventorySave = useCallback(
+    async (data) => {
       try {
-        const toNumberOrNull = (val) => {
-          if (val === null || val === undefined || val === "") return null;
-          const num = Number(val);
-          return isNaN(num) ? null : num;
-        };
-
-        const payload = {
-          name: medicineData.name,
-          generic_name: medicineData.genericName || null,
-          manufacturer: medicineData.manufacturer,
-          category: medicineData.category || null,
-          sub_category: medicineData.subCategory || null,
-          schedule: medicineData.schedule || null,
-          hsn_code: medicineData.hsnCode || null,
-          pack_size: medicineData.packSize || null,
-          unit_of_measure: medicineData.unitOfMeasure || "UNIT",
-          gst_percentage: toNumberOrNull(medicineData.gst) ?? 12,
-          cgst_percentage: toNumberOrNull(medicineData.cgstPercent) ?? 6,
-          sgst_percentage: toNumberOrNull(medicineData.sgstPercent) ?? 6,
-          rack_no: medicineData.rackNo || null,
-          min_stock_level: toNumberOrNull(medicineData.min_stock_level),
-          max_stock_level: toNumberOrNull(medicineData.max_stock_level),
-          reorder_point: toNumberOrNull(medicineData.reorder_point),
-        };
-
-        await medicinesAPI.create(payload);
-
+        await inventoryAPI.createWithMedicine(data);
         toast.success(
           "Medicine Added",
-          `${medicineData.name} has been added to the master list.`,
+          `${data.name} has been added to inventory successfully.`,
         );
+        setAddInventoryModalOpen(false);
 
-        setProductModalOpen(false);
-        await fetchInventory();
+        // ── FIX: pass branch context when refreshing, same as the fetch effect ──
+        const refreshFilters = {};
+        if (!isGlobalMode && branchContext.branch_id) {
+          refreshFilters.branchId = branchContext.branch_id;
+        }
+        await fetchInventory(refreshFilters);
       } catch (error) {
-        console.error("Create medicine error:", error);
-        toast.error(
-          "Failed to add medicine",
-          error.response?.data?.message || error.message,
-        );
+        console.error("Add inventory error:", error);
         throw error;
       }
     },
-    [toast, fetchInventory],
+    [toast, fetchInventory, isGlobalMode, branchContext.branch_id], // ← add deps
   );
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -261,12 +242,11 @@ const InventoryPage = () => {
       if (prev.order === "asc") {
         return { sortBy: column, order: "desc" };
       }
-      // Was desc → clear sort
       return { sortBy: null, order: null };
     });
   }, []);
 
-  // Single consolidated fetch effect — now includes sort params
+  // Single consolidated fetch effect — includes sort params
   useEffect(() => {
     const apiFilters = {};
 
@@ -282,7 +262,6 @@ const InventoryPage = () => {
       apiFilters.branchId = filters.branchId;
     }
 
-    // Add sort params
     if (sortConfig.sortBy) {
       apiFilters.sortBy = sortConfig.sortBy;
       apiFilters.sortOrder = sortConfig.order;
@@ -649,8 +628,6 @@ const InventoryPage = () => {
 
   const handleAdjustmentSubmit = async (adjustmentData) => {
     try {
-      
-
       await inventoryAPI.createAdjustment({
         inventoryId: adjustmentItem.inventory_id,
         medicineId: adjustmentItem.medicine_id,
@@ -882,13 +859,13 @@ const InventoryPage = () => {
         type="danger"
       />
 
-      <ProductMasterModal
-        open={productModalOpen}
-        onClose={() => setProductModalOpen(false)}
-        onSave={handleMedicineSave}
-        initialData={{}}
-        mode="create"
+      {/* ── NEW: AddInventoryModal ──────────────────────────────────────── */}
+      <AddInventoryModal
+        open={addInventoryModalOpen}
+        onClose={() => setAddInventoryModalOpen(false)}
+        onSave={handleAddInventorySave}
       />
+      {/* ─────────────────────────────────────────────────────────────────── */}
     </div>
   );
 };
