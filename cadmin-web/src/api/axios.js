@@ -1,28 +1,33 @@
-//Q:\PROJECTS\YourZeroesAndOnes\cureli\curely_erp\cadmin-web\src\api\axios.js
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
+
 const CAdminAPI = axios.create({
   baseURL: `${API_URL}/cadmin`,
   withCredentials: true,
+  timeout: 15000,
 });
-// Helper to decode JWT and check expiry
+
+// ============================================
+// HELPER: Decode JWT and check expiry
+// ============================================
 function isTokenExpired(token) {
   if (!token) return true;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    const exp = payload.exp * 1000; // Convert to milliseconds
-    // Consider expired if less than 1 minute remaining
+    const exp = payload.exp * 1000;
     return Date.now() >= exp - 60000;
   } catch {
     return true;
   }
 }
-// Helper to refresh token
+
+// ============================================
+// HELPER: Refresh token
+// ============================================
 async function refreshAccessToken() {
   try {
-    
-const response = await CAdminAPI.get("/refresh");
+    const response = await CAdminAPI.get("/refresh");
     const newToken = response.data?.data?.access_token;
     if (newToken) {
       localStorage.setItem("cadmin_access_token", newToken);
@@ -30,18 +35,20 @@ const response = await CAdminAPI.get("/refresh");
     }
     throw new Error("No token in response");
   } catch (error) {
-    console.error(" Token refresh failed:", error.message);
+    console.error("Token refresh failed:", error.message);
     localStorage.removeItem("cadmin_access_token");
     throw error;
   }
 }
-// Flag to prevent multiple simultaneous refresh attempts
-let isRefreshing = false;
+
+let isRefreshing   = false;
 let refreshPromise = null;
-// Request interceptor - check token before each request
+
+// ============================================
+// REQUEST INTERCEPTOR
+// ============================================
 CAdminAPI.interceptors.request.use(
   async (config) => {
-    // Skip token check for auth endpoints
     const skipUrls = [
       "/login",
       "/verify-otp",
@@ -52,18 +59,15 @@ CAdminAPI.interceptors.request.use(
     ];
     const shouldSkip = skipUrls.some((url) => config.url?.includes(url));
 
-    if (shouldSkip) {
-      return config;
-    }
+    if (shouldSkip) return config;
 
     let token = localStorage.getItem("cadmin_access_token");
 
-    // Check if token is expired or about to expire
     if (isTokenExpired(token)) {
       if (!isRefreshing) {
-        isRefreshing = true;
+        isRefreshing   = true;
         refreshPromise = refreshAccessToken().finally(() => {
-          isRefreshing = false;
+          isRefreshing   = false;
           refreshPromise = null;
         });
       }
@@ -71,7 +75,6 @@ CAdminAPI.interceptors.request.use(
       try {
         token = await refreshPromise;
       } catch (error) {
-        // Redirect to login if refresh fails
         window.location.href = "/";
         return Promise.reject(error);
       }
@@ -85,20 +88,42 @@ CAdminAPI.interceptors.request.use(
   },
   (error) => Promise.reject(error),
 );
-// Response interceptor - handle 401 errors
+
+// ============================================
+// RESPONSE INTERCEPTOR
+// ============================================
 CAdminAPI.interceptors.response.use(
   (response) => response,
+
   async (error) => {
-    console.error("🔴 [Axios] Response error:", {
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data,
-      _retry: error.config?._retry,
-    });
+    // ── Backend offline / not running / network down / timeout ────────────
+    // Normalize the error so ALL existing catch blocks work without changes.
+    // Components doing err?.response?.data?.message will get the right text.
+    if (error.request && !error.response) {
+      const isTimeout = error.code === "ECONNABORTED";
+
+      const message = isTimeout
+        ? "Request timed out. Please try again."
+        : "Unable to reach the server. The system may be offline. Please try again later.";
+
+      error.response = {
+        status: 503,
+        data: {
+          success: false,
+          message,
+        },
+      };
+
+      error.isNetworkError = true;
+      error.isTimeout      = isTimeout;
+
+      return Promise.reject(error);
+    }
+
+    // ── Handle 401 with token refresh ─────────────────────────────────────
     const originalRequest = error.config;
 
-    // Skip for auth endpoints
-    const skipUrls = ["/login", "/verify-otp", "/refresh", "/logout"];
+    const skipUrls   = ["/login", "/verify-otp", "/refresh", "/logout"];
     const shouldSkip = skipUrls.some((url) =>
       originalRequest.url?.includes(url),
     );
@@ -115,6 +140,7 @@ CAdminAPI.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return CAdminAPI(originalRequest);
       } catch (refreshError) {
+        // If refresh itself got a network error, it already has normalized response
         localStorage.removeItem("cadmin_access_token");
         window.location.href = "/";
         return Promise.reject(refreshError);
@@ -124,4 +150,5 @@ CAdminAPI.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
 export default CAdminAPI;

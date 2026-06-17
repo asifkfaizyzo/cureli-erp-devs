@@ -1,5 +1,3 @@
-// cadmin-web/src/pages/Subscription-management/SubscriptionPage.jsx
-
 import {
   Plus,
   BadgeIndianRupee,
@@ -24,25 +22,21 @@ import Pagination from "../../components/common/Pagination";
 import { useCAdminPermission } from "../../hooks/useCAdminPermission";
 import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
 
-// Components
 import PlanCard from "./comps/plans/PlanCard";
 import PlanModal from "./comps/plans/PlanModal";
 import CreatePlanModal from "./comps/plans/CreatePlanModal";
 import ConfirmActionModal from "./comps/plans/ConfirmActionModal";
 
-// Config
 import {
   generateCloneName,
   PLAN_STATUS,
 } from "../../config/modules/subscriptionConfig";
 
-// Utils
 import {
   normalizePlans,
   countPlansNeedingReview,
 } from "../../utils/normalizePlan";
 
-// API
 import {
   getPlans,
   getPlanStats,
@@ -55,10 +49,8 @@ import {
   deletePlan,
 } from "../../api/cadminPlans";
 
-// Plans per page (2 rows × 4 columns = 8)
 const PLANS_PER_PAGE = 8;
 
-// ── REPLACED: now includes "trash" tab ────────────────────────────────────────
 const STATUS_FILTERS = [
   { key: "all",                  label: "All",        icon: Package },
   { key: PLAN_STATUS.ACTIVE,     label: "Active",     icon: CheckCircle },
@@ -73,7 +65,6 @@ export default function SubscriptionPage() {
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
   const { hasPermission } = useCAdminPermission();
 
-  // Permission checks
   const canEdit   = hasPermission(CADMIN_PERMISSIONS.PLANS_EDIT);
   const canCreate = hasPermission(CADMIN_PERMISSIONS.PLANS_CREATE);
   const canDelete = hasPermission(CADMIN_PERMISSIONS.PLANS_DELETE);
@@ -91,19 +82,15 @@ export default function SubscriptionPage() {
     with_active_promo: 0,
     trashed: 0,
   });
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Filters
   const [planTypeFilter, setPlanTypeFilter] = useState("PRE_MADE");
   const [searchQuery, setSearchQuery]       = useState("");
   const [statusFilter, setStatusFilter]     = useState("all");
+  const [currentPage, setCurrentPage]       = useState(1);
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Modal states
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [planModalOpen, setPlanModalOpen]     = useState(false);
   const [planModalMode, setPlanModalMode]     = useState("view");
@@ -120,8 +107,7 @@ export default function SubscriptionPage() {
   }, [setBreadcrumbs]);
 
   // ============================================
-  // DATA FETCHING — REPLACED
-  // statusFilter added to deps; include_deleted passed for trash view
+  // DATA FETCHING
   // ============================================
   const fetchPlans = useCallback(async () => {
     try {
@@ -149,7 +135,6 @@ export default function SubscriptionPage() {
 
         setPlans(normalizedPlans);
 
-        // Don't show expired promo warnings when viewing trash
         if (!isTrashView) {
           const reviewCount = countPlansNeedingReview(normalizedPlans);
           if (reviewCount > 0) {
@@ -172,7 +157,7 @@ export default function SubscriptionPage() {
     } finally {
       setLoading(false);
     }
-  }, [planTypeFilter, statusFilter, toast]); // ← statusFilter added
+  }, [planTypeFilter, statusFilter, toast]);
 
   useEffect(() => {
     fetchPlans();
@@ -200,19 +185,16 @@ export default function SubscriptionPage() {
     return countPlansNeedingReview(plans);
   }, [plans]);
 
-  // ── REPLACED filteredPlans — handles trash view and hides deleted from others
   const filteredPlans = useMemo(() => {
     return plans.filter((p) => {
       const matchesSearch =
         p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false;
       if (!matchesSearch) return false;
 
-      // Trash view: show only soft-deleted plans
       if (statusFilter === "trash") {
         return p.deleted_at !== null && p.deleted_at !== undefined;
       }
 
-      // All other views: never show deleted plans
       if (p.deleted_at !== null && p.deleted_at !== undefined) return false;
 
       if (statusFilter === "all") return true;
@@ -302,6 +284,7 @@ export default function SubscriptionPage() {
       case "suspend":
       case "reactivate":
       case "delete":
+      case "trash":
         setConfirmModal({
           open: true,
           action: actionType,
@@ -309,17 +292,6 @@ export default function SubscriptionPage() {
           newName: null,
         });
         break;
-
-      // ── NEW: trash action ──────────────────────────────────────────────
-      case "trash":
-        setConfirmModal({
-          open: true,
-          action: "trash",
-          plan: plan,
-          newName: null,
-        });
-        break;
-      // ──────────────────────────────────────────────────────────────────
 
       case "clone": {
         const cloneName = generateCloneName(plan.name, plans);
@@ -358,13 +330,9 @@ export default function SubscriptionPage() {
           response = await clonePlan(plan.plan_id, newName);
           break;
         case "delete":
-          response = await deletePlan(plan.plan_id);
-          break;
-        // ── NEW: trash reuses deletePlan API call ────────────────────────
         case "trash":
           response = await deletePlan(plan.plan_id);
           break;
-        // ────────────────────────────────────────────────────────────────
         default:
           break;
       }
@@ -372,7 +340,6 @@ export default function SubscriptionPage() {
       if (response?.success) {
         await fetchPlans();
 
-        // ── UPDATED: includes trash message ───────────────────────────────
         const actionMessages = {
           activate:   `Plan "${plan.name}" activated successfully.`,
           suspend:    `Plan "${plan.name}" suspended successfully.`,
@@ -407,7 +374,6 @@ export default function SubscriptionPage() {
 
   const handleCreatePlan = async (formData) => {
     setActionLoading(true);
-    console.log("🚀 API Payload:", JSON.stringify(formData, null, 2));
     try {
       const apiData = {
         name:                 formData.name,
@@ -420,12 +386,14 @@ export default function SubscriptionPage() {
         type:                 "PRE_MADE",
       };
 
-      if (formData.compare_at_price) {
+      if (formData.compare_at_price !== undefined && formData.compare_at_price !== null && formData.compare_at_price !== "") {
         apiData.compare_at_price = Number(formData.compare_at_price);
       }
-      if (formData.bonus_months) {
+
+      if (formData.bonus_months !== undefined && formData.bonus_months !== null && formData.bonus_months !== "") {
         apiData.bonus_months = Number(formData.bonus_months);
       }
+
       if (formData.promo_free_until) {
         apiData.promo_free_until = formData.promo_free_until;
       }
@@ -491,7 +459,9 @@ export default function SubscriptionPage() {
         compare_at_price:     updatedPlan.compare_at_price
           ? Number(updatedPlan.compare_at_price)
           : null,
-        bonus_months:         updatedPlan.bonus_months
+        bonus_months:         updatedPlan.bonus_months !== undefined &&
+                              updatedPlan.bonus_months !== null &&
+                              updatedPlan.bonus_months !== ""
           ? Number(updatedPlan.bonus_months)
           : 0,
         promo_free_until:     updatedPlan.promo_free_until || null,
@@ -534,7 +504,7 @@ export default function SubscriptionPage() {
   };
 
   // ============================================
-  // RENDER - LOADING STATE
+  // LOADING STATE
   // ============================================
   if (loading) {
     return (
@@ -548,7 +518,7 @@ export default function SubscriptionPage() {
   }
 
   // ============================================
-  // RENDER - ERROR STATE
+  // ERROR STATE
   // ============================================
   if (error && plans.length === 0) {
     return (
@@ -574,7 +544,7 @@ export default function SubscriptionPage() {
   }
 
   // ============================================
-  // RENDER - MAIN
+  // MAIN RENDER
   // ============================================
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
@@ -633,7 +603,6 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {canCreate && planTypeFilter === "PRE_MADE" && statusFilter !== "trash" && (
               <button
@@ -663,7 +632,6 @@ export default function SubscriptionPage() {
 
         {/* Filter Bar */}
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
-          {/* Plan Type Toggle + Search */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {/* Plan Type Toggle */}
             <div className="flex bg-gray-100 rounded-lg p-1 flex-shrink-0">
@@ -720,13 +688,11 @@ export default function SubscriptionPage() {
           {planTypeFilter === "PRE_MADE" && (
             <div className="pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 flex-wrap">
-                {/* ── REPLACED STATUS_FILTERS render loop ─────────────────── */}
                 {STATUS_FILTERS.map((filterOption) => {
-                  const Icon    = filterOption.icon;
-                  const count   = planCounts[filterOption.key] || 0;
+                  const Icon     = filterOption.icon;
+                  const count    = planCounts[filterOption.key] || 0;
                   const isActive = statusFilter === filterOption.key;
 
-                  // Hide Deprecated and Suspended if empty (existing behaviour)
                   if (
                     (filterOption.key === PLAN_STATUS.DEPRECATED ||
                       filterOption.key === PLAN_STATUS.SUSPENDED) &&
@@ -735,7 +701,6 @@ export default function SubscriptionPage() {
                     return null;
                   }
 
-                  // Hide Trash tab when there are no trashed plans
                   if (filterOption.key === "trash" && !stats.trashed) {
                     return null;
                   }
@@ -781,7 +746,6 @@ export default function SubscriptionPage() {
                     </button>
                   );
                 })}
-                {/* ──────────────────────────────────────────────────────── */}
 
                 {stats.with_active_promo > 0 && (
                   <button
@@ -924,7 +888,6 @@ export default function SubscriptionPage() {
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           onSubmit={handleCreatePlan}
-          existingNames={plans.map((p) => p.name)}
           loading={actionLoading}
         />
       )}

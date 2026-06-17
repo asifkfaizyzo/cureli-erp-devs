@@ -1,6 +1,7 @@
 import prisma from "../../../config/prisma.js";
 import { SubscriptionStatus } from "../../../config/subscription.js";
 import * as audit from "../../audit/index.js";
+import { generatePlanCode } from "../../../utils/planCode.js";
 
 // ============================================
 // CONSTANTS
@@ -85,17 +86,7 @@ async function getSubscriberCount(plan_id) {
   });
 }
 
-async function isNameAvailable(name, excludeId = null) {
-  const existing = await prisma.plan.findFirst({
-    where: {
-      name: { equals: name, mode: "insensitive" },
-      status: PLAN_STATUS.ACTIVE,
-      deleted_at: null,
-      ...(excludeId && { plan_id: { not: excludeId } }),
-    },
-  });
-  return !existing;
-}
+
 
 async function generateCloneName(originalName) {
   const baseName = originalName
@@ -163,6 +154,7 @@ function formatPlan(plan, subscriberCount = 0) {
 
   return {
     plan_id: plan.plan_id,
+    plan_code: plan.plan_code,        
     name: plan.name,
     description: plan.description,
     type: plan.type,
@@ -324,23 +316,19 @@ export async function listPlans({
 export async function getPlanStats() {
   const baseWhere = { deleted_at: null, type: PLAN_TYPE.PRE_MADE };
 
-  const [total, draft, active, deprecated, suspended, withActivePromo] =
+  const [total, draft, active, deprecated, suspended, withActivePromo, trashed] =
     await Promise.all([
       prisma.plan.count({ where: baseWhere }),
+      prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DRAFT } }),
+      prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.ACTIVE } }),
+      prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.DEPRECATED } }),
+      prisma.plan.count({ where: { ...baseWhere, status: PLAN_STATUS.SUSPENDED } }),
+      prisma.plan.count({ where: { ...baseWhere, promo_free_until: { gt: new Date() } } }),
       prisma.plan.count({
-        where: { ...baseWhere, status: PLAN_STATUS.DRAFT },
-      }),
-      prisma.plan.count({
-        where: { ...baseWhere, status: PLAN_STATUS.ACTIVE },
-      }),
-      prisma.plan.count({
-        where: { ...baseWhere, status: PLAN_STATUS.DEPRECATED },
-      }),
-      prisma.plan.count({
-        where: { ...baseWhere, status: PLAN_STATUS.SUSPENDED },
-      }),
-      prisma.plan.count({
-        where: { ...baseWhere, promo_free_until: { gt: new Date() } },
+        where: {
+          deleted_at: { not: null },
+          type: PLAN_TYPE.PRE_MADE,
+        },
       }),
     ]);
 
@@ -351,6 +339,7 @@ export async function getPlanStats() {
     deprecated,
     suspended,
     with_active_promo: withActivePromo,
+    trashed,
   };
 }
 
@@ -391,15 +380,13 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     is_featured,
     type = PLAN_TYPE.PRE_MADE,
     created_for_shop_id = null,
-    // Intro pricing
     intro_price = null,
     intro_trigger_type = null,
-    intro_duration_years = null, // renamed from intro_duration_months
+    intro_duration_years = null,
     intro_end_date = null,
   } = data;
 
-  // ── Validation ────────────────────────────────────────────────────────────
-
+  // ── Validation (unchanged) ────────────────────────────────────────────────
   if (compare_at_price !== null && compare_at_price !== undefined) {
     if (compare_at_price <= price) {
       throw createError(
@@ -418,7 +405,6 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
     }
   }
 
-  // Intro pricing defense-in-depth validation
   if (intro_price !== null && intro_price !== undefined) {
     if (!intro_trigger_type) {
       throw createError(
@@ -450,8 +436,6 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
       }
     }
     if (intro_trigger_type === INTRO_TRIGGER_TYPE.DURATION) {
-      // UPDATED: validate intro_duration_years (renamed from intro_duration_months)
-      // Rule 6 deleted: no billing_cycle_months comparison needed
       if (!intro_duration_years) {
         throw createError(
           "intro_duration_years is required when trigger type is 'duration'",
@@ -471,44 +455,40 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
   // ── Create ────────────────────────────────────────────────────────────────
 
   const result = await prisma.$transaction(async (tx) => {
+    // Generate plan_code inside transaction so sequence is consumed atomically
+    const plan_code = await generatePlanCode(tx);
+
     const plan = await tx.plan.create({
       data: {
+        plan_code, // ← NEW
         name: name.trim(),
         description: description?.trim() || null,
         type,
 
-        // Pricing
         price: BigInt(price),
         compare_at_price: compare_at_price ? BigInt(compare_at_price) : null,
 
-        // Limits
         max_users,
         max_branches,
 
-        // Billing duration
         billing_cycle_months,
         bonus_months,
 
-        // Promotional access
         promo_free_until: promo_free_until ? new Date(promo_free_until) : null,
 
-        // Intro pricing
         intro_price:
           intro_price !== null && intro_price !== undefined
             ? BigInt(intro_price)
             : null,
         intro_trigger_type: intro_trigger_type || null,
-        intro_duration_years: intro_duration_years || null, // renamed from intro_duration_months
+        intro_duration_years: intro_duration_years || null,
         intro_end_date: intro_end_date ? new Date(intro_end_date) : null,
 
-        // Flags
         is_featured: is_featured || false,
 
-        // Custom plan link
         created_for_shop_id:
           type === PLAN_TYPE.CUSTOM ? created_for_shop_id : null,
 
-        // Lifecycle
         status: PLAN_STATUS.DRAFT,
         created_by: cadmin_id,
       },
@@ -525,6 +505,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
         action: "created",
         to_status: PLAN_STATUS.DRAFT,
         meta: {
+          plan_code: plan.plan_code, // ← NEW
           name: plan.name,
           type: plan.type,
           shop_id: plan.created_for_shop_id,
@@ -547,6 +528,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
+          plan_code: plan.plan_code, // ← NEW
           name: plan.name,
           price: Number(plan.price),
           max_users: plan.max_users,
@@ -575,12 +557,7 @@ export async function createPlan(data, cadmin_id, auditContext = {}) {
 // UPDATE PLAN
 // ============================================
 
-export async function updatePlan(
-  plan_id,
-  updates,
-  cadmin_id,
-  auditContext = {},
-) {
+export async function updatePlan(plan_id, updates, cadmin_id, auditContext = {}) {
   const existingPlan = await prisma.plan.findUnique({ where: { plan_id } });
 
   if (!existingPlan) throw createError("Plan not found", "NOT_FOUND");
@@ -591,8 +568,6 @@ export async function updatePlan(
       "Only draft plans can be edited. Clone this plan to make changes.",
       "NOT_DRAFT",
     );
-
-  // ── Price validation ──────────────────────────────────────────────────────
 
   const newPrice =
     updates.price !== undefined ? updates.price : Number(existingPlan.price);
@@ -610,10 +585,7 @@ export async function updatePlan(
     );
   }
 
-  if (
-    updates.promo_free_until !== undefined &&
-    updates.promo_free_until !== null
-  ) {
+  if (updates.promo_free_until !== undefined && updates.promo_free_until !== null) {
     if (new Date(updates.promo_free_until) <= new Date()) {
       throw createError(
         "Promo free until date must be in the future",
@@ -622,10 +594,6 @@ export async function updatePlan(
     }
   }
 
-  // ── Intro pricing validation ──────────────────────────────────────────────
-
-  // Resolve the full intro state after update
-  // (merge incoming updates with existing values)
   const resolvedIntroPrice =
     updates.intro_price !== undefined
       ? updates.intro_price
@@ -638,7 +606,6 @@ export async function updatePlan(
       ? updates.intro_trigger_type
       : existingPlan.intro_trigger_type || null;
 
-  // UPDATED: renamed from resolvedIntroDuration (intro_duration_months → intro_duration_years)
   const resolvedIntroDuration =
     updates.intro_duration_years !== undefined
       ? updates.intro_duration_years
@@ -649,17 +616,11 @@ export async function updatePlan(
       ? updates.intro_end_date
       : existingPlan.intro_end_date || null;
 
-  const resolvedBillingCycle =
-    updates.billing_cycle_months !== undefined
-      ? updates.billing_cycle_months
-      : existingPlan.billing_cycle_months;
-
   const resolvedPromoFreeUntil =
     updates.promo_free_until !== undefined
       ? updates.promo_free_until
       : existingPlan.promo_free_until || null;
 
-  // Run same service-level rules as create
   if (resolvedIntroPrice !== null && resolvedIntroPrice !== undefined) {
     if (!resolvedIntroTrigger) {
       throw createError(
@@ -675,10 +636,7 @@ export async function updatePlan(
         );
       }
       if (new Date(resolvedIntroEndDate) <= new Date()) {
-        throw createError(
-          "Intro end date must be in the future",
-          "VALIDATION_ERROR",
-        );
+        throw createError("Intro end date must be in the future", "VALIDATION_ERROR");
       }
       if (
         resolvedPromoFreeUntil &&
@@ -691,8 +649,6 @@ export async function updatePlan(
       }
     }
     if (resolvedIntroTrigger === INTRO_TRIGGER_TYPE.DURATION) {
-      // UPDATED: validate intro_duration_years (renamed from intro_duration_months)
-      // Rule 6 deleted: no billing_cycle_months comparison needed
       if (!resolvedIntroDuration) {
         throw createError(
           "intro_duration_years is required when trigger type is 'duration'",
@@ -701,18 +657,15 @@ export async function updatePlan(
       }
     }
   } else {
-    // If intro_price is being cleared, force clear all intro fields
     if (
       updates.intro_price === null &&
       (resolvedIntroTrigger || resolvedIntroDuration || resolvedIntroEndDate)
     ) {
-      updates.intro_trigger_type = null;
-      updates.intro_duration_years = null; // renamed from intro_duration_months
-      updates.intro_end_date = null;
+      updates.intro_trigger_type   = null;
+      updates.intro_duration_years = null;
+      updates.intro_end_date       = null;
     }
   }
-
-  // ── Build update data ─────────────────────────────────────────────────────
 
   const changes = {};
   const allowedFields = [
@@ -726,10 +679,9 @@ export async function updatePlan(
     "bonus_months",
     "promo_free_until",
     "is_featured",
-    // Intro pricing
     "intro_price",
     "intro_trigger_type",
-    "intro_duration_years", // renamed from intro_duration_months
+    "intro_duration_years",
     "intro_end_date",
   ];
 
@@ -740,20 +692,12 @@ export async function updatePlan(
       let oldValue;
       let newValue;
 
-      if (
-        field === "price" ||
-        field === "compare_at_price" ||
-        field === "intro_price"
-      ) {
+      if (field === "price" || field === "compare_at_price" || field === "intro_price") {
         oldValue = existingPlan[field] ? Number(existingPlan[field]) : null;
         newValue = updates[field];
       } else if (field === "promo_free_until" || field === "intro_end_date") {
-        oldValue = existingPlan[field]
-          ? existingPlan[field].toISOString()
-          : null;
-        newValue = updates[field]
-          ? new Date(updates[field]).toISOString()
-          : null;
+        oldValue = existingPlan[field] ? existingPlan[field].toISOString() : null;
+        newValue = updates[field] ? new Date(updates[field]).toISOString() : null;
       } else {
         oldValue = existingPlan[field];
         newValue = updates[field];
@@ -772,8 +716,7 @@ export async function updatePlan(
         } else if (field === "promo_free_until" || field === "intro_end_date") {
           updateData[field] = newValue ? new Date(newValue) : null;
         } else if (field === "name" || field === "description") {
-          updateData[field] =
-            typeof newValue === "string" ? newValue.trim() : newValue;
+          updateData[field] = typeof newValue === "string" ? newValue.trim() : newValue;
         } else {
           updateData[field] = newValue;
         }
@@ -785,8 +728,6 @@ export async function updatePlan(
     return formatPlan(existingPlan, 0);
   }
 
-  // ── Persist ───────────────────────────────────────────────────────────────
-
   const result = await prisma.$transaction(async (tx) => {
     const updatedPlan = await tx.plan.update({
       where: { plan_id },
@@ -797,10 +738,7 @@ export async function updatePlan(
       },
     });
 
-    await logPlanActivity(
-      { plan_id, cadmin_id, action: "updated", changes },
-      tx,
-    );
+    await logPlanActivity({ plan_id, cadmin_id, action: "updated", changes }, tx);
 
     await audit.log(
       {
@@ -812,12 +750,8 @@ export async function updatePlan(
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
           changed_fields: Object.keys(changes),
-          before: Object.fromEntries(
-            Object.entries(changes).map(([k, v]) => [k, v.old]),
-          ),
-          after: Object.fromEntries(
-            Object.entries(changes).map(([k, v]) => [k, v.new]),
-          ),
+          before: Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.old])),
+          after:  Object.fromEntries(Object.entries(changes).map(([k, v]) => [k, v.new])),
         },
       },
       { tx },
@@ -842,13 +776,7 @@ export async function activatePlan(plan_id, cadmin_id, auditContext = {}) {
   if (plan.status !== PLAN_STATUS.DRAFT)
     throw createError("Only draft plans can be activated", "NOT_DRAFT");
 
-  const nameAvailable = await isNameAvailable(plan.name, plan_id);
-  if (!nameAvailable) {
-    throw createError(
-      `An active plan named "${plan.name}" already exists. Please rename before activating.`,
-      "NAME_CONFLICT",
-    );
-  }
+
 
   const result = await prisma.$transaction(async (tx) => {
     const activatedPlan = await tx.plan.update({
@@ -992,12 +920,6 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
       "HAS_SUBSCRIBERS",
     );
 
-  const nameAvailable = await isNameAvailable(plan.name, plan_id);
-  if (!nameAvailable)
-    throw createError(
-      `An active plan named "${plan.name}" already exists. Clone this plan with a different name instead.`,
-      "NAME_CONFLICT",
-    );
 
   const result = await prisma.$transaction(async (tx) => {
     const reactivatedPlan = await tx.plan.update({
@@ -1050,12 +972,7 @@ export async function reactivatePlan(plan_id, cadmin_id, auditContext = {}) {
 // CLONE PLAN
 // ============================================
 
-export async function clonePlan(
-  plan_id,
-  cadmin_id,
-  customName = null,
-  auditContext = {},
-) {
+export async function clonePlan(plan_id, cadmin_id, customName = null, auditContext = {}) {
   const originalPlan = await prisma.plan.findUnique({ where: { plan_id } });
 
   if (!originalPlan) throw createError("Plan not found", "NOT_FOUND");
@@ -1066,44 +983,39 @@ export async function clonePlan(
     customName?.trim() || (await generateCloneName(originalPlan.name));
 
   const result = await prisma.$transaction(async (tx) => {
+    // Each clone gets its own fresh plan_code
+    const plan_code = await generatePlanCode(tx);             // ← NEW
+
     const clonedPlan = await tx.plan.create({
       data: {
+        plan_code,                                             // ← NEW
         name: cloneName,
         description: originalPlan.description,
         type: PLAN_TYPE.PRE_MADE,
 
-        // Pricing
         price: originalPlan.price,
         compare_at_price: originalPlan.compare_at_price,
 
-        // Limits
         max_users: originalPlan.max_users,
         max_branches: originalPlan.max_branches,
 
-        // Billing duration
         billing_cycle_months: originalPlan.billing_cycle_months,
         bonus_months: originalPlan.bonus_months,
 
-        // Promo - reset (date-based promos don't carry over)
         promo_free_until: null,
 
-        // Intro pricing - copied, but reset expired end date
         intro_price: originalPlan.intro_price,
         intro_trigger_type: originalPlan.intro_trigger_type,
-        intro_duration_years: originalPlan.intro_duration_years, // renamed from intro_duration_months
+        intro_duration_years: originalPlan.intro_duration_years,
         intro_end_date:
           originalPlan.intro_end_date &&
           new Date(originalPlan.intro_end_date) > new Date()
             ? originalPlan.intro_end_date
             : null,
 
-        // Flags
         is_featured: false,
-
-        // Custom plan link - never copy
         created_for_shop_id: null,
 
-        // Lifecycle
         status: PLAN_STATUS.DRAFT,
         created_by: cadmin_id,
       },
@@ -1120,7 +1032,9 @@ export async function clonePlan(
         action: "cloned",
         to_status: PLAN_STATUS.DRAFT,
         meta: {
+          plan_code: clonedPlan.plan_code,                    // ← NEW
           cloned_from: originalPlan.plan_id,
+          cloned_from_code: originalPlan.plan_code,           // ← NEW
           original_name: originalPlan.name,
           copied_fields: [
             "price",
@@ -1150,7 +1064,9 @@ export async function clonePlan(
         ...auditContext,
         reason_code: audit.AuditReasonCode.ADMIN_ACTION,
         metadata: {
+          plan_code: clonedPlan.plan_code,                    // ← NEW
           source_plan_id: originalPlan.plan_id,
+          source_plan_code: originalPlan.plan_code,           // ← NEW
           source_plan_name: originalPlan.name,
           new_plan_name: clonedPlan.name,
           copied_intro_pricing: !!originalPlan.intro_price,

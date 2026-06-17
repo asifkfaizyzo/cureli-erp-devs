@@ -1,5 +1,3 @@
-// src/pages/login/comps/LoginForm.jsx
-
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaUser, FaLock } from "react-icons/fa";
@@ -15,11 +13,6 @@ import { determineAuthDestination } from "../../../utils/authRouting";
 
 const LANDING_PAGE_URL = import.meta.env.VITE_LANDING_PAGE;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mirrors clearAllStaleData from LoginOtpVerification — must be called in
-// the same order: resetSetup → clearStale → setAuth
-// Defined here so the trusted-IP direct-login path also clears stale data.
-// ─────────────────────────────────────────────────────────────────────────────
 const clearAllStaleData = () => {
   const keysToRemove = [
     "cureli-auth-storage",
@@ -49,12 +42,10 @@ const LoginForm = ({ onRegisterClick }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // OTP step
   const [showOtpScreen, setShowOtpScreen] = useState(false);
   const [tempToken, setTempToken] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
 
-  // Suspended state
   const [isSuspended, setIsSuspended] = useState(false);
 
   const passwordRef = useRef(null);
@@ -73,6 +64,15 @@ const LoginForm = ({ onRegisterClick }) => {
   };
 
   const getLoginErrorMessage = (err) => {
+    // ── Backend offline / network error — check FIRST ─────────────────────
+    // The axios interceptor sets error.response.data.message for network errors.
+    // But we must check isNetworkError before the status-based logic below,
+    // because our interceptor sets status 503 which would otherwise fall through
+    // to the generic "Invalid username or password" fallback.
+    if (err?.isNetworkError) {
+      return err.response?.data?.message || "Unable to reach the server. Please try again later.";
+    }
+
     const status = err?.response?.status;
     const responseMessage = err?.response?.data?.message;
 
@@ -99,14 +99,6 @@ const LoginForm = ({ onRegisterClick }) => {
     return "Invalid username or password";
   };
 
-  // ── Direct login (trusted IP path) ──────────────────────────────────────
-  // Called when the backend returns otp_required: false.
-  // Follows the exact same state mutation order as LoginOtpVerification:
-  //   1. resetSetup()
-  //   2. clearAllStaleData()
-  //   3. setAuth()
-  //   4. navigate to destination
-  // ─────────────────────────────────────────────────────────────────────────
   const handleDirectLogin = async (data) => {
     resetSetup();
     clearAllStaleData();
@@ -124,7 +116,6 @@ const LoginForm = ({ onRegisterClick }) => {
 
     toast.success("Welcome back!", "Logged in successfully.");
 
-    // Small delay so Zustand state settles before navigation
     setTimeout(async () => {
       const { next_step } = data;
 
@@ -160,13 +151,11 @@ const LoginForm = ({ onRegisterClick }) => {
       const res = await loginUser({ username, password });
       const responseData = res.data.data;
 
-      // ── Trusted IP: skip OTP entirely ──────────────────────────────────
       if (responseData.otp_required === false) {
         await handleDirectLogin(responseData);
         return;
       }
 
-      // ── Standard path: show OTP screen ────────────────────────────────
       const { temp_token, phone_hint } = responseData;
       setTempToken(temp_token);
       setPhoneHint(phone_hint);
@@ -179,7 +168,8 @@ const LoginForm = ({ onRegisterClick }) => {
       const response = err?.response?.data;
       const errorCode = response?.data?.code;
 
-      if (errorCode === "ACCOUNT_SUSPENDED" || status === 403) {
+      // ── Suspended check — skip for network errors ─────────────────────
+      if (!err?.isNetworkError && (errorCode === "ACCOUNT_SUSPENDED" || status === 403)) {
         setIsSuspended(true);
         toast.error("Account Suspended", "Your account has been suspended");
         return;

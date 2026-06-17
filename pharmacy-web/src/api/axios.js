@@ -1,11 +1,10 @@
-// src/api/axios.js
-
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 const API = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL}/api`,
   withCredentials: true,
+  timeout: 15000,
 });
 
 // ============================================
@@ -21,14 +20,12 @@ const clearAuthAndRedirect = (reason) => {
 // HELPER: Handle maintenance mode
 // ============================================
 const handleMaintenanceMode = (data) => {
-  // Store maintenance info in sessionStorage
   sessionStorage.setItem("maintenance_mode", "true");
   sessionStorage.setItem(
     "maintenance_message",
     data?.message || "System is under maintenance",
   );
 
-  // Redirect to maintenance page (if not already there)
   if (!window.location.pathname.includes("/maintenance")) {
     window.location.replace("/maintenance");
   }
@@ -39,27 +36,21 @@ const handleMaintenanceMode = (data) => {
 // ============================================
 API.interceptors.request.use(
   (config) => {
-    // 1. Attach access token
     const token = localStorage.getItem("access_token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 2. Attach branch context headers (NEW)
-    // This allows backend to know the operating mode without guessing
     const state = useAuthStore.getState();
     const { branchContext } = state;
 
     if (branchContext) {
-      // Always send the mode
       config.headers["x-branch-mode"] = branchContext.mode;
 
-      // Only send branch_id when in BRANCH mode
       if (branchContext.mode === "BRANCH" && branchContext.branch_id) {
         config.headers["x-branch-id"] = branchContext.branch_id;
       }
 
-      // Optional: Send branch name for logging/debugging
       if (branchContext.branch_name) {
         config.headers["x-branch-name"] = encodeURIComponent(
           branchContext.branch_name,
@@ -77,53 +68,72 @@ API.interceptors.request.use(
 // ============================================
 API.interceptors.response.use(
   (response) => {
-    // Check maintenance header even on successful responses
     if (response.headers["x-maintenance-mode"] === "true") {
       handleMaintenanceMode({ message: "System is under maintenance" });
     }
     return response;
   },
+
   async (error) => {
+    // ── Backend offline / not running / network down / timeout ────────────
+    // Normalize the error so ALL existing catch blocks work without changes.
+    // Components doing err?.response?.data?.message will get the right text.
+    if (error.request && !error.response) {
+      const isTimeout = error.code === "ECONNABORTED";
+
+      const message = isTimeout
+        ? "Request timed out. Please try again."
+        : "Unable to reach the server. The system may be offline. Please try again later.";
+
+      error.response = {
+        status: 503,
+        data: {
+          success: false,
+          message,
+        },
+      };
+
+      error.isNetworkError = true;
+      error.isTimeout      = isTimeout;
+
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
 
-    //  Handle maintenance mode (503)
+    // ── Handle maintenance mode (503) ─────────────────────────────────────
     if (error.response?.status === 503) {
       const data = error.response.data;
 
       if (data?.error === "maintenance" || data?.data?.maintenance_mode) {
         handleMaintenanceMode(data);
-        // Return a pending promise to stop further processing
         return new Promise(() => {});
       }
     }
 
-    //  Handle branch context errors (NEW)
+    // ── Handle branch context errors ──────────────────────────────────────
     if (error.response?.status === 403) {
       const errorCode = error.response.data?.code;
 
       if (errorCode === "BRANCH_REQUIRED") {
-        // Backend rejected write operation in GLOBAL mode
         console.warn(
           "🚫 Backend rejected: Write operation requires BRANCH mode",
         );
-        // The BranchRequiredGuard should have caught this, but backend is the final authority
-        // We could show a toast here if needed
       }
 
       if (errorCode === "BRANCH_MISMATCH") {
-        // Branch ID doesn't match user's allowed branches
         console.warn("🚫 Backend rejected: Branch access not allowed");
       }
     }
 
-    //  Handle session invalidation (logged in from another device)
+    // ── Handle session invalidation ───────────────────────────────────────
     if (error.response?.data?.data?.code === "SESSION_INVALIDATED") {
       console.warn("🔒 Session invalidated - logged in from another device");
       clearAuthAndRedirect("session_replaced");
       return Promise.reject(error);
     }
 
-    //  Handle token expiration - try to refresh
+    // ── Handle token expiration - try to refresh ──────────────────────────
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -146,7 +156,7 @@ API.interceptors.response.use(
       } catch (refreshError) {
         console.error("Token refresh failed:", refreshError);
 
-        // Check if refresh failed due to maintenance
+        // refreshError already has normalized response if it was a network error
         if (
           refreshError.response?.status === 503 &&
           refreshError.response?.data?.error === "maintenance"
@@ -155,7 +165,6 @@ API.interceptors.response.use(
           return new Promise(() => {});
         }
 
-        // Check if refresh failed due to session invalidation
         if (refreshError.response?.data?.data?.code === "SESSION_INVALIDATED") {
           clearAuthAndRedirect("session_replaced");
         } else {

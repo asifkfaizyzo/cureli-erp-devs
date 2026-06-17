@@ -25,7 +25,6 @@ import {
   BILLING,
   INTRO_TRIGGER_TYPE,
   INTRO_TRIGGER_CONFIG,
-  isNameAvailable,
   getIntroPriceWarning,
   getIntroPhaseDescription,
 } from "../../../../config/modules/subscriptionConfig";
@@ -329,11 +328,7 @@ export default function PlanModal({
     onClose();
   };
 
-  const hasNameConflict = !isNameAvailable(
-    formData.name,
-    allPlans,
-    formData.plan_id,
-  );
+
 
   // ── Format helpers (view mode) ────────────────────────────────────────────
 

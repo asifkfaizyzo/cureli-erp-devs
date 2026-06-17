@@ -39,7 +39,7 @@ const initialFormState = {
   isFeatured: false,
   // Intro pricing
   introPrice: "",
-  introTriggerType: "", // "" | "duration" | "date"
+  introTriggerType: "",
   introDurationYears: "",
   introEndDate: "",
 };
@@ -48,7 +48,6 @@ export default function CreatePlanModal({
   isOpen,
   onClose,
   onSubmit,
-  existingNames = [],
   loading = false,
 }) {
   const [formData, setFormData] = useState(initialFormState);
@@ -79,21 +78,17 @@ export default function CreatePlanModal({
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
 
-      // When trigger type changes, clear the
-      // field that belongs to the OTHER trigger type
       if (field === "introTriggerType") {
         if (value === INTRO_TRIGGER_TYPE.DURATION) {
           next.introEndDate = "";
         } else if (value === INTRO_TRIGGER_TYPE.DATE) {
           next.introDurationYears = "";
         } else {
-          // cleared
           next.introDurationYears = "";
           next.introEndDate = "";
         }
       }
 
-      // When introPrice is cleared, reset all intro fields
       if (field === "introPrice" && value === "") {
         next.introTriggerType = "";
         next.introDurationYears = "";
@@ -117,12 +112,6 @@ export default function CreatePlanModal({
       newErrors.name = "Plan name is required";
     } else if (formData.name.trim().length < 3) {
       newErrors.name = "Plan name must be at least 3 characters";
-    } else if (
-      existingNames.some(
-        (n) => n.toLowerCase() === formData.name.toLowerCase().trim(),
-      )
-    ) {
-      newErrors.name = "A plan with this name already exists";
     }
 
     if (!formData.description.trim()) {
@@ -196,7 +185,6 @@ export default function CreatePlanModal({
     const hasIntroTrigger =
       formData.introTriggerType !== "" && formData.introTriggerType !== null;
 
-    // Co-dependency
     if (hasIntroPrice && !hasIntroTrigger) {
       newErrors.introTriggerType = "Select when the intro period ends";
     }
@@ -219,15 +207,14 @@ export default function CreatePlanModal({
         formData.introDurationYears === "" ||
         formData.introDurationYears === null
       ) {
-        newErrors.introDurationYears = "Duration (months) is required";
+        newErrors.introDurationYears = "Duration (years) is required";
       } else {
         const dur = Number(formData.introDurationYears);
-        const cycle = Number(formData.billingCycleMonths) || 12;
         if (isNaN(dur) || dur < 1) {
-          newErrors.introDurationYears = "Duration must be at least 1 month";
-        } else if (dur > 60) {
-          newErrors.intro_duration_years =
-            "Intro duration cannot exceed 60 months (5 years)";
+          newErrors.introDurationYears = "Duration must be at least 1 year";
+        } else if (dur > 5) {
+          newErrors.introDurationYears =
+            "Intro duration cannot exceed 5 years";
         }
       }
     }
@@ -245,7 +232,6 @@ export default function CreatePlanModal({
         if (introDate <= now) {
           newErrors.introEndDate = "Intro end date must be in the future";
         }
-        // Must be after promo_free_until if both set
         if (formData.promoFreeUntil) {
           const promoDate = new Date(formData.promoFreeUntil);
           if (introDate <= promoDate) {
@@ -273,7 +259,6 @@ export default function CreatePlanModal({
       is_featured: formData.isFeatured,
     };
 
-    // Optional promo fields
     if (
       formData.compare_at_price !== "" &&
       formData.compare_at_price !== null
@@ -284,7 +269,7 @@ export default function CreatePlanModal({
     if (
       formData.bonusMonths !== "" &&
       formData.bonusMonths !== null &&
-      Number(formData.bonusMonths) > 0
+      formData.bonusMonths !== undefined
     ) {
       submitData.bonus_months = Number(formData.bonusMonths);
     }
@@ -295,7 +280,6 @@ export default function CreatePlanModal({
       submitData.promo_free_until = d.toISOString();
     }
 
-    // Optional intro pricing fields
     if (formData.introPrice !== "" && formData.introTriggerType !== "") {
       submitData.intro_price = Number(formData.introPrice);
       submitData.intro_trigger_type = formData.introTriggerType;
@@ -576,518 +560,531 @@ export default function CreatePlanModal({
           </div>
 
           {/* ── Promotional Options Accordion ────────────────────────────── */}
-          {/* ── Promotional Options Accordion ────────────────────────────── */}
-<div className="mt-6 border border-gray-200 rounded-xl overflow-hidden">
-  {/* Accordion header */}
-  <button
-    type="button"
-    onClick={() => setPromoSectionOpen((v) => !v)}
-    className={`w-full flex items-center justify-between p-4
-      transition-colors duration-200
-      ${promoSectionOpen ? "bg-amber-50" : "bg-gray-50 hover:bg-gray-100"}`}
-  >
-    <div className="flex items-center gap-3">
-      <div
-        className={`p-2 rounded-lg ${promoSectionOpen ? "bg-amber-100" : "bg-gray-200"}`}
-      >
-        <Tag
-          size={18}
-          className={
-            promoSectionOpen ? "text-amber-600" : "text-gray-500"
-          }
-        />
-      </div>
-      <div className="text-left">
-        <p
-          className={`text-sm font-semibold ${promoSectionOpen ? "text-amber-900" : "text-gray-700"}`}
-        >
-          Promotional Options
-        </p>
-        <p className="text-xs text-gray-500">
-          Configure discounts, bonus months, intro pricing, and launch
-          promotions
-        </p>
-      </div>
-      {hasPromoValues && !promoSectionOpen && (
-        <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
-          Configured
-        </span>
-      )}
-    </div>
-    <ChevronDown
-      size={20}
-      className={`text-gray-400 transition-transform duration-300
-        ${promoSectionOpen ? "rotate-180" : ""}`}
-    />
-  </button>
-
-  {/* Accordion body */}
-  {promoSectionOpen && (
-    <div className="border-t border-gray-100 overflow-y-auto max-h-[60vh]">
-      <div className="p-4 bg-white space-y-5">
-        {/* Info note */}
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-xs">
-          <Info
-            size={14}
-            className="text-amber-600 mt-0.5 flex-shrink-0"
-          />
-          <p className="text-amber-800">
-            All promotional fields are optional. They help you run
-            marketing campaigns and introductory offers.
-          </p>
-        </div>
-
-        {/* ── Section A: Discount display ──────────────────────── */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Discount Display
-          </p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Compare-at price */}
-            <div>
-              <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
-                <Percent size={14} />
-                Compare-at Price (Optional)
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
-                  {BILLING.currency}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.compare_at_price}
-                  onChange={(e) =>
-                    handleChange("compare_at_price", e.target.value)
-                  }
-                  placeholder="Original price (shown struck)"
-                  disabled={loading}
-                  className={`w-full border-2 rounded-lg p-2.5 pl-8 text-sm
-                    focus:ring-2 focus:ring-amber-500/20 outline-none
-                    transition-all duration-300
-                    disabled:bg-gray-100 disabled:cursor-not-allowed
-                    ${
-                      errors.compare_at_price
-                        ? "border-red-300 focus:border-red-500"
-                        : "border-gray-200 focus:border-amber-500 hover:border-amber-300"
-                    }`}
-                />
-              </div>
-              {errors.compare_at_price ? (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.compare_at_price}
-                </p>
-              ) : (
-                <p className="text-gray-400 text-xs mt-1">
-                  Shown as strike-through price in UI
-                </p>
-              )}
-            </div>
-
-            {/* Bonus months */}
-            <div>
-              <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
-                <Gift size={14} />
-                Bonus Months (Optional)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="12"
-                step="1"
-                value={formData.bonusMonths}
-                onChange={(e) =>
-                  handleChange("bonusMonths", e.target.value)
-                }
-                placeholder="e.g., 2 for +2 months free"
-                disabled={loading}
-                className={`w-full border-2 rounded-lg p-2.5 text-sm
-                  focus:ring-2 focus:ring-amber-500/20 outline-none
-                  transition-all duration-300
-                  disabled:bg-gray-100 disabled:cursor-not-allowed
-                  ${
-                    errors.bonusMonths
-                      ? "border-red-300 focus:border-red-500"
-                      : "border-gray-200 focus:border-amber-500 hover:border-amber-300"
-                  }`}
-              />
-              {errors.bonusMonths ? (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.bonusMonths}
-                </p>
-              ) : (
-                <p className="text-gray-400 text-xs mt-1">
-                  Extra months on top of yearly plan (max 12)
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Section B: Free promo until ───────────────────────── */}
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Launch Promotion
-          </p>
-          <div>
-            <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
-              <Calendar size={14} />
-              Free Until Date (Optional)
-            </label>
-            <div className="max-w-xs">
-              <StyledDateFilter
-                date={formData.promoFreeUntil}
-                setDate={(date) => handleChange("promoFreeUntil", date)}
-              />
-            </div>
-            {errors.promoFreeUntil ? (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.promoFreeUntil}
-              </p>
-            ) : (
-              <p className="text-gray-400 text-xs mt-1">
-                Plan will be free for all shops until this date
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-dashed border-gray-200" />
-
-        {/* ── Section C: Intro / Two-phase pricing ─────────────── */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Two-Phase Pricing
-            </p>
-            <span className="px-2 py-0.5 bg-sky-100 text-sky-700 text-[10px] font-semibold rounded-full">
-              New
-            </span>
-          </div>
-
-          <div className="p-3 bg-sky-50 rounded-lg border border-sky-100 mb-4">
-            <p className="text-xs text-sky-800">
-              <strong>How it works:</strong> Set a lower intro price for
-              the first phase, then subscribers automatically move to
-              the regular price after the intro period ends. Example:{" "}
-              <em>₹999 for first 3 months, then ₹2999/year</em>
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {/* Intro price input */}
-            <div>
-              <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
-                <TrendingDown size={14} />
-                Intro Price (Optional)
-              </label>
-              <div className="relative max-w-xs">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
-                  {BILLING.currency}
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={formData.introPrice}
-                  onChange={(e) =>
-                    handleChange("introPrice", e.target.value)
-                  }
-                  placeholder="e.g., 999"
-                  disabled={loading}
-                  className={`w-full border-2 rounded-lg p-2.5 pl-8 text-sm
-                    focus:ring-2 focus:ring-sky-500/20 outline-none
-                    transition-all duration-300
-                    disabled:bg-gray-100 disabled:cursor-not-allowed
-                    ${
-                      errors.introPrice
-                        ? "border-red-300 focus:border-red-500"
-                        : "border-gray-200 focus:border-sky-500 hover:border-sky-300"
-                    }`}
-                />
-              </div>
-              {errors.introPrice && (
-                <p className="text-red-500 text-xs mt-1">
-                  {errors.introPrice}
-                </p>
-              )}
-
-              {/* Intro price warning banner */}
-              {introPriceWarning && (
+          <div className="mt-6 border border-gray-200 rounded-xl overflow-hidden">
+            {/* Accordion header */}
+            <button
+              type="button"
+              onClick={() => setPromoSectionOpen((v) => !v)}
+              className={`w-full flex items-center justify-between p-4
+                transition-colors duration-200
+                ${promoSectionOpen ? "bg-amber-50" : "bg-gray-50 hover:bg-gray-100"}`}
+            >
+              <div className="flex items-center gap-3">
                 <div
-                  className="flex items-start gap-2 mt-2 p-2.5 bg-amber-50
-                                  border border-amber-200 rounded-lg"
+                  className={`p-2 rounded-lg ${promoSectionOpen ? "bg-amber-100" : "bg-gray-200"}`}
                 >
-                  <AlertTriangle
-                    size={14}
-                    className="text-amber-600 mt-0.5 flex-shrink-0"
-                  />
-                  <p className="text-xs text-amber-800">
-                    {introPriceWarning}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Trigger type selector */}
-            {formData.introPrice !== "" && (
-              <div>
-                <label className="text-xs font-medium text-[#05015A] mb-2 flex items-center gap-1.5">
-                  <Clock size={14} />
-                  When does the intro period end?
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {Object.values(INTRO_TRIGGER_TYPE).map((type) => {
-                    const config = INTRO_TRIGGER_CONFIG[type];
-                    const isSelected = formData.introTriggerType === type;
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() =>
-                          handleChange("introTriggerType", type)
-                        }
-                        disabled={loading}
-                        className={`p-3 rounded-xl border-2 text-left transition-all
-                          disabled:opacity-50 disabled:cursor-not-allowed
-                          ${
-                            isSelected
-                              ? "border-sky-500 bg-sky-50"
-                              : "border-gray-200 hover:border-sky-300 hover:bg-sky-50/50"
-                          }`}
-                      >
-                        <p
-                          className={`text-sm font-semibold mb-0.5
-                          ${isSelected ? "text-sky-700" : "text-gray-700"}`}
-                        >
-                          {config.label}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {config.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-                {errors.introTriggerType && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.introTriggerType}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Duration input */}
-            {formData.introTriggerType === INTRO_TRIGGER_TYPE.DURATION && (
-              <div className="pl-4 border-l-2 border-sky-200">
-                <label className="text-xs font-medium text-[#05015A] mb-1.5 block">
-                  Intro Duration (years)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  step="1"
-                  value={formData.introDurationYears}
-                  onChange={(e) =>
-                    handleChange("introDurationYears", e.target.value)
-                  }
-                  placeholder="e.g., 2"
-                  disabled={loading}
-                  className={`w-full max-w-xs border-2 rounded-lg p-2.5 text-sm
-                    focus:ring-2 focus:ring-sky-500/20 outline-none
-                    transition-all duration-300
-                    disabled:bg-gray-100 disabled:cursor-not-allowed
-                    ${
-                      errors.introDurationYears
-                        ? "border-red-300 focus:border-red-500"
-                        : "border-gray-200 focus:border-sky-500"
-                    }`}
-                />
-                <p className="text-gray-400 text-xs mt-1">
-                  Customer pays intro price for this many yearly
-                  renewals (max 5 years)
-                </p>
-                {errors.introDurationYears && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.introDurationYears}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Date input */}
-            {formData.introTriggerType === INTRO_TRIGGER_TYPE.DATE && (
-              <div className="pl-4 border-l-2 border-sky-200">
-                <label className="text-xs font-medium text-[#05015A] mb-1.5 block">
-                  {INTRO_TRIGGER_CONFIG[INTRO_TRIGGER_TYPE.DATE].inputLabel}
-                </label>
-                <div className="max-w-xs">
-                  <StyledDateFilter
-                    date={formData.introEndDate}
-                    setDate={(date) => handleChange("introEndDate", date)}
+                  <Tag
+                    size={18}
+                    className={
+                      promoSectionOpen ? "text-amber-600" : "text-gray-500"
+                    }
                   />
                 </div>
-                {formData.promoFreeUntil && (
-                  <p className="text-gray-400 text-xs mt-1">
-                    Must be after free promo date (
-                    {new Date(formData.promoFreeUntil).toLocaleDateString(
-                      "en-IN",
-                      {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      },
-                    )}
-                    )
+                <div className="text-left">
+                  <p
+                    className={`text-sm font-semibold ${promoSectionOpen ? "text-amber-900" : "text-gray-700"}`}
+                  >
+                    Promotional Options
                   </p>
-                )}
-                {errors.introEndDate && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {errors.introEndDate}
+                  <p className="text-xs text-gray-500">
+                    Configure discounts, bonus months, intro pricing, and launch
+                    promotions
                   </p>
+                </div>
+                {hasPromoValues && !promoSectionOpen && (
+                  <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded-full">
+                    Configured
+                  </span>
                 )}
               </div>
-            )}
+              <ChevronDown
+                size={20}
+                className={`text-gray-400 transition-transform duration-300
+                  ${promoSectionOpen ? "rotate-180" : ""}`}
+              />
+            </button>
 
-            {/* Live preview */}
-            {hasIntroPricing && (
-              <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
-                <p className="text-xs font-semibold text-sky-800 mb-2">
-                  Pricing Preview:
-                </p>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-5 h-5 rounded-full bg-sky-500 text-white
-                                      text-[10px] font-bold flex items-center justify-center
-                                      flex-shrink-0"
-                    >
-                      1
-                    </span>
-                    <span className="text-xs text-sky-700 font-medium">
-                      {BILLING.currency}
-                      {Number(formData.introPrice || 0).toLocaleString(
-                        "en-IN",
-                      )}
-                      {BILLING.displayText}
-                      {formData.introTriggerType ===
-                        INTRO_TRIGGER_TYPE.DURATION &&
-                        formData.introDurationYears && (
-                          <span className="text-sky-500 ml-1">
-                            for first {formData.introDurationYears} year
-                            {Number(formData.introDurationYears) !== 1
-                              ? "s"
-                              : ""}
+            {/* Accordion body */}
+            {promoSectionOpen && (
+              <div className="border-t border-gray-100 overflow-y-auto max-h-[60vh]">
+                <div className="p-4 bg-white space-y-5">
+                  {/* Info note */}
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-xs">
+                    <Info
+                      size={14}
+                      className="text-amber-600 mt-0.5 flex-shrink-0"
+                    />
+                    <p className="text-amber-800">
+                      All promotional fields are optional. They help you run
+                      marketing campaigns and introductory offers.
+                    </p>
+                  </div>
+
+                  {/* ── Section A: Discount display ──────────────────────── */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                      Discount Display
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Compare-at price */}
+                      <div>
+                        <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
+                          <Percent size={14} />
+                          Compare-at Price (Optional)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                            {BILLING.currency}
                           </span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={formData.compare_at_price}
+                            onChange={(e) =>
+                              handleChange("compare_at_price", e.target.value)
+                            }
+                            placeholder="Original price (shown struck)"
+                            disabled={loading}
+                            className={`w-full border-2 rounded-lg p-2.5 pl-8 text-sm
+                              focus:ring-2 focus:ring-amber-500/20 outline-none
+                              transition-all duration-300
+                              disabled:bg-gray-100 disabled:cursor-not-allowed
+                              ${
+                                errors.compare_at_price
+                                  ? "border-red-300 focus:border-red-500"
+                                  : "border-gray-200 focus:border-amber-500 hover:border-amber-300"
+                              }`}
+                          />
+                        </div>
+                        {errors.compare_at_price ? (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.compare_at_price}
+                          </p>
+                        ) : (
+                          <p className="text-gray-400 text-xs mt-1">
+                            Shown as strike-through price in UI
+                          </p>
                         )}
-                      {formData.introTriggerType ===
-                        INTRO_TRIGGER_TYPE.DATE &&
-                        formData.introEndDate && (
-                          <span className="text-sky-500 ml-1">
-                            until{" "}
-                            {new Date(
-                              formData.introEndDate,
-                            ).toLocaleDateString("en-IN", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
+                      </div>
+
+                      {/* Bonus months */}
+                      <div>
+                        <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
+                          <Gift size={14} />
+                          Bonus Months (Optional)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="12"
+                          step="1"
+                          value={formData.bonusMonths}
+                          onChange={(e) =>
+                            handleChange("bonusMonths", e.target.value)
+                          }
+                          placeholder="e.g., 2 for +2 months free"
+                          disabled={loading}
+                          className={`w-full border-2 rounded-lg p-2.5 text-sm
+                            focus:ring-2 focus:ring-amber-500/20 outline-none
+                            transition-all duration-300
+                            disabled:bg-gray-100 disabled:cursor-not-allowed
+                            ${
+                              errors.bonusMonths
+                                ? "border-red-300 focus:border-red-500"
+                                : "border-gray-200 focus:border-amber-500 hover:border-amber-300"
+                            }`}
+                        />
+                        {errors.bonusMonths ? (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.bonusMonths}
+                          </p>
+                        ) : (
+                          <p className="text-gray-400 text-xs mt-1">
+                            Extra months on top of yearly plan (max 12)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Section B: Free promo until ───────────────────────── */}
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                      Launch Promotion
+                    </p>
+                    <div>
+                      <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
+                        <Calendar size={14} />
+                        Free Until Date (Optional)
+                      </label>
+                      <div className="max-w-xs">
+                        <StyledDateFilter
+                          date={formData.promoFreeUntil}
+                          setDate={(date) =>
+                            handleChange("promoFreeUntil", date)
+                          }
+                        />
+                      </div>
+                      {errors.promoFreeUntil ? (
+                        <p className="text-red-500 text-xs mt-1">
+                          {errors.promoFreeUntil}
+                        </p>
+                      ) : (
+                        <p className="text-gray-400 text-xs mt-1">
+                          Plan will be free for all shops until this date
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-dashed border-gray-200" />
+
+                  {/* ── Section C: Intro / Two-phase pricing ─────────────── */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Two-Phase Pricing
+                      </p>
+                      <span className="px-2 py-0.5 bg-sky-100 text-sky-700 text-[10px] font-semibold rounded-full">
+                        New
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-sky-50 rounded-lg border border-sky-100 mb-4">
+                      <p className="text-xs text-sky-800">
+                        <strong>How it works:</strong> Set a lower intro price
+                        for the first phase, then subscribers automatically move
+                        to the regular price after the intro period ends.
+                        Example:{" "}
+                        <em>₹999 for first 2 years, then ₹2999/year</em>
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Intro price input */}
+                      <div>
+                        <label className="text-xs font-medium text-[#05015A] mb-1.5 flex items-center gap-1.5">
+                          <TrendingDown size={14} />
+                          Intro Price (Optional)
+                        </label>
+                        <div className="relative max-w-xs">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                            {BILLING.currency}
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={formData.introPrice}
+                            onChange={(e) =>
+                              handleChange("introPrice", e.target.value)
+                            }
+                            placeholder="e.g., 999"
+                            disabled={loading}
+                            className={`w-full border-2 rounded-lg p-2.5 pl-8 text-sm
+                              focus:ring-2 focus:ring-sky-500/20 outline-none
+                              transition-all duration-300
+                              disabled:bg-gray-100 disabled:cursor-not-allowed
+                              ${
+                                errors.introPrice
+                                  ? "border-red-300 focus:border-red-500"
+                                  : "border-gray-200 focus:border-sky-500 hover:border-sky-300"
+                              }`}
+                          />
+                        </div>
+                        {errors.introPrice && (
+                          <p className="text-red-500 text-xs mt-1">
+                            {errors.introPrice}
+                          </p>
+                        )}
+
+                        {introPriceWarning && (
+                          <div
+                            className="flex items-start gap-2 mt-2 p-2.5 bg-amber-50
+                                            border border-amber-200 rounded-lg"
+                          >
+                            <AlertTriangle
+                              size={14}
+                              className="text-amber-600 mt-0.5 flex-shrink-0"
+                            />
+                            <p className="text-xs text-amber-800">
+                              {introPriceWarning}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Trigger type selector */}
+                      {formData.introPrice !== "" && (
+                        <div>
+                          <label className="text-xs font-medium text-[#05015A] mb-2 flex items-center gap-1.5">
+                            <Clock size={14} />
+                            When does the intro period end?
+                          </label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {Object.values(INTRO_TRIGGER_TYPE).map((type) => {
+                              const config = INTRO_TRIGGER_CONFIG[type];
+                              const isSelected =
+                                formData.introTriggerType === type;
+                              return (
+                                <button
+                                  key={type}
+                                  type="button"
+                                  onClick={() =>
+                                    handleChange("introTriggerType", type)
+                                  }
+                                  disabled={loading}
+                                  className={`p-3 rounded-xl border-2 text-left transition-all
+                                    disabled:opacity-50 disabled:cursor-not-allowed
+                                    ${
+                                      isSelected
+                                        ? "border-sky-500 bg-sky-50"
+                                        : "border-gray-200 hover:border-sky-300 hover:bg-sky-50/50"
+                                    }`}
+                                >
+                                  <p
+                                    className={`text-sm font-semibold mb-0.5
+                                    ${isSelected ? "text-sky-700" : "text-gray-700"}`}
+                                  >
+                                    {config.label}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {config.description}
+                                  </p>
+                                </button>
+                              );
                             })}
+                          </div>
+                          {errors.introTriggerType && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.introTriggerType}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Duration input */}
+                      {formData.introTriggerType ===
+                        INTRO_TRIGGER_TYPE.DURATION && (
+                        <div className="pl-4 border-l-2 border-sky-200">
+                          <label className="text-xs font-medium text-[#05015A] mb-1.5 block">
+                            Intro Duration (years)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="5"
+                            step="1"
+                            value={formData.introDurationYears}
+                            onChange={(e) =>
+                              handleChange("introDurationYears", e.target.value)
+                            }
+                            placeholder="e.g., 2"
+                            disabled={loading}
+                            className={`w-full max-w-xs border-2 rounded-lg p-2.5 text-sm
+                              focus:ring-2 focus:ring-sky-500/20 outline-none
+                              transition-all duration-300
+                              disabled:bg-gray-100 disabled:cursor-not-allowed
+                              ${
+                                errors.introDurationYears
+                                  ? "border-red-300 focus:border-red-500"
+                                  : "border-gray-200 focus:border-sky-500"
+                              }`}
+                          />
+                          <p className="text-gray-400 text-xs mt-1">
+                            Customer pays intro price for this many yearly
+                            renewals (max 5 years)
+                          </p>
+                          {errors.introDurationYears && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.introDurationYears}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Date input */}
+                      {formData.introTriggerType ===
+                        INTRO_TRIGGER_TYPE.DATE && (
+                        <div className="pl-4 border-l-2 border-sky-200">
+                          <label className="text-xs font-medium text-[#05015A] mb-1.5 block">
+                            {
+                              INTRO_TRIGGER_CONFIG[INTRO_TRIGGER_TYPE.DATE]
+                                .inputLabel
+                            }
+                          </label>
+                          <div className="max-w-xs">
+                            <StyledDateFilter
+                              date={formData.introEndDate}
+                              setDate={(date) =>
+                                handleChange("introEndDate", date)
+                              }
+                            />
+                          </div>
+                          {formData.promoFreeUntil && (
+                            <p className="text-gray-400 text-xs mt-1">
+                              Must be after free promo date (
+                              {new Date(
+                                formData.promoFreeUntil,
+                              ).toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                              )
+                            </p>
+                          )}
+                          {errors.introEndDate && (
+                            <p className="text-red-500 text-xs mt-1">
+                              {errors.introEndDate}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Live preview */}
+                      {hasIntroPricing && (
+                        <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
+                          <p className="text-xs font-semibold text-sky-800 mb-2">
+                            Pricing Preview:
+                          </p>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-5 h-5 rounded-full bg-sky-500 text-white
+                                                text-[10px] font-bold flex items-center justify-center
+                                                flex-shrink-0"
+                              >
+                                1
+                              </span>
+                              <span className="text-xs text-sky-700 font-medium">
+                                {BILLING.currency}
+                                {Number(
+                                  formData.introPrice || 0,
+                                ).toLocaleString("en-IN")}
+                                {BILLING.displayText}
+                                {formData.introTriggerType ===
+                                  INTRO_TRIGGER_TYPE.DURATION &&
+                                  formData.introDurationYears && (
+                                    <span className="text-sky-500 ml-1">
+                                      for first {formData.introDurationYears}{" "}
+                                      year
+                                      {Number(formData.introDurationYears) !== 1
+                                        ? "s"
+                                        : ""}
+                                    </span>
+                                  )}
+                                {formData.introTriggerType ===
+                                  INTRO_TRIGGER_TYPE.DATE &&
+                                  formData.introEndDate && (
+                                    <span className="text-sky-500 ml-1">
+                                      until{" "}
+                                      {new Date(
+                                        formData.introEndDate,
+                                      ).toLocaleDateString("en-IN", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
+                                    </span>
+                                  )}
+                              </span>
+                            </div>
+                            <div className="ml-2.5 text-gray-400 text-xs">
+                              ↓ then
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-5 h-5 rounded-full bg-[#05015A] text-white
+                                                text-[10px] font-bold flex items-center justify-center
+                                                flex-shrink-0"
+                              >
+                                2
+                              </span>
+                              <span className="text-xs text-gray-700 font-medium">
+                                {formData.price !== ""
+                                  ? `${BILLING.currency}${Number(formData.price).toLocaleString("en-IN")}${BILLING.displayText}`
+                                  : "(set regular price above)"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* ── General promo preview ─────────────────────────────── */}
+                  {(formData.compare_at_price ||
+                    formData.bonusMonths ||
+                    formData.promoFreeUntil) && (
+                    <div
+                      className="p-3 bg-gradient-to-r from-amber-50 to-orange-50
+                                    rounded-lg border border-amber-200"
+                    >
+                      <p className="text-xs font-semibold text-amber-800 mb-2">
+                        Other Promo Preview:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.compare_at_price &&
+                          Number(formData.compare_at_price) >
+                            Number(formData.price || 0) && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-1
+                                             bg-white rounded-full text-xs border border-amber-200"
+                            >
+                              <span className="line-through text-gray-400">
+                                {BILLING.currency}
+                                {Number(
+                                  formData.compare_at_price,
+                                ).toLocaleString("en-IN")}
+                              </span>
+                              <span className="font-semibold text-green-600">
+                                {BILLING.currency}
+                                {Number(formData.price || 0).toLocaleString(
+                                  "en-IN",
+                                )}
+                              </span>
+                            </span>
+                          )}
+                        {formData.bonusMonths &&
+                          Number(formData.bonusMonths) > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-1
+                                             bg-emerald-100 text-emerald-700 rounded-full
+                                             text-xs font-medium"
+                            >
+                              <Gift size={12} />+{formData.bonusMonths} months
+                              free
+                            </span>
+                          )}
+                        {formData.promoFreeUntil && (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-1
+                                           bg-blue-100 text-blue-700 rounded-full
+                                           text-xs font-medium"
+                          >
+                            <Calendar size={12} />
+                            Free until{" "}
+                            {new Date(formData.promoFreeUntil).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              },
+                            )}
                           </span>
                         )}
-                    </span>
-                  </div>
-                  <div className="ml-2.5 text-gray-400 text-xs">
-                    ↓ then
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-5 h-5 rounded-full bg-[#05015A] text-white
-                                      text-[10px] font-bold flex items-center justify-center
-                                      flex-shrink-0"
-                    >
-                      2
-                    </span>
-                    <span className="text-xs text-gray-700 font-medium">
-                      {formData.price !== ""
-                        ? `${BILLING.currency}${Number(formData.price).toLocaleString("en-IN")}${BILLING.displayText}`
-                        : "(set regular price above)"}
-                    </span>
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
-        </div>
 
-        {/* ── General promo preview ─────────────────────────────── */}
-        {(formData.compare_at_price ||
-          formData.bonusMonths ||
-          formData.promoFreeUntil) && (
-          <div
-            className="p-3 bg-gradient-to-r from-amber-50 to-orange-50
-                          rounded-lg border border-amber-200"
-          >
-            <p className="text-xs font-semibold text-amber-800 mb-2">
-              Other Promo Preview:
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {formData.compare_at_price &&
-                Number(formData.compare_at_price) >
-                  Number(formData.price || 0) && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-1
-                                   bg-white rounded-full text-xs border border-amber-200"
-                  >
-                    <span className="line-through text-gray-400">
-                      {BILLING.currency}
-                      {Number(formData.compare_at_price).toLocaleString(
-                        "en-IN",
-                      )}
-                    </span>
-                    <span className="font-semibold text-green-600">
-                      {BILLING.currency}
-                      {Number(formData.price || 0).toLocaleString("en-IN")}
-                    </span>
-                  </span>
-                )}
-              {formData.bonusMonths &&
-                Number(formData.bonusMonths) > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-1
-                                   bg-emerald-100 text-emerald-700 rounded-full
-                                   text-xs font-medium"
-                  >
-                    <Gift size={12} />+{formData.bonusMonths} months free
-                  </span>
-                )}
-              {formData.promoFreeUntil && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-1
-                                 bg-blue-100 text-blue-700 rounded-full
-                                 text-xs font-medium"
-                >
-                  <Calendar size={12} />
-                  Free until{" "}
-                  {new Date(formData.promoFreeUntil).toLocaleDateString(
-                    "en-IN",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    },
-                  )}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )}
-</div>
           {/* ── Action buttons ────────────────────────────────────────────── */}
           <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-100">
             <button

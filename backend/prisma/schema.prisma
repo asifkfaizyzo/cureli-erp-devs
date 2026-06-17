@@ -1266,7 +1266,8 @@ model CureliMobileBroadcastCampaign {
 
 model Plan {
   plan_id              String             @id @default(uuid()) @db.Uuid
-  name                 String             @unique @db.VarChar(100)
+  plan_code            String             @unique @db.VarChar(20)   // e.g. PLAN-0001
+  name                 String             @db.VarChar(100)          // ← @unique REMOVED
   max_branches         Int
   max_users            Int
   price                BigInt
@@ -1289,9 +1290,9 @@ model Plan {
 
   // ── TWO-PHASE PRICING ─────────────────────────────
   intro_price          BigInt?
-  intro_trigger_type   String?   @db.VarChar(10)   // "duration" | "date"
-  intro_duration_years Int?                          // how many yearly renewals at intro price
-  intro_end_date       DateTime? @db.Timestamptz(6) // used when trigger = "date"
+  intro_trigger_type   String?            @db.VarChar(10)           // "duration" | "date"
+  intro_duration_years Int?                                          // how many yearly renewals at intro price
+  intro_end_date       DateTime?          @db.Timestamptz(6)        // used when trigger = "date"
   // ──────────────────────────────────────────────────
 
   activityLogs         PlanActivityLog[]
@@ -1303,6 +1304,7 @@ model Plan {
   @@index([type])
   @@index([deleted_at])
   @@index([created_for_shop_id])
+  @@index([name])                                                    // index for search, not unique
   @@map("plans")
 }
 
