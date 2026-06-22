@@ -16,20 +16,14 @@ import {
   createUserSession,
   invalidateUserSession,
   validateUserSession,
-  getClientIp,                    // ← now exported from session.js
 } from "../../utils/session.js";
-import { isIpTrusted, markIpAsTrusted } from "../../utils/trustedIp.js";  // ← new
+// ← removed: getClientIp import (no longer needed)
+// ← removed: isIpTrusted, markIpAsTrusted imports (trustedIp.js left as dead file)
+
+const OTP_TRUST_DURATION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in ms
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared helper — builds the full auth response payload.
-//
-// Used by BOTH the OTP-skip path (loginController) and the OTP-verify path
-// (verifyLoginOtpController) so the two responses are always identical.
-//
-// @param {Object} user     — full Prisma user record with shop + branch included
-// @param {Object} req      — Express request (needed for session creation)
-// @param {Object} res      — Express response (needed for cookie)
-// @returns {Object}        — the data payload to pass to success()
+// buildAuthResponse — unchanged from before
 // ─────────────────────────────────────────────────────────────────────────────
 async function buildAuthResponse(user, req, res) {
   const sessionToken = await createUserSession(user.user_id, req);
@@ -64,7 +58,6 @@ async function buildAuthResponse(user, req, res) {
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  // Determine next_step — identical logic to what was in verifyLoginOtpController
   let nextStep = -1;
   const shopStatus = user.shop?.verification_status;
 
@@ -103,8 +96,7 @@ async function buildAuthResponse(user, req, res) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Shared user fetch — used by both loginController (OTP skip) and
-// verifyLoginOtpController. Includes the exact same relations both need.
+// fetchFullUser — unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 async function fetchFullUser(userId) {
   return prisma.user.findUnique({
@@ -127,7 +119,212 @@ async function fetchFullUser(userId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Onboarding controllers — unchanged
+// loginController
+//
+// CHANGED: Instead of checking trusted IP, check otp_trusted_until on the user.
+//   - If otp_trusted_until > now → skip OTP, slide the window forward 14 days
+//   - Otherwise → send OTP as normal
+// ─────────────────────────────────────────────────────────────────────────────
+export async function loginController(req, res) {
+  try {
+    const { username, password } = req.validated;
+
+    const user = await prisma.user.findUnique({ where: { username } });
+
+    if (!user) {
+      const pending = await prisma.pendingUser.findFirst({
+        where: { email: username },
+      });
+
+      if (pending) {
+        return fail(
+          res,
+          "Your signup was not completed. Please restart the signup process.",
+          400,
+        );
+      }
+
+      return fail(res, "Invalid credentials", 401);
+    }
+
+    if (!user.is_active) {
+      return fail(
+        res,
+        "Your account has been suspended. Please contact Cureli support for assistance.",
+        403,
+        { code: "ACCOUNT_SUSPENDED" },
+      );
+    }
+
+    if (!user.password_hash) {
+      return fail(res, "This account requires Google login", 400);
+    }
+
+    const valid = await comparePassword(password, user.password_hash);
+    if (!valid) {
+      return fail(res, "Invalid credentials", 401);
+    }
+
+    // ── OTP trust window check ────────────────────────────────────────────
+    // If the user has previously verified OTP and the 14-day window
+    // hasn't expired yet, skip OTP and slide the window forward.
+    // No IP involved — trust is per-user, device agnostic.
+    // ─────────────────────────────────────────────────────────────────────
+    const now = new Date();
+    const isTrusted =
+      user.otp_trusted_until && new Date(user.otp_trusted_until) > now;
+
+    if (isTrusted) {
+      // Slide the window: every login within the 14-day period resets it
+      // Non-blocking — if this fails, login still succeeds (they just won't
+      // get the window extended, which is safe)
+      prisma.user
+        .update({
+          where: { user_id: user.user_id },
+          data: {
+            otp_trusted_until: new Date(Date.now() + OTP_TRUST_DURATION_MS),
+          },
+        })
+        .catch((err) => {
+          console.error("[login] Failed to slide otp_trusted_until:", err);
+        });
+
+      const fullUser = await fetchFullUser(user.user_id);
+
+      if (!fullUser) {
+        return fail(res, "User not found", 404);
+      }
+
+      const authData = await buildAuthResponse(fullUser, req, res);
+
+      return success(
+        res,
+        {
+          otp_required: false,
+          ...authData,
+        },
+        "Login successful",
+      );
+    }
+
+    // ── Standard OTP flow ─────────────────────────────────────────────────
+    await sendLoginOtp(user.user_id);
+
+    const tempToken = jwt.sign(
+      { user_id: user.user_id, purpose: "login_otp" },
+      TEMP_TOKEN_SECRET,
+      { expiresIn: "10m" },
+    );
+
+    return success(
+      res,
+      {
+        otp_required: true,
+        temp_token: tempToken,
+        phone_hint: user.phone_number
+          ? `***${user.phone_number.slice(-4)}`
+          : null,
+        message: "OTP sent to your registered phone number",
+      },
+      "OTP sent",
+    );
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "NO_PHONE") {
+      return fail(
+        res,
+        "No phone number registered. Please contact support.",
+        400,
+      );
+    }
+    if (err.code === "OTP_COOLDOWN") {
+      return fail(res, err.message, 429, { waitTime: err.waitTime });
+    }
+    if (err.code === "OTP_DAILY_LIMIT") {
+      return fail(res, err.message, 429);
+    }
+    if (err.code === "OTP_LOCKED") {
+      return fail(res, err.message, 429);
+    }
+
+    return fail(res, "Login failed", 500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// verifyLoginOtpController
+//
+// CHANGED: After successful OTP verification, set otp_trusted_until = now + 14d
+// instead of calling markIpAsTrusted()
+// ─────────────────────────────────────────────────────────────────────────────
+export async function verifyLoginOtpController(req, res) {
+  try {
+    const { temp_token, otp } = req.validated;
+
+    let decoded;
+    try {
+      decoded = jwt.verify(temp_token, TEMP_TOKEN_SECRET);
+    } catch (err) {
+      return fail(res, "Invalid or expired session", 401);
+    }
+
+    if (decoded.purpose !== "login_otp") {
+      return fail(res, "Invalid token", 401);
+    }
+
+    await verifyLoginOtp(decoded.user_id, otp);
+
+    const user = await fetchFullUser(decoded.user_id);
+
+    if (!user) {
+      return fail(res, "User not found", 404);
+    }
+
+    // ── Set/reset the 14-day OTP trust window ─────────────────────────────
+    // Non-blocking. If it fails, login still completes — user will just
+    // be asked for OTP again next time, which is safe.
+    // ─────────────────────────────────────────────────────────────────────
+    prisma.user
+      .update({
+        where: { user_id: user.user_id },
+        data: {
+          otp_trusted_until: new Date(Date.now() + OTP_TRUST_DURATION_MS),
+        },
+      })
+      .catch((err) => {
+        console.error("[verifyLoginOtp] Failed to set otp_trusted_until:", err);
+      });
+
+    const authData = await buildAuthResponse(user, req, res);
+
+    return success(
+      res,
+      {
+        otp_required: false,
+        ...authData,
+      },
+      "Login successful",
+    );
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "INVALID_OTP") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "OTP_EXPIRED") {
+      return fail(res, err.message, 400);
+    }
+    if (err.code === "TOO_MANY_ATTEMPTS") {
+      return fail(res, err.message, 429);
+    }
+
+    return fail(res, "OTP verification failed", 500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// All controllers below are completely unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getOnboardingStatusController(req, res) {
@@ -232,131 +429,6 @@ export async function completeOnboardingController(req, res) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// loginController
-//
-// CHANGED: After password verification, check if user+IP is trusted.
-//   Trusted  → skip OTP, return tokens directly with otp_required: false
-//   Untrusted → send OTP as before, return temp_token with otp_required: true
-// ─────────────────────────────────────────────────────────────────────────────
-export async function loginController(req, res) {
-  try {
-    const { username, password } = req.validated;
-
-    const user = await prisma.user.findUnique({ where: { username } });
-
-    if (!user) {
-      const pending = await prisma.pendingUser.findFirst({
-        where: { email: username },
-      });
-
-      if (pending) {
-        return fail(
-          res,
-          "Your signup was not completed. Please restart the signup process.",
-          400,
-        );
-      }
-
-      return fail(res, "Invalid credentials", 401);
-    }
-
-    if (!user.is_active) {
-      return fail(
-        res,
-        "Your account has been suspended. Please contact Cureli support for assistance.",
-        403,
-        { code: "ACCOUNT_SUSPENDED" },
-      );
-    }
-
-    if (!user.password_hash) {
-      return fail(res, "This account requires Google login", 400);
-    }
-
-    const valid = await comparePassword(password, user.password_hash);
-    if (!valid) {
-      return fail(res, "Invalid credentials", 401);
-    }
-
-    // ── Trusted IP check ──────────────────────────────────────────────────
-    // Only runs after credentials are confirmed valid.
-    // If this user+IP combo was OTP-verified within the last 7 days,
-    // skip OTP entirely and issue tokens immediately.
-    // ─────────────────────────────────────────────────────────────────────
-    const ipAddress = getClientIp(req);
-    const trusted = await isIpTrusted(user.user_id, ipAddress);
-
-    if (trusted) {
-      const fullUser = await fetchFullUser(user.user_id);
-
-      if (!fullUser) {
-        return fail(res, "User not found", 404);
-      }
-
-      const authData = await buildAuthResponse(fullUser, req, res);
-
-      return success(
-        res,
-        {
-          otp_required: false,
-          ...authData,
-        },
-        "Login successful",
-      );
-    }
-
-    // ── Standard OTP flow ─────────────────────────────────────────────────
-    await sendLoginOtp(user.user_id);
-
-    const tempToken = jwt.sign(
-      { user_id: user.user_id, purpose: "login_otp" },
-      TEMP_TOKEN_SECRET,
-      { expiresIn: "10m" },
-    );
-
-    return success(
-      res,
-      {
-        otp_required: true,
-        temp_token: tempToken,
-        phone_hint: user.phone_number
-          ? `***${user.phone_number.slice(-4)}`
-          : null,
-        message: "OTP sent to your registered phone number",
-      },
-      "OTP sent",
-    );
-  } catch (err) {
-    console.error(err);
-
-    if (err.code === "NO_PHONE") {
-      return fail(
-        res,
-        "No phone number registered. Please contact support.",
-        400,
-      );
-    }
-
-    if (err.code === "OTP_COOLDOWN") {
-      return fail(res, err.message, 429, { waitTime: err.waitTime });
-    }
-
-    if (err.code === "OTP_DAILY_LIMIT") {
-      return fail(res, err.message, 429);
-    }
-
-    if (err.code === "OTP_LOCKED") {
-      return fail(res, err.message, 429);
-    }
-
-    return fail(res, "Login failed", 500);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// resendLoginOtpController — unchanged
-// ─────────────────────────────────────────────────────────────────────────────
 export async function resendLoginOtpController(req, res) {
   try {
     const { temp_token } = req.validated;
@@ -400,25 +472,17 @@ export async function resendLoginOtpController(req, res) {
     console.error("Resend OTP error:", err);
 
     if (err.code === "NO_PHONE") {
-      return fail(
-        res,
-        "No phone number registered. Please contact support.",
-        400,
-      );
+      return fail(res, "No phone number registered. Please contact support.", 400);
     }
-
     if (err.code === "OTP_COOLDOWN") {
       return fail(res, err.message, 429, { waitTime: err.waitTime || 30 });
     }
-
     if (err.code === "OTP_DAILY_LIMIT") {
       return fail(res, err.message, 429);
     }
-
     if (err.code === "OTP_LOCKED") {
       return fail(res, err.message, 429);
     }
-
     if (err.code === "NOT_FOUND") {
       return fail(res, "User not found", 404);
     }
@@ -427,74 +491,6 @@ export async function resendLoginOtpController(req, res) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// verifyLoginOtpController
-//
-// CHANGED: After successful OTP verification, call markIpAsTrusted()
-// so future logins from this IP within 7 days skip OTP.
-// ─────────────────────────────────────────────────────────────────────────────
-export async function verifyLoginOtpController(req, res) {
-  try {
-    const { temp_token, otp } = req.validated;
-
-    let decoded;
-    try {
-      decoded = jwt.verify(temp_token, TEMP_TOKEN_SECRET);
-    } catch (err) {
-      return fail(res, "Invalid or expired session", 401);
-    }
-
-    if (decoded.purpose !== "login_otp") {
-      return fail(res, "Invalid token", 401);
-    }
-
-    await verifyLoginOtp(decoded.user_id, otp);
-
-    const user = await fetchFullUser(decoded.user_id);
-
-    if (!user) {
-      return fail(res, "User not found", 404);
-    }
-
-    // ── Mark this IP as trusted after successful OTP ───────────────────
-    // Non-blocking: if this fails (e.g. DB hiccup), login still succeeds.
-    // The user will just be asked for OTP again next time, which is safe.
-    // ─────────────────────────────────────────────────────────────────────
-    const ipAddress = getClientIp(req);
-    markIpAsTrusted(user.user_id, ipAddress).catch((err) => {
-      console.error("[verifyLoginOtp] Failed to mark IP as trusted:", err);
-    });
-
-    const authData = await buildAuthResponse(user, req, res);
-
-    return success(
-      res,
-      {
-        otp_required: false, // consistent field — always false after verify
-        ...authData,
-      },
-      "Login successful",
-    );
-  } catch (err) {
-    console.error(err);
-
-    if (err.code === "INVALID_OTP") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "OTP_EXPIRED") {
-      return fail(res, err.message, 400);
-    }
-    if (err.code === "TOO_MANY_ATTEMPTS") {
-      return fail(res, err.message, 429);
-    }
-
-    return fail(res, "OTP verification failed", 500);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// refreshTokenController — unchanged
-// ─────────────────────────────────────────────────────────────────────────────
 export async function refreshTokenController(req, res) {
   try {
     const refreshToken = req.cookies.refresh_token;
@@ -595,9 +591,6 @@ export async function refreshTokenController(req, res) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// logoutController — unchanged
-// ─────────────────────────────────────────────────────────────────────────────
 export async function logoutController(req, res) {
   try {
     const { user_id, session_id } = req.user;
