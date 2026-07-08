@@ -74,6 +74,7 @@ export const CADMIN_PERMISSIONS = {
   USERS_EDIT: "users.edit", // Edit user profile fields
   USERS_TOGGLE_ACCESS: "users.toggle_access", // Activate or deactivate user account
   USERS_RESET_PASSWORD: "users.reset_password", // Send password reset link to user
+  USERS_DELETE: "users.delete", // Soft-delete a user account — anonymises PII, frees unique fields
 
   // ─────────────────────────────────────────────────────────────────────────
   // MODULE: SHOP MANAGEMENT
@@ -279,6 +280,12 @@ export const CADMIN_PERMISSION_GROUPS = [
         key: CADMIN_PERMISSIONS.USERS_RESET_PASSWORD,
         label: "Reset Password",
         description: "Send password reset link to user",
+      },
+      {
+        key: CADMIN_PERMISSIONS.USERS_DELETE,
+        label: "Delete User",
+        description:
+          "Permanently anonymise a user account. Frees email/username for reuse. Cannot be undone.",
       },
     ],
   },

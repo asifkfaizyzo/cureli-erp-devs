@@ -24,6 +24,8 @@ import {
   Calendar,
   CheckCircle2,
   Check,
+  Upload,
+  History,
 } from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
 
@@ -311,6 +313,8 @@ const InventoryFilters = ({
   onRefresh,
   isRefreshing = false,
   totalItems = 0,
+  onImport,
+  onImportHistory,
 }) => {
   const searchInputRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -535,9 +539,7 @@ const InventoryFilters = ({
             </button>
           )}
 
-          
-
-          {/* ── FIXED: Add Medicine Button — onClick restored ───────────── */}
+          {/* Add Medicine Button */}
           {onAddMedicine && (
             <button
               onClick={onAddMedicine}
@@ -548,14 +550,37 @@ const InventoryFilters = ({
             </button>
           )}
 
-          {/* Import Inventory — placeholder, no handler yet */}
-          <button
-            type="button"
-            className="h-10 sm:h-9 px-3 sm:px-4 flex items-center gap-2 text-sm font-semibold text-white bg-[#05015A] hover:bg-[#0a0280] rounded-lg transition-all shadow-sm hover:shadow-md "
-          >
-            <span className="hidden sm:inline">Import Inventory</span>
-          </button>
-          {/* ─────────────────────────────────────────────────────────────── */}
+          {/* ── Import + History Button Group ─────────────────────────── */}
+          {(onImport || onImportHistory) && (
+            <div className="flex items-center border border-indigo-200 rounded-lg overflow-hidden">
+              {onImport && (
+                <button
+                  onClick={onImport}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium
+                             text-indigo-700 bg-indigo-50 hover:bg-indigo-100
+                             transition-colors"
+                >
+                  <Upload size={15} />
+                  Import
+                </button>
+              )}
+              {onImport && onImportHistory && (
+                <div className="w-px  h-7 bg-indigo-200" />
+              )}
+              {onImportHistory && (
+                <button
+                  onClick={onImportHistory}
+                  title="View import history"
+                  className="flex items-center gap-1 px-3 py-2 text-sm
+                             text-indigo-600  hover:bg-indigo-50
+                             transition-colors"
+                >
+                  <History size={15} />
+                </button>
+              )}
+            </div>
+          )}
+          {/* ─────────────────────────────────────────────────────────── */}
         </div>
       </div>
 

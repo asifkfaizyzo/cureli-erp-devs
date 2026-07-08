@@ -14,6 +14,7 @@ import {
   History,
   Loader2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import {
   ProfileDetails,
@@ -30,10 +31,16 @@ import {
   toggleCAdminUserAccess,
   resetCAdminUserPassword,
   updateCAdminUser,
+  deleteCAdminUser,
 } from "../../../api/cadminUsers";
+import { useCAdminPermission } from "../../../hooks/useCAdminPermission";
 
 const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const toast = useToast();
+
+  // isSuperCAdmin gates the delete button — only the platform super admin
+  // can permanently delete user accounts. Permission-based roles cannot.
+  const { isSuperCAdmin } = useCAdminPermission();
 
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -45,7 +52,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   // Form data for editing
   const [formData, setFormData] = useState({});
-  const [originalFormData, setOriginalFormData] = useState({}); // Track original for comparison
+  const [originalFormData, setOriginalFormData] = useState({});
 
   // Confirm dialogs state
   const [showSuspendConfirm, setShowSuspendConfirm] = useState(false);
@@ -54,6 +61,13 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const [showResetPasswordConfirm, setShowResetPasswordConfirm] =
     useState(false);
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+
+  // ── DELETE STATE ──────────────────────────────────────────────────────────
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteReasonError, setDeleteReasonError] = useState("");
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Save loading state
   const [saveLoading, setSaveLoading] = useState(false);
@@ -75,7 +89,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       const userData = response.data?.data || response.data;
       setUser(userData);
 
-      // Initialize form data - include all editable fields
       const initialFormData = {
         first_name: userData.first_name || "",
         last_name: userData.last_name || "",
@@ -93,7 +106,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       };
 
       setFormData(initialFormData);
-      setOriginalFormData(initialFormData); // Save original for comparison
+      setOriginalFormData(initialFormData);
     } catch (err) {
       console.error("Failed to fetch user details:", err);
       const errorMessage =
@@ -115,6 +128,10 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       setOriginalFormData({});
       setFetchError(null);
       setSaveError(null);
+      // Reset delete state too
+      setShowDeleteConfirm(false);
+      setDeleteReason("");
+      setDeleteReasonError("");
     }
   }, [isOpen]);
 
@@ -128,10 +145,9 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     const handleEsc = (e) => {
       if (e.key === "Escape") {
         if (isEditing && hasChanges()) {
-          // Confirm before closing if there are unsaved changes
           if (
             window.confirm(
-              "You have unsaved changes. Are you sure you want to close?"
+              "You have unsaved changes. Are you sure you want to close?",
             )
           ) {
             onClose(false);
@@ -158,13 +174,19 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   const isBranchAdmin = user?.role === "Branch Admin";
   const isStaff = user?.role === "Staff";
 
-  // Check if Reset Password should be shown (only for Super Admin)
+  // Reset Password only for Super Admin users
   const canResetPassword = isOwner;
+
+  // Delete button conditions:
+  //   1. The logged-in cadmin must be isSuperCAdmin
+  //   2. The target user must be loaded
+  //   3. Cannot delete a Super Admin user (use Suspend instead)
+const showDeleteButton = isSuperCAdmin && !!user;
 
   // Check if there are unsaved changes
   const hasChanges = () => {
     return Object.keys(formData).some(
-      (key) => formData[key] !== originalFormData[key]
+      (key) => formData[key] !== originalFormData[key],
     );
   };
 
@@ -204,7 +226,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
   const tabs = getTabs();
 
-  // Get display label for active/inactive status
   const getActiveStatusLabel = (is_active) => {
     return is_active ? "Active" : "Inactive";
   };
@@ -214,7 +235,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   // ═══════════════════════════════════════════════════════════
 
   const handleFormChange = (field, value) => {
-    setSaveError(null); // Clear any previous save errors
+    setSaveError(null);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -222,7 +243,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     if (hasChanges()) {
       if (
         !window.confirm(
-          "You have unsaved changes. Are you sure you want to cancel?"
+          "You have unsaved changes. Are you sure you want to cancel?",
         )
       ) {
         return;
@@ -242,20 +263,19 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
       setShowSuspendConfirm(false);
 
-      // Show success toast
       if (newIsActive) {
         toast.success(
           "User Activated",
-          `${user.full_name || user.username} has been activated successfully.`
+          `${user.full_name || user.username} has been activated successfully.`,
         );
       } else {
         toast.success(
           "User Suspended",
-          `${user.full_name || user.username} has been suspended successfully.`
+          `${user.full_name || user.username} has been suspended successfully.`,
         );
       }
 
-      onClose(true); // Close and refresh
+      onClose(true);
     } catch (error) {
       console.error("Suspend/Activate failed:", error);
       const errorMessage =
@@ -274,13 +294,12 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
       setShowResetPasswordConfirm(false);
 
-      // Show success toast
       toast.success(
         "Reset Link Sent",
-        `Password reset link has been sent to ${user.email}`
+        `Password reset link has been sent to ${user.email}`,
       );
 
-      onClose(true); // Close and refresh
+      onClose(true);
     } catch (error) {
       console.error("Reset password failed:", error);
       const errorMessage =
@@ -291,16 +310,49 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     }
   };
 
+  // ── DELETE HANDLER ────────────────────────────────────────────────────────
+  const handleDeleteConfirm = async () => {
+    if (!user) return;
+
+    if (!deleteReason.trim()) {
+      setDeleteReasonError("Please provide a reason for deletion.");
+      return;
+    }
+    if (deleteReason.trim().length < 10) {
+      setDeleteReasonError("Reason must be at least 10 characters.");
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteReasonError("");
+
+    try {
+      await deleteCAdminUser(user.user_id, deleteReason.trim());
+      setShowDeleteConfirm(false);
+      toast.success(
+        "User Deleted",
+        `${user.full_name || user.username}'s account has been permanently deleted.`,
+      );
+      onClose(true); // triggers onRefresh in UserTable → fetchUsers in UserPage
+    } catch (error) {
+      console.error("Delete user failed:", error);
+      const msg = error.response?.data?.message || "Failed to delete user.";
+      toast.error("Delete Failed", msg);
+      // Keep dialog open so admin sees the error
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleSaveChanges = async () => {
     if (!user) return;
 
-    // Check if there are any changes
     if (!hasChanges()) {
       setIsEditing(false);
       return;
     }
 
-    // Validate required fields
     const validationErrors = validateForm();
     if (validationErrors) {
       setSaveError(validationErrors);
@@ -314,7 +366,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     try {
       const payload = {};
 
-      // For Super Admin: use first_name and last_name
       if (isOwner) {
         if (formData.first_name !== originalFormData.first_name) {
           payload.first_name = formData.first_name.trim();
@@ -326,13 +377,11 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           payload.email = formData.email.trim();
         }
       } else {
-        // For Branch Admin & Staff: use full_name
         if (formData.full_name !== originalFormData.full_name) {
           payload.full_name = formData.full_name.trim();
         }
       }
 
-      // Common fields
       if (formData.username !== originalFormData.username) {
         payload.username = formData.username.trim().toLowerCase();
       }
@@ -340,44 +389,33 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
         payload.phone_number = formData.phone_number.replace(/\D/g, "");
       }
 
-      // Only include role if it's editable (not Super Admin) and changed
       if (!isOwner && formData.role !== originalFormData.role) {
         payload.role = formData.role;
       }
 
-      // If no actual changes after processing
       if (Object.keys(payload).length === 0) {
         setIsEditing(false);
         return;
       }
 
-     
-
       const response = await updateCAdminUser(user.user_id, payload);
 
-      // Check if update was successful
       if (response.status === 200 || response.data?.success) {
-        // Update local user state with response data if available
         const updatedUser = response.data?.data || response.data?.user;
         if (updatedUser) {
           setUser((prev) => ({ ...prev, ...updatedUser }));
-          // Update original form data to reflect saved state
           setOriginalFormData(formData);
         }
 
         setIsEditing(false);
-
-        // Show success toast
         toast.success("Changes Saved", `User details updated successfully.`);
-
-        onClose(true); // Close and refresh parent
+        onClose(true);
       } else {
         throw new Error(response.data?.message || "Update failed");
       }
     } catch (error) {
       console.error("Save failed:", error);
 
-      // Handle specific error cases
       let errorMessage = "Failed to save changes. Please try again.";
 
       if (error.response?.status === 400) {
@@ -398,7 +436,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
   };
 
   const validateForm = () => {
-    // Name validation
     if (isOwner) {
       if (!formData.first_name?.trim()) {
         return "First name is required";
@@ -412,7 +449,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       }
     }
 
-    // Username validation
     if (formData.username && formData.username.length < 3) {
       return "Username must be at least 3 characters";
     }
@@ -423,7 +459,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       return "Username can only contain lowercase letters, numbers, and underscores";
     }
 
-    // Phone validation
     if (formData.phone_number) {
       const cleanPhone = formData.phone_number.replace(/\D/g, "");
       if (cleanPhone && !/^[0-9]{10}$/.test(cleanPhone)) {
@@ -431,14 +466,13 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
       }
     }
 
-    // Email validation (for Super Admin)
     if (isOwner && formData.email) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         return "Invalid email address";
       }
     }
 
-    return null; // No errors
+    return null;
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -496,7 +530,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
     }
   };
 
-  // Use basic user data for header while loading full details
   const displayName = user?.full_name || basicUser?.name || "User";
   const displayUsername = user?.username || basicUser?.username || "";
   const displayRole = user?.role || basicUser?.role || "";
@@ -510,7 +543,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           if (isEditing && hasChanges()) {
             if (
               window.confirm(
-                "You have unsaved changes. Are you sure you want to close?"
+                "You have unsaved changes. Are you sure you want to close?",
               )
             ) {
               onClose(false);
@@ -577,7 +610,6 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
               {/* Header Actions */}
               <div className="flex items-center gap-2">
-                {/* Edit / Save / Cancel Buttons - Only for Profile tab */}
                 {activeTab === "profile" && !loadingUser && user && (
                   <>
                     {isEditing ? (
@@ -626,7 +658,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                     if (isEditing && hasChanges()) {
                       if (
                         window.confirm(
-                          "You have unsaved changes. Are you sure you want to close?"
+                          "You have unsaved changes. Are you sure you want to close?",
                         )
                       ) {
                         onClose(false);
@@ -668,11 +700,10 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                 <button
                   key={tab.id}
                   onClick={() => {
-                    // Warn about unsaved changes when switching tabs
                     if (isEditing && hasChanges() && tab.id !== "profile") {
                       if (
                         !window.confirm(
-                          "You have unsaved changes. Switch tab anyway?"
+                          "You have unsaved changes. Switch tab anyway?",
                         )
                       ) {
                         return;
@@ -715,9 +746,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
             <div className="flex items-center justify-between">
               {/* Left: User Meta Info */}
               <p className="text-xs text-gray-400">
-                User ID:{" "}
-                {user?.user_id || basicUser?.id} •
-                Last login:{" "}
+                User ID: {user?.user_id || basicUser?.id} • Last login:{" "}
                 {user?.last_login_at
                   ? new Date(user.last_login_at).toLocaleDateString()
                   : basicUser?.lastLogin || "Never"}
@@ -725,7 +754,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
 
               {/* Right: Admin Actions */}
               <div className="flex items-center gap-2">
-                {/* Reset Password Button - Only for Super Admin */}
+                {/* Reset Password Button - Only for Super Admin users */}
                 {canResetPassword && (
                   <button
                     onClick={() => setShowResetPasswordConfirm(true)}
@@ -738,6 +767,8 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                     Reset Password
                   </button>
                 )}
+
+                
 
                 {/* Suspend / Activate Button */}
                 <button
@@ -765,6 +796,28 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
                     </>
                   )}
                 </button>
+
+                {/* ── DELETE BUTTON ──────────────────────────────────────────
+                    Only visible to isSuperCAdmin.
+                    Hidden for Super Admin users (use Suspend instead).
+                    Backend also enforces this — double protection.
+                ─────────────────────────────────────────────────────────── */}
+                {showDeleteButton && (
+                  <button
+                    onClick={() => {
+                      setDeleteReason("");
+                      setDeleteReasonError("");
+                      setShowDeleteConfirm(true);
+                    }}
+                    disabled={loadingUser || !user}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                               bg-red-50 text-red-600 hover:bg-red-100 transition-all
+                               disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={16} />
+                    Delete Account
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -792,7 +845,7 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
         loading={suspendLoading}
       />
 
-      {/* Reset Password Confirmation - Only rendered for Super Admin */}
+      {/* Reset Password Confirmation - Only rendered for Super Admin users */}
       {canResetPassword && (
         <ConfirmDialog
           isOpen={showResetPasswordConfirm}
@@ -816,9 +869,139 @@ const UserDetailsModal = ({ user: basicUser, isOpen, onClose, mode }) => {
           loading={resetPasswordLoading}
         />
       )}
+
+      {/* ── DELETE CONFIRM DIALOG ─────────────────────────────────────────────
+          Custom dialog with reason textarea.
+          Only rendered when showDeleteButton is true (isSuperCAdmin only).
+      ─────────────────────────────────────────────────────────────────────── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              if (!deleteLoading) setShowDeleteConfirm(false);
+            }}
+          />
+          <div
+            className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 bg-red-50 border-b border-red-200 flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Trash2 size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-red-900">
+                  Delete User Account
+                </h3>
+                <p className="text-sm text-red-700 mt-0.5">
+                  This action is permanent and cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* What happens info box */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 space-y-1">
+                <p className="font-semibold">
+                  What happens when you delete this account:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-700">
+                  <li>Name, email, phone and username are permanently wiped</li>
+                  <li>
+                    Email and username are freed for reuse by new accounts
+                  </li>
+                  <li>
+                    All purchase, sales and inventory records remain intact
+                  </li>
+                  <li>Deletion is recorded in the audit log with your name</li>
+                </ul>
+              </div>
+
+              {/* Who is being deleted */}
+              <p className="text-sm text-gray-700">
+                Deleting:{" "}
+                <span className="font-bold text-gray-900">{displayName}</span>
+                {displayUsername && (
+                  <span className="text-gray-500 font-normal">
+                    {" "}
+                    (@{displayUsername})
+                  </span>
+                )}
+              </p>
+
+              {/* Reason input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Reason for deletion <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => {
+                    setDeleteReason(e.target.value);
+                    if (deleteReasonError) setDeleteReasonError("");
+                  }}
+                  placeholder="e.g. User requested account deletion, duplicate account, fraud investigation..."
+                  rows={3}
+                  disabled={deleteLoading}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm resize-none transition-all
+                    focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    ${
+                      deleteReasonError
+                        ? "border-red-400 bg-red-50"
+                        : "border-gray-300 bg-white"
+                    }`}
+                />
+                {deleteReasonError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    {deleteReasonError}
+                  </p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  Minimum 10 characters. Stored permanently in the audit log.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleteLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300
+                           rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading || !deleteReason.trim()}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white
+                           bg-red-600 rounded-lg hover:bg-red-700 transition-all
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Permanently Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
 export default UserDetailsModal;
-

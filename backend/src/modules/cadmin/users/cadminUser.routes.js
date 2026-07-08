@@ -1,15 +1,16 @@
 // backend/src/modules/cadmin/users/cadminUser.routes.js
 
 import express from "express";
-import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { requireCAdmin }           from "../../../middleware/requireCAdmin.js";
 import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
-import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
+import { CADMIN_PERMISSIONS }      from "../../../config/cadminPermissions.js";
 import {
   getUsersController,
   getUserByIdController,
   updateUserController,
   toggleUserAccessController,
   resetUserPasswordController,
+  deleteUserController,
 } from "./cadminUser.controller.js";
 
 const router = express.Router();
@@ -47,6 +48,14 @@ router.post(
   requireCAdmin,
   requireCAdminPermission(CADMIN_PERMISSIONS.USERS_RESET_PASSWORD),
   resetUserPasswordController
+);
+
+// DELETE — soft delete with mandatory reason
+router.delete(
+  "/users/:id",
+  requireCAdmin,
+  requireCAdminPermission(CADMIN_PERMISSIONS.USERS_DELETE),
+  deleteUserController
 );
 
 export default router;

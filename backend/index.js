@@ -42,7 +42,7 @@ import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
 import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.js";
 import marketplaceOrdersRoutes from './src/modules/marketplace-orders/marketplace.orders.routes.js';
 import marketplaceDashboardRoutes from './src/modules/marketplace-dashboard/marketplaceDashboard.routes.js';
-
+import inventoryImportRoutes from "./src/modules/inventory-import/inventoryImport.routes.js";
 
 
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
@@ -227,7 +227,7 @@ app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/marketplace-listing", listingsRoutes);  
 app.use('/api/marketplace-orders', marketplaceOrdersRoutes);
 app.use('/api/marketplace/dashboard', marketplaceDashboardRoutes);
-
+app.use("/api/inventory/import", inventoryImportRoutes);
 
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);

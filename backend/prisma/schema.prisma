@@ -155,6 +155,7 @@ model User {
   onboarding_step                Int                         @default(4)
   reset_token                    String?                     @db.VarChar(500)
   reset_token_expires            DateTime?                   @db.Timestamptz(6)
+  deleted_at                     DateTime?                   @db.Timestamptz(6)
   
   // Login OTP fields
   login_otp_hash                 String?                     // ← ADD THIS LINE
@@ -208,7 +209,7 @@ model User {
   sessions                       UserSession[]
   branch                         Branch?                     @relation(fields: [branch_id], references: [branch_id])
   shop                           Shop?                       @relation("UsersInShop", fields: [shop_id], references: [shop_id])
-  
+  inventoryImportsCreated InventoryImportJob[] @relation("InventoryImportCreator")
 
   @@map("users")
 }
@@ -286,6 +287,7 @@ model Shop {
   categoryVisibility      BranchCategoryVisibility[] @relation("ShopCategoryVisibility")
   marketplaceOrders       MarketplaceOrder[]         @relation("ShopMarketplaceOrders")
   marketplaceProfile      MarketplaceProfile?
+  inventoryImportJobs  InventoryImportJob[] @relation("ShopInventoryImportJobs")
 
   @@map("shops")
 }
@@ -320,6 +322,7 @@ model Branch {
   marketplaceListings     MarketplaceListing[]       @relation("BranchMarketplaceListings")
   categoryVisibility      BranchCategoryVisibility[] @relation("BranchCategoryVisibility")
   marketplaceOrders       MarketplaceOrder[]         @relation("BranchMarketplaceOrders")
+  inventoryImportJobs  InventoryImportJob[] @relation("BranchInventoryImportJobs")
 
   users            User[]
   marketplaceSettings BranchMarketplaceSettings?
@@ -592,6 +595,8 @@ model Inventory {
   rack_no            String?               @db.VarChar(20)
   is_active          Boolean               @default(true)
   is_expired         Boolean               @default(false)
+  source              InventorySource       @default(MANUAL)
+  import_job_id   String?          @db.Uuid
   created_at         DateTime              @default(now()) @db.Timestamptz(6)
   updated_at         DateTime              @updatedAt @db.Timestamptz(6)
   branch             Branch?               @relation("BranchInventory", fields: [branch_id], references: [branch_id])
@@ -601,14 +606,64 @@ model Inventory {
   salesItems         SalesInvoiceItem[]    @relation("SalesInventoryItems")
   adjustments        StockAdjustment[]     @relation("InventoryAdjustments")
   stockMovements     StockLedger[]         @relation("InventoryStockMovements")
+  
 
   @@unique([shop_id, medicine_id, batch_number, branch_id])
   @@index([shop_id, medicine_id])
   @@index([batch_number])
   @@index([expiry_date])
+  @@index([import_job_id])
+  @@index([source])
   @@index([shop_id, current_stock])
   @@index([is_expired])
   @@map("inventory")
+}
+
+model InventoryImportJob {
+  import_job_id         String          @id @default(uuid()) @db.Uuid
+  shop_id               String          @db.Uuid
+  branch_id             String          @db.Uuid
+  created_by            String          @db.Uuid
+  original_file_name    String          @db.VarChar(255)
+  storage_key           String          @db.VarChar(500)
+  file_size             Int
+  file_hash             String          @db.VarChar(64)
+  status                ImportJobStatus @default(PENDING)
+  processing_phase      String?         @db.VarChar(50)
+  processing_progress   Int             @default(0)
+  column_mapping        Json?
+  detected_software     String?         @db.VarChar(100)
+  resolutions           Json?
+  conflict_decisions    Json?
+  total_rows              Int   @default(0)
+  valid_rows              Int   @default(0)
+  imported_rows           Int   @default(0)
+  skipped_rows            Int   @default(0)
+  error_rows              Int   @default(0)
+  new_medicines_created   Int   @default(0)
+  existing_batches_merged Int   @default(0)
+  parsed_row_count        Int?
+  error_log             Json?
+  created_at            DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime        @updatedAt @db.Timestamptz(6)
+  parsing_started_at    DateTime?       @db.Timestamptz(6)
+  parsing_completed_at  DateTime?       @db.Timestamptz(6)
+  confirmed_at          DateTime?       @db.Timestamptz(6)
+  completed_at          DateTime?       @db.Timestamptz(6)
+  cancelled_at          DateTime?       @db.Timestamptz(6)
+  expires_at            DateTime?       @db.Timestamptz(6)
+
+  shop    Shop   @relation("ShopInventoryImportJobs", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch  Branch @relation("BranchInventoryImportJobs", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  creator User   @relation("InventoryImportCreator", fields: [created_by], references: [user_id])
+
+  @@index([shop_id, status, created_at(sort: Desc)])
+  @@index([branch_id, status])
+  @@index([created_by])
+  @@index([file_hash, shop_id])
+  @@index([status, expires_at])
+  @@index([created_at(sort: Desc)])
+  @@map("inventory_import_jobs")
 }
 
 
@@ -2479,8 +2534,24 @@ enum StockMovementType {
   EXPIRED
   TRANSFER_IN
   TRANSFER_OUT
+  INVENTORY_IMPORT    
+}
+enum ImportJobStatus {
+  PENDING
+  PARSING
+  AWAITING_REVIEW
+  CONFIRMING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
 }
 
+enum InventorySource {
+  MANUAL
+  PURCHASE
+  IMPORT
+}
 enum AdjustmentReason {
   PHYSICAL_COUNT_VARIANCE
   DAMAGED_GOODS

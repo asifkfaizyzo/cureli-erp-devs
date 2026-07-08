@@ -5,7 +5,53 @@
 // ============================================
 
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 import * as fileStorage from "../services/fileStorage.service.js";
+
+// ============================================
+// INVENTORY IMPORT — DISK STORAGE
+// ============================================
+
+const IMPORT_UPLOAD_DIR = "uploads/inventory-import";
+if (!fs.existsSync(IMPORT_UPLOAD_DIR)) {
+  fs.mkdirSync(IMPORT_UPLOAD_DIR, { recursive: true });
+}
+
+const inventoryImportStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, IMPORT_UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const safeName = file.originalname
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .toLowerCase();
+    cb(null, `${timestamp}-${safeName}`);
+  },
+});
+
+function inventoryImportFileFilter(req, file, cb) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if ([".xls", ".xlsx", ".csv"].includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(
+      new Error(
+        `Invalid file type "${ext}". Only .xls, .xlsx, and .csv files are accepted.`
+      ),
+      false
+    );
+  }
+}
+
+export const inventoryImportUpload = multer({
+  storage: inventoryImportStorage,
+  fileFilter: inventoryImportFileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB
+  },
+});
 
 // ============================================
 // UNIVERSAL STORAGE (MEMORY)
@@ -27,15 +73,11 @@ const storage = multer.memoryStorage();
 function createFileFilter(folder) {
   return (req, file, cb) => {
     try {
-      // Validate using fileStorage service
       fileStorage.validateFolder(folder);
       fileStorage.validateExtension(file.originalname);
       fileStorage.validateMimeType(folder, file.mimetype);
-
-      // If all pass, accept file
       cb(null, true);
     } catch (error) {
-      // If validation fails, reject file
       cb(error, false);
     }
   };
@@ -52,12 +94,11 @@ function createFileFilter(folder) {
  */
 export function createUploader(folder, options = {}) {
   const {
-    maxFileSize = null, // If null, uses folder default from fileStorage
+    maxFileSize = null,
     maxFiles = 1,
     fieldName = "file",
   } = options;
 
-  // Get max size from fileStorage or use custom
   const limits = {
     fileSize: maxFileSize || getMaxFileSize(folder),
   };
@@ -68,7 +109,6 @@ export function createUploader(folder, options = {}) {
     limits,
   });
 
-  // Return appropriate upload method based on maxFiles
   if (maxFiles === 1) {
     return upload.single(fieldName);
   } else {
@@ -82,10 +122,10 @@ export function createUploader(folder, options = {}) {
 
 function getMaxFileSize(folder) {
   const MAX_FILE_SIZES = {
-    shop_files: 5 * 1024 * 1024, // 5MB
-    broadcast_attachments: 50 * 1024 * 1024, // 50MB
-    email_attachments: 10 * 1024 * 1024, // 10MB
-    tickets: 5 * 1024 * 1024, // 5MB
+    shop_files: 5 * 1024 * 1024,              // 5MB
+    broadcast_attachments: 50 * 1024 * 1024,  // 50MB
+    email_attachments: 10 * 1024 * 1024,      // 10MB
+    tickets: 5 * 1024 * 1024,                 // 5MB
   };
 
   return MAX_FILE_SIZES[folder] || 10 * 1024 * 1024; // Default 10MB
@@ -115,14 +155,14 @@ export const emailAttachmentUpload = createUploader("email_attachments", {
   maxFiles: 1,
 });
 
-export const prescriptionUpload = createUploader('order_prescriptions', {
-  fieldName: 'files',
+export const prescriptionUpload = createUploader("order_prescriptions", {
+  fieldName: "files",
   maxFiles: 5,
   maxFileSize: 10 * 1024 * 1024,
 });
 
 // ============================================
-//  NEW: GENERIC MULTER INSTANCE (for backwards compatibility)
+// GENERIC MULTER INSTANCE (for backwards compatibility)
 // ============================================
 
 /**
@@ -150,7 +190,6 @@ export function handleMulterError(err, req, res, next) {
 
   console.error("[Multer] Upload error:", err.message);
 
-  // Multer errors
   if (err.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({
       success: false,
@@ -175,7 +214,6 @@ export function handleMulterError(err, req, res, next) {
     });
   }
 
-  // fileStorage validation errors
   if (err.code === "BLOCKED_EXTENSION") {
     return res.status(400).json({
       success: false,
@@ -200,7 +238,6 @@ export function handleMulterError(err, req, res, next) {
     });
   }
 
-  // Generic error
   return res.status(500).json({
     success: false,
     message: "File upload failed",
@@ -214,10 +251,12 @@ export function handleMulterError(err, req, res, next) {
 
 export default {
   createUploader,
-  upload, //  Added for backwards compatibility
+  upload,
+  inventoryImportUpload,
   shopFilesUpload,
   ticketsUpload,
   broadcastUpload,
   emailAttachmentUpload,
+  prescriptionUpload,
   handleMulterError,
 };

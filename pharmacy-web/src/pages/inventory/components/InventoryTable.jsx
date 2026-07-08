@@ -1,14 +1,13 @@
 // src/pages/inventory/components/InventoryTable.jsx
 
 import React, { useRef, useCallback, useEffect, useState } from "react";
-import InventoryRowFixed from "./InventoryRowFixed";
-import InventoryPagination from "../../../components/common/Pagination";
-import { PortalTooltip } from "../../../components/common/Tooltip";
+import InventoryRowFixed    from "./InventoryRowFixed";
+import InventoryPagination  from "../../../components/common/Pagination";
+import { PortalTooltip }    from "../../../components/common/Tooltip";
 import {
   ChevronUp,
   ChevronDown,
   Package,
-  Loader2,
   Layers,
   Building2,
   Link2,
@@ -16,10 +15,9 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
-import useDynamicRowCount from "../../../hooks/useDynamicRowCount";
 
 // ══════════════════════════════════════════════════════════════
-// CATALOG STATUS BADGE (kept for reference — actual rendering in InventoryRowFixed)
+// CATALOG STATUS BADGE
 // ══════════════════════════════════════════════════════════════
 
 const CatalogStatusBadge = ({ status, confidence, loading }) => {
@@ -59,7 +57,7 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
     },
   };
 
-  const c = config[status] || config.NOT_LINKED;
+  const c    = config[status] || config.NOT_LINKED;
   const Icon = c.icon;
 
   const getTooltipContent = () => {
@@ -98,56 +96,24 @@ const CatalogStatusBadge = ({ status, confidence, loading }) => {
 };
 
 // ══════════════════════════════════════════════════════════════
-// COLUMN CONFIG — sortable flag, alignment, default widths
+// COLUMN CONFIG
 // ══════════════════════════════════════════════════════════════
 
 const COLUMNS = {
-  rowNum: { key: "rowNum", label: "#", sortable: false, align: "center" },
-  name: { key: "name", label: "Item Name", sortable: true, align: "left" },
-  category: {
-    key: "category",
-    label: "Category",
-    sortable: true,
-    align: "center",
-  },
-  catalogStatus: {
-    key: "catalogStatus",
-    label: "Catalog",
-    sortable: false,
-    align: "center",
-    icon: Link2,
-  },
-  manufacturer: {
-    key: "manufacturer",
-    label: "Manufacturer",
-    sortable: true,
-    align: "center",
-  },
-  batch: { key: "batch", label: "Batch", sortable: true, align: "center" },
-  expiry: { key: "expiry", label: "Expiry", sortable: true, align: "center" },
-  branch: {
-    key: "branch",
-    label: "Branch",
-    sortable: true,
-    align: "center",
-    icon: Building2,
-  },
-  supplier: {
-    key: "supplier",
-    label: "Supplier",
-    sortable: true,
-    align: "center",
-  },
-  qty: { key: "qty", label: "Qty", sortable: true, align: "center" },
-  mrp: { key: "mrp", label: "MRP", sortable: true, align: "center" },
-  rack: { key: "rack", label: "Rack", sortable: true, align: "center" },
-  status: { key: "status", label: "Status", sortable: true, align: "center" },
-  actions: {
-    key: "actions",
-    label: "Actions",
-    sortable: false,
-    align: "center",
-  },
+  rowNum:        { key: "rowNum",        label: "#",            sortable: false, align: "center" },
+  name:          { key: "name",          label: "Item Name",    sortable: true,  align: "left"   },
+  category:      { key: "category",      label: "Category",     sortable: true,  align: "center" },
+  catalogStatus: { key: "catalogStatus", label: "Catalog",      sortable: false, align: "center", icon: Link2 },
+  manufacturer:  { key: "manufacturer",  label: "Manufacturer", sortable: true,  align: "center" },
+  batch:         { key: "batch",         label: "Batch",        sortable: true,  align: "center" },
+  expiry:        { key: "expiry",        label: "Expiry",       sortable: true,  align: "center" },
+  branch:        { key: "branch",        label: "Branch",       sortable: true,  align: "center", icon: Building2 },
+  supplier:      { key: "supplier",      label: "Supplier",     sortable: true,  align: "center" },
+  qty:           { key: "qty",           label: "Qty",          sortable: true,  align: "center" },
+  mrp:           { key: "mrp",           label: "MRP",          sortable: true,  align: "center" },
+  rack:          { key: "rack",          label: "Rack",         sortable: true,  align: "center" },
+  status:        { key: "status",        label: "Status",       sortable: true,  align: "center" },
+  actions:       { key: "actions",       label: "Actions",      sortable: false, align: "center" },
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -161,118 +127,86 @@ const SkeletonRow = ({ rowHeight, isEven, index, showBranchColumn }) => (
   >
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="w-4 h-4 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 30}ms` }}
-        />
+        <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1.5">
       <div className="space-y-1">
-        <div
-          className="h-3.5 bg-gray-200 rounded animate-pulse w-[85%]"
-          style={{ animationDelay: `${index * 30 + 50}ms` }}
-        />
-        <div
-          className="h-2.5 bg-gray-100 rounded animate-pulse w-[60%]"
-          style={{ animationDelay: `${index * 30 + 80}ms` }}
-        />
+        <div className="h-3.5 bg-gray-200 rounded animate-pulse w-[85%]"
+          style={{ animationDelay: `${index * 30 + 50}ms` }} />
+        <div className="h-2.5 bg-gray-100 rounded animate-pulse w-[60%]"
+          style={{ animationDelay: `${index * 30 + 80}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
-      <div
-        className="h-3 bg-gray-200 rounded animate-pulse w-[70%]"
-        style={{ animationDelay: `${index * 30 + 100}ms` }}
-      />
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-[70%]"
+        style={{ animationDelay: `${index * 30 + 100}ms` }} />
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
-          style={{ animationDelay: `${index * 30 + 110}ms` }}
-        />
+        <div className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 110}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
-      <div
-        className="h-3 bg-gray-200 rounded animate-pulse w-[75%]"
-        style={{ animationDelay: `${index * 30 + 120}ms` }}
-      />
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-[75%]"
+        style={{ animationDelay: `${index * 30 + 120}ms` }} />
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="h-3 bg-gray-200 rounded animate-pulse w-16"
-          style={{ animationDelay: `${index * 30 + 140}ms` }}
-        />
+        <div className="h-3 bg-gray-200 rounded animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 140}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="h-3 bg-gray-200 rounded animate-pulse w-16"
-          style={{ animationDelay: `${index * 30 + 160}ms` }}
-        />
+        <div className="h-3 bg-gray-200 rounded animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 160}ms` }} />
       </div>
     </td>
     {showBranchColumn && (
       <td className="border-b border-r border-gray-100 p-1">
         <div className="flex justify-center">
-          <div
-            className="h-5 bg-gray-200 rounded-full animate-pulse w-20"
-            style={{ animationDelay: `${index * 30 + 170}ms` }}
-          />
+          <div className="h-5 bg-gray-200 rounded-full animate-pulse w-20"
+            style={{ animationDelay: `${index * 30 + 170}ms` }} />
         </div>
       </td>
     )}
     <td className="border-b border-r border-gray-100 p-1">
-      <div
-        className="h-3 bg-gray-200 rounded animate-pulse w-[80%]"
-        style={{ animationDelay: `${index * 30 + 180}ms` }}
-      />
+      <div className="h-3 bg-gray-200 rounded animate-pulse w-[80%]"
+        style={{ animationDelay: `${index * 30 + 180}ms` }} />
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-end pr-1">
-        <div
-          className="h-3 bg-gray-200 rounded animate-pulse w-8"
-          style={{ animationDelay: `${index * 30 + 200}ms` }}
-        />
+        <div className="h-3 bg-gray-200 rounded animate-pulse w-8"
+          style={{ animationDelay: `${index * 30 + 200}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-end pr-1">
-        <div
-          className="h-3 bg-gray-200 rounded animate-pulse w-14"
-          style={{ animationDelay: `${index * 30 + 220}ms` }}
-        />
+        <div className="h-3 bg-gray-200 rounded animate-pulse w-14"
+          style={{ animationDelay: `${index * 30 + 220}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="h-3 bg-gray-200 rounded animate-pulse w-8"
-          style={{ animationDelay: `${index * 30 + 240}ms` }}
-        />
+        <div className="h-3 bg-gray-200 rounded animate-pulse w-8"
+          style={{ animationDelay: `${index * 30 + 240}ms` }} />
       </div>
     </td>
     <td className="border-b border-r border-gray-100 p-1">
       <div className="flex justify-center">
-        <div
-          className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
-          style={{ animationDelay: `${index * 30 + 260}ms` }}
-        />
+        <div className="h-5 bg-gray-200 rounded-full animate-pulse w-16"
+          style={{ animationDelay: `${index * 30 + 260}ms` }} />
       </div>
     </td>
     <td className="border-b border-gray-100 p-1">
       <div className="flex justify-center gap-1">
-        <div
-          className="h-6 w-6 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 30 + 280}ms` }}
-        />
-        <div
-          className="h-6 w-6 bg-gray-200 rounded animate-pulse"
-          style={{ animationDelay: `${index * 30 + 300}ms` }}
-        />
+        <div className="h-6 w-6 bg-gray-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30 + 280}ms` }} />
+        <div className="h-6 w-6 bg-gray-200 rounded animate-pulse"
+          style={{ animationDelay: `${index * 30 + 300}ms` }} />
       </div>
     </td>
   </tr>
@@ -280,10 +214,16 @@ const SkeletonRow = ({ rowHeight, isEven, index, showBranchColumn }) => (
 
 // ══════════════════════════════════════════════════════════════
 // MAIN TABLE COMPONENT
+// Pagination is fully controlled by the parent (InventoryPage).
+// This component renders exactly what it receives — no slicing.
 // ══════════════════════════════════════════════════════════════
 
 const InventoryTable = ({
   items = [],
+  totalItems = 0,
+  currentPage = 1,
+  onPageChange,
+  rowsPerPage = 10,
   onView,
   onEdit,
   onDelete,
@@ -298,178 +238,86 @@ const InventoryTable = ({
   onSortChange,
 }) => {
   const tableContainerRef = useRef(null);
-  const tableBodyRef = useRef(null);
-  const headerRef = useRef(null);
-  const rowRefs = useRef([]);
-  const [currentPage, setCurrentPage] = useState(1);
+  const tableBodyRef      = useRef(null);
+  const headerRef         = useRef(null);
+  const rowRefs           = useRef([]);
 
-  const prevItemCountRef = useRef(items.length);
-  const visibleRows = useDynamicRowCount();
-  const rowHeight = 36;
-  const viewportHeight = visibleRows * rowHeight;
+  const rowHeight     = 36;
+  const viewportHeight = rowsPerPage * rowHeight;
 
-  // Column widths — resizable state
+  // Column widths — resizable
   const getDefaultWidths = useCallback(() => {
     if (showBranchColumn) {
       return {
-        rowNum: 32,
-        itemName: 160,
-        category: 100,
-        catalogStatus: 95,
-        manufacturer: 100,
-        batch: 88,
-        expiry: 100,
-        branch: 88,
-        supplier: 100,
-        qty: 62,
-        mrp: 75,
-        rack: 62,
-        status: 88,
-        actions: 88,
+        rowNum: 32, itemName: 160, category: 100, catalogStatus: 95,
+        manufacturer: 100, batch: 88, expiry: 100, branch: 88,
+        supplier: 100, qty: 62, mrp: 75, rack: 62, status: 88, actions: 88,
       };
     }
     return {
-      rowNum: 32,
-      itemName: 190,
-      category: 100,
-      catalogStatus: 100,
-      manufacturer: 110,
-      batch: 88,
-      expiry: 100,
-      supplier: 120,
-      qty: 68,
-      mrp: 88,
-      rack: 62,
-      status: 88,
-      actions: 68,
+      rowNum: 32, itemName: 190, category: 100, catalogStatus: 100,
+      manufacturer: 110, batch: 88, expiry: 100, supplier: 120,
+      qty: 68, mrp: 88, rack: 62, status: 88, actions: 68,
     };
   }, [showBranchColumn]);
 
   const [colWidths, setColWidths] = useState(getDefaultWidths);
-  const [resizing, setResizing] = useState(null);
+  const [resizing,  setResizing]  = useState(null);
 
-  // Reset widths when branch column toggles
   useEffect(() => {
     setColWidths(getDefaultWidths());
   }, [showBranchColumn, getDefaultWidths]);
 
-  // Resize handlers
-  const handleResizeStart = useCallback(
-    (colKey, e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setResizing({
-        column: colKey,
-        startX: e.clientX,
-        startWidth: colWidths[colKey],
-      });
-    },
-    [colWidths],
-  );
+  const handleResizeStart = useCallback((colKey, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing({ column: colKey, startX: e.clientX, startWidth: colWidths[colKey] });
+  }, [colWidths]);
 
   useEffect(() => {
     if (!resizing) return;
     const handleMouseMove = (e) => {
-      const diff = e.clientX - resizing.startX;
+      const diff     = e.clientX - resizing.startX;
       const newWidth = Math.max(40, resizing.startWidth + diff);
       setColWidths((prev) => ({ ...prev, [resizing.column]: newWidth }));
     };
     const handleMouseUp = () => setResizing(null);
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseup",   handleMouseUp);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseup",   handleMouseUp);
     };
   }, [resizing]);
 
-  const totalItems = items.length;
-  const totalPages = Math.ceil(totalItems / visibleRows);
+  // Row number offset — items[0] is row (currentPage-1)*rowsPerPage + 1
+  const startIndex = (currentPage - 1) * rowsPerPage;
+
+  const totalPages = Math.ceil(totalItems / rowsPerPage);
 
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
-  }, [totalItems, currentPage, totalPages]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [showBranchColumn]);
-
-  useEffect(() => {
-    if (prevItemCountRef.current !== items.length) {
-      setCurrentPage(1);
-      prevItemCountRef.current = items.length;
-    }
+    rowRefs.current = rowRefs.current.slice(0, items.length);
+    while (rowRefs.current.length < items.length) rowRefs.current.push(null);
   }, [items.length]);
 
-  const startIndex = (currentPage - 1) * visibleRows;
-  const paginatedItems = items.slice(startIndex, startIndex + visibleRows);
-
-  useEffect(() => {
-    rowRefs.current = rowRefs.current.slice(0, paginatedItems.length);
-    while (rowRefs.current.length < paginatedItems.length)
-      rowRefs.current.push(null);
-  }, [paginatedItems.length]);
-
-  const hasOverflow = paginatedItems.length > visibleRows;
-
-  // Ordered column keys for rendering
   const columnKeys = showBranchColumn
-    ? [
-        "rowNum",
-        "itemName",
-        "category",
-        "catalogStatus",
-        "manufacturer",
-        "batch",
-        "expiry",
-        "branch",
-        "supplier",
-        "qty",
-        "mrp",
-        "rack",
-        "status",
-        "actions",
-      ]
-    : [
-        "rowNum",
-        "itemName",
-        "category",
-        "catalogStatus",
-        "manufacturer",
-        "batch",
-        "expiry",
-        "supplier",
-        "qty",
-        "mrp",
-        "rack",
-        "status",
-        "actions",
-      ];
+    ? ["rowNum","itemName","category","catalogStatus","manufacturer","batch","expiry","branch","supplier","qty","mrp","rack","status","actions"]
+    : ["rowNum","itemName","category","catalogStatus","manufacturer","batch","expiry","supplier","qty","mrp","rack","status","actions"];
 
-  // Map column keys to sort API keys
   const colToSortKey = {
-    itemName: "name",
-    category: "category",
-    manufacturer: "manufacturer",
-    batch: "batch",
-    expiry: "expiry",
-    branch: "branch",
-    supplier: "supplier",
-    qty: "qty",
-    mrp: "mrp",
-    rack: "rack",
-    status: "status",
+    itemName: "name", category: "category", manufacturer: "manufacturer",
+    batch: "batch", expiry: "expiry", branch: "branch", supplier: "supplier",
+    qty: "qty", mrp: "mrp", rack: "rack", status: "status",
   };
 
-  // ── Sortable header cell ──
   const SortableHeader = ({ colKey }) => {
-    const col = COLUMNS[colKey === "itemName" ? "name" : colKey];
+    const col     = COLUMNS[colKey === "itemName" ? "name" : colKey];
     if (!col) return null;
     const sortKey = colToSortKey[colKey];
     const isActive = sortConfig?.sortBy === sortKey;
-    const isAsc = isActive && sortConfig?.order === "asc";
-    const isDesc = isActive && sortConfig?.order === "desc";
-    const Icon = col.icon;
+    const isAsc    = isActive && sortConfig?.order === "asc";
+    const isDesc   = isActive && sortConfig?.order === "desc";
+    const Icon     = col.icon;
 
     return (
       <th
@@ -495,7 +343,6 @@ const InventoryTable = ({
             </div>
           )}
         </div>
-        {/* Resize handle */}
         <div
           onMouseDown={(e) => handleResizeStart(colKey, e)}
           className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-white/30 transition-colors"
@@ -504,7 +351,6 @@ const InventoryTable = ({
     );
   };
 
-  // Colgroup from widths
   const renderColgroup = () => (
     <colgroup>
       {columnKeys.map((key) => (
@@ -519,15 +365,10 @@ const InventoryTable = ({
       ref={tableContainerRef}
     >
       <div className="flex-1 flex flex-col overflow-hidden">
+
         {/* Header */}
-        <div
-          ref={headerRef}
-          className="shrink-0 overflow-hidden border-b-2 border-gray-200"
-        >
-          <table
-            className="w-full border-collapse"
-            style={{ tableLayout: "fixed" }}
-          >
+        <div ref={headerRef} className="shrink-0 overflow-hidden border-b-2 border-gray-200">
+          <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
             {renderColgroup()}
             <thead>
               <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-7">
@@ -543,19 +384,13 @@ const InventoryTable = ({
         <div
           ref={tableBodyRef}
           className="flex-1 inventory-scroll-overlay relative"
-          style={{
-            height: `${viewportHeight}px`,
-            maxHeight: `${viewportHeight}px`,
-          }}
+          style={{ height: `${viewportHeight}px`, maxHeight: `${viewportHeight}px` }}
         >
-          <table
-            className="w-full border-collapse"
-            style={{ tableLayout: "fixed" }}
-          >
+          <table className="w-full border-collapse" style={{ tableLayout: "fixed" }}>
             {renderColgroup()}
             <tbody>
               {isLoading
-                ? Array.from({ length: visibleRows }).map((_, index) => (
+                ? Array.from({ length: rowsPerPage }).map((_, index) => (
                     <SkeletonRow
                       key={`skeleton-${index}`}
                       rowHeight={rowHeight}
@@ -564,7 +399,7 @@ const InventoryTable = ({
                       showBranchColumn={showBranchColumn}
                     />
                   ))
-                : paginatedItems.map((item, index) => (
+                : items.map((item, index) => (
                     <InventoryRowFixed
                       key={item.id || item.inventory_id || index}
                       ref={(el) => (rowRefs.current[index] = el)}
@@ -580,15 +415,15 @@ const InventoryTable = ({
                       showBranchColumn={showBranchColumn}
                       canAdjustStock={canAdjustStock}
                       catalogStatus={
-                        catalogLinkStatus[item.medicine_id]?.status ||
-                        "NOT_LINKED"
+                        catalogLinkStatus[item.medicine_id]?.status || "NOT_LINKED"
                       }
                       catalogConfidence={
                         catalogLinkStatus[item.medicine_id]?.confidence || 0
                       }
                       catalogStatusLoading={catalogStatusLoading}
                     />
-                  ))}
+                  ))
+              }
             </tbody>
           </table>
 
@@ -611,20 +446,16 @@ const InventoryTable = ({
             </div>
           )}
         </div>
-
-        {hasOverflow && !isLoading && (
-          <div className="shrink-0 h-0.5 bg-gray-100 relative" />
-        )}
       </div>
 
-      {/* Pagination */}
+      {/* Pagination — driven by server total, not items.length */}
       {!isLoading && totalPages > 0 && (
         <div className="shrink-0 border-t border-gray-100 bg-gray-50/50">
           <InventoryPagination
             currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
+            setCurrentPage={onPageChange}
             totalItems={totalItems}
-            rowsPerPage={visibleRows}
+            rowsPerPage={rowsPerPage}
           />
         </div>
       )}
