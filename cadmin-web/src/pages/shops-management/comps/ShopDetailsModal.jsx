@@ -424,7 +424,7 @@ const ShopDetailsModal = ({
     if (shop?.shop_id) {
       fetchShopDetails(shop.shop_id);
       toast.info(
-        "RefData Refreshedreshing",
+        "Refreshing",
         "Loading latest shop data...",
         2000,
       );

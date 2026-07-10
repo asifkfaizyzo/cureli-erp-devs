@@ -654,6 +654,14 @@ export async function getShopProfile(shopId, lat, lng) {
  * prescriptionRequired is now driven by the branch-specific
  * listing.requires_prescription value, not the master scraped flag.
  *
+ * Deduplication: a branch can theoretically have two separate ERP
+ * medicines (different medicine_id) both linked to the same master
+ * variant (same linked_variant_id). The schema unique constraint is on
+ * [medicine_id, branch_id], not [linked_variant_id, branch_id], so
+ * this can occur. We deduplicate by variant_id after fetching so the
+ * mobile FlatList never receives two rows with the same key.
+ * First occurrence wins (alphabetical by name, so deterministic).
+ *
  * @param {string} shopId
  * @param {string} branchId
  * @param {object} opts
@@ -716,42 +724,59 @@ export async function getBranchMedicines(
     ...searchFilter,
   };
 
-  const [listings, total] = await Promise.all([
-    prisma.marketplaceListing.findMany({
-      where,
-      orderBy: { linkedVariant: { name: "asc" } },
-      skip,
-      take: limit,
-      select: {
-        listing_id: true,
-        marketplace_price: true,
-        requires_prescription: true,
-        stock_status: true,
-        linkedVariant: {
-          select: VARIANT_SELECT,
-        },
+  // ── Fetch all matching listings — no skip/take yet ────────
+  //
+  // We cannot paginate before deduplication. If page 1 fetches 20 rows
+  // from the DB but 3 are duplicate variant_ids, the user only sees 17
+  // unique medicines instead of 20. Fetching all first, deduping in JS,
+  // then slicing gives correct page sizes and correct total counts.
+  //
+  // orderBy name asc is kept so that when two listings share the same
+  // variant_id the first one encountered (kept by the Set) is
+  // deterministic — whichever medicine name sorts first alphabetically.
+  const allListings = await prisma.marketplaceListing.findMany({
+    where,
+    orderBy: { linkedVariant: { name: "asc" } },
+    select: {
+      listing_id: true,
+      marketplace_price: true,
+      requires_prescription: true,
+      stock_status: true,
+      linkedVariant: {
+        select: VARIANT_SELECT,
       },
-    }),
-    prisma.marketplaceListing.count({ where }),
-  ]);
+    },
+  });
 
+  // ── Deduplicate by variant_id ─────────────────────────────
+  //
+  // Two ERP medicines with different medicine_ids can be linked to the
+  // same master variant. Both pass the [medicine_id, branch_id] unique
+  // constraint but produce the same variantId in the API response,
+  // causing React Native FlatList to warn about duplicate keys.
+  // Keep the first occurrence; discard the rest.
+  const seenVariantIds = new Set();
+  const uniqueListings = allListings.filter((l) => {
+    if (!l.linkedVariant) return false;
+    const vid = l.linkedVariant.variant_id;
+    if (seenVariantIds.has(vid)) return false;
+    seenVariantIds.add(vid);
+    return true;
+  });
+
+  // ── Paginate the deduplicated list ────────────────────────
+  const total = uniqueListings.length;
   const totalPages = Math.ceil(total / limit);
+  const pageListings = uniqueListings.slice(skip, skip + limit);
 
-  // Shape variants using toFeedItem — identical output to medicines feed.
-  // Pass the branch-specific requires_prescription as the override so
-  // prescriptionRequired reflects what THIS branch has configured,
-  // not the scraped master value.
-  const medicines = listings
-    .filter((l) => l.linkedVariant)
-    .map((l) => ({
-      ...toFeedItem(l.linkedVariant, l.requires_prescription), // PASS BRANCH-SPECIFIC VALUE
-      // Real listing price — non-null when the shop has set a price.
-      // Frontend uses this if present, falls back to generateMarketplaceData
-      // for the demo price display.
-      listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
-      requiresPrescription: l.requires_prescription, // Keep for backward compatibility
-      stockStatus: l.stock_status,
-    }));
+  // ── Shape ─────────────────────────────────────────────────
+  // Identical map to the original — nothing changed here.
+  const medicines = pageListings.map((l) => ({
+    ...toFeedItem(l.linkedVariant, l.requires_prescription),
+    listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
+    requiresPrescription: l.requires_prescription,
+    stockStatus: l.stock_status,
+  }));
 
   return {
     medicines,

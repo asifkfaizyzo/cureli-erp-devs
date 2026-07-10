@@ -136,7 +136,7 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
                   disabled:cursor-not-allowed transition-all flex items-center
                   justify-center gap-2"
               >
-                Preview <ArrowRight size={14} />
+                Continue to Preview <ArrowRight size={14} />
               </button>
             </div>
           </div>
@@ -179,7 +179,7 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
             disabled:cursor-not-allowed transition-all flex items-center
             justify-center gap-2"
         >
-          Preview <ArrowRight size={14} />
+          Continue to Preview <ArrowRight size={14} />
         </button>
       </div>
     </div>

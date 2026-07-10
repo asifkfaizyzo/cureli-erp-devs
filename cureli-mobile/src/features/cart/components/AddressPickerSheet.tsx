@@ -187,7 +187,7 @@ export function AddressPickerSheet({
     // Without this, snapToIndex can run before the native view is ready
     // on first mount, especially on Android 15.
     const t = setTimeout(() => {
-      sheetRef.current?.snapToIndex(1);
+      sheetRef.current?.snapToIndex(0);
     }, 50);
     return () => clearTimeout(t);
   } else {

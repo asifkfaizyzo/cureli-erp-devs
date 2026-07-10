@@ -6,7 +6,7 @@ import prisma from "../../../config/prisma.js";
 import fs from "fs";
 import path from "path";
 import * as audit from "../../audit/index.js";
-
+import * as fileStorage from "../../../services/fileStorage.service.js";
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -998,31 +998,34 @@ export async function uploadShopDocument({
 
   // Check if document of this type already exists
   const existingDoc = await prisma.shopFile.findFirst({
-    where: {
-      shop_id,
-      file_type,
-    },
+    where: { shop_id, file_type },
   });
 
-  const storageKey = file.filename;
+  // ─── CHANGED: Upload buffer to S3 via fileStorage (same as user-side flow) ───
+  const uploadResult = await fileStorage.uploadFile({
+    buffer: file.buffer,
+    folder: "shop_files",
+    originalName: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size,
+  });
+
+  const storageKey = uploadResult.storage_key; // ← now correctly set
   const originalName = file.originalname;
   const mimeType = file.mimetype;
   const fileSize = file.size;
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const result = await prisma.$transaction(async (tx) => {
     let shopFile;
-    let isReplacement = false;
 
     if (existingDoc) {
-      // Delete old file from disk
+      // Delete old file from S3
       if (existingDoc.storage_key) {
-        const oldFilePath = path.join(
-          "uploads/shop_files",
-          existingDoc.storage_key,
-        );
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
+        await fileStorage.deleteFile({
+          folder: "shop_files",
+          filename: existingDoc.storage_key,
+        });
       }
 
       // Update existing record
@@ -1043,9 +1046,6 @@ export async function uploadShopDocument({
         },
       });
 
-      isReplacement = true;
-
-      // Legacy verification log
       await tx.fileVerificationLog.create({
         data: {
           file_id: shopFile.file_id,
@@ -1057,19 +1057,18 @@ export async function uploadShopDocument({
         },
       });
 
-      //  AUDIT: Document replaced by admin
       await audit.log(
         {
           action: audit.AuditAction.SHOP_DOCUMENT_REPLACED_BY_ADMIN,
           entity_type: audit.EntityType.DOCUMENT,
           entity_id: shopFile.file_id,
-          shop_id: shop_id,
+          shop_id,
           ...auditContext,
           reason_code: audit.AuditReasonCode.ADMIN_ACTION,
           metadata: {
             file_id: shopFile.file_id,
             previous_file_id: existingDoc.file_id,
-            file_type: file_type,
+            file_type,
             original_name: originalName,
             replaced_by_cadmin_id: uploaded_by,
             resubmission_count: shopFile.resubmission_count,
@@ -1093,7 +1092,6 @@ export async function uploadShopDocument({
         },
       });
 
-      // Legacy verification log
       await tx.fileVerificationLog.create({
         data: {
           file_id: shopFile.file_id,
@@ -1105,17 +1103,16 @@ export async function uploadShopDocument({
         },
       });
 
-      //  AUDIT: Document uploaded by admin
       await audit.log(
         {
           action: audit.AuditAction.SHOP_DOCUMENT_UPLOADED_BY_ADMIN,
           entity_type: audit.EntityType.DOCUMENT,
           entity_id: shopFile.file_id,
-          shop_id: shop_id,
+          shop_id,
           ...auditContext,
           reason_code: audit.AuditReasonCode.ADMIN_ACTION,
           metadata: {
-            file_type: file_type,
+            file_type,
             original_name: originalName,
             uploaded_by_cadmin_id: uploaded_by,
             mime_type: mimeType,
@@ -1126,7 +1123,6 @@ export async function uploadShopDocument({
       );
     }
 
-    // Update shop verification status
     await updateShopVerificationStatus(shop_id, tx);
 
     return shopFile;

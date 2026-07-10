@@ -1,10 +1,10 @@
-// backend/src/modules/cadmin/shops/cadminShops.routes.js
+// cadminShops.routes.js
 
 import express from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
 import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
 import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
-import { upload } from "../../../config/multer.js";
+import { shopFilesUpload, handleMulterError } from "../../../config/multer.js"; // ← CHANGED
 import {
   listShopsController,
   getShopByIdController,
@@ -19,7 +19,6 @@ const router = express.Router();
 
 router.use(requireCAdmin);
 
-// stats MUST be before /:shop_id
 router.get(
   "/shops/stats",
   requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_VIEW_STATS),
@@ -59,7 +58,8 @@ router.patch(
 router.post(
   "/shops/:shop_id/documents",
   requireCAdminPermission(CADMIN_PERMISSIONS.SHOPS_UPLOAD_DOCUMENTS),
-  upload.single("file"),
+  shopFilesUpload,        // ← CHANGED: proper uploader with memory storage + validation
+  handleMulterError,      // ← ADDED: error handler
   uploadShopDocumentController
 );
 

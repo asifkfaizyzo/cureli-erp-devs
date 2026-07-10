@@ -35,6 +35,7 @@ import {
 import { StickyCheckoutBar } from "../components/StickyCheckoutBar";
 import { RecommendationSection } from "../components/RecommendationSection";
 import { PrescriptionUploadCard } from "../components/PrescriptionUploadCard";
+import { AddressPickerSheet } from "../components/AddressPickerSheet";
 
 import { useCartStore } from "../../../store/cartStore";
 import { usePrescriptionStore } from "../../../store/prescriptionStore";
@@ -88,7 +89,6 @@ function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
         <Text style={[styles.successTitle, { color: colors.text.primary }]}>
           Order Placed!
         </Text>
-        {/* ↓ Fixed copy — no longer promises push notifications */}
         <Text style={[styles.successSub, { color: colors.text.muted }]}>
           Your order has been placed with the pharmacy.{"\n"}
           Track your order status in the Orders tab.
@@ -98,7 +98,7 @@ function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
           activeOpacity={0.85}
           style={[styles.homeBtn, { backgroundColor: colors.brand.primary }]}
         >
-          <Ionicons name="home-outline" size={16} color="#ffffff" />
+          <Ionicons name="home-outline" size={16} color="#fff" />
           <Text style={styles.homeBtnText}>Back to Home</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -131,6 +131,17 @@ export function CartScreen() {
     return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
   })();
   const selectedAddressId = resolvedAddress?.id ?? null;
+
+  // ── Sheet state — owned here so sheet renders outside SafeAreaView ──
+  const [addressSheetVisible, setAddressSheetVisible] = useState(false);
+
+  const handleAddressPress = useCallback(() => {
+    setAddressSheetVisible(true);
+  }, []);
+
+  const handleAddressSheetClose = useCallback(() => {
+    setAddressSheetVisible(false);
+  }, []);
 
   // ── Order state ───────────────────────────────────────────
   const [isSuccess, setIsSuccess] = useState(false);
@@ -183,7 +194,6 @@ export function CartScreen() {
       return;
     }
 
-    // Charges
     const itemsTotal = items.reduce(
       (sum, item) => sum + item.pricePerUnit * item.quantity,
       0,
@@ -281,7 +291,10 @@ export function CartScreen() {
           <TouchableOpacity
             onPress={() => router.push("/(tabs)" as any)}
             activeOpacity={0.8}
-            style={[styles.emptyBtn, { backgroundColor: colors.brand.primary }]}
+            style={[
+              styles.emptyBtn,
+              { backgroundColor: colors.brand.primary },
+            ]}
           >
             <Text style={styles.emptyBtnText}>Browse Medicines</Text>
           </TouchableOpacity>
@@ -292,82 +305,103 @@ export function CartScreen() {
 
   // ── Cart with items ───────────────────────────────────────
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
-      edges={["top"]}
-    >
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.background.card,
-            borderBottomColor: colors.border.subtle,
-          },
-        ]}
+    <>
+      <SafeAreaView
+        style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
+        edges={["top"]}
       >
-        <TouchableOpacity
-          onPress={handleBack}
-          activeOpacity={0.7}
-          style={styles.backBtn}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: colors.background.card,
+              borderBottomColor: colors.border.subtle,
+            },
+          ]}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
-          My Cart
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <DeliverySummaryCard />
-
-        {requiresPrescription && <PrescriptionUploadCard />}
-
-        <RecommendationSection />
-
-        <TouchableOpacity
-          onPress={() => router.push("/(tabs)" as any)}
-          activeOpacity={0.8}
-          style={styles.seeAllBtn}
-        >
-          <Text style={styles.seeAllText}>Browse more medicines →</Text>
-        </TouchableOpacity>
-
-        <BillDetailsCard />
-
-        <DeliveryInstructionCard
-          selected={selectedInstructions}
-          onToggle={handleToggleInstruction}
-        />
-      </ScrollView>
-
-      {/* Loading overlay while placing order */}
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <View
-            style={[
-              styles.loadingCard,
-              { backgroundColor: colors.background.card },
-            ]}
+          <TouchableOpacity
+            onPress={handleBack}
+            activeOpacity={0.7}
+            style={styles.backBtn}
           >
-            <ActivityIndicator size="large" color={colors.brand.primary} />
-            <Text
+            <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
+            My Cart
+          </Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <DeliverySummaryCard />
+
+          {requiresPrescription && <PrescriptionUploadCard />}
+
+          <RecommendationSection />
+
+          <TouchableOpacity
+            onPress={() => router.push("/(tabs)" as any)}
+            activeOpacity={0.8}
+            style={styles.seeAllBtn}
+          >
+            <Text style={styles.seeAllText}>Browse more medicines →</Text>
+          </TouchableOpacity>
+
+          <BillDetailsCard />
+
+          <DeliveryInstructionCard
+            selected={selectedInstructions}
+            onToggle={handleToggleInstruction}
+          />
+        </ScrollView>
+
+        {/* Loading overlay while placing order */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <View
               style={[
-                styles.loadingText,
-                { color: colors.text.primary, fontFamily: "Inter_600SemiBold" },
+                styles.loadingCard,
+                { backgroundColor: colors.background.card },
               ]}
             >
-              Placing your order…
-            </Text>
+              <ActivityIndicator size="large" color={colors.brand.primary} />
+              <Text
+                style={[
+                  styles.loadingText,
+                  {
+                    color: colors.text.primary,
+                    fontFamily: "Inter_600SemiBold",
+                  },
+                ]}
+              >
+                Placing your order…
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <StickyCheckoutBar onPlaceOrder={handlePlaceOrder} />
-    </SafeAreaView>
+        <StickyCheckoutBar
+          onPlaceOrder={handlePlaceOrder}
+          onAddressPress={handleAddressPress}
+        />
+      </SafeAreaView>
+
+      {/*
+        AddressPickerSheet is rendered OUTSIDE SafeAreaView as a sibling.
+        This lets @gorhom/bottom-sheet's portal escape the SafeAreaView
+        container and render at the true root level, which is required on
+        Android 15 + Fabric for the sheet to be visible.
+      */}
+      {addressSheetVisible && (
+        <AddressPickerSheet
+          visible={addressSheetVisible}
+          onClose={handleAddressSheetClose}
+        />
+      )}
+    </>
   );
 }
 
