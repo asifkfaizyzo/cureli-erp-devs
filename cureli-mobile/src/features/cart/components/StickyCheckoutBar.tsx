@@ -1,6 +1,6 @@
 // src/features/cart/components/StickyCheckoutBar.tsx
 
-import React, { useCallback } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -9,37 +9,29 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { Spacing } from '../../../theme/spacing';
 import { useCartStore } from '../../../store/cartStore';
 import { usePrescriptionStore } from '../../../store/prescriptionStore';
-import { CART_CONFIG } from '../../../constants/config';
 import { useAddresses } from '../../profile/hooks/useAddresses';
 import { useDeliveryLocationStore } from '../../../store/deliveryLocationStore';
-import type { Address } from '../../profile/types/profile.types';
+import { CART_CONFIG } from '../../../constants/config';
 
 interface StickyCheckoutBarProps {
   onPlaceOrder: () => void;
-  onAddressPress: () => void;
 }
 
-export function StickyCheckoutBar({
-  onPlaceOrder,
-  onAddressPress,
-}: StickyCheckoutBarProps) {
+export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   const items = useCartStore((s) => s.items);
   const tempFiles = usePrescriptionStore((s) => s.tempFiles);
 
+  // Still need address + prescription state to know if button is blocked
   const { addresses } = useAddresses();
   const pickedAddressId = useDeliveryLocationStore(
     (s) => s.location.addressId ?? null,
   );
-
-  const resolvedAddress: Address | null = (() => {
-    if (pickedAddressId) {
-      return addresses.find((a) => a.id === pickedAddressId) ?? null;
-    }
-    return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
-  })();
+  const resolvedAddress = pickedAddressId
+    ? (addresses.find((a) => a.id === pickedAddressId) ?? null)
+    : (addresses.find((a) => a.is_default) ?? addresses[0] ?? null);
 
   const itemsTotal = items.reduce(
     (sum, item) => sum + item.pricePerUnit * item.quantity,
@@ -54,13 +46,6 @@ export function StickyCheckoutBar({
   const noAddress = !resolvedAddress;
   const isBlocked = prescriptionBlocked || noAddress;
 
-  const addressLabel = resolvedAddress
-    ? (resolvedAddress.custom_label ?? resolvedAddress.label)
-    : null;
-  const addressLine = resolvedAddress
-    ? `${resolvedAddress.city}, ${resolvedAddress.state}`
-    : null;
-
   return (
     <View
       style={[
@@ -72,54 +57,11 @@ export function StickyCheckoutBar({
         },
       ]}
     >
-      {/* ── Delivery location row ──────────────────────── */}
-      <View style={styles.locationRow}>
-        <Ionicons
-          name="location-outline"
-          size={15}
-          color={noAddress ? colors.status.warning : colors.text.brand}
-        />
-        <View style={styles.locationText}>
-          <Text
-            style={[
-              styles.locationLabel,
-              {
-                color: noAddress
-                  ? colors.status.warning
-                  : colors.text.muted,
-              },
-            ]}
-          >
-            {noAddress ? 'No address set' : 'Delivering to'}
-          </Text>
-          {resolvedAddress && (
-            <Text
-              style={[styles.locationValue, { color: colors.text.primary }]}
-              numberOfLines={1}
-            >
-              {addressLabel} — {addressLine}
-            </Text>
-          )}
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onAddressPress}
-          accessibilityRole="button"
-          accessibilityLabel={
-            noAddress ? 'Add delivery address' : 'Change delivery address'
-          }
-        >
-          <Text style={[styles.changeText, { color: colors.text.brand }]}>
-            {noAddress ? 'Add' : 'Change'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Prescription blocked notice ────────────────── */}
+      {/* ── Prescription blocked notice ────────────────────── */}
       {prescriptionBlocked && (
         <View
           style={[
-            styles.prescriptionNotice,
+            styles.notice,
             { backgroundColor: colors.status.warningBg },
           ]}
         >
@@ -130,7 +72,7 @@ export function StickyCheckoutBar({
           />
           <Text
             style={[
-              styles.prescriptionNoticeText,
+              styles.noticeText,
               {
                 color: colors.status.warning,
                 fontFamily: 'Inter_500Medium',
@@ -142,7 +84,7 @@ export function StickyCheckoutBar({
         </View>
       )}
 
-      {/* ── Proceed button ────────────────────────────── */}
+      {/* ── Total + Place Order ────────────────────────────── */}
       <View style={styles.actionRow}>
         <View style={styles.totalBlock}>
           <Text style={[styles.totalAmount, { color: colors.text.primary }]}>
@@ -186,38 +128,17 @@ const styles = StyleSheet.create({
     right: 0,
     borderTopWidth: 1,
   },
-  locationRow: {
-    height: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: Spacing.sm,
-  },
-  locationText: { flex: 1 },
-  locationLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-  },
-  locationValue: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-    marginTop: 1,
-  },
-  changeText: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  prescriptionNotice: {
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginHorizontal: 16,
-    marginBottom: 6,
+    marginTop: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
-  prescriptionNoticeText: {
+  noticeText: {
     fontSize: 11,
     flex: 1,
   },

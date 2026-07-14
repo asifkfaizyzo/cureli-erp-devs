@@ -1,38 +1,28 @@
 // src/features/cart/components/AddressPickerSheet.tsx
-//
-// Bottom sheet address picker for cart and checkout screens.
-//
-// On selecting an address:
-//   - Calls deliveryLocationStore.selectAddress() with the address data
-//   - Closes the sheet
-//   - Does NOT navigate away
-//
-// "Add new address" button navigates to the address form screen.
-//
-// Pattern mirrors ShopsBottomSheet — same gorhom/bottom-sheet setup.
 
-import React, { useCallback, useRef, useMemo, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
-import BottomSheet, {
-  BottomSheetScrollView,
-  BottomSheetBackdrop,
-} from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { useTheme } from '../../../theme/ThemeContext';
 import { Spacing } from '../../../theme/spacing';
-import { Radius } from '../../../theme/radius';
 import { useAddresses } from '../../profile/hooks/useAddresses';
 import { useDeliveryLocationStore } from '../../../store/deliveryLocationStore';
 import type { Address } from '../../profile/types/profile.types';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MAX_SHEET_HEIGHT = SCREEN_HEIGHT * 0.65;
 
 interface AddressPickerSheetProps {
   visible: boolean;
@@ -77,7 +67,6 @@ function AddressRow({
       accessibilityState={{ checked: isSelected }}
       accessibilityLabel={`${address.custom_label ?? address.label}, ${address.address_line_1}, ${address.city}`}
     >
-      {/* Icon */}
       <View
         style={[
           styles.addressIcon,
@@ -95,7 +84,6 @@ function AddressRow({
         />
       </View>
 
-      {/* Text */}
       <View style={styles.addressText}>
         <Text
           style={[
@@ -137,7 +125,6 @@ function AddressRow({
         ) : null}
       </View>
 
-      {/* Selected indicator */}
       {isSelected ? (
         <Ionicons
           name="checkmark-circle"
@@ -165,55 +152,12 @@ export function AddressPickerSheet({
 }: AddressPickerSheetProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const sheetRef = useRef<BottomSheet>(null);
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
   const { addresses, isLoading } = useAddresses();
   const selectAddress = useDeliveryLocationStore((s) => s.selectAddress);
   const currentLocation = useDeliveryLocationStore((s) => s.location);
-
-  // ── Snap points ───────────────────────────────────────────
-  const snapPoints = useMemo(() => {
-    if (isLoading || addresses.length === 0) return ['30%'];
-    if (addresses.length === 1) return ['30%'];
-    if (addresses.length === 2) return ['50%'];
-    return ['65%', '85%'];
-  }, [addresses.length, isLoading]);
-
-  // ── Open / close ──────────────────────────────────────────
-  useEffect(() => {
-  if (visible) {
-    // Use a small delay so the sheet mounts before we try to open it.
-    // Without this, snapToIndex can run before the native view is ready
-    // on first mount, especially on Android 15.
-    const t = setTimeout(() => {
-      sheetRef.current?.snapToIndex(0);
-    }, 50);
-    return () => clearTimeout(t);
-  } else {
-    sheetRef.current?.close();
-  }
-}, [visible]);
-
-  const handleSheetChange = useCallback(
-    (index: number) => {
-      if (index === -1) onClose();
-    },
-    [onClose],
-  );
-
-  const renderBackdrop = useCallback(
-    (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.45}
-        pressBehavior="close"
-      />
-    ),
-    [],
-  );
+  const selectedAddressId = currentLocation.addressId ?? null;
 
   // ── Select handler ────────────────────────────────────────
   const handleSelect = useCallback(
@@ -233,14 +177,10 @@ export function AddressPickerSheet({
 
   const handleAddNew = useCallback(() => {
     onClose();
-    // Small delay so sheet closes before navigating
     setTimeout(() => {
       router.push('/profile/address/new' as any);
     }, 300);
   }, [onClose]);
-
-  // ── Currently selected address ID ─────────────────────────
-  const selectedAddressId = currentLocation.addressId ?? null;
 
   // ── Content ───────────────────────────────────────────────
 
@@ -293,12 +233,10 @@ export function AddressPickerSheet({
     }
 
     return (
-      <BottomSheetScrollView
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: insets.bottom + Spacing.xl },
-        ]}
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
       >
         {addresses.map((address) => (
           <AddressRow
@@ -308,102 +246,156 @@ export function AddressPickerSheet({
             onSelect={handleSelect}
           />
         ))}
-      </BottomSheetScrollView>
+      </ScrollView>
     );
   };
 
   return (
-    <BottomSheet
-      ref={sheetRef}
-      index={-1}
-      snapPoints={snapPoints}
-      onChange={handleSheetChange}
-      enablePanDownToClose
-      backdropComponent={renderBackdrop}
-      handleIndicatorStyle={[
-        styles.handle,
-        { backgroundColor: colors.border.default },
-      ]}
-      backgroundStyle={{
-        backgroundColor: colors.background.page,
-        borderTopLeftRadius: Radius.xl,
-        borderTopRightRadius: Radius.xl,
-      }}
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      transparent
+      onRequestClose={onClose}
+      statusBarTranslucent
     >
-      {/* ── Header ────────────────────────────────────────── */}
+      {/* ── Backdrop ──────────────────────────────────────── */}
+      <TouchableOpacity
+        style={styles.backdrop}
+        onPress={onClose}
+        activeOpacity={1}
+        accessibilityLabel="Close address picker"
+      />
+
+      {/* ── Sheet ─────────────────────────────────────────── */}
       <View
         style={[
-          styles.sheetHeader,
-          { borderBottomColor: colors.border.subtle },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sheetTitle,
-            { color: colors.text.primary, fontFamily: 'Inter_700Bold' },
-          ]}
-        >
-          Deliver to
-        </Text>
-        <TouchableOpacity
-          onPress={onClose}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel="Close"
-        >
-          <Ionicons name="close" size={22} color={colors.text.secondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Address list ──────────────────────────────────── */}
-      {renderContent()}
-
-      {/* ── Add new address button ────────────────────────── */}
-      <View
-        style={[
-          styles.addNewContainer,
+          styles.sheet,
           {
-            borderTopColor: colors.border.subtle,
-            paddingBottom: Math.max(insets.bottom, 16),
             backgroundColor: colors.background.page,
+            maxHeight: MAX_SHEET_HEIGHT,
+            paddingBottom: Math.max(insets.bottom, 16),
           },
         ]}
       >
-        <TouchableOpacity
-          onPress={handleAddNew}
-          activeOpacity={0.75}
+        {/* ── Drag handle ───────────────────────────────── */}
+        <View style={styles.dragHandleRow}>
+          <View
+            style={[
+              styles.dragHandle,
+              { backgroundColor: colors.border.default },
+            ]}
+          />
+        </View>
+
+        {/* ── Header ────────────────────────────────────── */}
+        <View
           style={[
-            styles.addNewButton,
+            styles.sheetHeader,
             {
-              borderColor: brandColor,
-              backgroundColor: colors.background.tint,
+              borderBottomColor: colors.border.subtle,
             },
           ]}
-          accessibilityRole="button"
-          accessibilityLabel="Add new address"
         >
-          <MaterialIcons name="add-location-alt" size={18} color={brandColor} />
           <Text
             style={[
-              styles.addNewText,
-              { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+              styles.sheetTitle,
+              { color: colors.text.primary, fontFamily: 'Inter_700Bold' },
             ]}
           >
-            Add new address
+            Deliver to
           </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={22} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Address list ─────────────────────────────── */}
+        <View style={styles.contentArea}>{renderContent()}</View>
+
+        {/* ── Add new address ──────────────────────────── */}
+        <View
+          style={[
+            styles.addNewContainer,
+            {
+              borderTopColor: colors.border.subtle,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={handleAddNew}
+            activeOpacity={0.75}
+            style={[
+              styles.addNewButton,
+              {
+                borderColor: brandColor,
+                backgroundColor: colors.background.tint,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Add new address"
+          >
+            <MaterialIcons
+              name="add-location-alt"
+              size={18}
+              color={brandColor}
+            />
+            <Text
+              style={[
+                styles.addNewText,
+                { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+              ]}
+            >
+              Add new address
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </BottomSheet>
+    </Modal>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  handle: {
+  // ── Modal layers ──────────────────────────────────────────
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    // Shadow for iOS
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    // Elevation for Android
+    elevation: 16,
+  },
+
+  // ── Drag handle ───────────────────────────────────────────
+  dragHandleRow: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  dragHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
   },
+
+  // ── Header ────────────────────────────────────────────────
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -414,13 +406,17 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 17 },
 
+  // ── Content area ──────────────────────────────────────────
+  contentArea: {
+    flexShrink: 1, // shrinks when content is small, caps at maxHeight
+  },
+
   centerContent: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing['4xl'],
+    paddingVertical: Spacing.xl,
   },
   centerText: {
     fontSize: 16,
@@ -435,9 +431,11 @@ const styles = StyleSheet.create({
   list: {
     paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.md,
     gap: Spacing.sm,
   },
 
+  // ── Address row ───────────────────────────────────────────
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -469,6 +467,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 
+  // ── Add new ───────────────────────────────────────────────
   addNewContainer: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.md,

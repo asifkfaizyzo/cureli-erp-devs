@@ -26,6 +26,7 @@ import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
 
+import { DeliveryAddressCard } from "../components/DeliveryAddressCard"; // ← NEW
 import { DeliverySummaryCard } from "../components/DeliverySummaryCard";
 import { BillDetailsCard } from "../components/BillDetailsCard";
 import {
@@ -46,6 +47,7 @@ import { CART_CONFIG } from "../../../constants/config";
 import type { Address } from "../../profile/types/profile.types";
 
 // ── Order success overlay ─────────────────────────────────────
+// (unchanged — kept exactly as-is)
 
 function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
   const { colors } = useTheme();
@@ -132,10 +134,11 @@ export function CartScreen() {
   })();
   const selectedAddressId = resolvedAddress?.id ?? null;
 
-  // ── Sheet state — owned here so sheet renders outside SafeAreaView ──
+  // ── Sheet state ───────────────────────────────────────────
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
 
   const handleAddressPress = useCallback(() => {
+    console.log("handleAddressPress called, setting visible true");
     setAddressSheetVisible(true);
   }, []);
 
@@ -193,13 +196,6 @@ export function CartScreen() {
       Alert.alert("Error", "No branch found. Please re-add items to cart.");
       return;
     }
-
-    const itemsTotal = items.reduce(
-      (sum, item) => sum + item.pricePerUnit * item.quantity,
-      0,
-    );
-    const isFreeDelivery = itemsTotal >= CART_CONFIG.FREE_DELIVERY_ABOVE;
-    const deliveryCharge = isFreeDelivery ? 0 : CART_CONFIG.DELIVERY_CHARGE;
 
     const payload = {
       branch_id: branchId,
@@ -291,10 +287,7 @@ export function CartScreen() {
           <TouchableOpacity
             onPress={() => router.push("/(tabs)" as any)}
             activeOpacity={0.8}
-            style={[
-              styles.emptyBtn,
-              { backgroundColor: colors.brand.primary },
-            ]}
+            style={[styles.emptyBtn, { backgroundColor: colors.brand.primary }]}
           >
             <Text style={styles.emptyBtnText}>Browse Medicines</Text>
           </TouchableOpacity>
@@ -336,6 +329,9 @@ export function CartScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* ── Delivery address — first card in scroll ──── */}
+          <DeliveryAddressCard onChangePress={handleAddressPress} />
+
           <DeliverySummaryCard />
 
           {requiresPrescription && <PrescriptionUploadCard />}
@@ -383,18 +379,10 @@ export function CartScreen() {
           </View>
         )}
 
-        <StickyCheckoutBar
-          onPlaceOrder={handlePlaceOrder}
-          onAddressPress={handleAddressPress}
-        />
+        {/* onAddressPress prop removed — address is now in the scroll body */}
+        <StickyCheckoutBar onPlaceOrder={handlePlaceOrder} />
       </SafeAreaView>
 
-      {/*
-        AddressPickerSheet is rendered OUTSIDE SafeAreaView as a sibling.
-        This lets @gorhom/bottom-sheet's portal escape the SafeAreaView
-        container and render at the true root level, which is required on
-        Android 15 + Fabric for the sheet to be visible.
-      */}
       {addressSheetVisible && (
         <AddressPickerSheet
           visible={addressSheetVisible}
@@ -405,6 +393,7 @@ export function CartScreen() {
   );
 }
 
+// styles unchanged below
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
@@ -442,8 +431,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: "#05015A",
   },
-
-  // Loading overlay
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -465,8 +452,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 15,
   },
-
-  // Empty state
   emptyState: {
     flex: 1,
     alignItems: "center",
@@ -492,8 +477,6 @@ const styles = StyleSheet.create({
     ...Typography.button,
     color: "#ffffff",
   },
-
-  // Success state
   successRoot: {
     flex: 1,
     alignItems: "center",

@@ -417,7 +417,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                 ]}
               >
                 {form.latitude
-                  ? "Location set — tap to change"
+                  ? "Location set - tap to change"
                   : "Search or use current location"}
               </Text>
               <Text
