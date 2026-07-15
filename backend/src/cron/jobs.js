@@ -32,6 +32,10 @@ import {
   NOTIFICATION_EVENTS,
 } from "../modules/notifications/index.js";
 
+// ── NEW ───────────────────────────────────────────────────────
+import { expireStaleCheckoutSessions } from "./checkoutSessionCleanup.js";
+// ─────────────────────────────────────────────────────────────
+
 // ============================================
 // CRON 5: SCHEDULED BROADCASTS - Every 5 minutes
 // ============================================
@@ -370,13 +374,16 @@ function initializeInventoryExpiryJob() {
   cronLogger.info("Inventory expiry job scheduled (daily at 6:00 AM)");
 }
 
+// ============================================
+// PRESCRIPTION CLEANUP - Daily at 2:30 AM
+// ============================================
+
 async function cleanupExpiredPrescriptions() {
   cronLogger.info("Checking for expired prescriptions to purge...");
 
   try {
     const now = new Date();
 
-    // Find prescriptions whose expiry has passed and have not yet been deleted
     const expired = await prisma.marketplaceOrderPrescription.findMany({
       where: {
         expires_at: { lt: now },
@@ -401,13 +408,11 @@ async function cleanupExpiredPrescriptions() {
 
     for (const prescription of expired) {
       try {
-        // Delete from S3
         await deleteFile({
           folder: "order_prescriptions",
           filename: prescription.storage_key,
         });
 
-        // Mark as deleted in DB (keep row for audit)
         await prisma.marketplaceOrderPrescription.update({
           where: { prescription_id: prescription.prescription_id },
           data: { deleted_at: now },
@@ -418,7 +423,6 @@ async function cleanupExpiredPrescriptions() {
         );
         purged++;
       } catch (err) {
-        // Log but continue — do not let one failure block the rest
         cronLogger.error(
           `  - Failed to purge ${prescription.prescription_id}: ${err.message}`,
         );
@@ -472,7 +476,6 @@ async function autoCompleteStaleOrders() {
       `Found ${staleOrders.length} stale order(s) to auto-complete`,
     );
 
-    // Import here to avoid circular dep at module level
     const { transitionOrderStatus } =
       await import("../modules/marketplace-orders/marketplace.orders.service.js");
 
@@ -514,6 +517,19 @@ function initializeMarketplaceOrderAutoComplete() {
 }
 
 // ============================================
+// CHECKOUT SESSION CLEANUP - Every 5 minutes
+// ============================================
+
+function initializeCheckoutSessionCleanupJob() {
+  cron.schedule("*/5 * * * *", () =>
+    withCronLock("checkout-session-cleanup", 4, async () => {
+      await expireStaleCheckoutSessions();
+    }),
+  );
+  cronLogger.info("Checkout session cleanup scheduled (every 5 minutes)");
+}
+
+// ============================================
 // INITIALIZE ALL CRON JOBS
 // ============================================
 
@@ -527,7 +543,6 @@ export function initializeCronJobs() {
   initializeFileCleanupWorker();
   cronLogger.info("Email broadcast worker: Every 1 minute");
   cronLogger.info("Email file cleanup: Daily at 4:00 AM");
-  cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
 
   // Session cleanup (every hour)
   setInterval(
@@ -546,6 +561,10 @@ export function initializeCronJobs() {
   initializeScheduledBroadcastsJob();
   initializeMarketplaceOrderAutoComplete();
   initializePrescriptionCleanupJob();
+
+  // ── NEW ─────────────────────────────────────────────────────
+  initializeCheckoutSessionCleanupJob();
+  // ────────────────────────────────────────────────────────────
 
   // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
@@ -616,4 +635,8 @@ export function initializeCronJobs() {
   cronLogger.info("  - Scheduled broadcasts: Every 5 minutes");
   cronLogger.info("  - OTP daily limits cleanup: Daily at 3:45 AM");
   cronLogger.info("  - Marketplace order auto-complete: Every hour");
+  cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
+  // ── NEW ─────────────────────────────────────────────────────
+  cronLogger.info("  - Checkout session cleanup: Every 5 minutes");
+  // ────────────────────────────────────────────────────────────
 }

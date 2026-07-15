@@ -9,10 +9,13 @@ import Sidebar from "./AdminSidebar";
 import TopHeader from "./AdminHeader";
 import Breadcrumb from "../common/Breadcrumb";
 import { useMenuStore } from "../../store/useMenuStore";
+// ── NEW ───────────────────────────────────────────────────────
+import { useCommunicationBadgeStore } from "../../store/useCommunicationBadgeStore";
+// ─────────────────────────────────────────────────────────────
 
 /**
- * Route-to-breadcrumb mapping for pages NOT in the sidebar
- * Add any page that isn't navigated to via sidebar here
+ * Route-to-breadcrumb mapping for pages NOT in the sidebar.
+ * Add any page that isn't navigated to via sidebar here.
  */
 const NON_SIDEBAR_ROUTES = {
   "/notifications": {
@@ -27,11 +30,20 @@ const AppLayout = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
-  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
+  const setActiveMenu  = useMenuStore((s) => s.setActiveMenu);
 
   const handleSidebarExpand = useCallback((value) => {
     setSidebarExpanded(value);
   }, []);
+
+  // ── NEW: start badge polling when layout mounts, stop on unmount ──
+  // Polling is centralised here so it runs for the entire cadmin session,
+  // regardless of which page is active. Only one interval ever runs.
+  useEffect(() => {
+    useCommunicationBadgeStore.getState().startPolling();
+    return () => useCommunicationBadgeStore.getState().stopPolling();
+  }, []);
+  // ─────────────────────────────────────────────────────────────────
 
   const pageVariants = {
     initial: { opacity: 0, y: 20 },
@@ -52,11 +64,9 @@ const AppLayout = () => {
     const routeConfig = NON_SIDEBAR_ROUTES[location.pathname];
 
     if (routeConfig) {
-      // Set breadcrumbs for non-sidebar routes
       setBreadcrumbs(routeConfig.breadcrumbs);
 
       // Only update active menu if explicitly set (not null)
-      // If menuId is null, we don't highlight any sidebar item
       if (routeConfig.menuId !== null) {
         setActiveMenu(routeConfig.menuId);
       }

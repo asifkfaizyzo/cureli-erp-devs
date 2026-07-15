@@ -1,7 +1,6 @@
 // src/pages/marketplace-onboarding/steps/GoLiveStep.jsx
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -20,11 +19,10 @@ import GoLiveCelebration from "../components/GoLiveCelebration";
 const DEV_MODE = import.meta.env.DEV;
 
 const GoLiveStep = ({ onBack }) => {
-  const navigate = useNavigate();
   const submitGoLive = useMarketplaceStore((s) => s.submitGoLive);
+  const confirmGoLive = useMarketplaceStore((s) => s.confirmGoLive);
   const isGoingLive = useMarketplaceStore((s) => s.isGoingLive);
   const goLiveErrors = useMarketplaceStore((s) => s.goLiveErrors);
-  const isLive = useMarketplaceStore((s) => s.isLive);
   const storefront = useMarketplaceStore((s) => s.storefront);
   const allBranches = useMarketplaceStore((s) => s.allBranches);
   const selectedBranchIds = useMarketplaceStore((s) => s.selectedBranchIds);
@@ -43,31 +41,33 @@ const GoLiveStep = ({ onBack }) => {
   const handleGoLive = async () => {
     setSubmitError(null);
 
-    // API call FIRST — celebration only triggers on success
     const result = await submitGoLive();
 
     if (!result?.success) {
-      // submitGoLive already writes to goLiveErrors in the store,
-      // but if it returns a top-level failure we surface it here too
       setSubmitError(
         result?.error || "Something went wrong. Please try again.",
       );
       return;
     }
 
-    // API succeeded — now show celebration
+    // API succeeded — show celebration.
+    // marketplaceStatus is still NOT "LIVE" at this point so the
+    // navigate() effect in MarketplaceOnboardingPage won't fire yet.
     setShowCelebration(true);
   };
 
   const handleCelebrationComplete = () => {
     if (devPreview) {
-      // Dev preview — just close the animation, don't navigate
+      // Dev preview — just close, don't flip live state
       setShowCelebration(false);
       setDevPreview(false);
       return;
     }
-    // Real go-live — isLive is already true in the store at this point
-    setShowCelebration(false);
+
+    // Real go-live — NOW flip the status flags.
+    // This triggers the useEffect in MarketplaceOnboardingPage which
+    // navigates to /marketplace/dashboard.
+    confirmGoLive();
   };
 
   const handleDevPreview = () => {
@@ -82,90 +82,6 @@ const GoLiveStep = ({ onBack }) => {
         onComplete={handleCelebrationComplete}
         storeName={storefront.storefront_name || "Your Pharmacy"}
       />
-    );
-  }
-
-  // ─── Success state ─────────────────────────────────────────────
-  if (isLive) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col lg:flex-row gap-8 items-center">
-          {/* Left — success message */}
-          <div className="flex-1">
-            <div
-              className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center
-              justify-center mb-5"
-            >
-              <Check size={22} className="text-emerald-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">You're Live</h2>
-            <p className="text-white/45 text-sm leading-relaxed mb-6 max-w-md">
-              Your pharmacy is now visible on the Cureli Mobile. Customers in
-              your area can discover your storefront and start placing orders.
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/marketplace/dashboard")}
-                className="px-5 py-2.5 bg-white text-[#010015] rounded-xl
-                  font-bold text-sm hover:bg-white/90 transition-all
-                  flex items-center gap-2"
-              >
-                Go to Dashboard <ArrowRight size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/marketplace/storefront")}
-                className="px-5 py-2.5 rounded-xl border border-white/10
-                  text-white/50 text-sm font-medium hover:border-white/20
-                  hover:text-white/70 transition-all flex items-center gap-2"
-              >
-                <ExternalLink size={14} /> View Storefront
-              </button>
-            </div>
-          </div>
-
-          {/* Right — summary */}
-          <div className="w-full lg:w-[280px] flex-shrink-0">
-            <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.03] p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <Globe size={14} className="text-emerald-400" />
-                <p className="text-xs font-semibold text-emerald-400">
-                  Now Live
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] text-white/25 uppercase tracking-wider mb-1">
-                    Storefront
-                  </p>
-                  <p className="text-sm font-semibold text-white/70">
-                    {storefront.storefront_name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-white/25 uppercase tracking-wider mb-1">
-                    Active Branches
-                  </p>
-                  <div className="space-y-1">
-                    {enabledBranches.map((b) => (
-                      <p
-                        key={b.branch_id}
-                        className="text-xs text-white/50 flex items-center gap-1.5"
-                      >
-                        <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                        {b.branch_name}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     );
   }
 
@@ -227,7 +143,7 @@ const GoLiveStep = ({ onBack }) => {
             ))}
           </div>
 
-          {/* Store-level go-live errors (validation failures) */}
+          {/* Store-level go-live errors */}
           {goLiveErrors.length > 0 && (
             <div
               className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
@@ -249,7 +165,7 @@ const GoLiveStep = ({ onBack }) => {
             </div>
           )}
 
-          {/* Top-level submit error (network / server failure) */}
+          {/* Top-level submit error */}
           {submitError && (
             <div
               className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
@@ -294,45 +210,17 @@ const GoLiveStep = ({ onBack }) => {
             </button>
           </div>
 
-          {/* ── Dev Preview Button ─────────────────────────────── */}
-          {DEV_MODE && (
-            <div className="mt-6 pt-4 border-t border-dashed border-white/[0.06]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-[10px] text-amber-400/60 uppercase tracking-wider font-semibold">
-                  Dev Tools
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handleDevPreview}
-                className="
-                  w-full py-2 rounded-lg border border-dashed border-amber-500/20
-                  bg-amber-500/[0.03] text-amber-400/70 text-xs font-medium
-                  hover:bg-amber-500/[0.06] hover:text-amber-400 hover:border-amber-500/30
-                  transition-all flex items-center justify-center gap-2
-                "
-              >
-                <Eye size={12} />
-                Preview Launch Animation
-                <span className="text-[9px] text-amber-400/30 ml-1">
-                  (won't trigger Go Live)
-                </span>
-              </button>
-            </div>
-          )}
+          
         </div>
 
         {/* Right — launch summary card */}
         <div className="w-full lg:w-[280px] flex-shrink-0">
           <div className="lg:sticky lg:top-4 space-y-4">
-            {/* What's being published */}
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
               <p className="text-[10px] font-semibold text-white/25 uppercase tracking-wider mb-3">
                 Publishing
               </p>
 
-              {/* Storefront summary */}
               <div className="flex items-center gap-3 mb-4">
                 <div
                   className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06]
@@ -360,7 +248,6 @@ const GoLiveStep = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Branches being published */}
               <div>
                 <p className="text-[10px] text-white/25 uppercase tracking-wider mb-2">
                   Branches ({enabledBranches.length})
@@ -403,7 +290,6 @@ const GoLiveStep = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Reassurance */}
             <div
               className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl
               bg-white/[0.02] border border-white/[0.06]"

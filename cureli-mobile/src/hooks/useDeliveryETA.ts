@@ -11,24 +11,40 @@
 // coordinates change. Uses a 5 minute stale time.
 //
 // Returns:
-//   { durationText: "12 mins", distanceText: "2.3 km", isLoading, error }
+//   { durationText, distanceText, distanceKm, isLoading, error }
 //
 // durationText includes DELIVERY_BUFFER_MINS on top of the raw driving time.
 // This covers: order acceptance + pharmacy packing + dispatch delay.
 //
+// distanceKm is the raw numeric km value (2 decimal places).
+// Used by the checkout flow to calculate per-km surcharge server-side.
+//
 // Falls back gracefully: if coordinates missing or API fails,
-// durationText is null and the UI shows nothing (no fake value).
+// all text/numeric fields are null and the UI shows nothing (no fake value).
 
 import { useState, useEffect, useRef } from 'react';
 import Constants from 'expo-constants';
 import { DELIVERY_BUFFER_MINS } from '../constants/config';
 
+// ── Types ─────────────────────────────────────────────────────
+
 interface ETAResult {
   durationText: string | null;
   distanceText: string | null;
-  isLoading: boolean;
-  error: string | null;
+  distanceKm:   number | null;  // raw numeric km — used for pricing calculation
+  isLoading:    boolean;
+  error:        string | null;
 }
+
+// Cache shape also includes distanceKm now
+interface CacheEntry {
+  durationText: string;
+  distanceText: string;
+  distanceKm:   number;
+  fetchedAt:    number;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
 
 function getApiKey(): string {
   return (
@@ -38,10 +54,7 @@ function getApiKey(): string {
   );
 }
 
-const etaCache = new Map<
-  string,
-  { durationText: string; distanceText: string; fetchedAt: number }
->();
+const etaCache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function makeCacheKey(
@@ -64,17 +77,20 @@ function formatMins(totalMins: number): string {
   return mins === 0 ? `${hrs} hr` : `${hrs} hr ${mins} mins`;
 }
 
+// ── Hook ──────────────────────────────────────────────────────
+
 export function useDeliveryETA(
   originLat: number | null,
   originLng: number | null,
-  destLat: number | null,
-  destLng: number | null,
+  destLat:   number | null,
+  destLng:   number | null,
 ): ETAResult {
   const [result, setResult] = useState<ETAResult>({
     durationText: null,
     distanceText: null,
-    isLoading: false,
-    error: null,
+    distanceKm:   null,
+    isLoading:    false,
+    error:        null,
   });
 
   const lastFetchKey = useRef<string | null>(null);
@@ -83,16 +99,17 @@ export function useDeliveryETA(
     // Coerce to number — values may arrive as strings from persisted storage
     const oLat = originLat != null ? Number(originLat) : null;
     const oLng = originLng != null ? Number(originLng) : null;
-    const dLat = destLat != null ? Number(destLat) : null;
-    const dLng = destLng != null ? Number(destLng) : null;
+    const dLat = destLat   != null ? Number(destLat)   : null;
+    const dLng = destLng   != null ? Number(destLng)   : null;
 
     // All four coordinates required
     if (oLat == null || oLng == null || dLat == null || dLng == null) {
       setResult({
         durationText: null,
         distanceText: null,
-        isLoading: false,
-        error: null,
+        distanceKm:   null,
+        isLoading:    false,
+        error:        null,
       });
       return;
     }
@@ -102,8 +119,9 @@ export function useDeliveryETA(
       setResult({
         durationText: null,
         distanceText: null,
-        isLoading: false,
-        error: 'No API key',
+        distanceKm:   null,
+        isLoading:    false,
+        error:        'No API key',
       });
       return;
     }
@@ -118,8 +136,9 @@ export function useDeliveryETA(
         setResult({
           durationText: cached.durationText,
           distanceText: cached.distanceText,
-          isLoading: false,
-          error: null,
+          distanceKm:   cached.distanceKm ?? null,
+          isLoading:    false,
+          error:        null,
         });
       }
       return;
@@ -148,8 +167,9 @@ export function useDeliveryETA(
           setResult({
             durationText: null,
             distanceText: null,
-            isLoading: false,
-            error: element?.status ?? 'No route found',
+            distanceKm:   null,
+            isLoading:    false,
+            error:        element?.status ?? 'No route found',
           });
           return;
         }
@@ -164,20 +184,34 @@ export function useDeliveryETA(
         const durationText = formatMins(totalMins);
         const distanceText: string = element.distance.text;
 
+        // element.distance.value is raw metres from Google
+        // Divide by 1000 and round to 2 decimal places for km
+        // This value is passed to the server for per-km surcharge calculation
+        const distanceKm = parseFloat((element.distance.value / 1000).toFixed(2));
+
+        // Store all three values in cache
         etaCache.set(cacheKey, {
           durationText,
           distanceText,
+          distanceKm,
           fetchedAt: Date.now(),
         });
 
-        setResult({ durationText, distanceText, isLoading: false, error: null });
+        setResult({
+          durationText,
+          distanceText,
+          distanceKm,
+          isLoading: false,
+          error:     null,
+        });
       })
       .catch((err) => {
         setResult({
           durationText: null,
           distanceText: null,
-          isLoading: false,
-          error: err?.message ?? 'Network error',
+          distanceKm:   null,
+          isLoading:    false,
+          error:        err?.message ?? 'Network error',
         });
       });
   }, [originLat, originLng, destLat, destLng]);

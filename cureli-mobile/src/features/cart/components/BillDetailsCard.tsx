@@ -1,124 +1,109 @@
 // src/features/cart/components/BillDetailsCard.tsx
-// CHANGED: Uses CART_CONFIG instead of hardcoded constants.
-// Adds conditional free delivery logic with threshold display.
+// CHANGED: reads from checkoutStore instead of calculating locally
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { Spacing } from '../../../theme/spacing';
-import { useCartStore } from '../../../store/cartStore';
-import { CART_CONFIG } from '../../../constants/config';
+import { useCheckoutStore } from '../../../store/checkoutStore';
+
+const TIP_PRESETS = [0, 10, 20, 50];
 
 function BillRow({
   label,
   value,
   isTotal = false,
   isFree = false,
-  strikeValue,
+  dim = false,
 }: {
-  label: string;
-  value: string;
+  label:    string;
+  value:    string;
   isTotal?: boolean;
-  isFree?: boolean;
-  strikeValue?: string;
+  isFree?:  boolean;
+  dim?:     boolean;
 }) {
   const { colors } = useTheme();
-
   return (
     <View style={styles.row}>
-      <Text
-        style={[
-          isTotal ? styles.totalLabel : styles.label,
-          { color: isTotal ? colors.text.primary : colors.text.secondary },
-        ]}
-      >
+      <Text style={[
+        isTotal ? styles.totalLabel : styles.label,
+        { color: dim ? colors.text.faint : isTotal ? colors.text.primary : colors.text.secondary },
+      ]}>
         {label}
       </Text>
-      <View style={styles.valueRow}>
-        {strikeValue && (
-          <Text
-            style={[styles.strikeValue, { color: colors.text.faint }]}
-          >
-            {strikeValue}
-          </Text>
-        )}
-        <Text
-          style={[
-            isTotal ? styles.totalValue : styles.value,
-            {
-              color: isFree
-                ? colors.status.success
-                : colors.text.primary,
-            },
-          ]}
-        >
-          {value}
-        </Text>
-      </View>
+      <Text style={[
+        isTotal ? styles.totalValue : styles.value,
+        { color: isFree ? colors.status.success : isTotal ? colors.text.primary : colors.text.primary },
+      ]}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 export function BillDetailsCard() {
   const { colors } = useTheme();
-  const items = useCartStore((s) => s.items);
+  const { breakdown, isQuoteLoading, tip, setTip } = useCheckoutStore();
 
-  const itemsTotal = items.reduce(
-    (sum, item) => sum + item.pricePerUnit * item.quantity,
-    0,
-  );
+  if (!breakdown && isQuoteLoading) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.background.card }]}>
+        <Text style={[styles.title, { color: colors.text.primary }]}>Bill details</Text>
+        <Text style={[styles.loading, { color: colors.text.muted }]}>Calculating…</Text>
+      </View>
+    );
+  }
 
-  const isFreeDelivery = itemsTotal >= CART_CONFIG.FREE_DELIVERY_ABOVE;
-  const deliveryCharge = isFreeDelivery ? 0 : CART_CONFIG.DELIVERY_CHARGE;
-  const grandTotal = itemsTotal + CART_CONFIG.HANDLING_CHARGE + deliveryCharge;
+  if (!breakdown) return null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.background.card }]}>
-      <Text style={[styles.title, { color: colors.text.primary }]}>
-        Bill details
-      </Text>
+      <Text style={[styles.title, { color: colors.text.primary }]}>Bill details</Text>
 
-      <BillRow
-        label="Items total"
-        value={`₹${itemsTotal.toFixed(2)}`}
-      />
+      <BillRow label="Items total"    value={`₹${breakdown.subtotal.toFixed(2)}`} />
+      <BillRow label="Service charge" value={`₹${breakdown.service_charge.toFixed(2)}`} />
+      <BillRow label="Delivery fee"   value={`₹${breakdown.delivery_fee.toFixed(2)}`} />
 
-      <BillRow
-        label="Handling charge"
-        value={`₹${CART_CONFIG.HANDLING_CHARGE.toFixed(2)}`}
-      />
-
-      <BillRow
-        label="Delivery charge"
-        value={isFreeDelivery ? 'FREE' : `₹${CART_CONFIG.DELIVERY_CHARGE.toFixed(2)}`}
-        isFree={isFreeDelivery}
-        strikeValue={
-          isFreeDelivery
-            ? `₹${CART_CONFIG.DELIVERY_CHARGE.toFixed(2)}`
-            : undefined
-        }
-      />
-
-      {/* Free delivery threshold nudge */}
-      {!isFreeDelivery && (
-        <Text
-          style={[
-            styles.nudge,
-            { color: colors.status.success, fontFamily: 'Inter_400Regular' },
-          ]}
-        >
-          Add ₹{(CART_CONFIG.FREE_DELIVERY_ABOVE - itemsTotal).toFixed(2)} more
-          for free delivery
-        </Text>
+      {breakdown.km_surcharge > 0 && (
+        <BillRow label="Distance surcharge" value={`₹${breakdown.km_surcharge.toFixed(2)}`} />
       )}
 
-      <View
-        style={[styles.divider, { backgroundColor: colors.border.subtle }]}
-      />
+      {/* ── Tip selector ────────────────────────────────── */}
+      <View style={styles.tipRow}>
+        <Text style={[styles.label, { color: colors.text.secondary }]}>Tip for rider</Text>
+        <View style={styles.tipOptions}>
+          {TIP_PRESETS.map((preset) => (
+            <TouchableOpacity
+              key={preset}
+              onPress={() => setTip(preset)}
+              style={[
+                styles.tipBtn,
+                {
+                  backgroundColor: tip === preset ? colors.brand.primary : colors.background.tint,
+                  borderColor:     tip === preset ? colors.brand.primary : colors.border.default,
+                },
+              ]}
+            >
+              <Text style={[
+                styles.tipBtnText,
+                { color: tip === preset ? '#fff' : colors.text.secondary },
+              ]}>
+                {preset === 0 ? 'None' : `₹${preset}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {tip > 0 && (
+        <BillRow label="Tip" value={`₹${tip.toFixed(2)}`} />
+      )}
+
+      <View style={[styles.divider, { backgroundColor: colors.border.subtle }]} />
 
       <BillRow
         label="Grand Total"
-        value={`₹${grandTotal.toFixed(2)}`}
+        value={`₹${breakdown.grand_total.toFixed(2)}`}
         isTotal
       />
     </View>
@@ -142,16 +127,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     marginBottom: Spacing.md,
   },
+  loading: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    paddingVertical: Spacing.md,
+  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: Spacing.sm,
-  },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   label: {
     fontSize: 13,
@@ -161,11 +147,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
   },
-  strikeValue: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    textDecorationLine: 'line-through',
-  },
   totalLabel: {
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
@@ -174,13 +155,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
   },
-  nudge: {
-    fontSize: 12,
-    marginBottom: Spacing.sm,
-    marginTop: -4,
-  },
   divider: {
     height: 1,
     marginVertical: Spacing.sm,
+  },
+  tipRow: {
+    marginBottom: Spacing.sm,
+  },
+  tipOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  tipBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  tipBtnText: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
   },
 });

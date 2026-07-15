@@ -12,15 +12,16 @@ import {
   ArrowRight,
   Loader2,
   RefreshCw,
-  Smartphone, // ✅ ADD THIS
+  Smartphone,
 } from "lucide-react";
-import { getEnquiryStats } from "../../api/cadminEnquiries";
-import { getAllTickets } from "../../api/cadminTickets";
-import { useNavigate } from "react-router-dom";
-import { useMenuStore } from "../../store/useMenuStore";
-import { useToast } from "../../components/common/Toast";
-import { useCAdminPermission } from "../../hooks/useCAdminPermission";
-import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions";
+import { useNavigate }                from "react-router-dom";
+import { useMenuStore }               from "../../store/useMenuStore";
+import { useToast }                   from "../../components/common/Toast";
+import { useCAdminPermission }        from "../../hooks/useCAdminPermission";
+import { CADMIN_PERMISSIONS }         from "../../config/cadminPermissions";
+// ── NEW: badge store replaces local pending-count fetches ─────
+import { useCommunicationBadgeStore } from "../../store/useCommunicationBadgeStore";
+// ─────────────────────────────────────────────────────────────
 
 // ============================================
 // BROADCAST PERMISSIONS — any of these = show card
@@ -39,7 +40,6 @@ const BROADCAST_ANY_PERMISSIONS = [
   CADMIN_PERMISSIONS.BROADCAST_INAPP_UPLOAD,
   CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_SEGMENTS,
   CADMIN_PERMISSIONS.BROADCAST_INAPP_MANAGE_TEMPLATES,
-  // ✅ ADD THESE
   CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
   CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
   CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
@@ -47,26 +47,23 @@ const BROADCAST_ANY_PERMISSIONS = [
 ];
 
 // ============================================
-// STAT ITEM COMPONENT (unchanged)
+// STAT ITEM COMPONENT
 // ============================================
 const StatItem = ({ icon: Icon, label, value, color }) => (
   <div className="flex items-center gap-2">
-    <div
-      className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center`}
-    >
+    <div className={`w-7 h-7 rounded-lg ${color} flex items-center justify-center`}>
       <Icon className="w-3.5 h-3.5" />
     </div>
     <div>
       <p className="text-lg font-bold text-gray-900">{value}</p>
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide">
-        {label}
-      </p>
+      <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
     </div>
   </div>
 );
 
 // ============================================
-// COMMUNICATION CARD COMPONENT (unchanged)
+// COMMUNICATION CARD COMPONENT
+// CHANGED: accepts hasBadge prop, renders red dot on icon
 // ============================================
 const CommunicationCard = ({
   title,
@@ -79,8 +76,9 @@ const CommunicationCard = ({
   stats,
   isLoading,
   isComingSoon,
+  hasBadge,       // ← NEW
 }) => {
-  const navigate = useNavigate();
+  const navigate       = useNavigate();
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const handleClick = () => {
@@ -95,19 +93,29 @@ const CommunicationCard = ({
       className={`
         bg-white rounded-xl border border-gray-200 p-5
         transition-all duration-200
-        ${
-          isComingSoon
-            ? "opacity-60 cursor-not-allowed"
-            : "cursor-pointer hover:border-gray-300 hover:shadow-md"
+        ${isComingSoon
+          ? "opacity-60 cursor-not-allowed"
+          : "cursor-pointer hover:border-gray-300 hover:shadow-md"
         }
       `}
     >
       <div className="flex items-start justify-between mb-4">
-        <div
-          className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}
-        >
-          <Icon className={`w-5 h-5 ${iconColor}`} />
+        {/* Icon wrapper — red dot sits on top-right corner of the icon box */}
+        <div className="relative inline-flex">
+          <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
+            <Icon className={`w-5 h-5 ${iconColor}`} />
+          </div>
+          {hasBadge && (
+            <span
+              className="
+                absolute -top-1 -right-1
+                w-2.5 h-2.5 rounded-full bg-red-500
+                ring-2 ring-white
+              "
+            />
+          )}
         </div>
+
         {isComingSoon && (
           <span className="px-2 py-1 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-md uppercase">
             Coming Soon
@@ -156,181 +164,159 @@ const CommunicationsPage = () => {
   const toast = useToast();
   const { hasPermission, hasAnyPermission } = useCAdminPermission();
 
-  const [ticketStats, setTicketStats] = useState(null);
-  const [enquiryStats, setEnquiryStats] = useState(null);
-  const [loadingTickets, setLoadingTickets] = useState(true);
-  const [loadingEnquiries, setLoadingEnquiries] = useState(true);
+  // ── Pending counts come from the badge store (already polling) ──
+  // AppLayout started polling when it mounted. Reading from the store
+  // here is zero-cost — no extra network call, no duplicate interval.
+  const pendingTickets   = useCommunicationBadgeStore((s) => s.pendingTickets);
+  const pendingEnquiries = useCommunicationBadgeStore((s) => s.pendingEnquiries);
+  const isLoadingBadge   = useCommunicationBadgeStore((s) => s.isLoading);
+  const refreshBadge     = useCommunicationBadgeStore((s) => s.refresh);
 
-  const fetchTicketStats = useCallback(async () => {
-    try {
-      setLoadingTickets(true);
-      const totalResponse = await getAllTickets({ page: 1, limit: 1 });
-      const total = totalResponse?.data?.data?.pagination?.total || 0;
-      const pendingResponse = await getAllTickets({
-        page: 1,
-        limit: 1,
-        status: "PENDING",
-      });
-      const pending = pendingResponse?.data?.data?.pagination?.total || 0;
-      setTicketStats({ total, pending });
-    } catch (error) {
-      console.error("Failed to fetch ticket stats:", error);
-      setTicketStats({ total: 0, pending: 0 });
-    } finally {
-      setLoadingTickets(false);
-    }
-  }, []);
+  // ── Totals are NOT in the badge store — fetch them separately ──
+  // The badge store only tracks pending counts (for the red dot).
+  // We still need grand totals for the summary bar.
+  const [totalTickets,   setTotalTickets]   = useState(0);
+  const [totalEnquiries, setTotalEnquiries] = useState(0);
+  const [loadingTotals,  setLoadingTotals]  = useState(true);
 
-  const fetchEnquiryStats = useCallback(async () => {
+  const fetchTotals = useCallback(async () => {
     try {
-      setLoadingEnquiries(true);
-      const response = await getEnquiryStats();
-      let statsData = null;
-      if (response?.data?.data?.stats) statsData = response.data.data.stats;
-      else if (response?.data?.stats) statsData = response.data.stats;
-      else if (response?.stats) statsData = response.stats;
-      else if (response?.data?.data) statsData = response.data.data;
-      else if (response?.data) statsData = response.data;
-      setEnquiryStats(statsData);
-    } catch (error) {
-      console.error("Failed to fetch enquiry stats:", error);
-      setEnquiryStats(null);
+      setLoadingTotals(true);
+
+      // Dynamic imports — avoids bundling both APIs upfront
+      const [{ getAllTickets }, { getEnquiryStats }] = await Promise.all([
+        import("../../api/cadminTickets"),
+        import("../../api/cadminEnquiries"),
+      ]);
+
+      const [ticketsRes, enquiriesRes] = await Promise.allSettled([
+        getAllTickets({ page: 1, limit: 1 }),
+        getEnquiryStats(),
+      ]);
+
+      if (ticketsRes.status === "fulfilled") {
+        setTotalTickets(ticketsRes.value?.data?.data?.pagination?.total ?? 0);
+      }
+
+      if (enquiriesRes.status === "fulfilled") {
+        const d =
+          enquiriesRes.value?.data?.data?.stats ??
+          enquiriesRes.value?.data?.data ??
+          enquiriesRes.value?.data ??
+          {};
+        setTotalEnquiries(d.total ?? d.totalEnquiries ?? 0);
+      }
+    } catch {
+      // silent — totals will show 0
     } finally {
-      setLoadingEnquiries(false);
+      setLoadingTotals(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchTicketStats();
-    fetchEnquiryStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchTotals();
+  }, [fetchTotals]);
 
+  // Refresh button updates both: pending counts (badge store) + totals
   const handleRefresh = useCallback(() => {
-    toast.info("Data Refreshed", "Loading latest data...");
-    fetchTicketStats();
-    fetchEnquiryStats();
-  }, [toast, fetchTicketStats, fetchEnquiryStats]);
+    toast.info("Refreshing", "Loading latest data…");
+    refreshBadge(); // re-fetches pending counts → updates sidebar dot too
+    fetchTotals();  // re-fetches grand totals for summary bar
+  }, [toast, refreshBadge, fetchTotals]);
 
-  const totalTickets = ticketStats?.total || 0;
-  const pendingTickets = ticketStats?.pending || 0;
-  const totalEnquiries =
-    enquiryStats?.total || enquiryStats?.totalEnquiries || 0;
-  const pendingEnquiries =
-    enquiryStats?.pending || enquiryStats?.pendingEnquiries || 0;
+  const isLoading    = isLoadingBadge || loadingTotals;
+  const totalPending = pendingTickets + pendingEnquiries;
 
+  // ============================================
+  // CHANNEL CARDS CONFIG
+  // ============================================
   const channels = useMemo(() => {
-    const allChannels = [
+    const all = [
       {
-        id: "tickets",
-        title: "Support Tickets",
-        description:
-          "Manage customer support requests and track resolution progress",
-        icon: Ticket,
-        path: "/communications/tickets",
+        id:          "tickets",
+        title:       "Support Tickets",
+        description: "Manage customer support requests and track resolution progress",
+        icon:        Ticket,
+        path:        "/communications/tickets",
         breadcrumbs: ["Communications", "Tickets"],
-        iconBg: "bg-blue-100",
-        iconColor: "text-blue-600",
-        isLoading: loadingTickets,
-        visible: hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-        stats: ticketStats
-          ? [
-              {
-                icon: TrendingUp,
-                label: "Total",
-                value: totalTickets,
-                color: "bg-blue-50 text-blue-600",
-              },
-              {
-                icon: Clock,
-                label: "Pending",
-                value: pendingTickets,
-                color: "bg-amber-50 text-amber-600",
-              },
-            ]
-          : null,
+        iconBg:      "bg-blue-100",
+        iconColor:   "text-blue-600",
+        isLoading:   isLoadingBadge,
+        visible:     hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
+        hasBadge:    pendingTickets > 0,   // red dot when pending tickets exist
+        stats: [
+          { icon: TrendingUp, label: "Total",   value: totalTickets,   color: "bg-blue-50 text-blue-600" },
+          { icon: Clock,      label: "Pending", value: pendingTickets, color: "bg-amber-50 text-amber-600" },
+        ],
       },
       {
-        id: "enquiries",
-        title: "Enquiries",
-        description:
-          "Handle general inquiries and respond to customer questions and doubts",
-        icon: Mail,
-        path: "/communications/enquiries",
+        id:          "enquiries",
+        title:       "Enquiries",
+        description: "Handle general inquiries and respond to customer questions and doubts",
+        icon:        Mail,
+        path:        "/communications/enquiries",
         breadcrumbs: ["Communications", "Enquiries"],
-        iconBg: "bg-emerald-100",
-        iconColor: "text-emerald-600",
-        isLoading: loadingEnquiries,
-        visible: hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-        stats: enquiryStats
-          ? [
-              {
-                icon: TrendingUp,
-                label: "Total",
-                value: totalEnquiries,
-                color: "bg-emerald-50 text-emerald-600",
-              },
-              {
-                icon: Clock,
-                label: "Pending",
-                value: pendingEnquiries,
-                color: "bg-amber-50 text-amber-600",
-              },
-            ]
-          : null,
+        iconBg:      "bg-emerald-100",
+        iconColor:   "text-emerald-600",
+        isLoading:   isLoadingBadge,
+        visible:     hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
+        hasBadge:    pendingEnquiries > 0,  // red dot when pending enquiries exist
+        stats: [
+          { icon: TrendingUp, label: "Total",   value: totalEnquiries,   color: "bg-emerald-50 text-emerald-600" },
+          { icon: Clock,      label: "Pending", value: pendingEnquiries, color: "bg-amber-50 text-amber-600" },
+        ],
       },
       {
-        id: "broadcast",
-        title: "Broadcast",
+        id:          "broadcast",
+        title:       "Broadcast",
         description: "Send announcements and notifications to users",
-        icon: Radio,
-        path: "/communications/broadcast",
+        icon:        Radio,
+        path:        "/communications/broadcast",
         breadcrumbs: ["Communications", "Broadcast"],
-        iconBg: "bg-violet-100",
-        iconColor: "text-violet-600",
-        isLoading: false,
+        iconBg:      "bg-violet-100",
+        iconColor:   "text-violet-600",
+        isLoading:   false,
         isComingSoon: false,
-        visible: hasAnyPermission(...BROADCAST_ANY_PERMISSIONS),
-        stats: null,
+        visible:     hasAnyPermission(...BROADCAST_ANY_PERMISSIONS),
+        hasBadge:    false,
+        stats:       null,
       },
-      // ✅ ADD THIS ENTRY
       {
-        id: "broadcast-mobile",
-        title: "Mobile Push",
+        id:          "broadcast-mobile",
+        title:       "Mobile Push",
         description: "Send push notifications directly to app users' devices",
-        icon: Smartphone,
-        path: "/communications/broadcast/mobile",
+        icon:        Smartphone,
+        path:        "/communications/broadcast/mobile",
         breadcrumbs: ["Communications", "Broadcast", "Mobile Push"],
-        iconBg: "bg-sky-100",
-        iconColor: "text-sky-600",
-        isLoading: false,
+        iconBg:      "bg-sky-100",
+        iconColor:   "text-sky-600",
+        isLoading:   false,
         isComingSoon: false,
-        visible: hasAnyPermission(
+        visible:     hasAnyPermission(
           CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
           CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
           CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
           CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
         ),
-        stats: null,
+        hasBadge:    false,
+        stats:       null,
       },
     ];
 
-    return allChannels.filter((channel) => channel.visible);
+    return all.filter((c) => c.visible);
   }, [
-    loadingTickets,
-    loadingEnquiries,
-    ticketStats,
-    enquiryStats,
-    totalTickets,
+    isLoadingBadge,
     pendingTickets,
-    totalEnquiries,
     pendingEnquiries,
+    totalTickets,
+    totalEnquiries,
     hasPermission,
     hasAnyPermission,
   ]);
 
-  const isLoading = loadingTickets || loadingEnquiries;
-
+  // ============================================
+  // RENDER
+  // ============================================
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
@@ -341,12 +327,8 @@ const CommunicationsPage = () => {
               <MessageSquare size={20} className="text-white" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">
-                Communications
-              </h1>
-              <p className="text-sm text-gray-500">
-                Manage customer interactions
-              </p>
+              <h1 className="text-xl font-bold text-gray-900 truncate">Communications</h1>
+              <p className="text-sm text-gray-500">Manage customer interactions</p>
             </div>
           </div>
 
@@ -364,24 +346,24 @@ const CommunicationsPage = () => {
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-auto space-y-4">
-        {/* Summary Bar */}
+
+        {/* Summary bar */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <div className="w-1 h-8 bg-blue-600 rounded-full" />
-              <p className="text-sm font-medium text-gray-700">
-                Quick Overview
-              </p>
+              <p className="text-sm font-medium text-gray-700">Quick Overview</p>
             </div>
 
             <div className="flex items-center gap-6 flex-wrap">
+              {/* Tickets total */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
                   <Ticket className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-xl font-bold text-gray-900">
-                    {loadingTickets ? "..." : totalTickets}
+                    {loadingTotals ? "…" : totalTickets}
                   </p>
                   <p className="text-xs text-gray-500">Tickets</p>
                 </div>
@@ -389,13 +371,14 @@ const CommunicationsPage = () => {
 
               <div className="w-px h-10 bg-gray-200 hidden sm:block" />
 
+              {/* Enquiries total */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center">
                   <Mail className="w-5 h-5 text-violet-600" />
                 </div>
                 <div>
                   <p className="text-xl font-bold text-gray-900">
-                    {loadingEnquiries ? "..." : totalEnquiries}
+                    {loadingTotals ? "…" : totalEnquiries}
                   </p>
                   <p className="text-xs text-gray-500">Enquiries</p>
                 </div>
@@ -403,17 +386,18 @@ const CommunicationsPage = () => {
 
               <div className="w-px h-10 bg-gray-200 hidden sm:block" />
 
+              {/* Pending total */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
                   <AlertCircle className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
                   <p className="text-xl font-bold text-gray-900">
-                    {isLoading ? "..." : pendingTickets + pendingEnquiries}
+                    {isLoading ? "…" : totalPending}
                   </p>
                   <p className="text-xs text-gray-500">Pending</p>
                 </div>
-                {!isLoading && pendingTickets + pendingEnquiries > 0 && (
+                {!isLoading && totalPending > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
                     Action needed
                   </span>
@@ -423,7 +407,7 @@ const CommunicationsPage = () => {
           </div>
         </div>
 
-        {/* Cards Grid */}
+        {/* Cards grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {channels.map((channel) => (
             <CommunicationCard
@@ -438,9 +422,11 @@ const CommunicationsPage = () => {
               stats={channel.stats}
               isLoading={channel.isLoading}
               isComingSoon={channel.isComingSoon}
+              hasBadge={channel.hasBadge}
             />
           ))}
         </div>
+
       </div>
     </div>
   );

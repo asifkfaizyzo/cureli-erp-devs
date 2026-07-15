@@ -31,12 +31,12 @@ import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 
-
 // ── Marketplace ──────────────────────────────────────────────────────────────
-import MarketplaceDashboard  from "./pages/marketplace/Dashboard/MarketplaceDashboard";
-import MarketplaceUsersPage  from "./pages/marketplace/Users/MarketplaceUsersPage";
+import MarketplaceDashboard from "./pages/marketplace/Dashboard/MarketplaceDashboard";
+import MarketplaceUsersPage from "./pages/marketplace/Users/MarketplaceUsersPage";
 import MarketplaceOrdersPage from "./pages/marketplace/Orders/MarketplaceOrdersPage";
 import MarketplaceShopsPage from "./pages/marketplace/Shops/MarketplaceShopsPage";
+import MarketplacePricingPage from "./pages/marketplace/Pricing/MarketplacePricingPage";
 
 import AppLayout from "./components/layout/AppLayout";
 import { AuthProvider } from "./context/AuthContext";
@@ -55,8 +55,7 @@ function App() {
       if (e.ctrlKey) e.preventDefault();
     };
     const disableKeyZoom = (e) => {
-      if (e.ctrlKey && ["+", "-", "=", "0"].includes(e.key))
-        e.preventDefault();
+      if (e.ctrlKey && ["+", "-", "=", "0"].includes(e.key)) e.preventDefault();
     };
     const disablePinch = (e) => e.preventDefault();
 
@@ -89,7 +88,6 @@ function App() {
 
         {/* ── Protected ───────────────────────────────────────────────── */}
         <Route element={<ProtectedLayout />}>
-
           {/* Dashboard */}
           <Route path="/dashboard" element={<AdminDashboard />} />
 
@@ -310,18 +308,17 @@ function App() {
             path="/marketplace/dashboard"
             element={<MarketplaceDashboard />}
           />
-          <Route
-            path="/marketplace/users"
-            element={<MarketplaceUsersPage />}
-          />
+          <Route path="/marketplace/users" element={<MarketplaceUsersPage />} />
           <Route
             path="/marketplace/orders"
             element={<MarketplaceOrdersPage />}
           />
+          <Route
+            path="/marketplace/pricing"
+            element={<MarketplacePricingPage />}
+          />
 
           <Route path="/marketplace/shops" element={<MarketplaceShopsPage />} />
-
-
         </Route>
 
         {/* ── Catch-all ───────────────────────────────────────────────── */}

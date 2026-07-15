@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { initializeCronJobs } from "./src/cron/jobs.js";
 import { ensureIndexes } from "./src/config/ensureIndexes.js";
+
 // ============================================
 // MIDDLEWARE IMPORTS
 // ============================================
@@ -14,7 +15,9 @@ import maintenanceMiddleware from "./src/middleware/maintenance.js";
 import { globalLimiter, cadminLimiter, relaxedLimiter, mobileLimiter } from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
-// ROUTES
+// ============================================
+// ERP ROUTES
+// ============================================
 import authRoutes from "./src/modules/auth/auth.routes.js";
 import shopRoutes from "./src/modules/shop/shop.routes.js";
 import pendingRoutes from "./src/modules/pending/pending.routes.js";
@@ -40,11 +43,13 @@ import customerRoutes from "./src/modules/customers/customer.routes.js";
 import excelRoutes from "./src/modules/excel/excel.routes.js";
 import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
 import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.js";
-import marketplaceOrdersRoutes from './src/modules/marketplace-orders/marketplace.orders.routes.js';
-import marketplaceDashboardRoutes from './src/modules/marketplace-dashboard/marketplaceDashboard.routes.js';
+import marketplaceOrdersRoutes from "./src/modules/marketplace-orders/marketplace.orders.routes.js";
+import marketplaceDashboardRoutes from "./src/modules/marketplace-dashboard/marketplaceDashboard.routes.js";
 import inventoryImportRoutes from "./src/modules/inventory-import/inventoryImport.routes.js";
 
-
+// ============================================
+// CADMIN ROUTES
+// ============================================
 import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
 import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
 import cadminUserRoutes from "./src/modules/cadmin/users/cadminUser.routes.js";
@@ -61,26 +66,26 @@ import cadminEmailBroadcastRoutes from "./src/modules/cadmin/broadcast/email/cad
 import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
 import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
 import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js";
+import cadminMarketplaceRoutes from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
+import cadminMobileUsersRoutes from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
+import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.routes.js";
+import cadminMobileBroadcastRoutes from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
+import cadminPricingRoutes from "./src/modules/cadmin/pricing/cadminPricing.routes.js";
+import cadminEnquiriesRoutes from "./src/modules/cadmin/enquiries/cadminEnquiries.routes.js";
 
-
-// ── Mobile App Routes ──────────────────────────────────────────
+// ============================================
+// MOBILE ROUTES
+// ============================================
 import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
 import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
 import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
 import mobilePlacesRoutes from "./src/modules/mobile/places/mobile.places.routes.js";
-import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js"; 
-import mobileOrdersRoutes from './src/modules/mobile/orders/mobile.orders.routes.js';
-import mobilePrescriptionsRoutes from './src/modules/mobile/prescriptions/mobile.prescriptions.routes.js';
-import mobileNotificationsRoutes from './src/modules/mobile/notifications/mobile.notifications.routes.js';
-import mobilePushRoutes from './src/modules/mobile/push/mobile.push.routes.js';
-import cadminMobileBroadcastRoutes from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
-
-
-// ── cadmin marketplace routes App Routes ──────────────────────────────────────────
-import cadminMarketplaceRoutes from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
-import cadminMobileUsersRoutes from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
-import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.routes.js";
-
+import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js";
+import mobileOrdersRoutes from "./src/modules/mobile/orders/mobile.orders.routes.js";
+import mobilePrescriptionsRoutes from "./src/modules/mobile/prescriptions/mobile.prescriptions.routes.js";
+import mobileNotificationsRoutes from "./src/modules/mobile/notifications/mobile.notifications.routes.js";
+import mobilePushRoutes from "./src/modules/mobile/push/mobile.push.routes.js";
+import mobileCheckoutRoutes from "./src/modules/mobile/checkout/mobile.checkout.routes.js";
 
 // ============================================
 // APP SETUP
@@ -97,7 +102,6 @@ const allowedOrigins = [
   process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
 
-// Shared CORS options — single source of truth
 const corsOptions = {
   origin: allowedOrigins,
   credentials: true,
@@ -117,38 +121,39 @@ app.use(
   })
 );
 
-// 2. Preflight — must be before cors() middleware and everything else.
-//    Handles OPTIONS requests for ALL routes immediately with correct headers.
-//    Without this, preflight hits rate limiters / other middleware first.
+// 2. Preflight — must be before cors() and everything else
 app.options("/{*path}", cors(corsOptions));
 
 // 3. CORS for all actual requests
 app.use(cors(corsOptions));
 
-// 4. Body parsing + cookies
+// ── NEW: Razorpay webhook — needs raw body, MUST be before express.json() ──
+// Mounts at /mobile/checkout/webhook
+// Converts raw buffer → rawBody string + parsed body for downstream handlers
+app.use(
+  "/mobile/checkout/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res, next) => {
+    if (Buffer.isBuffer(req.body)) {
+      req.rawBody = req.body.toString("utf8");
+      try {
+        req.body = JSON.parse(req.rawBody);
+      } catch {
+        req.body = {};
+      }
+    }
+    next();
+  }
+);
+// ───────────────────────────────────────────────────────────────────────────
+
+// 4. Body parsing + cookies (after webhook raw handler)
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // ============================================
 // MAINTENANCE + RATE LIMITING
 // ============================================
-// ORDER MATTERS. Express applies middleware top-to-bottom.
-// Routes mounted before globalLimiter are excluded from it.
-//
-// Exclusion order:
-//   1. maintenanceMiddleware     — always first, checks MAINTENANCE_MODE env
-//   2. /api/maintenance          — app startup check, must never be rate limited
-//   3. /api/notifications/stream — SSE persistent connection, not a repeated
-//                                  request. Limiting it would disconnect users.
-//   4. Relaxed limits            — system-driven polling routes declared before
-//                                  globalLimiter so they get their own bucket
-//   5. globalLimiter             — catches everything else under /api/*
-//   6. cadminLimiter             — catches everything under /cadmin/*
-//
-// OPTIONS requests are already fully handled above by app.options("*").
-// The req.method === "OPTIONS" guards below are kept as a safety net only.
-// ============================================
-
 app.use(maintenanceMiddleware);
 
 app.use("/api/maintenance", maintenanceRoutes);
@@ -198,7 +203,7 @@ app.use(
 );
 
 // ============================================
-// ROUTES
+// ERP ROUTES
 // ============================================
 app.use("/api/files", filesRoutes);
 app.use("/api/auth", authRoutes);
@@ -224,11 +229,14 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/marketplace-listing", listingsRoutes);  
-app.use('/api/marketplace-orders', marketplaceOrdersRoutes);
-app.use('/api/marketplace/dashboard', marketplaceDashboardRoutes);
+app.use("/api/marketplace-listing", listingsRoutes);
+app.use("/api/marketplace-orders", marketplaceOrdersRoutes);
+app.use("/api/marketplace/dashboard", marketplaceDashboardRoutes);
 app.use("/api/inventory/import", inventoryImportRoutes);
 
+// ============================================
+// CADMIN ROUTES
+// ============================================
 app.use("/cadmin", cadminAuthRoutes);
 app.use("/cadmin", cadminRolesRoutes);
 app.use("/cadmin", cadminDocsRoutes);
@@ -238,7 +246,7 @@ app.use("/cadmin", cadminPlansRoutes);
 app.use("/cadmin", cadminAdminRoutes);
 app.use("/cadmin", cadminProfileRoutes);
 app.use("/cadmin", cadminTicketsRoutes);
-app.use("/cadmin", enquiriesRoutes);
+app.use("/cadmin", cadminEnquiriesRoutes);
 app.use("/cadmin", cadminSubscriptionsRoutes);
 app.use("/cadmin", cadminAuditRoutes);
 app.use("/cadmin", cadminBroadcastInAppRoutes);
@@ -249,18 +257,22 @@ app.use("/cadmin", cadminMasterMedicinesRoutes);
 app.use("/cadmin", cadminMarketplaceRoutes);
 app.use("/cadmin", cadminMobileUsersRoutes);
 app.use("/cadmin", cadminMarketplaceOrdersRoutes);
+app.use("/cadmin", cadminMobileBroadcastRoutes);
+app.use("/cadmin", cadminPricingRoutes);
 
+// ============================================
+// MOBILE ROUTES
+// ============================================
 app.use("/mobile/auth", mobileAuthRoutes);
 app.use("/mobile/users", mobileUsersRoutes);
 app.use("/mobile/medicines", mobileMedicinesRoutes);
 app.use("/mobile/places", mobilePlacesRoutes);
-app.use("/mobile/shops", mobileShopsRoutes); 
-app.use('/mobile/orders', mobileOrdersRoutes);
-app.use('/mobile/prescriptions', mobilePrescriptionsRoutes);
-app.use('/mobile/notifications', mobileNotificationsRoutes);
-app.use('/mobile/push', mobilePushRoutes);
-app.use('/cadmin', cadminMobileBroadcastRoutes);
-
+app.use("/mobile/shops", mobileShopsRoutes);
+app.use("/mobile/orders", mobileOrdersRoutes);
+app.use("/mobile/prescriptions", mobilePrescriptionsRoutes);
+app.use("/mobile/notifications", mobileNotificationsRoutes);
+app.use("/mobile/push", mobilePushRoutes);
+app.use("/mobile/checkout", mobileCheckoutRoutes);
 
 // ============================================
 // HEALTH CHECK

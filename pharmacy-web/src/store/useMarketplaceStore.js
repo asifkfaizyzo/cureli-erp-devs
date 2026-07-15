@@ -10,16 +10,8 @@ import {
   goLive as apiGoLive,
 } from "../api/marketplace";
 
-// ─────────────────────────────────────────────
-// INTERNAL FLAG KEYS
-// These are UI-only and must never reach the backend.
-// ─────────────────────────────────────────────
 const INTERNAL_FLAGS = ["_persisted", "_dirty"];
 
-/**
- * Strip internal UI flags from a single branch config object
- * before sending to the backend draft autosave.
- */
 function stripInternalFlags(config) {
   const clean = { ...config };
   for (const flag of INTERNAL_FLAGS) {
@@ -28,9 +20,6 @@ function stripInternalFlags(config) {
   return clean;
 }
 
-/**
- * Strip internal flags from the entire branchConfigs map.
- */
 function cleanBranchConfigsForDraft(branchConfigs) {
   const result = {};
   for (const [branch_id, config] of Object.entries(branchConfigs)) {
@@ -39,9 +28,6 @@ function cleanBranchConfigsForDraft(branchConfigs) {
   return result;
 }
 
-// ─────────────────────────────────────────────
-// DRAFT AUTOSAVE DEBOUNCE
-// ─────────────────────────────────────────────
 let draftTimer = null;
 
 function scheduleDraftSave(getState) {
@@ -55,7 +41,6 @@ function scheduleDraftSave(getState) {
         currentStep: state.currentStep,
         storefront: state.storefront,
         selectedBranchIds: state.selectedBranchIds,
-        // ← Fix 3: strip _dirty and _persisted before sending to backend
         branchConfigs: cleanBranchConfigsForDraft(state.branchConfigs),
       });
       getState().setLastSavedAt(new Date());
@@ -67,9 +52,6 @@ function scheduleDraftSave(getState) {
   }, 1500);
 }
 
-// ─────────────────────────────────────────────
-// STORE
-// ─────────────────────────────────────────────
 export const useMarketplaceStore = create((set, get) => ({
   // ── Status ────────────────────────────────
   marketplaceStatus: null,
@@ -137,7 +119,6 @@ export const useMarketplaceStore = create((set, get) => ({
         savedBranchSettings: data.branch_settings || [],
       };
 
-      // Resume from draft if present
       if (draft && typeof draft === "object") {
         if (draft.currentStep) nextState.currentStep = draft.currentStep;
         if (draft.storefront) {
@@ -151,9 +132,6 @@ export const useMarketplaceStore = create((set, get) => ({
         }
       }
 
-      // ── Fix 1 + 2: Build savedConfigs WITH _persisted flag ──────
-      // These represent backend-confirmed state.
-      // _persisted: true means this branch config exists in the DB.
       const savedBranchIds = new Set(
         (data.branch_settings || []).map((bs) => bs.branch_id)
       );
@@ -162,7 +140,7 @@ export const useMarketplaceStore = create((set, get) => ({
       for (const bs of data.branch_settings || []) {
         savedConfigs[bs.branch_id] = {
           marketplace_enabled: bs.marketplace_enabled,
-          shop_image_url:      bs.shop_image_url || null,
+          shop_image_url: bs.shop_image_url || null,
           latitude: bs.latitude ? Number(bs.latitude) : null,
           longitude: bs.longitude ? Number(bs.longitude) : null,
           google_place_id: bs.google_place_id || null,
@@ -173,42 +151,33 @@ export const useMarketplaceStore = create((set, get) => ({
           pickup_enabled: bs.pickup_enabled || false,
           delivery_enabled: bs.delivery_enabled || false,
           contact_override: bs.contact_override || null,
-          // ← Fix 1: mark as persisted on initial load
           _persisted: true,
           _dirty: false,
         };
       }
 
-      // Draft overrides saved (draft is more recent user input)
-      // but we must re-apply _persisted for branches that exist in backend
       const mergedConfigs = {
         ...savedConfigs,
         ...nextState.branchConfigs,
       };
 
-      // ── Fix 2: Re-apply _persisted after draft merge ─────────────
-      // Draft may have come from DB without _persisted (written before
-      // this flag existed). Re-stamp it for any branch in branch_settings.
       for (const branch_id of savedBranchIds) {
         if (mergedConfigs[branch_id]) {
           mergedConfigs[branch_id] = {
             ...mergedConfigs[branch_id],
             _persisted: true,
-            // Keep _dirty as-is from draft — user may have unsaved changes
           };
         }
       }
 
       nextState.branchConfigs = mergedConfigs;
 
-      // Pre-populate selectedBranchIds from saved settings if no draft
       if (!draft?.selectedBranchIds && data.branch_settings?.length > 0) {
         nextState.selectedBranchIds = data.branch_settings.map(
           (b) => b.branch_id
         );
       }
 
-      // Pre-populate storefront from saved profile if no draft
       if (!draft?.storefront) {
         nextState.storefront = {
           storefront_name: data.storefront_name || "",
@@ -265,14 +234,6 @@ export const useMarketplaceStore = create((set, get) => ({
   // ─────────────────────────────────────────
   // BRANCH CONFIG (Step 4)
   // ─────────────────────────────────────────
-
-  /**
-   * updateBranchConfig — merges a patch into a branch config.
-   *
-   * Internal flags (_persisted, _dirty) ARE allowed through here
-   * intentionally — submitBranchConfig uses this to stamp _persisted.
-   * They are stripped before any backend call in cleanBranchConfigsForDraft.
-   */
   updateBranchConfig: (branch_id, patch) => {
     set((state) => ({
       branchConfigs: {
@@ -296,7 +257,7 @@ export const useMarketplaceStore = create((set, get) => ({
         ...state.branchConfigs,
         [branch_id]: {
           marketplace_enabled: false,
-          shop_image_url:      null,
+          shop_image_url: null,
           latitude: null,
           longitude: null,
           google_place_id: null,
@@ -307,7 +268,6 @@ export const useMarketplaceStore = create((set, get) => ({
           pickup_enabled: false,
           delivery_enabled: false,
           contact_override: null,
-          // New branches start as not persisted, not dirty
           _persisted: false,
           _dirty: false,
         },
@@ -363,13 +323,8 @@ export const useMarketplaceStore = create((set, get) => ({
     set({ isSubmitting: true, submitError: null });
 
     try {
-      // Strip internal flags before sending to backend
       await apiSaveBranchConfig(branch_id, stripInternalFlags(config));
 
-      // ── Fix 4: stamp _persisted in store on confirmed save ───────
-      // Done here in the store — not in the card component.
-      // BranchConfigCard no longer needs to call updateBranchConfig
-      // after a successful save for the _persisted flag.
       set((state) => ({
         isSubmitting: false,
         branchConfigs: {
@@ -396,16 +351,17 @@ export const useMarketplaceStore = create((set, get) => ({
   // ─────────────────────────────────────────
   // STEP 6: GO LIVE
   // ─────────────────────────────────────────
+
+  // Phase 1 — API call only. Does NOT set isLive/marketplaceStatus.
+  // GoLiveStep calls this, waits for success, then shows the celebration.
   submitGoLive: async () => {
     set({ isGoingLive: true, goLiveErrors: [] });
     try {
       await apiGoLive();
-      set({
-        isGoingLive: false,
-        marketplaceStatus: "LIVE",
-        isLive: true,
-        onboardingCompleted: true,
-      });
+      // ← intentionally NOT setting isLive or marketplaceStatus here
+      //   so the navigate() effect in MarketplaceOnboardingPage doesn't
+      //   fire and kill the celebration before it renders.
+      set({ isGoingLive: false });
       return { success: true };
     } catch (err) {
       const errors = err.response?.data?.errors || [];
@@ -414,6 +370,16 @@ export const useMarketplaceStore = create((set, get) => ({
       set({ isGoingLive: false, goLiveErrors: errors });
       return { success: false, error: message, errors };
     }
+  },
+
+  // Phase 2 — called by GoLiveStep AFTER the celebration finishes.
+  // NOW we flip the status flags which triggers the navigate() effect.
+  confirmGoLive: () => {
+    set({
+      marketplaceStatus: "LIVE",
+      isLive: true,
+      onboardingCompleted: true,
+    });
   },
 
   // ─────────────────────────────────────────

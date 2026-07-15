@@ -26,7 +26,7 @@ import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
 
-import { DeliveryAddressCard } from "../components/DeliveryAddressCard"; // ← NEW
+import { DeliveryAddressCard } from "../components/DeliveryAddressCard";
 import { DeliverySummaryCard } from "../components/DeliverySummaryCard";
 import { BillDetailsCard } from "../components/BillDetailsCard";
 import {
@@ -38,16 +38,19 @@ import { RecommendationSection } from "../components/RecommendationSection";
 import { PrescriptionUploadCard } from "../components/PrescriptionUploadCard";
 import { AddressPickerSheet } from "../components/AddressPickerSheet";
 
+// ── NEW IMPORTS ───────────────────────────────────────────────
+import { useCheckout } from "../hooks/useCheckout";
+import { useDeliveryETA } from "../../../hooks/useDeliveryETA";
+// ─────────────────────────────────────────────────────────────
+
 import { useCartStore } from "../../../store/cartStore";
 import { usePrescriptionStore } from "../../../store/prescriptionStore";
 import { useAddresses } from "../../profile/hooks/useAddresses";
 import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
-import { ordersApi } from "../../marketplace/api/orders.api";
 import { CART_CONFIG } from "../../../constants/config";
 import type { Address } from "../../profile/types/profile.types";
 
 // ── Order success overlay ─────────────────────────────────────
-// (unchanged — kept exactly as-is)
 
 function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
   const { colors } = useTheme();
@@ -138,7 +141,6 @@ export function CartScreen() {
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
 
   const handleAddressPress = useCallback(() => {
-    console.log("handleAddressPress called, setting visible true");
     setAddressSheetVisible(true);
   }, []);
 
@@ -148,7 +150,6 @@ export function CartScreen() {
 
   // ── Order state ───────────────────────────────────────────
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   // ── Delivery instruction state ────────────────────────────
   const [selectedInstructions, setSelectedInstructions] = useState<string[]>(
@@ -181,59 +182,30 @@ export function CartScreen() {
     router.replace("/(tabs)/home" as any);
   }, []);
 
-  // ── Place order ───────────────────────────────────────────
-  const handlePlaceOrder = useCallback(async () => {
-    if (!selectedAddressId) {
-      Alert.alert(
-        "Address Required",
-        "Please add a delivery address before placing your order.",
-      );
-      return;
-    }
+  // ── Distance from ETA hook ────────────────────────────────
+  // branchLat/branchLng come from the first cart item (all items in a
+  // cart belong to the same branch, so index 0 is always correct).
+  const firstItem = items[0] as any;
+  const branchLat = firstItem?.branchLatitude ?? null;
+  const branchLng = firstItem?.branchLongitude ?? null;
+  const location  = useDeliveryLocationStore((s) => s.location);
+  const userLat   = location.latitude;
+  const userLng   = location.longitude;
 
-    const branchId = items[0]?.branchId;
-    if (!branchId) {
-      Alert.alert("Error", "No branch found. Please re-add items to cart.");
-      return;
-    }
+  const { distanceKm } = useDeliveryETA(userLat, userLng, branchLat, branchLng);
 
-    const payload = {
-      branch_id: branchId,
-      delivery_address_id: selectedAddressId,
-      items: items.map((i) => ({
-        variantId: i.variantId,
-        quantity: i.quantity,
-      })),
-      notes: deliveryNotes.trim().length > 0 ? deliveryNotes : undefined,
-      prescription_files: tempPrescriptions,
-    };
-
-    try {
-      setIsLoading(true);
-      const res = await ordersApi.placeOrder(payload);
-      if (res.data.success) {
-        clearCart();
-        clearPrescriptions();
-        setSelectedInstructions([]);
-        setIsSuccess(true);
-      }
-    } catch (err: any) {
-      Alert.alert(
-        "Order Failed",
-        err.response?.data?.message ||
-          "Something went wrong. Please try again.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    selectedAddressId,
-    items,
-    tempPrescriptions,
-    deliveryNotes,
-    clearCart,
-    clearPrescriptions,
-  ]);
+  // ── Checkout hook ─────────────────────────────────────────
+  // Replaces the old handlePlaceOrder + isLoading useState.
+  // useCheckout owns the loading state, quote fetching, and Razorpay flow.
+  const { placeOrder, isQuoteLoading } = useCheckout({
+    distanceKm,
+    onSuccess: useCallback(() => {
+      clearCart();
+      clearPrescriptions();
+      setSelectedInstructions([]);
+      setIsSuccess(true);
+    }, [clearCart, clearPrescriptions]),
+  });
 
   // ── Success state ─────────────────────────────────────────
   if (isSuccess) {
@@ -354,8 +326,8 @@ export function CartScreen() {
           />
         </ScrollView>
 
-        {/* Loading overlay while placing order */}
-        {isLoading && (
+        {/* Loading overlay while quote is loading / order is being placed */}
+        {isQuoteLoading && (
           <View style={styles.loadingOverlay}>
             <View
               style={[
@@ -379,8 +351,8 @@ export function CartScreen() {
           </View>
         )}
 
-        {/* onAddressPress prop removed — address is now in the scroll body */}
-        <StickyCheckoutBar onPlaceOrder={handlePlaceOrder} />
+        {/* useCheckout owns the place-order logic */}
+        <StickyCheckoutBar onPlaceOrder={placeOrder} />
       </SafeAreaView>
 
       {addressSheetVisible && (
@@ -393,7 +365,8 @@ export function CartScreen() {
   );
 }
 
-// styles unchanged below
+// ── Styles ────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {

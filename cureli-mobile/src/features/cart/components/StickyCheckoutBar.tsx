@@ -1,4 +1,5 @@
 // src/features/cart/components/StickyCheckoutBar.tsx
+// CHANGED: reads grand_total from checkoutStore, removes CART_CONFIG
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -11,40 +12,33 @@ import { useCartStore } from '../../../store/cartStore';
 import { usePrescriptionStore } from '../../../store/prescriptionStore';
 import { useAddresses } from '../../profile/hooks/useAddresses';
 import { useDeliveryLocationStore } from '../../../store/deliveryLocationStore';
-import { CART_CONFIG } from '../../../constants/config';
+import { useCheckoutStore } from '../../../store/checkoutStore';
 
 interface StickyCheckoutBarProps {
   onPlaceOrder: () => void;
 }
 
 export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const { colors }  = useTheme();
+  const insets      = useSafeAreaInsets();
 
-  const items = useCartStore((s) => s.items);
+  const items     = useCartStore((s) => s.items);
   const tempFiles = usePrescriptionStore((s) => s.tempFiles);
+  const breakdown = useCheckoutStore((s) => s.breakdown);
 
-  // Still need address + prescription state to know if button is blocked
-  const { addresses } = useAddresses();
-  const pickedAddressId = useDeliveryLocationStore(
-    (s) => s.location.addressId ?? null,
-  );
+  const { addresses }   = useAddresses();
+  const pickedAddressId = useDeliveryLocationStore((s) => s.location.addressId ?? null);
   const resolvedAddress = pickedAddressId
     ? (addresses.find((a) => a.id === pickedAddressId) ?? null)
     : (addresses.find((a) => a.is_default) ?? addresses[0] ?? null);
 
-  const itemsTotal = items.reduce(
-    (sum, item) => sum + item.pricePerUnit * item.quantity,
-    0,
-  );
-  const isFreeDelivery = itemsTotal >= CART_CONFIG.FREE_DELIVERY_ABOVE;
-  const deliveryCharge = isFreeDelivery ? 0 : CART_CONFIG.DELIVERY_CHARGE;
-  const grandTotal = itemsTotal + CART_CONFIG.HANDLING_CHARGE + deliveryCharge;
-
   const requiresPrescription = items.some((i) => i.requiresPrescription);
-  const prescriptionBlocked = requiresPrescription && tempFiles.length === 0;
-  const noAddress = !resolvedAddress;
-  const isBlocked = prescriptionBlocked || noAddress;
+  const prescriptionBlocked  = requiresPrescription && tempFiles.length === 0;
+  const noAddress            = !resolvedAddress;
+  const deliveryUnavailable  = breakdown ? !breakdown.delivery_available : false;
+  const isBlocked            = prescriptionBlocked || noAddress || deliveryUnavailable;
+
+  const grandTotal = breakdown?.grand_total ?? 0;
 
   return (
     <View
@@ -52,46 +46,36 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
         styles.bar,
         {
           backgroundColor: colors.background.card,
-          borderTopColor: colors.border.default,
-          paddingBottom: Math.max(insets.bottom, 12),
+          borderTopColor:  colors.border.default,
+          paddingBottom:   Math.max(insets.bottom, 12),
         },
       ]}
     >
-      {/* ── Prescription blocked notice ────────────────────── */}
       {prescriptionBlocked && (
-        <View
-          style={[
-            styles.notice,
-            { backgroundColor: colors.status.warningBg },
-          ]}
-        >
-          <MaterialIcons
-            name="assignment"
-            size={13}
-            color={colors.status.warning}
-          />
-          <Text
-            style={[
-              styles.noticeText,
-              {
-                color: colors.status.warning,
-                fontFamily: 'Inter_500Medium',
-              },
-            ]}
-          >
+        <View style={[styles.notice, { backgroundColor: colors.status.warningBg }]}>
+          <MaterialIcons name="assignment" size={13} color={colors.status.warning} />
+          <Text style={[styles.noticeText, { color: colors.status.warning, fontFamily: 'Inter_500Medium' }]}>
             Upload prescription above before placing order
           </Text>
         </View>
       )}
 
-      {/* ── Total + Place Order ────────────────────────────── */}
+      {deliveryUnavailable && breakdown?.unavailable_reason && (
+        <View style={[styles.notice, { backgroundColor: colors.status.errorBg }]}>
+          <MaterialIcons name="location-off" size={13} color={colors.status.error} />
+          <Text style={[styles.noticeText, { color: colors.status.error, fontFamily: 'Inter_500Medium' }]}>
+            {breakdown.unavailable_reason}
+          </Text>
+        </View>
+      )}
+
       <View style={styles.actionRow}>
         <View style={styles.totalBlock}>
           <Text style={[styles.totalAmount, { color: colors.text.primary }]}>
-            ₹{grandTotal.toFixed(2)}
+            {grandTotal > 0 ? `₹${grandTotal.toFixed(2)}` : '—'}
           </Text>
           <Text style={[styles.totalLabel, { color: colors.text.muted }]}>
-            {isFreeDelivery ? 'incl. free delivery' : 'incl. all charges'}
+            incl. all charges
           </Text>
         </View>
 
@@ -99,13 +83,6 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
           onPress={isBlocked ? undefined : onPlaceOrder}
           activeOpacity={isBlocked ? 1 : 0.85}
           accessibilityRole="button"
-          accessibilityLabel={
-            prescriptionBlocked
-              ? 'Upload prescription to continue'
-              : noAddress
-                ? 'Add delivery address to continue'
-                : `Place order for ₹${grandTotal.toFixed(2)}`
-          }
           style={[
             styles.proceedBtn,
             { backgroundColor: colors.brand.primary },
@@ -149,9 +126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  totalBlock: {
-    gap: 2,
-  },
+  totalBlock: { gap: 2 },
   totalAmount: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -168,9 +143,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
-  proceedBtnDisabled: {
-    opacity: 0.4,
-  },
+  proceedBtnDisabled: { opacity: 0.4 },
   proceedBtnText: {
     fontSize: 15,
     fontFamily: 'Inter_700Bold',

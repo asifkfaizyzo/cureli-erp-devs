@@ -1,30 +1,11 @@
-// backend/src/modules/enquiries/enquiries.routes.js
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { validate } from "../../middleware/validate.js";
-import { requireCAdmin } from "../../middleware/requireCAdmin.js";
-import { requireCAdminPermission } from "../../middleware/requireCAdminPermission.js";
-import { CADMIN_PERMISSIONS } from "../../config/cadminPermissions.js";
-import {
-  createEnquirySchema,
-  replyEnquirySchema,
-  updateEnquiryStatusSchema,
-  listEnquiriesSchema,
-  enquiryIdParamSchema,
-} from "./enquiries.schema.js";
-import {
-  submitEnquiry,
-  listEnquiries,
-  getEnquiryDetails,
-  replyToEnquiry,
-  updateEnquiryStatus,
-  getEnquiryStats,
-  deleteEnquiry,
-} from "./enquiries.controller.js";
+import { createEnquirySchema } from "./enquiries.schema.js";
+import { submitEnquiry } from "./enquiries.controller.js";
 
 const router = Router();
 
-// Rate limiters
 const enquirySubmitLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -34,7 +15,6 @@ const enquirySubmitLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith("/admin"),
 });
 
 const strictEnquiryLimiter = rateLimit({
@@ -46,72 +26,15 @@ const strictEnquiryLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith("/admin"),
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PUBLIC ROUTES
-// No auth required — anyone can submit an enquiry
-// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC ONLY — no admin routes here
 router.post(
-  "/enquiries",
+  "/",
   strictEnquiryLimiter,
   enquirySubmitLimiter,
   validate(createEnquirySchema, "body"),
   submitEnquiry
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ADMIN ROUTES
-// All require: authenticated CAdmin + specific permission
-// ─────────────────────────────────────────────────────────────────────────────
-router.get(
-  "/enquiries/admin/list",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-  validate(listEnquiriesSchema, "query"),
-  listEnquiries
-);
-
-router.get(
-  "/enquiries/admin/stats",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_STATS),
-  getEnquiryStats
-);
-
-router.get(
-  "/enquiries/admin/:enquiryId",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW_DETAIL),
-  validate(enquiryIdParamSchema, "params"),
-  getEnquiryDetails
-);
-
-router.post(
-  "/enquiries/admin/:enquiryId/reply",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_REPLY),
-  validate(enquiryIdParamSchema, "params"),
-  validate(replyEnquirySchema, "body"),
-  replyToEnquiry
-);
-
-router.patch(
-  "/enquiries/admin/:enquiryId/status",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_UPDATE_STATUS),
-  validate(enquiryIdParamSchema, "params"),
-  validate(updateEnquiryStatusSchema, "body"),
-  updateEnquiryStatus
-);
-
-router.delete(
-  "/enquiries/admin/:enquiryId",
-  requireCAdmin,
-  requireCAdminPermission(CADMIN_PERMISSIONS.ENQUIRIES_DELETE),
-  validate(enquiryIdParamSchema, "params"),
-  deleteEnquiry
 );
 
 export default router;
