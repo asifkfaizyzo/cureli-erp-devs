@@ -4,6 +4,15 @@
 // Header: Back | Title | Search + Cart
 // Body: 3-column vertical grid of ProductCards
 // Receives category key via route params.
+//
+// ENGLISH_MEDICINE handling:
+//   The home screen and AllCategories screen navigate here with
+//   ?category=ENGLISH_MEDICINE. This is a virtual frontend-only key
+//   that does not exist in the DB. When detected, this screen:
+//     1. Passes categories[] (the full DRUG key bundle) to useMedicineFeed
+//        instead of a single category string.
+//     2. Resolves the display label locally ("English Medicine") instead
+//        of looking it up via useCategories.
 
 import React, { useCallback, useMemo } from "react";
 import {
@@ -27,6 +36,11 @@ import { ProductCard } from "../components/ProductCard";
 
 import { useMedicineFeed } from "../hooks/useMedicineFeed";
 import { useCategories } from "../hooks/useCategories";
+import {
+  ENGLISH_MEDICINE_KEY,
+  ENGLISH_MEDICINE_CATEGORIES,
+  TOP_LEVEL_CATEGORIES,
+} from "../constants/topLevelCategories";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
 const COLUMNS = 3;
@@ -39,10 +53,34 @@ export function CategoryScreen() {
   const params = useLocalSearchParams<{ category?: string }>();
 
   const categoryKey = params.category ?? null;
+
+  // ── Detect virtual ENGLISH_MEDICINE key ─────────────────────
+  const isEnglishMedicine = categoryKey === ENGLISH_MEDICINE_KEY;
+
+  // ── Resolve display label ───────────────────────────────────
+  // For top-level cards, resolve label from the constants (no backend needed).
+  // For regular categories, fall back to useCategories lookup.
   const { categories } = useCategories();
 
-  const categoryLabel =
-    categories.find((c) => c.key === categoryKey)?.label ?? "All Medicines";
+  const categoryLabel = useMemo(() => {
+    // Check top-level first (handles ENGLISH_MEDICINE, Ayurveda Products, Pet Care)
+    const topLevel = TOP_LEVEL_CATEGORIES.find((c) => c.key === categoryKey);
+    if (topLevel) return topLevel.label;
+
+    // Fall back to backend curated categories
+    const backend = categories.find((c) => c.key === categoryKey);
+    if (backend) return backend.label;
+
+    return "All Medicines";
+  }, [categoryKey, categories]);
+
+  // ── Feed hook — categories[] for English Medicine, single category otherwise
+  const feedFilters = useMemo(() => {
+    if (isEnglishMedicine) {
+      return { categories: ENGLISH_MEDICINE_CATEGORIES };
+    }
+    return { category: categoryKey ?? undefined };
+  }, [categoryKey, isEnglishMedicine]);
 
   const cardWidth = useMemo(
     () =>
@@ -60,9 +98,7 @@ export function CategoryScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useMedicineFeed({
-    category: categoryKey ?? undefined,
-  });
+  } = useMedicineFeed(feedFilters);
 
   // ── Handlers ──────────────────────────────────────────────────
 
@@ -216,9 +252,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: Spacing.lg,
   },
-  cardWrapper: {
-    // Ensures proper alignment even on last incomplete row.
-  },
+  cardWrapper: {},
   footer: {
     paddingVertical: Spacing.lg,
     alignItems: "center",

@@ -1,4 +1,5 @@
-//cureli-mobile\src\components\CartBar\GlobalCartBar.tsx
+// cureli-mobile/src/components/CartBar/GlobalCartBar.tsx
+
 import React, { useCallback, useMemo } from "react";
 import {
   TouchableOpacity,
@@ -66,6 +67,13 @@ export function GlobalCartBar() {
 
   if (!isVisible) return null;
 
+  // Pull all brand-on-primary tokens once so inline styles stay readable
+  const onPrimary = colors.brand.primaryText;
+  const onPrimaryMuted = colors.brand.primaryTextMuted;
+  const onPrimarySubtle = colors.brand.primaryTextSubtle;
+  const onPrimaryBadge = colors.brand.primaryBadgeBg;
+  const onPrimaryThumb = colors.brand.primaryThumbBorder;
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -77,59 +85,62 @@ export function GlobalCartBar() {
         {
           backgroundColor: colors.brand.primary,
           bottom: bottomOffset,
+          // Shadow color adapts to mode so it reads correctly on any bg
+          shadowColor: colors.brand.secondary,
         },
       ]}
     >
-      {/* Overlapping thumbnail stack */}
-      <View style={[styles.thumbStack, { width: stackWidth }]}>
-        {thumbItems.map((item, index) => (
-          <View
-            key={item.variantId}
-            style={[
-              styles.thumbWrap,
-              {
-                left: index * (THUMB_SIZE - THUMB_OVERLAP),
-                zIndex: MAX_THUMBS - index,
-              },
-            ]}
-          >
-            {item.image ? (
-              <Image
-                source={{ uri: item.image }}
-                style={styles.thumbImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View
-                style={[
-                  styles.thumbPlaceholder,
-                  { backgroundColor: "rgba(255,255,255,0.15)" },
-                ]}
-              >
-                <Ionicons
-                  name="medkit-outline"
-                  size={14}
-                  color="rgba(255,255,255,0.7)"
+      {/* ── Overlapping thumbnail stack ──────────────────── */}
+      {thumbItems.length > 0 && (
+        <View style={[styles.thumbStack, { width: stackWidth }]}>
+          {thumbItems.map((item, index) => (
+            <View
+              key={item.variantId}
+              style={[
+                styles.thumbWrap,
+                {
+                  left: index * (THUMB_SIZE - THUMB_OVERLAP),
+                  zIndex: MAX_THUMBS - index,
+                  borderColor: onPrimaryThumb,
+                },
+              ]}
+            >
+              {item.image ? (
+                <Image
+                  source={{ uri: item.image }}
+                  style={styles.thumbImage}
+                  resizeMode="cover"
                 />
-              </View>
-            )}
-          </View>
-        ))}
+              ) : (
+                <View
+                  style={[
+                    styles.thumbPlaceholder,
+                    { backgroundColor: onPrimarySubtle },
+                  ]}
+                >
+                  <Ionicons
+                    name="medkit-outline"
+                    size={14}
+                    color={onPrimaryMuted}
+                  />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Label ───────────────────────────────────────── */}
+      <Text style={[styles.label, { color: onPrimary }]}>View Cart</Text>
+
+      {/* ── Count badge ─────────────────────────────────── */}
+      <View style={[styles.countBadge, { backgroundColor: onPrimaryBadge }]}>
+        <Text style={[styles.countText, { color: onPrimary }]}>
+          {cartCount}
+        </Text>
       </View>
 
-      {/* Label + count */}
-      <Text style={styles.label}>View Cart</Text>
-
-      {/* Count badge */}
-      <View style={styles.countBadge}>
-        <Text style={styles.countText}>{cartCount}</Text>
-      </View>
-
-      <Ionicons
-        name="chevron-forward"
-        size={14}
-        color="rgba(255,255,255,0.6)"
-      />
+      <Ionicons name="chevron-forward" size={14} color={onPrimaryMuted} />
     </TouchableOpacity>
   );
 }
@@ -147,14 +158,13 @@ const styles = StyleSheet.create({
     paddingRight: Spacing.md,
     gap: Spacing.sm,
     zIndex: 1000,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 5,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
-  // ── Thumbnail stack ─────────────────────────────────────
+  // ── Thumbnail stack ──────────────────────────────────────
   thumbStack: {
     height: THUMB_SIZE,
     position: "relative",
@@ -166,8 +176,8 @@ const styles = StyleSheet.create({
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
     overflow: "hidden",
+    // borderColor set inline from colors
   },
   thumbImage: {
     width: "100%",
@@ -178,29 +188,30 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
+    // backgroundColor set inline from colors
   },
 
-  // ── Label ───────────────────────────────────────────────
+  // ── Label ────────────────────────────────────────────────
   label: {
     flex: 1,
-    color: "#ffffff",
+    // color set inline from colors
     ...Typography.smallBold,
     fontSize: 13,
     textAlign: "center",
   },
 
-  // ── Count badge ─────────────────────────────────────────
+  // ── Count badge ──────────────────────────────────────────
   countBadge: {
     minWidth: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    // backgroundColor set inline from colors
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 6,
   },
   countText: {
-    color: "#ffffff",
+    // color set inline from colors
     fontSize: 12,
     fontFamily: "Inter_700Bold",
   },

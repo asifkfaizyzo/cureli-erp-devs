@@ -1,6 +1,6 @@
 // src/features/marketplace/components/GradientHeader.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -22,16 +22,11 @@ import { SearchBar } from './SearchBar';
 import { CartButton } from './CartButton';
 import { AddressDropdown } from './AddressDropdown';
 import { useDeliveryLocation } from '../../../hooks/useDeliveryLocation';
-import { useState } from 'react';
 
 // ── Constants ────────────────────────────────────────────────
 
-const GRADIENT_COLORS: [string, string] = ['#05015A', '#a291f8'];
+const FADE_STRIP_HEIGHT = 28;
 
-// The white-on-dark logo — cureliwhitenew.png has the icon only,
-// cureliwhitewithtext.png has icon + text if you prefer a single image.
-// We use the icon-only asset here and render the wordmark ourselves
-// so Amulya is guaranteed to match any future brand updates.
 const LOGO = require('../../../../assets/images/cureliwhitenew.png');
 
 // ── Props ─────────────────────────────────────────────────────
@@ -42,7 +37,6 @@ interface GradientHeaderProps {
 }
 
 // ── Subcomponent: location pill ───────────────────────────────
-// Extracted so it can be memoised independently from dropdown state.
 
 interface LocationPillProps {
   isResolving: boolean;
@@ -52,6 +46,15 @@ interface LocationPillProps {
   source: string;
   dropdownVisible: boolean;
   onPress: () => void;
+  // Color tokens passed down from parent (which has useTheme access)
+  onGradientText: string;
+  onGradientTextMuted: string;
+  onGradientTextSubtle: string;
+  pillBg: string;
+  pillBorder: string;
+  locationGps: string;
+  locationSaved: string;
+  locationNone: string;
 }
 
 const LocationPill = React.memo(function LocationPill({
@@ -62,6 +65,14 @@ const LocationPill = React.memo(function LocationPill({
   source,
   dropdownVisible,
   onPress,
+  onGradientText,
+  onGradientTextMuted,
+  onGradientTextSubtle,
+  pillBg,
+  pillBorder,
+  locationGps,
+  locationSaved,
+  locationNone,
 }: LocationPillProps) {
   const locationIcon =
     source === 'gps'
@@ -70,13 +81,12 @@ const LocationPill = React.memo(function LocationPill({
         ? 'location'
         : 'location-outline';
 
-  // Use theme status colours instead of hardcoded hex
   const iconColor =
     source === 'gps'
-      ? '#4ade80'                    // status.success — GPS active
+      ? locationGps
       : source === 'saved'
-        ? '#c9b7ff'                  // status.warning — saved address
-        : 'rgba(255,255,255,0.60)';  // fallback / unset
+        ? locationSaved
+        : locationNone;
 
   const areaLabel = isResolving
     ? 'Detecting location…'
@@ -90,52 +100,63 @@ const LocationPill = React.memo(function LocationPill({
       ? addressLine
       : 'Tap to set your address';
 
-return (
-  <TouchableOpacity
-    style={styles.locationPill}
-    onPress={onPress}
-    activeOpacity={0.75}
-    accessibilityRole="button"
-    accessibilityLabel={
-      hasLocation
-        ? `Delivering to ${area}. Tap to change.`
-        : 'Set delivery location'
-    }
-    accessibilityState={{ expanded: dropdownVisible }}
-  >
-    <View style={styles.locationTextStack}>
-      <View style={styles.locationAreaRow}>
-        {isResolving ? (
-          <ActivityIndicator size={11} color="rgba(255,255,255,0.75)" />
-        ) : (
-          <Ionicons name={locationIcon} size={14} color={iconColor} />
-        )}
+  return (
+    <TouchableOpacity
+      style={[
+        styles.locationPill,
+        {
+          backgroundColor: pillBg,
+          borderColor: pillBorder,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={
+        hasLocation
+          ? `Delivering to ${area}. Tap to change.`
+          : 'Set delivery location'
+      }
+      accessibilityState={{ expanded: dropdownVisible }}
+    >
+      <View style={styles.locationTextStack}>
+        <View style={styles.locationAreaRow}>
+          {isResolving ? (
+            <ActivityIndicator size={11} color={onGradientTextMuted} />
+          ) : (
+            <Ionicons name={locationIcon} size={14} color={iconColor} />
+          )}
 
-        <Text style={styles.locationAreaText} numberOfLines={1}>
-          {areaLabel}
+          <Text
+            style={[styles.locationAreaText, { color: onGradientText }]}
+            numberOfLines={1}
+          >
+            {areaLabel}
+          </Text>
+
+          <Ionicons
+            name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
+            size={11}
+            color={onGradientTextSubtle}
+          />
+        </View>
+
+        <Text
+          style={[styles.locationLineText, { color: onGradientTextSubtle }]}
+          numberOfLines={1}
+        >
+          {lineLabel}
         </Text>
-
-        <Ionicons
-          name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
-          size={11}
-          color="rgba(255,255,255,0.55)"
-        />
       </View>
-
-      {/* Address line below */}
-      <Text style={styles.locationLineText} numberOfLines={1}>
-        {lineLabel}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
-
+    </TouchableOpacity>
+  );
 });
 
 // ── Main component ────────────────────────────────────────────
 
 function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { location, isResolving } = useDeliveryLocation();
 
   const [dropdownVisible, setDropdownVisible] = useState(false);
@@ -151,10 +172,17 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
     setDropdownVisible(false);
   }, []);
 
+  // Pull header tokens once — keeps JSX readable
+  const h = colors.header;
+
+  // LinearGradient requires a tuple — we derive it from tokens
+  const gradientColors: [string, string] = [h.gradientFrom, h.gradientTo];
+
   return (
     <>
+      {/* ── Main gradient header ─────────────────────────── */}
       <LinearGradient
-        colors={GRADIENT_COLORS}
+        colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[
@@ -165,10 +193,9 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
           },
         ]}
       >
-        {/* ── Top row: logo + wordmark | location pill ── */}
+        {/* ── Top row ── */}
         <View style={styles.topRow}>
-
-          {/* Left: logo image + Amulya wordmark */}
+          {/* Brand */}
           <View style={styles.brand}>
             <Image
               source={LOGO}
@@ -176,10 +203,12 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
               resizeMode="contain"
               accessibilityLabel="Cureli logo"
             />
-            <Text style={styles.wordmark}>Cureli</Text>
+            <Text style={[styles.wordmark, { color: h.onGradientText }]}>
+              Cureli
+            </Text>
           </View>
 
-          {/* Right: location pill */}
+          {/* Location pill */}
           <LocationPill
             isResolving={isResolving}
             hasLocation={hasLocation}
@@ -188,25 +217,56 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
             source={location.source}
             dropdownVisible={dropdownVisible}
             onPress={toggleDropdown}
+            onGradientText={h.onGradientText}
+            onGradientTextMuted={h.onGradientTextMuted}
+            onGradientTextSubtle={h.onGradientTextSubtle}
+            pillBg={h.pillBg}
+            pillBorder={h.pillBorder}
+            locationGps={h.locationGps}
+            locationSaved={h.locationSaved}
+            locationNone={h.locationNone}
           />
         </View>
 
-        {/* ── Bottom row: search + cart ── */}
+        {/* ── Bottom row ── */}
         <View style={styles.searchRow}>
           <View style={styles.searchFlex}>
-            <SearchBar onPress={onPressSearch} variant="header" />
+            <SearchBar onPress={onPressSearch} variant="header-tinted" />
           </View>
           <CartButton onPress={onPressCart} />
         </View>
       </LinearGradient>
 
-      {/* Dropdown renders outside the gradient so it overlays page content */}
+      {/* ── Soft fade strip below the header ────────────────
+          Bridges the gradient bottom color into the page background.
+          Absolutely positioned so it tracks the fixed header. */}
+      <View
+        style={[
+          styles.fadeStrip,
+          {
+            top: HEADER_HEIGHT + insets.top,
+            height: FADE_STRIP_HEIGHT,
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <LinearGradient
+          colors={[h.gradientTo, colors.background.page]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.fadeStripGradient}
+        />
+      </View>
+
+      {/* Dropdown renders outside gradient so it overlays page content */}
       <AddressDropdown visible={dropdownVisible} onClose={closeDropdown} />
     </>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────
+// Only geometry/layout lives here — all colors are applied inline
+// so they react to theme changes at render time.
 
 const styles = StyleSheet.create({
   gradient: {
@@ -220,15 +280,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
 
-  // ── Top row ─────────────────────────────────────────────────
+  // ── Fade strip ───────────────────────────────────────────────
+  fadeStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 99,
+  },
+  fadeStripGradient: {
+    flex: 1,
+  },
+
+  // ── Top row ──────────────────────────────────────────────────
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
   },
 
-  // ── Brand (left) ─────────────────────────────────────────────
+  // ── Brand ────────────────────────────────────────────────────
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -239,58 +310,46 @@ const styles = StyleSheet.create({
     height: 50,
   },
   wordmark: {
+    // color applied inline
     ...Typography.wordmark,
-    fontSize: 30,
-  lineHeight: 34,
-  letterSpacing: -0.3,
-fontWeight: '800',
-
-    color: '#ffffff',
+    fontSize: 40,
+    lineHeight: 34,
+    letterSpacing: -0.3,
+    fontWeight: '800',
   },
 
-  // ── Location pill (right) ────────────────────────────────────
+  // ── Location pill ────────────────────────────────────────────
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    // backgroundColor + borderColor applied inline
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    maxWidth: '40%',             // never crowd the logo
-  },
-  locationIconWrap: {
-    width: 22,
-    alignItems: 'center',
-    flexShrink: 0,
+    maxWidth: '40%',
   },
   locationTextStack: {
     flex: 1,
     gap: 1,
-    
   },
   locationAreaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     justifyContent: 'flex-end',
-
   },
   locationAreaText: {
+    // color applied inline
     ...Typography.smallMedium,
-    color: 'rgba(255,255,255,0.95)',
     flexShrink: 1,
     textAlign: 'right',
-
-    
   },
   locationLineText: {
+    // color applied inline
     ...Typography.caption,
-    color: 'rgba(255,255,255,0.55)',
     textAlign: 'right',
-
   },
 
   // ── Search row ───────────────────────────────────────────────
@@ -303,6 +362,7 @@ fontWeight: '800',
     flex: 1,
   },
 });
+
 export { HEADER_HEIGHT };
 
 export const GradientHeader = React.memo(GradientHeaderBase);

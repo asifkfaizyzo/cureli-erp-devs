@@ -93,7 +93,7 @@ export function ShopsBottomSheet({
   React.useEffect(() => {
   if (visible) {
     const t = setTimeout(() => {
-      sheetRef.current?.snapToIndex(0);
+      sheetRef.current?.snapToIndex(1);
     }, 50);
     return () => clearTimeout(t);
   } else {

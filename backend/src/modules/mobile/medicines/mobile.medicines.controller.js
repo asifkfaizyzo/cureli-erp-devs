@@ -2,12 +2,19 @@
 //
 // PUBLIC mobile medicine discovery — controllers.
 //
-// handleGetMedicineShops (new):
+// handleGetMedicineShops:
 //   GET /mobile/medicines/:variantId/shops?lat=X&lng=Y
 //   Accepts sku_id or variant UUID in the path param (same dual-lookup
 //   as handleGetMedicine). Resolves to variant_id before querying shops
 //   so the service can join on MarketplaceListing.linked_variant_id.
 //   lat/lng are optional — omit for unsorted results.
+//
+// categories param:
+//   GET /mobile/medicines?categories=ANTI+INFECTIVES,PAIN+ANALGESICS
+//   The schema validates the raw comma-separated string.
+//   The controller splits it into a clean string[] before passing to
+//   the service. Empty segments (e.g. trailing commas) are dropped.
+//   Cannot be combined with category — schema enforces this.
 
 import { success, fail } from "../../../utils/response.js";
 import {
@@ -45,8 +52,26 @@ export async function handleListMedicines(req, res) {
     return fail(res, msg, 400);
   }
 
+  // Split the raw categories string into a clean string array.
+  // Schema has already validated the raw string — we just need to split it.
+  // Filter out any empty segments from trailing/leading commas.
+  const rawCategories = parsed.data.categories;
+  const categoriesArray = rawCategories
+    ? rawCategories
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : undefined;
+
   try {
-    const result = await listMobileMedicines(parsed.data);
+    const result = await listMobileMedicines({
+      page: parsed.data.page,
+      limit: parsed.data.limit,
+      type: parsed.data.type,
+      category: parsed.data.category,
+      categories: categoriesArray,
+      search: parsed.data.search,
+    });
     return success(res, result, "Medicines fetched");
   } catch (err) {
     console.error("[mobile.medicines] list error:", err);
@@ -114,7 +139,6 @@ export async function handleGetMedicineShops(req, res) {
       );
 
     if (!looksLikeUuid) {
-      // It's a sku_id — resolve to variant UUID
       const variant = await prisma.masterMedicineVariant.findUnique({
         where: { sku_id: idOrSku },
         select: { variant_id: true },

@@ -98,25 +98,17 @@ export const StorageService = {
   },
 
   // ── Theme preference ──────────────────────────────────────────
+  // Only 'light' or 'dark'. Default is 'light'.
+  // Any legacy stored value ('system', etc.) is treated as 'light'.
 
-  getThemePreference(): 'light' | 'dark' | 'system' {
+  getThemePreference(): 'light' | 'dark' {
     const val = storage.getString('app.theme_preference');
-    if (val === 'light' || val === 'dark' || val === 'system') return val;
-    return 'system';
+    if (val === 'light' || val === 'dark') return val;
+    return 'light';
   },
 
-  setThemePreference(pref: 'light' | 'dark' | 'system'): void {
+  setThemePreference(pref: 'light' | 'dark'): void {
     storage.set('app.theme_preference', pref);
-  },
-
-  getDarkVariant(): 'pure' | 'navy' | 'neutral' {
-    const val = storage.getString('app.dark_variant');
-    if (val === 'pure' || val === 'navy' || val === 'neutral') return val;
-    return 'navy';
-  },
-
-  setDarkVariant(variant: 'pure' | 'navy' | 'neutral'): void {
-    storage.set('app.dark_variant', variant);
   },
 
   // ── Cart ──────────────────────────────────────────────────────
@@ -136,23 +128,22 @@ export const StorageService = {
   },
 
   getPushToken(): string | null {
-  return storage.getString('push_token') ?? null;
-},
+    return storage.getString('push_token') ?? null;
+  },
 
-setPushToken(token: string): void {
-  storage.set('push_token', token);
-},
+  setPushToken(token: string): void {
+    storage.set('push_token', token);
+  },
 
-removePushToken(): void {
-  storage.remove('push_token');
-},
+  removePushToken(): void {
+    storage.remove('push_token');
+  },
 
-getString(key: string): string | null {
-  return storage.getString(key) ?? null;
-},
+  getString(key: string): string | null {
+    return storage.getString(key) ?? null;
+  },
 
-setString(key: string, value: string): void {
-  storage.set(key, value);
-},
-
+  setString(key: string, value: string): void {
+    storage.set(key, value);
+  },
 };

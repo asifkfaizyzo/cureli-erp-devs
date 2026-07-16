@@ -1,54 +1,38 @@
 // src/theme/colors.ts
-//
-// Light + Dark color palettes for Cureli Mobile.
-// Three dark mode variants included — switch via DARK_VARIANT constant.
-//
-// Usage:
-//   import { useTheme } from '../theme/ThemeContext';
-//   const { colors } = useTheme();
-//   style={{ backgroundColor: colors.background.page }}
-//
-// To change dark mode style:
-//   Change DARK_VARIANT below to 'pure' | 'navy' | 'neutral'
-//   Restart Metro.
-
-// ── Dark variant selector ─────────────────────────────────────
-// Change this to try different dark modes.
-// 'navy' is the branded default that matches your app icon bg.
-
-export type DarkVariant = "pure" | "navy" | "neutral";
-export const DARK_VARIANT: DarkVariant = "navy";
-
-// ── Color palette type ────────────────────────────────────────
 
 export interface ColorPalette {
   brand: {
-    primary: string; // main brand color — buttons, active states
-    secondary: string; // gradient end, secondary brand elements
-    mid: string; // medium brand shade
-    light: string; // lighter brand
-    soft: string; // softest brand — badges, tints
-    accent: string; // purple accent from logo
+    primary: string;
+    secondary: string;
+    mid: string;
+    light: string;
+    soft: string;
+    accent: string;
+    primaryText: string;
+    primaryTextMuted: string;
+    primaryTextSubtle: string;
+    primaryBadgeBg: string;
+    primaryThumbBorder: string;
   };
 
   background: {
-    page: string; // app background
-    card: string; // card / surface
-    elevated: string; // modal, bottom sheet
-    tint: string; // light brand wash
-    accent: string; // stronger brand wash
-    input: string; // text input background
-    trans: string; // fully transparent — overlays, ghost elements
+    page: string;
+    card: string;
+    elevated: string;
+    tint: string;
+    accent: string;
+    input: string;
+    trans: string;
   };
 
   text: {
-    primary: string; // headings, important text
-    secondary: string; // body text
-    muted: string; // descriptions, helpers
-    faint: string; // timestamps, hints
-    disabled: string; // disabled state
-    brand: string; // links, active states
-    inverse: string; // text on brand backgrounds
+    primary: string;
+    secondary: string;
+    muted: string;
+    faint: string;
+    disabled: string;
+    brand: string;
+    inverse: string;
   };
 
   border: {
@@ -56,7 +40,7 @@ export interface ColorPalette {
     subtle: string;
     brand: string;
     strong: string;
-    input: string; // text input border
+    input: string;
     inputFocused: string;
   };
 
@@ -88,6 +72,39 @@ export interface ColorPalette {
     iteminactive: string;
   };
 
+  header: {
+    gradientFrom: string;
+    gradientTo: string;
+    onGradientText: string;
+    onGradientTextMuted: string;
+    onGradientTextSubtle: string;
+    pillBg: string;
+    pillBorder: string;
+    locationGps: string;
+    locationSaved: string;
+    locationNone: string;
+  };
+
+  /**
+   * Hero carousel card gradients + on-surface colors.
+   * Each entry is a gradient pair [from, to] plus the text/icon
+   * colors that sit on top of that gradient.
+   */
+  hero: {
+    gradients: Array<[string, string]>;
+    onGradientText: string;
+    onGradientTextMuted: string;
+    onGradientTextSubtle: string;
+    ctaBg: string;
+    ctaBorder: string;
+    ctaText: string;
+    placeholderBg: string;
+    placeholderBorder: string;
+    placeholderIcon: string;
+    decorCircle: string;
+    decorCircleSecondary: string;
+  };
+
   transparent: string;
 }
 
@@ -101,6 +118,11 @@ export const LightColors: ColorPalette = {
     light: "#3b2fd4",
     soft: "#6366f1",
     accent: "#6b44dc",
+    primaryText: "#ffffff",
+    primaryTextMuted: "rgba(255,255,255,0.6)",
+    primaryTextSubtle: "rgba(255,255,255,0.15)",
+    primaryBadgeBg: "rgba(255,255,255,0.2)",
+    primaryThumbBorder: "rgba(255,255,255,0.3)",
   },
 
   background: {
@@ -160,13 +182,45 @@ export const LightColors: ColorPalette = {
     iteminactive: "#94a3b8",
   },
 
+  header: {
+    gradientFrom: "#05015A",
+    gradientTo: "#a291f8",
+    onGradientText: "#ffffff",
+    onGradientTextMuted: "rgba(255,255,255,0.75)",
+    onGradientTextSubtle: "rgba(255,255,255,0.55)",
+    pillBg: "rgba(255,255,255,0.06)",
+    pillBorder: "rgba(255,255,255,0.10)",
+    locationGps: "#4ade80",
+    locationSaved: "#c9b7ff",
+    locationNone: "rgba(255,255,255,0.60)",
+  },
+
+  hero: {
+    // Light mode: rich, saturated dark gradients — white text pops
+    gradients: [
+      ["#05015A", "#3b2fd4"],   // deep navy → indigo
+      ["#0a0280", "#6366f1"],   // royal blue → soft purple
+      ["#16044d", "#7c3aed"],   // dark plum → violet
+    ],
+    onGradientText: "#ffffff",
+    onGradientTextMuted: "rgba(255,255,255,0.80)",
+    onGradientTextSubtle: "rgba(255,255,255,0.55)",
+    ctaBg: "rgba(255,255,255,0.20)",
+    ctaBorder: "rgba(255,255,255,0.35)",
+    ctaText: "#ffffff",
+    placeholderBg: "rgba(255,255,255,0.13)",
+    placeholderBorder: "rgba(255,255,255,0.20)",
+    placeholderIcon: "rgba(255,255,255,0.90)",
+    decorCircle: "rgba(255,255,255,0.07)",
+    decorCircleSecondary: "rgba(255,255,255,0.05)",
+  },
+
   transparent: "transparent",
 };
 
-// ── Dark palettes ─────────────────────────────────────────────
+// ── Dark palette ──────────────────────────────────────────────
 
-// Option A — Pure dark (Twitter/X style)
-const DarkPure: ColorPalette = {
+export const DarkColors: ColorPalette = {
   brand: {
     primary: "#8b7cf6",
     secondary: "#7c6df0",
@@ -174,149 +228,11 @@ const DarkPure: ColorPalette = {
     light: "#a78bfa",
     soft: "#4c3d99",
     accent: "#9b7aed",
-  },
-
-  background: {
-    page: "#000000",
-    card: "#111111",
-    elevated: "#1a1a1a",
-    tint: "#1a1030",
-    accent: "#231845",
-    input: "#111111",
-    trans: "transparent",
-  },
-
-  text: {
-    primary: "#f0f0f0",
-    secondary: "#d4d4d4",
-    muted: "#9ca3af",
-    faint: "#6b7280",
-    disabled: "#4b5563",
-    brand: "#a78bfa",
-    inverse: "#000000",
-  },
-
-  border: {
-    default: "#222222",
-    subtle: "#1a1a1a",
-    brand: "#3b2f80",
-    strong: "#7c6df0",
-    input: "#333333",
-    inputFocused: "#8b7cf6",
-  },
-
-  status: {
-    success: "#4ade80",
-    successBg: "#0a2017",
-    successBorder: "#166534",
-    warning: "#fbbf24",
-    warningBg: "#1a1505",
-    error: "#f87171",
-    errorBg: "#1f0a0a",
-    errorBorder: "#7f1d1d",
-    info: "#60a5fa",
-    infoBg: "#0a1628",
-  },
-
-  overlay: {
-    dark: "rgba(0,0,0,0.7)",
-    light: "rgba(255,255,255,0.05)",
-    medium: "rgba(255,255,255,0.1)",
-  },
-
-  tab: {
-    active: "#a78bfa",
-    inactive: "#6b7280",
-    background: "#000000",
-    border: "#222222",
-    itemactive: '#a78bfa',
-    iteminactive: '#6b7280',
-
-  },
-
-  transparent: "transparent",
-};
-
-// Option B — Navy-tinted dark (branded, matches app icon)
-const DarkNavy: ColorPalette = {
-  brand: {
-    primary: "#8b7cf6",
-    secondary: "#7c6df0",
-    mid: "#6d5de8",
-    light: "#a78bfa",
-    soft: "#4c3d99",
-    accent: "#9b7aed",
-  },
-
-  background: {
-    page: "#090025",
-    card: "#130840",
-    elevated: "#1a0f50",
-    tint: "#1a1050",
-    accent: "#231860",
-    input: "#130840",
-    trans: "transparent",
-  },
-
-  text: {
-    primary: "#f0eeff",
-    secondary: "#d4d0f0",
-    muted: "#9b93c9",
-    faint: "#6e65a0",
-    disabled: "#4a4278",
-    brand: "#a78bfa",
-    inverse: "#090025",
-  },
-
-  border: {
-    default: "#1e1260",
-    subtle: "#150a45",
-    brand: "#3b2f90",
-    strong: "#7c6df0",
-    input: "#251870",
-    inputFocused: "#8b7cf6",
-  },
-
-  status: {
-    success: "#4ade80",
-    successBg: "#0a2020",
-    successBorder: "#166534",
-    warning: "#fbbf24",
-    warningBg: "#1a1508",
-    error: "#f87171",
-    errorBg: "#200a10",
-    errorBorder: "#7f1d1d",
-    info: "#60a5fa",
-    infoBg: "#0a1530",
-  },
-
-  overlay: {
-    dark: "rgba(0,0,0,0.7)",
-    light: "rgba(255,255,255,0.05)",
-    medium: "rgba(255,255,255,0.1)",
-  },
-
-  tab: {
-    active: "#a78bfa",
-    inactive: "#6e65a0",
-    background: "#090025",
-    border: "#1e1260",
-    itemactive: "#a78bfa",
-    iteminactive: "#6e65a0",
-  },
-
-  transparent: "transparent",
-};
-
-// Option C — Near-black neutral (iOS style)
-const DarkNeutral: ColorPalette = {
-  brand: {
-    primary: "#8b7cf6",
-    secondary: "#7c6df0",
-    mid: "#6d5de8",
-    light: "#a78bfa",
-    soft: "#4c3d99",
-    accent: "#9b7aed",
+    primaryText: "#0f0a2e",
+    primaryTextMuted: "rgba(15,10,46,0.6)",
+    primaryTextSubtle: "rgba(15,10,46,0.15)",
+    primaryBadgeBg: "rgba(15,10,46,0.2)",
+    primaryThumbBorder: "rgba(15,10,46,0.25)",
   },
 
   background: {
@@ -376,24 +292,48 @@ const DarkNeutral: ColorPalette = {
     iteminactive: "#636366",
   },
 
+  header: {
+    gradientFrom: "#0d0a2e",
+    gradientTo: "#2d2060",
+    onGradientText: "#f0eeff",
+    onGradientTextMuted: "rgba(240,238,255,0.70)",
+    onGradientTextSubtle: "rgba(240,238,255,0.45)",
+    pillBg: "rgba(255,255,255,0.05)",
+    pillBorder: "rgba(255,255,255,0.08)",
+    locationGps: "#4ade80",
+    locationSaved: "#a78bfa",
+    locationNone: "rgba(240,238,255,0.50)",
+  },
+
+  hero: {
+    // Dark mode: lighter, more vibrant gradients so they POP against
+    // the near-black page background. Text is dark for contrast.
+    gradients: [
+      ["#6a5dcb", "#7a6cad"],   // purple → lavender
+      ["#5456ca", "#6471a8"],   // indigo → periwinkle
+      ["#6845ba", "#7f72a4"],   // violet → lilac
+    ],
+    // gradients: [
+    //   ["#7c6df0", "#b4a0ff"],   // purple → lavender
+    //   ["#6366f1", "#93a5f8"],   // indigo → periwinkle
+    //   ["#8b5cf6", "#c4b0ff"],   // violet → lilac
+    // ],
+    onGradientText: "#ffffff",
+    onGradientTextMuted: "rgba(255,255,255,0.80)",
+    onGradientTextSubtle: "rgba(255,255,255,0.55)",
+    ctaBg: "rgba(255,255,255,0.20)",
+    ctaBorder: "rgba(255,255,255,0.35)",
+    ctaText: "#ffffffe2",
+    placeholderBg: "rgba(255,255,255,0.13)",
+    placeholderBorder: "rgba(255,255,255,0.20)",
+    placeholderIcon: "rgba(255,255,255,0.90)",
+    decorCircle: "rgba(255,255,255,0.07)",
+    decorCircleSecondary: "rgba(255,255,255,0.05)",
+  },
+
   transparent: "transparent",
 };
 
-// ── Dark palette map ──────────────────────────────────────────
+// ── Convenience alias ─────────────────────────────────────────
 
-const DarkPalettes: Record<DarkVariant, ColorPalette> = {
-  pure: DarkPure,
-  navy: DarkNavy,
-  neutral: DarkNeutral,
-};
-
-export function getDarkColors(
-  variant: DarkVariant = DARK_VARIANT,
-): ColorPalette {
-  return DarkPalettes[variant];
-}
-
-// ── Convenience export for current selection ──────────────────
-
-export const DarkColors = DarkPalettes[DARK_VARIANT];
 export const Colors = LightColors;

@@ -183,8 +183,6 @@ export function CartScreen() {
   }, []);
 
   // ── Distance from ETA hook ────────────────────────────────
-  // branchLat/branchLng come from the first cart item (all items in a
-  // cart belong to the same branch, so index 0 is always correct).
   const firstItem = items[0] as any;
   const branchLat = firstItem?.branchLatitude ?? null;
   const branchLng = firstItem?.branchLongitude ?? null;
@@ -195,8 +193,6 @@ export function CartScreen() {
   const { distanceKm } = useDeliveryETA(userLat, userLng, branchLat, branchLng);
 
   // ── Checkout hook ─────────────────────────────────────────
-  // Replaces the old handlePlaceOrder + isLoading useState.
-  // useCheckout owns the loading state, quote fetching, and Razorpay flow.
   const { placeOrder, isQuoteLoading } = useCheckout({
     distanceKm,
     onSuccess: useCallback(() => {
@@ -223,7 +219,8 @@ export function CartScreen() {
   if (items.length === 0) {
     return (
       <SafeAreaView
-        style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
+        // ✅ CHANGED 1: "#EEF5FC" → colors.background.page
+        style={[styles.safe, { backgroundColor: colors.background.page }]}
         edges={["top"]}
       >
         <View
@@ -272,7 +269,8 @@ export function CartScreen() {
   return (
     <>
       <SafeAreaView
-        style={[styles.safe, { backgroundColor: "#EEF5FC" }]}
+        // ✅ CHANGED 2: "#EEF5FC" → colors.background.page
+        style={[styles.safe, { backgroundColor: colors.background.page }]}
         edges={["top"]}
       >
         <View
@@ -310,12 +308,24 @@ export function CartScreen() {
 
           <RecommendationSection />
 
+          {/*
+            ✅ CHANGED 3 & 4: seeAllBtn backgroundColor + seeAllText color
+            moved out of StyleSheet into inline style so they can reference
+            theme tokens. Layout/spacing/radius stays in stylesheet.
+          */}
           <TouchableOpacity
             onPress={() => router.push("/(tabs)" as any)}
             activeOpacity={0.8}
-            style={styles.seeAllBtn}
+            style={[
+              styles.seeAllBtn,
+              { backgroundColor: colors.background.tint },
+            ]}
           >
-            <Text style={styles.seeAllText}>Browse more medicines →</Text>
+            <Text
+              style={[styles.seeAllText, { color: colors.text.brand }]}
+            >
+              Browse more medicines →
+            </Text>
           </TouchableOpacity>
 
           <BillDetailsCard />
@@ -345,7 +355,7 @@ export function CartScreen() {
                   },
                 ]}
               >
-                Placing your order…
+                Please wait..
               </Text>
             </View>
           </View>
@@ -393,7 +403,7 @@ const styles = StyleSheet.create({
   seeAllBtn: {
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#DDF5FF",
+    // backgroundColor removed — now inline with colors.background.tint
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 16,
@@ -402,7 +412,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    color: "#05015A",
+    // color removed — now inline with colors.text.brand
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -448,7 +458,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: {
     ...Typography.button,
-    color: "#ffffff",
+    color: "#ffffff",         // ✅ Keep — white on brand button
   },
   successRoot: {
     flex: 1,
@@ -491,6 +501,6 @@ const styles = StyleSheet.create({
   homeBtnText: {
     fontSize: 15,
     fontFamily: "Inter_700Bold",
-    color: "#ffffff",
+    color: "#ffffff",         // ✅ Keep — white on brand button
   },
 });

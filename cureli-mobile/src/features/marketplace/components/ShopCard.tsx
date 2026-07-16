@@ -11,12 +11,7 @@
 // DummyShop is no longer imported. dummyShops.ts is deleted.
 
 import React, { memo } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
@@ -47,18 +42,26 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
     >
       {/* ── Top row: icon + name + open badge ── */}
       <View style={styles.topRow}>
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: colors.background.tint },
-          ]}
-        >
-          <Ionicons
-            name="storefront-outline"
-            size={22}
-            color={colors.text.brand}
+        {shop.logoUrl ? (
+          <Image
+            source={{ uri: shop.logoUrl }}
+            style={[styles.logoCircle, { borderColor: colors.border.subtle }]}
+            resizeMode="contain"
           />
-        </View>
+        ) : (
+          <View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: colors.background.tint },
+            ]}
+          >
+            <Ionicons
+              name="storefront-outline"
+              size={22}
+              color={colors.text.brand}
+            />
+          </View>
+        )}
 
         <View style={styles.nameBlock}>
           <Text
@@ -88,9 +91,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
                 backgroundColor: branch.isOpen
                   ? colors.background.tint
                   : "#F5F5F5",
-                borderColor: branch.isOpen
-                  ? colors.border.brand
-                  : "#E0E0E0",
+                borderColor: branch.isOpen ? colors.border.brand : "#E0E0E0",
               },
             ]}
           >
@@ -106,9 +107,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
               style={[
                 styles.badgeText,
                 {
-                  color: branch.isOpen
-                    ? colors.text.brand
-                    : colors.text.muted,
+                  color: branch.isOpen ? colors.text.brand : colors.text.muted,
                 },
               ]}
             >
@@ -220,15 +219,11 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
               styles.metaText,
               {
                 color:
-                  shop.rating != null
-                    ? colors.text.muted
-                    : colors.text.faint,
+                  shop.rating != null ? colors.text.muted : colors.text.faint,
               },
             ]}
           >
-            {shop.rating != null
-              ? shop.rating.toFixed(1)
-              : "No rating yet"}
+            {shop.rating != null ? shop.rating.toFixed(1) : "No rating yet"}
           </Text>
         </View>
 
@@ -236,10 +231,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         <TouchableOpacity
           onPress={() => onPress(shop)}
           activeOpacity={0.8}
-          style={[
-            styles.cta,
-            { backgroundColor: colors.brand.primary },
-          ]}
+          style={[styles.cta, { backgroundColor: colors.brand.primary }]}
         >
           <Text style={styles.ctaText}>View Shop</Text>
         </TouchableOpacity>
@@ -340,6 +332,13 @@ const styles = StyleSheet.create({
   metaText: {
     ...Typography.small,
     flexShrink: 1,
+  },
+  logoCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    backgroundColor: "#FFFFFF",
   },
   cta: {
     marginLeft: "auto",

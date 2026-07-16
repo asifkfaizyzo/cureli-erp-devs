@@ -15,6 +15,11 @@
 //
 // cartItem / quantityInCart are removed — cart state is no longer
 // reflected on this card since items can only be added via the detail page.
+//
+// DARK MODE FIX: previously used hardcoded "#ffffff" for the image
+// container background and the ADD button background. Both are now
+// driven by theme tokens (colors.background.card) so the card renders
+// correctly in dark mode.
 
 import React, { useCallback } from "react";
 import {
@@ -107,7 +112,7 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
           style={[
             styles.imageContainer,
             {
-              backgroundColor: "#ffffff",
+              backgroundColor: colors.background.card,
               borderColor: colors.border.subtle,
             },
           ]}
@@ -141,7 +146,10 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
             accessibilityLabel={`View ${medicine.name}`}
             style={[
               styles.addButton,
-              { borderColor: colors.brand.primary },
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.brand.primary,
+              },
             ]}
           >
             <Text style={[styles.addText, { color: colors.brand.primary }]}>
@@ -193,12 +201,11 @@ const styles = StyleSheet.create({
     overflow: "visible",
     alignItems: "center",
     justifyContent: "flex-end",
-    paddingBottom: Spacing.sm,
     position: "relative",
   },
   image: {
     width: "80%",
-    height: "85%",
+    height: "100%",
   },
   imagePlaceholder: {
     width: "100%",
@@ -211,7 +218,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -12,
     right: -6,
-    backgroundColor: "#ffffff",
     borderWidth: 1.5,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,

@@ -6,6 +6,12 @@
 //   Validates optional lat/lng query params for the shops endpoint.
 //   Both must be present together or both absent — partial coords are
 //   rejected because a single coordinate produces no useful distance.
+//
+// categories param (new):
+//   Accepts a comma-separated string of primary_category values.
+//   e.g. ?categories=ANTI+INFECTIVES,PAIN+ANALGESICS,CARDIAC
+//   Parsed by the controller into a string array before passing to the service.
+//   Cannot be combined with category — one or the other.
 
 import { z } from "zod";
 
@@ -33,15 +39,36 @@ const typeParam = z
 const categoryParam = z.string().trim().min(1).max(100).optional();
 const searchParam = z.string().trim().min(1).max(100).optional();
 
+// ── categories param ──────────────────────────────────────────
+// Comma-separated string. Controller splits it into string[].
+// Each segment must be non-empty after trimming.
+// Max 50 categories — a sanity guard against abuse.
+
+const categoriesParam = z
+  .string()
+  .trim()
+  .min(1)
+  .max(2000)
+  .optional();
+
 // ── Feed (list) query ─────────────────────────────────────────
 
-export const listMedicinesQuerySchema = z.object({
-  page: pageParam,
-  limit: limitParam,
-  type: typeParam,
-  category: categoryParam,
-  search: searchParam,
-});
+export const listMedicinesQuerySchema = z
+  .object({
+    page: pageParam,
+    limit: limitParam,
+    type: typeParam,
+    category: categoryParam,
+    categories: categoriesParam,
+    search: searchParam,
+  })
+  .refine(
+    (data) => !(data.category && data.categories),
+    {
+      message: "category and categories cannot both be provided",
+      path: ["category"],
+    }
+  );
 
 // ── Single variant params ─────────────────────────────────────
 
@@ -74,7 +101,6 @@ export const medicineShopsQuerySchema = z
     (data) => {
       const hasLat = data.lat !== undefined;
       const hasLng = data.lng !== undefined;
-      // Either both present or both absent
       return hasLat === hasLng;
     },
     {

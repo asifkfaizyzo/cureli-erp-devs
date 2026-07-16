@@ -105,7 +105,10 @@ export function MedicineRow({
         <View
           style={[
             styles.imageWrap,
-            { backgroundColor: "#ffffff", borderColor: colors.border.subtle },
+            {
+              backgroundColor: colors.background.elevated,
+              borderColor: colors.border.subtle,
+            },
           ]}
         >
           {item.image ? (
@@ -204,7 +207,11 @@ export function MedicineRow({
                   accessibilityLabel="Decrease quantity"
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Ionicons name="remove" size={14} color="#ffffff" />
+                  <Ionicons
+                    name="remove"
+                    size={14}
+                    color={colors.brand.primaryText}
+                  />
                 </TouchableOpacity>
 
                 {/* Count */}
@@ -228,7 +235,11 @@ export function MedicineRow({
                   accessibilityLabel="Increase quantity"
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Ionicons name="add" size={14} color="#ffffff" />
+                  <Ionicons
+                    name="add"
+                    size={14}
+                    color={colors.brand.primaryText}
+                  />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -240,6 +251,7 @@ export function MedicineRow({
                   styles.addBtn,
                   {
                     borderColor: colors.brand.primary,
+                    backgroundColor: colors.background.card,
                   },
                 ]}
                 accessibilityLabel={`Add ${item.name} to cart`}
@@ -267,6 +279,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     gap: Spacing.md,
+    // backgroundColor + borderColor set inline
   },
   imageWrap: {
     width: 72,
@@ -277,6 +290,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
     overflow: "hidden",
+    // backgroundColor + borderColor set inline
   },
   image: {
     width: "100%",
@@ -296,6 +310,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     flex: 1,
     lineHeight: 20,
+    // color set inline
   },
   rxBadge: {
     paddingHorizontal: 6,
@@ -304,16 +319,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 2,
     flexShrink: 0,
+    // backgroundColor + borderColor set inline
   },
   rxText: {
     ...Typography.smallBold,
     fontSize: 10,
+    // color set inline
   },
   mfr: {
     ...Typography.caption,
+    // color set inline
   },
   pack: {
     ...Typography.caption,
+    // color set inline
   },
   bottom: {
     flexDirection: "row",
@@ -324,9 +343,11 @@ const styles = StyleSheet.create({
   priceLabel: {
     ...Typography.caption,
     fontSize: 10,
+    // color set inline
   },
   price: {
     ...Typography.h4,
+    // color set inline
   },
 
   // ── Plain ADD button (quantity === 0) ──────────────────────
@@ -335,14 +356,15 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderRadius: Radius.sm,
     borderWidth: 1.5,
-    backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
     minWidth: 64,
+    // backgroundColor + borderColor set inline
   },
   addBtnText: {
     ...Typography.smallMedium,
     letterSpacing: 0.8,
+    // color set inline
   },
 
   // ── Quantity stepper (quantity > 0) ────────────────────────
@@ -353,17 +375,20 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     overflow: "hidden",
     minWidth: 96,
+    // borderColor set inline
   },
   stepperBtn: {
     width: 30,
     height: 30,
     alignItems: "center",
     justifyContent: "center",
+    // backgroundColor set inline
   },
   stepperCount: {
     flex: 1,
     textAlign: "center",
     ...Typography.bodyMedium,
     fontSize: 14,
+    // color set inline
   },
 });

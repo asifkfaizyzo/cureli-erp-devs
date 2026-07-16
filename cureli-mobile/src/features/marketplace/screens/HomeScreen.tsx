@@ -1,4 +1,14 @@
 // src/features/marketplace/screens/HomeScreen.tsx
+//
+// Home tab — main marketplace entry point.
+//
+// Category section:
+//   Replaced the old backend-driven CategoryGrid with TopLevelCategoryGrid —
+//   three hardcoded top-level cards (English Medicine, Ayurvedic, Veterinary).
+//   No useCategories call needed on this screen any more.
+//
+// Feed sections:
+//   Still driven by useHomeFeed — curated product rails per category.
 
 import React, { useCallback, useState } from "react";
 import {
@@ -14,14 +24,12 @@ import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
 
 import { GradientHeader, HEADER_HEIGHT } from "../components/GradientHeader";
-import { PrescriptionStrip } from "../components/PrescriptionStrip";
 import { HeroCarousel } from "../components/HeroCarousel";
 import { SectionHeader } from "../components/SectionHeader";
-import { CategoryGrid } from "../components/CategoryGrid";
+import { TopLevelCategoryGrid } from "../components/TopLevelCategoryGrid";
 import { ProductSection } from "../components/ProductSection";
 import { HomeFooter } from "../components/HomeFooter";
 
-import { useCategories } from "../hooks/useCategories";
 import { useHomeFeed } from "../hooks/useHomeFeed";
 import { useLayoutStore } from "../../../store/layoutStore";
 
@@ -31,12 +39,6 @@ export function HomeScreen() {
   const bottomTabBarHeight = useLayoutStore((s) => s.bottomTabBarHeight);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const {
-    categories,
-    isLoading: isCategoriesLoading,
-    refetch: refetchCategories,
-  } = useCategories();
 
   const {
     sections,
@@ -59,9 +61,9 @@ export function HomeScreen() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([refetchCategories(), refetchFeed()]);
+    await refetchFeed();
     setIsRefreshing(false);
-  }, [refetchCategories, refetchFeed]);
+  }, [refetchFeed]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background.page }]}>
@@ -90,7 +92,6 @@ export function HomeScreen() {
           />
         }
       >
-        <PrescriptionStrip />
         <HeroCarousel />
 
         <SectionHeader
@@ -99,20 +100,14 @@ export function HomeScreen() {
           onPressHint={handlePressViewAll}
         />
 
-        <CategoryGrid
-          categories={categories}
-          isLoading={isCategoriesLoading}
-        />
+        <TopLevelCategoryGrid />
 
         {isFeedLoading ? (
-          (categories.length > 0
-            ? categories
-            : [
-                { key: "s1", label: "" },
-                { key: "s2", label: "" },
-                { key: "s3", label: "" },
-              ]
-          ).map((cat) => (
+          [
+            { key: "s1", label: "" },
+            { key: "s2", label: "" },
+            { key: "s3", label: "" },
+          ].map((cat) => (
             <ProductSection
               key={cat.key}
               title={cat.label}

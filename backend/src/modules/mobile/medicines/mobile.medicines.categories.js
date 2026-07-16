@@ -68,13 +68,13 @@ export const CURATED_CATEGORIES = [
     icon: "fitness-outline",
     count: 17974,
   },
-  {
-    key: "Ayurveda Products",
-    label: "Ayurveda",
-    type: "OTC",
-    icon: "leaf-outline",
-    count: 12083,
-  },
+  // {
+  //   key: "Ayurveda Products",
+  //   label: "Ayurveda",
+  //   type: "OTC",
+  //   icon: "leaf-outline",
+  //   count: 12083,
+  // },
   {
     key: "Baby Care",
     label: "Baby Care",

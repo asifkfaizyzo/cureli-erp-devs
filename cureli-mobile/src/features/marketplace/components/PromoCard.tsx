@@ -6,21 +6,17 @@
 //   LEFT  — title, subtitle, CTA button (flex:1)
 //   RIGHT — image (if imageUrl) or branded icon placeholder
 //
-// Gradient background per slide, defined in HERO_BANNERS.
-// Purely presentational — receives one HeroBannerSlide as prop.
+// All colors are now theme-driven via colors.hero tokens.
+// Gradient pair is selected by gradientIndex from the slide data.
 
 import React from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
+import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
@@ -31,35 +27,53 @@ import { HERO_CAROUSEL_HEIGHT } from "../constants/marketplace.constants";
 
 interface PromoCardProps {
   slide: HeroBannerSlide;
-  /** Card width passed from carousel so it fills correctly. */
   width: number;
 }
 
 // ── Component ─────────────────────────────────────────────────
 
 function PromoCardBase({ slide, width }: PromoCardProps) {
+  const { colors } = useTheme();
+  const h = colors.hero;
+
+  // Pick gradient pair — fallback to first if index is out of range
+  const gradient =
+    h.gradients[slide.gradientIndex] ?? h.gradients[0] ?? ["#333", "#666"];
+
   const handleCta = () => {
     router.push(slide.ctaRoute as any);
   };
 
   return (
     <LinearGradient
-      colors={slide.gradient}
+      colors={gradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[styles.card, { width, height: HERO_CAROUSEL_HEIGHT }]}
     >
-      {/* Decorative circle — top right depth layer */}
-      <View style={styles.circleTopRight} pointerEvents="none" />
-      <View style={styles.circleBottomLeft} pointerEvents="none" />
+      {/* Decorative circles */}
+      <View
+        style={[styles.circleTopRight, { backgroundColor: h.decorCircle }]}
+        pointerEvents="none"
+      />
+      <View
+        style={[
+          styles.circleBottomLeft,
+          { backgroundColor: h.decorCircleSecondary },
+        ]}
+        pointerEvents="none"
+      />
 
       <View style={styles.content}>
         {/* ── Left: text + CTA ── */}
         <View style={styles.textBlock}>
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={[styles.title, { color: h.onGradientText }]} numberOfLines={2}>
             {slide.title}
           </Text>
-          <Text style={styles.subtitle} numberOfLines={2}>
+          <Text
+            style={[styles.subtitle, { color: h.onGradientTextMuted }]}
+            numberOfLines={2}
+          >
             {slide.subtitle}
           </Text>
 
@@ -68,16 +82,23 @@ function PromoCardBase({ slide, width }: PromoCardProps) {
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel={slide.ctaLabel}
-            style={styles.ctaButton}
+            style={[
+              styles.ctaButton,
+              {
+                backgroundColor: h.ctaBg,
+                borderColor: h.ctaBorder,
+              },
+            ]}
           >
-            <Text style={styles.ctaText}>{slide.ctaLabel}</Text>
+            <Text style={[styles.ctaText, { color: h.ctaText }]}>
+              {slide.ctaLabel}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Right: image or placeholder icon ── */}
         <View style={styles.imageBlock}>
           {slide.imageUrl ? (
-            // TODO: Replace placeholder with real CDN banner images
             <Image
               source={{ uri: slide.imageUrl }}
               style={styles.image}
@@ -85,11 +106,19 @@ function PromoCardBase({ slide, width }: PromoCardProps) {
               transition={300}
             />
           ) : (
-            <View style={styles.imagePlaceholder}>
+            <View
+              style={[
+                styles.imagePlaceholder,
+                {
+                  backgroundColor: h.placeholderBg,
+                  borderColor: h.placeholderBorder,
+                },
+              ]}
+            >
               <Ionicons
                 name={slide.placeholderIcon as any}
                 size={44}
-                color="rgba(255,255,255,0.9)"
+                color={h.placeholderIcon}
               />
             </View>
           )}
@@ -114,7 +143,6 @@ const styles = StyleSheet.create({
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: "rgba(255,255,255,0.07)",
     top: -50,
     right: -40,
   },
@@ -123,7 +151,6 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: "rgba(255,255,255,0.05)",
     bottom: -30,
     left: -20,
   },
@@ -138,27 +165,26 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.h3,
-    color: "#ffffff",
     marginBottom: Spacing.xs,
+    // color set inline
   },
   subtitle: {
     ...Typography.small,
-    color: "rgba(255,255,255,0.80)",
     lineHeight: 18,
     marginBottom: Spacing.md,
+    // color set inline
   },
   ctaButton: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.20)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
+    // backgroundColor + borderColor set inline
   },
   ctaText: {
     ...Typography.buttonSmall,
-    color: "#ffffff",
+    // color set inline
   },
   imageBlock: {
     width: 88,
@@ -175,11 +201,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.13)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.20)",
     alignItems: "center",
     justifyContent: "center",
+    // backgroundColor + borderColor set inline
   },
 });
 

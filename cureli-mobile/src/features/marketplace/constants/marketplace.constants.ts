@@ -1,22 +1,12 @@
 // src/features/marketplace/constants/marketplace.constants.ts
-//
-// Tunable ranges for the FAKE marketplace decoration generated per variant.
-// Centralised so the showcase numbers can be tweaked in one place without
-// touching the generator logic.
-//
-// All values here feed generateMarketplaceData(). None of this is real.
 
 export const MARKETPLACE_RANGES = {
   pharmacyCount: { min: 2, max: 6 },
-  /** "Starts at" price in INR. */
   startsAt: { min: 29, max: 499 },
-  /** Estimated delivery in minutes. */
   etaMins: { min: 15, max: 45 },
-  /** Distance to nearest pharmacy in km (one decimal). */
   distanceKm: { min: 0.4, max: 3.2 },
 } as const;
 
-/** Probability a variant is shown in stock (the rest show "Limited Stock"). */
 export const IN_STOCK_PROBABILITY = 0.9;
 
 export const STOCK_LABELS = {
@@ -28,7 +18,10 @@ export const STOCK_LABELS = {
 // Static slides for the home screen carousel.
 // Set imageUrl to a CDN URL to show a real banner image.
 // When imageUrl is null, the placeholderIcon is rendered instead.
-// gradient: [start, end] — diagonal gradient on the card background.
+//
+// Gradients now use theme keys instead of hardcoded hex values.
+// The PromoCard component resolves them at render time from
+// the active color palette.
 
 export interface HeroBannerSlide {
   id: string;
@@ -38,9 +31,13 @@ export interface HeroBannerSlide {
   ctaRoute: string;
   /** CDN image URL. null = show branded placeholder icon. */
   imageUrl: string | null;
-  gradient: [string, string];
   /** Ionicons name shown when imageUrl is null. */
   placeholderIcon: string;
+  /**
+   * Index into the hero gradient palette defined in colors.ts.
+   * Each slide picks a different gradient pair from the theme.
+   */
+  gradientIndex: number;
 }
 
 export const HERO_BANNERS: HeroBannerSlide[] = [
@@ -51,8 +48,8 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
     ctaLabel: "Let's Start",
     ctaRoute: "/search",
     imageUrl: null,
-    gradient: ["#05015A", "#3b2fd4"],
     placeholderIcon: "medkit-outline",
+    gradientIndex: 0,
   },
   {
     id: "fast-delivery",
@@ -61,18 +58,18 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
     ctaLabel: "Order Now",
     ctaRoute: "/search",
     imageUrl: null,
-    gradient: ["#0a0280", "#6366f1"],
     placeholderIcon: "bicycle-outline",
+    gradientIndex: 1,
   },
   {
-    id: "prescription",
-    title: "Have a Prescription?",
-    subtitle: "Upload once and we handle\nthe rest for you",
-    ctaLabel: "Upload Now",
-    ctaRoute: "/prescription/upload",
+    id: "savings",
+    title: "Save on Every Order",
+    subtitle: "Compare prices across\npharmacies near you",
+    ctaLabel: "Browse Medicines",
+    ctaRoute: "/search",
     imageUrl: null,
-    gradient: ["#16044d", "#7c3aed"],
-    placeholderIcon: "document-text-outline",
+    placeholderIcon: "pricetag-outline",
+    gradientIndex: 2,
   },
 ];
 

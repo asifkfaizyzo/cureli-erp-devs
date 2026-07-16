@@ -110,12 +110,20 @@ export interface EnrichedMedicineDetail extends EnrichedMedicine {
 }
 
 // ── Feed query params ─────────────────────────────────────────
+//
+// categories (new):
+//   Array of primary_category values for multi-category filtering.
+//   Used by the "English Medicine" top-level home card which bundles
+//   all DRUG-type primary_category keys into a single browsable view.
+//   Serialised to a comma-separated query string by marketplace.api.ts.
+//   Cannot be combined with category — mutually exclusive.
 
 export interface MedicineFeedParams {
   page?: number;
   limit?: number;
   type?: MedicineType;
   category?: string;
+  categories?: string[];
   search?: string;
 }
 

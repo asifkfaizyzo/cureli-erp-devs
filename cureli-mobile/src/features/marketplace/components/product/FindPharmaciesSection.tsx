@@ -3,9 +3,21 @@
 // CTA card that opens the ShopsBottomSheet.
 // No longer navigates away — the sheet slides up in-place.
 // The onPress handler is provided by the parent screen.
+//
+// UX improvements:
+//   - whole card is tappable, not just the small button
+//   - immediate "Opening" feedback after tap
+//   - loading spinner shown while opening
+//   - chevron points forward instead of up
 
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
@@ -19,21 +31,57 @@ interface FindPharmaciesSectionProps {
   colors: ReturnType<typeof useTheme>["colors"];
 }
 
+const OPENING_FEEDBACK_MS = 800;
+
 export function FindPharmaciesSection({
   shopCount,
   isLoading,
   onPress,
   colors,
 }: FindPharmaciesSectionProps) {
+  const [isOpening, setIsOpening] = useState(false);
+  const openingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (openingTimerRef.current) {
+        clearTimeout(openingTimerRef.current);
+      }
+    };
+  }, []);
+
   const subtitle = isLoading
     ? "Finding nearby pharmacies…"
     : shopCount > 0
       ? `${shopCount} ${shopCount === 1 ? "pharmacy" : "pharmacies"} near you`
       : "Tap to check availability";
 
+  const handlePress = useCallback(() => {
+    if (isOpening) return;
+
+    setIsOpening(true);
+    onPress();
+
+    if (openingTimerRef.current) {
+      clearTimeout(openingTimerRef.current);
+    }
+
+    // Short optimistic feedback so the tap feels immediate.
+    // The sheet/backdrop will take over visually right after.
+    openingTimerRef.current = setTimeout(() => {
+      setIsOpening(false);
+    }, OPENING_FEEDBACK_MS);
+  }, [isOpening, onPress]);
+
+  const buttonLabel = isOpening ? "Opening" : "See all";
+
   return (
     <View style={styles.section}>
-      <View
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={0.88}
+        accessibilityRole="button"
+        accessibilityLabel={`Order from a pharmacy. ${subtitle}. ${buttonLabel}.`}
         style={[
           styles.card,
           {
@@ -46,19 +94,25 @@ export function FindPharmaciesSection({
           <View
             style={[
               styles.iconWrap,
-              { backgroundColor: colors.background.tint },
+              {
+                backgroundColor: colors.background.tint,
+                borderColor: colors.border.brand,
+              },
             ]}
           >
-            <Ionicons
-              name="storefront-outline"
-              size={20}
-              color={colors.text.brand}
-            />
+            {isLoading ? (
+              <ActivityIndicator size="small" color={colors.text.brand} />
+            ) : (
+              <Ionicons
+                name="storefront-outline"
+                size={20}
+                color={colors.text.brand}
+              />
+            )}
           </View>
+
           <View style={styles.cardText}>
-            <Text
-              style={[styles.cardTitle, { color: colors.text.primary }]}
-            >
+            <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
               Order from a pharmacy
             </Text>
             <Text style={[styles.cardSub, { color: colors.text.muted }]}>
@@ -67,27 +121,43 @@ export function FindPharmaciesSection({
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={onPress}
-          activeOpacity={0.85}
-          disabled={isLoading}
+        <View
           style={[
             styles.btn,
             {
-              backgroundColor: isLoading
-                ? colors.border.default
+              backgroundColor: isOpening
+                ? colors.background.tint
+                : colors.brand.primary,
+              borderColor: isOpening
+                ? colors.border.brand
                 : colors.brand.primary,
             },
           ]}
         >
-          <Text style={styles.btnText}>
-            {isLoading ? "Loading" : "See all"}
-          </Text>
-          {!isLoading ? (
-            <Ionicons name="chevron-up" size={14} color="#FFFFFF" />
+          {isOpening ? (
+            <ActivityIndicator size="small" color={colors.text.brand} />
           ) : null}
-        </TouchableOpacity>
-      </View>
+
+          <Text
+            style={[
+              styles.btnText,
+              {
+                color: isOpening ? colors.text.brand : colors.text.inverse,
+              },
+            ]}
+          >
+            {buttonLabel}
+          </Text>
+
+          {!isOpening ? (
+            <Ionicons
+              name="chevron-forward"
+              size={14}
+              color={colors.text.inverse}
+            />
+          ) : null}
+        </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -109,6 +179,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     flex: 1,
+    minWidth: 0,
   },
   iconWrap: {
     width: 40,
@@ -117,10 +188,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    borderWidth: 1,
   },
   cardText: {
     flex: 1,
     gap: 3,
+    minWidth: 0,
   },
   cardTitle: {
     ...Typography.bodyMedium,
@@ -137,9 +210,11 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radius.full,
     flexShrink: 0,
+    minWidth: 92,
+    justifyContent: "center",
+    borderWidth: 1,
   },
   btnText: {
     ...Typography.smallMedium,
-    color: "#FFFFFF",
   },
 });

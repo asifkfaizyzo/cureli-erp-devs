@@ -1,5 +1,4 @@
 // app/_layout.tsx
-// Only showing the changes — add PushManager import and component
 
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
@@ -22,8 +21,9 @@ import { ThemeProvider } from '../src/theme/ThemeContext';
 import { DialogProvider } from '../src/components/Dialog/DialogProvider';
 import { GlobalCartBar } from '../src/components/CartBar/GlobalCartBar';
 import { useMobileSSE } from '../src/hooks/useMobileSSE';
-// ── NEW ───────────────────────────────────────────────────────────────────────
 import { PushManager } from '../src/components/PushManager/PushManager';
+// ── DEV ONLY: temporary theme toggle ──────────────────────────────────────────
+import { DevThemeToggle } from '../src/components/DevThemeToggle/DevThemeToggle';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +44,9 @@ function SSEManager() {
   useMobileSSE();
   return null;
 }
+
+// ── DEV flag: set to false or remove entirely before shipping ─────────────────
+const __DEV_SHOW_THEME_TOGGLE__ = true;
 
 export default function RootLayout() {
   const { initialize, logout } = useAuthStore();
@@ -82,8 +85,6 @@ export default function RootLayout() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <SSEManager />
-          {/* ── NEW: PushManager sits alongside SSEManager ──────────────── */}
-          {/* Same pattern — reads auth from Zustand, renders nothing        */}
           <PushManager />
 
           <DialogProvider>
@@ -116,6 +117,12 @@ export default function RootLayout() {
             </Stack>
 
             <GlobalCartBar />
+
+            {/* ── DEV ONLY: Draggable theme toggle ───────────────────────
+                Floating pill at bottom-right. Tap to expand, tap switch
+                to toggle light ↔ dark. Drag to reposition.
+                Remove __DEV_SHOW_THEME_TOGGLE__ or set to false before release. */}
+            {__DEV_SHOW_THEME_TOGGLE__ && <DevThemeToggle />}
           </DialogProvider>
         </QueryClientProvider>
       </ThemeProvider>

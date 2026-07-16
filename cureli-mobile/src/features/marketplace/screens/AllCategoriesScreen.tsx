@@ -1,3 +1,19 @@
+// src/features/marketplace/screens/AllCategoriesScreen.tsx
+//
+// Full categories screen — reached from "View all" on the home screen.
+//
+// Layout:
+//   1. Top section — the 3 top-level hero categories (English Medicine,
+//      Ayurvedic, Veterinary). Same cards as the home screen but displayed
+//      in a 3-column row at the top.
+//   2. Section divider with label "All Categories".
+//   3. Bottom section — all backend-driven curated categories from
+//      useCategories, displayed in a 3-column scrollable grid.
+//
+// Both sections use CategoryCard for visual consistency.
+// The top section is static — no backend dependency, no loading state.
+// The bottom section shows a skeleton while useCategories loads.
+
 import React, { useCallback, useMemo } from "react";
 import {
   View,
@@ -18,6 +34,7 @@ import { Spacing } from "../../../theme/spacing";
 import { useCategories } from "../hooks/useCategories";
 import { CategoryCard } from "../components/CategoryCard";
 import { CategoryGridSkeleton } from "../components/CategoryGridSkeleton";
+import { TOP_LEVEL_CATEGORIES } from "../constants/topLevelCategories";
 
 const COLUMNS = 3;
 const GAP = Spacing.sm;
@@ -40,6 +57,18 @@ export function AllCategoriesScreen() {
   const cardWidth =
     (screenWidth - HORIZONTAL_PADDING - GAP * (COLUMNS - 1)) / COLUMNS;
 
+  // ── Top-level row (3 cards, always static) ─────────────────
+  // Pad with empty spacers if TOP_LEVEL_CATEGORIES has fewer than 3.
+  // Currently exactly 3 — but this guards against future changes.
+  const topLevelRow = useMemo(() => {
+    const row = [...TOP_LEVEL_CATEGORIES];
+    while (row.length < COLUMNS) {
+      row.push(undefined as any);
+    }
+    return row;
+  }, []);
+
+  // ── Backend categories in 3-column rows ────────────────────
   const rows = useMemo(() => chunkIntoRows(categories, COLUMNS), [categories]);
 
   const handleBack = useCallback(() => {
@@ -97,8 +126,59 @@ export function AllCategoriesScreen() {
           { paddingBottom: Spacing["3xl"] },
         ]}
       >
+        {/* ── Top-level hero categories ─────────────────────────── */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.topRow}>
+            {topLevelRow.map((category, index) => {
+              if (!category) {
+                return (
+                  <View
+                    key={`top-spacer-${index}`}
+                    style={{ width: cardWidth }}
+                  />
+                );
+              }
+              return (
+                <View
+                  key={category.key}
+                  style={[
+                    styles.topCardWrapper,
+                    { width: cardWidth },
+                    index < topLevelRow.length - 1 && { marginRight: GAP },
+                  ]}
+                >
+                  <CategoryCard
+                    item={{ type: "category", data: category }}
+                    cardWidth={cardWidth}
+                    selected={false}
+                    onPressCategory={handleSelectCategory}
+                    onPressNext={() => {}}
+                    onPressBack={() => {}}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── Section divider ───────────────────────────────────── */}
+        <View style={styles.dividerContainer}>
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border.subtle }]}
+          />
+          <Text style={[styles.dividerLabel, { color: colors.text.secondary }]}>
+            All Categories
+          </Text>
+          <View
+            style={[styles.dividerLine, { backgroundColor: colors.border.subtle }]}
+          />
+        </View>
+
+        {/* ── Backend curated categories ─────────────────────────── */}
         {isLoading ? (
-          <CategoryGridSkeleton columns={3} count={12} />
+          <View style={styles.sectionContainer}>
+            <CategoryGridSkeleton columns={3} count={12} />
+          </View>
         ) : (
           <View style={styles.grid}>
             {rows.map((row, rowIndex) => (
@@ -116,12 +196,14 @@ export function AllCategoriesScreen() {
                 ))}
 
                 {row.length < COLUMNS
-                  ? Array.from({ length: COLUMNS - row.length }).map((_, i) => (
-                      <View
-                        key={`spacer-${rowIndex}-${i}`}
-                        style={{ width: cardWidth }}
-                      />
-                    ))
+                  ? Array.from({ length: COLUMNS - row.length }).map(
+                      (_, i) => (
+                        <View
+                          key={`spacer-${rowIndex}-${i}`}
+                          style={{ width: cardWidth }}
+                        />
+                      ),
+                    )
                   : null}
               </View>
             ))}
@@ -158,6 +240,30 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: Spacing.md,
+  },
+  sectionContainer: {
+    paddingHorizontal: Spacing.base,
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  topCardWrapper: {},
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.base,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    ...Typography.smallMedium,
+    paddingHorizontal: Spacing.sm,
   },
   grid: {
     paddingHorizontal: Spacing.base,

@@ -29,7 +29,15 @@
 // array directly; an empty resolved array signals the frontend to show
 // its branded placeholder.
 //
-// getMedicineShops (new):
+// listMobileMedicines — categories[] param (new):
+//   Accepts an optional string[] of primary_category values.
+//   When present, filters with primary_category IN categories[].
+//   Cannot be combined with the single category param — the controller
+//   enforces this before calling the service.
+//   Used by the "English Medicine" top-level category on the home screen
+//   which bundles all DRUG-type primary_category values into one view.
+//
+// getMedicineShops:
 //   Returns all branches that have a visible, in-stock listing for a
 //   given variant. One row per branch. Sorted by distance if lat/lng
 //   provided, else by shop name. Uses the same Haversine + IST helpers
@@ -122,7 +130,6 @@ function computeIsOpen(is24Hours, openingTime, closingTime) {
 }
 
 // ── Haversine distance ────────────────────────────────────────
-// Mirrors mobile.shops.service.js — kept local to avoid coupling.
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
@@ -179,7 +186,6 @@ function toFeedItem(variant, listingRxOverride = null) {
     manufacturer: variant.manufacturer ?? null,
     packSize: variant.pack_size ?? null,
     image: images[0] ?? null,
-    // THE FIX: Use branch override if provided, else fall back to master
     prescriptionRequired:
       listingRxOverride !== null
         ? listingRxOverride
@@ -231,13 +237,11 @@ async function listVariantsFromCatalog(category, limit) {
     take: limit,
     select: VARIANT_SELECT,
   });
-  // Demo path: no listing data, fall back to master Rx status (null override)
   return variants.map((v) => toFeedItem(v));
 }
 
 // ── Production path ───────────────────────────────────────────
 
-// Optimized production path: Derive global Rx status from the listings batch
 async function listVariantsFromListings(category, limit) {
   const listings = await prisma.marketplaceListing.findMany({
     where: {
@@ -259,13 +263,11 @@ async function listVariantsFromListings(category, limit) {
     orderBy: { linkedVariant: { name: "asc" } },
     take: limit,
     select: {
-      requires_prescription: true, // Fetch this here!
+      requires_prescription: true,
       linkedVariant: { select: VARIANT_SELECT },
     },
   });
 
-  // OPTIMIZATION: Build a set of variant IDs that require Rx in ANY branch.
-  // This avoids extra DB roundtrips per item.
   const rxRequiredVariants = new Set();
   listings.forEach((l) => {
     if (l.requires_prescription && l.linkedVariant) {
@@ -279,8 +281,6 @@ async function listVariantsFromListings(category, limit) {
     const v = listing.linkedVariant;
     if (!v || seen.has(v.variant_id)) continue;
     seen.add(v.variant_id);
-
-    // Pass the globally computed status (if any branch requires it)
     items.push(toFeedItem(v, rxRequiredVariants.has(v.variant_id)));
   }
   return items;
@@ -313,24 +313,48 @@ export async function listMobileFeed(itemsPerSection = 8) {
 }
 
 // ── List variants (paginated catalog) ─────────────────────────
+//
+// Accepts either:
+//   category   string   — single primary_category equals filter
+//   categories string[] — multi primary_category IN filter
+// These are mutually exclusive — the controller enforces this.
+// When neither is provided, no category filter is applied.
 
 export async function listMobileMedicines({
   page = 1,
   limit = 20,
   type,
   category,
+  categories,
   search,
 }) {
   const skip = (page - 1) * limit;
-  const where = {};
+
+  // ── Build master where clause ────────────────────────────────
   const masterWhere = { is_active: true };
-  if (type) masterWhere.type = type;
-  if (category) {
+
+  if (type) {
+    masterWhere.type = type;
+  }
+
+  if (categories && categories.length > 0) {
+    // Multi-category IN filter — used by the English Medicine top-level card.
+    // mode: "insensitive" on an IN filter requires a different Prisma approach:
+    // we normalise by running the query with exact values as stored in the DB.
+    // The frontend sends the exact DB keys (seeded from CCSP), so
+    // case-insensitive matching is not needed here — but we keep it safe
+    // by using the raw values as passed (already trimmed by the controller).
+    masterWhere.primary_category = { in: categories };
+  } else if (category) {
+    // Single-category equals filter — existing behaviour, unchanged.
     masterWhere.primary_category = { equals: category, mode: "insensitive" };
   }
-  if (Object.keys(masterWhere).length > 0) {
-    where.master = { is: masterWhere };
-  }
+
+  // ── Build variant where clause ────────────────────────────────
+  const where = {
+    master: { is: masterWhere },
+  };
+
   if (search) {
     where.OR = [
       { name: { contains: search, mode: "insensitive" } },
@@ -420,7 +444,6 @@ export async function getMobileMedicine(idOrSku) {
   if (!variant) return null;
 
   let availableNearYou = true;
-  // Start with master Rx status as the default
   let prescriptionRequired = variant.master?.prescription_required ?? false;
 
   if (!SHOW_UNLISTED) {
@@ -440,7 +463,6 @@ export async function getMobileMedicine(idOrSku) {
     });
     availableNearYou = visibleListing !== null;
 
-    // Check if ANY live branch requires prescription for this specific medicine
     const rxListing = await prisma.marketplaceListing.findFirst({
       where: {
         linked_variant_id: variant.variant_id,
@@ -470,13 +492,13 @@ export async function getMobileMedicine(idOrSku) {
 
   return {
     variant: {
-      ...toFeedItem(variant, prescriptionRequired), // Pass derived status
+      ...toFeedItem(variant, prescriptionRequired),
       marketer: variant.marketer ?? null,
       description: variant.description ?? null,
       images: resolveVariantImages(variant.images),
       availableNearYou,
     },
-    siblings: siblings.map((s) => toFeedItem(s)), // Siblings use master fallback
+    siblings: siblings.map((s) => toFeedItem(s)),
   };
 }
 
@@ -485,25 +507,10 @@ export async function getMobileMedicine(idOrSku) {
 // Returns all branches that have a visible listing for a given variant.
 // One row per branch — cart enforcement is at the branch level.
 // Sorted by distance asc if lat/lng provided, else by shop name asc.
-//
-// Stock statuses included: IN_STOCK only.
-// OUT_OF_STOCK listings are excluded — no point showing them in the
-// "where to buy" list. The detail screen shows UnavailableBanner when
-// this list comes back empty.
-//
-// In demo mode (SHOW_UNLISTED = true) we still query real listings —
-// if none exist we return []. The frontend handles both states.
-//
-// @param {string} variantId   - MasterMedicineVariant.variant_id (UUID)
-// @param {number|null} lat
-// @param {number|null} lng
-// @returns {Promise<object[]>}
 
 export async function getMedicineShops(variantId, lat, lng) {
   const hasLocation = lat != null && lng != null;
 
-  // We need the variant_id (UUID) not the sku_id for the listing join.
-  // The controller resolves sku_id → variant_id before calling here.
   const listings = await prisma.marketplaceListing.findMany({
     where: {
       linked_variant_id: variantId,
@@ -555,7 +562,6 @@ export async function getMedicineShops(variantId, lat, lng) {
     },
   });
 
-  // Shape each listing into a shop row
   const rows = listings.map((l) => {
     const bs = l.branch?.marketplaceSettings;
     const branchLat = bs?.latitude ? Number(bs.latitude) : null;
@@ -567,19 +573,14 @@ export async function getMedicineShops(variantId, lat, lng) {
       "Unknown Shop";
 
     return {
-      // Shop context (needed for cart + navigation)
       shopId: l.shop?.shop_id ?? null,
       shopName,
       logoUrl: resolveMarketplaceAsset(
         l.shop?.marketplaceProfile?.logo_url ?? null
       ),
-
-      // Branch context (needed for cart — cart is branch-level)
       branchId: l.branch?.branch_id ?? null,
       branchName: l.branch?.branch_name ?? null,
       address: bs?.formatted_address ?? null,
-
-      // Location
       latitude: branchLat,
       longitude: branchLng,
       distanceKm: haversineKm(
@@ -588,8 +589,6 @@ export async function getMedicineShops(variantId, lat, lng) {
         branchLat,
         branchLng
       ),
-
-      // Timing
       isOpen: computeIsOpen(
         bs?.is_24_hours ?? false,
         bs?.opening_time ?? null,
@@ -598,22 +597,15 @@ export async function getMedicineShops(variantId, lat, lng) {
       is24Hours: bs?.is_24_hours ?? false,
       openingTime: bs?.opening_time ?? null,
       closingTime: bs?.closing_time ?? null,
-
-      // Fulfillment
       pickupEnabled: bs?.pickup_enabled ?? false,
       deliveryEnabled: bs?.delivery_enabled ?? false,
       contact: bs?.contact_override ?? null,
-
-      // Listing specifics.
-      // marketplace_price is null when the shop has not set a price.
-      // Frontend shows "Price not set" in that case.
       listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
       stockStatus: l.stock_status,
       requiresPrescription: l.requires_prescription,
     };
   });
 
-  // Sort: distance asc if location provided, else shopName asc
   rows.sort((a, b) => {
     if (hasLocation) {
       const dA = a.distanceKm ?? Infinity;

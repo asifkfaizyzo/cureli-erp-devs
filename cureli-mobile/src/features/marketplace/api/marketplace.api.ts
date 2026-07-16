@@ -3,11 +3,17 @@
 // All marketplace medicine and shop API calls.
 // Goes through src/services/api.ts (shared Axios instance).
 //
-// getMedicineShops (new):
+// getMedicineShops:
 //   GET /mobile/medicines/:variantId/shops?lat=X&lng=Y
 //   Returns branches stocking a specific variant, sorted by distance
 //   when coordinates are provided. Used by the product detail screen's
 //   "Available at" bottom sheet.
+//
+// categories param (new):
+//   When MedicineFeedParams.categories is provided, it is serialised
+//   as a comma-separated ?categories= query string.
+//   e.g. ["ANTI INFECTIVES", "PAIN ANALGESICS"] → ?categories=ANTI+INFECTIVES,PAIN+ANALGESICS
+//   Cannot be combined with category — mutually exclusive.
 
 import { api } from "../../../services/api";
 import type {
@@ -44,6 +50,11 @@ export function extractErrorMessage(error: unknown): string {
 }
 
 // ── Query string builder ──────────────────────────────────────
+//
+// categories[] is serialised as a single comma-separated string.
+// URLSearchParams encodes spaces as + which the backend splits on ",".
+// category and categories are mutually exclusive — only one will be
+// present at a time, enforced by the hook before calling this.
 
 function buildFeedQuery(params: MedicineFeedParams): string {
   const sp = new URLSearchParams();
@@ -51,6 +62,9 @@ function buildFeedQuery(params: MedicineFeedParams): string {
   if (params.limit !== undefined) sp.set("limit", String(params.limit));
   if (params.type) sp.set("type", params.type);
   if (params.category) sp.set("category", params.category);
+  if (params.categories && params.categories.length > 0) {
+    sp.set("categories", params.categories.join(","));
+  }
   if (params.search) sp.set("search", params.search);
   const qs = sp.toString();
   return qs ? `?${qs}` : "";

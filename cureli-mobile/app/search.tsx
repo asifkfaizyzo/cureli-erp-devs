@@ -122,8 +122,7 @@ function useMedicineResults(query: string, enabled: boolean) {
 
   const result = useQuery({
     queryKey: ["medicines", "search", trimmed],
-    queryFn: () =>
-      marketplaceApi.getMedicines({ search: trimmed, limit: 30 }),
+    queryFn: () => marketplaceApi.getMedicines({ search: trimmed, limit: 30 }),
     enabled: enabled && trimmed.length >= 2,
     staleTime: 1000 * 60 * 2,
   });
@@ -154,10 +153,7 @@ function TabToggle({ activeTab, onChange }: TabToggleProps) {
 
   return (
     <View
-      style={[
-        styles.tabWrapper,
-        { backgroundColor: colors.background.tint },
-      ]}
+      style={[styles.tabWrapper, { backgroundColor: colors.background.tint }]}
     >
       {(Object.keys(TAB_CONFIG) as SearchTab[]).map((tab) => {
         const config = TAB_CONFIG[tab];
@@ -326,9 +322,7 @@ export default function SearchScreen() {
   );
 
   const renderShop = useCallback<ListRenderItem<ShopSearchResult>>(
-    ({ item }) => (
-      <ShopCard shop={item} onPress={handlePressShop} />
-    ),
+    ({ item }) => <ShopCard shop={item} onPress={handlePressShop} />,
     [handlePressShop],
   );
 
@@ -391,11 +385,7 @@ export default function SearchScreen() {
             },
           ]}
         >
-          <Ionicons
-            name={config.icon}
-            size={18}
-            color={colors.text.muted}
-          />
+          <Ionicons name={config.icon} size={18} color={colors.text.muted} />
 
           <TextInput
             ref={inputRef}
@@ -421,20 +411,7 @@ export default function SearchScreen() {
                 color={colors.text.muted}
               />
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={handleCameraPress}
-              accessibilityRole="button"
-              accessibilityLabel="Upload prescription"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons
-                name="camera-outline"
-                size={18}
-                color={colors.text.brand}
-              />
-            </TouchableOpacity>
-          )}
+          ) : null}
         </View>
       </View>
 
@@ -471,10 +448,7 @@ export default function SearchScreen() {
                   color={colors.text.brand}
                 />
                 <Text
-                  style={[
-                    styles.suggestionText,
-                    { color: colors.text.brand },
-                  ]}
+                  style={[styles.suggestionText, { color: colors.text.brand }]}
                 >
                   {term}
                 </Text>
@@ -489,9 +463,7 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.brand.primary} size="large" />
           <Text style={[styles.centerText, { color: colors.text.muted }]}>
-            {isMedicineTab
-              ? "Searching medicines..."
-              : "Finding pharmacies..."}
+            {isMedicineTab ? "Searching medicines..." : "Finding pharmacies..."}
           </Text>
         </View>
       )}
@@ -517,40 +489,28 @@ export default function SearchScreen() {
       )}
 
       {/* ── EMPTY (only when query entered and no results) ── */}
-      {!showIdle &&
-        !isLoading &&
-        !isError &&
-        hasQuery &&
-        !hasResults && (
-          <View style={styles.center}>
-            <Ionicons
-              name={
-                isMedicineTab ? "medkit-outline" : "storefront-outline"
-              }
-              size={44}
-              color={colors.text.faint}
-            />
-            <Text
-              style={[styles.centerText, { color: colors.text.secondary }]}
-            >
-              {config.emptyPrefix} "{debouncedQuery}"
-            </Text>
-            <Text
-              style={[styles.centerSubtext, { color: colors.text.muted }]}
-            >
-              {config.emptyHint}
-            </Text>
-          </View>
-        )}
+      {!showIdle && !isLoading && !isError && hasQuery && !hasResults && (
+        <View style={styles.center}>
+          <Ionicons
+            name={isMedicineTab ? "medkit-outline" : "storefront-outline"}
+            size={44}
+            color={colors.text.faint}
+          />
+          <Text style={[styles.centerText, { color: colors.text.secondary }]}>
+            {config.emptyPrefix} "{debouncedQuery}"
+          </Text>
+          <Text style={[styles.centerSubtext, { color: colors.text.muted }]}>
+            {config.emptyHint}
+          </Text>
+        </View>
+      )}
 
       {/* ── RESULTS ── */}
       {!showIdle && !isLoading && !isError && shouldShowResults && (
         <>
           {/* Results count header */}
           <View style={styles.resultsHeader}>
-            <Text
-              style={[styles.resultsCount, { color: colors.text.muted }]}
-            >
+            <Text style={[styles.resultsCount, { color: colors.text.muted }]}>
               {resultsHeaderText}
             </Text>
           </View>

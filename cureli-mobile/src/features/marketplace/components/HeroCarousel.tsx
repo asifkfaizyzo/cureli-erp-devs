@@ -1,21 +1,9 @@
 // src/features/marketplace/components/HeroCarousel.tsx
 //
 // Auto-sliding hero carousel using react-native-reanimated-carousel v4.
-//
-// Features:
-//   — Auto-slides every HERO_AUTO_SLIDE_INTERVAL_MS ms.
-//   — Infinite loop.
-//   — Pagination dots synced to active index.
-//   — Each slide is a PromoCard (gradient + text + icon/image + CTA).
-//   — Horizontal margins so cards don't bleed to screen edges.
-//   — Gap between cards via width padding trick.
 
 import React, { useCallback, useState } from "react";
-import {
-  View,
-  StyleSheet,
-  useWindowDimensions,
-} from "react-native";
+import { View, StyleSheet, useWindowDimensions } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { Spacing } from "../../../theme/spacing";
 import { PromoCard } from "./PromoCard";
@@ -30,7 +18,7 @@ import { useTheme } from "../../../theme/ThemeContext";
 // ── Constants ─────────────────────────────────────────────────
 
 const SIDE_MARGIN = Spacing.base;
-const CARD_GAP = Spacing.md; // 12pt gap between cards
+const CARD_GAP = Spacing.md;
 
 // ── Dot indicator ─────────────────────────────────────────────
 
@@ -44,17 +32,23 @@ function Dots({ count, activeIndex }: DotsProps) {
 
   return (
     <View style={styles.dotsRow}>
-      {Array.from({ length: count }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            i === activeIndex
-              ? [styles.dotActive, { backgroundColor: colors.brand.primary }]
-              : [styles.dotInactive, { backgroundColor: colors.border.brand }],
-          ]}
-        />
-      ))}
+      {Array.from({ length: count }).map((_, i) => {
+        const isActive = i === activeIndex;
+        return (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              isActive ? styles.dotActive : styles.dotInactive,
+              {
+                backgroundColor: isActive
+                  ? colors.brand.primary
+                  : colors.text.disabled,
+              },
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -64,8 +58,6 @@ function Dots({ count, activeIndex }: DotsProps) {
 function HeroCarouselBase() {
   const { width: screenWidth } = useWindowDimensions();
 
-  // Carousel width includes the gap — each "slot" is card + gap.
-  // The visible card is smaller by the gap amount.
   const slotWidth = screenWidth - SIDE_MARGIN * 2;
   const cardWidth = slotWidth - CARD_GAP;
 
@@ -107,7 +99,7 @@ function HeroCarouselBase() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing["2xl"],
     marginHorizontal: SIDE_MARGIN,
   },
   slideContainer: {

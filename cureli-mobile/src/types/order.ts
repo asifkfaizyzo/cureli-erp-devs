@@ -1,5 +1,4 @@
 // src/types/order.ts
-// Full file — adds prescriptions to MobileOrderDetail.
 
 export type MarketplaceOrderStatus =
   | 'PLACED'
@@ -82,8 +81,20 @@ export interface MobileOrderDetail {
   shop_name:              string | null;
   branch_name:            string | null;
   delivery_address:       MobileOrderDeliveryAddress;
+
+  // ── Billing ──────────────────────────────────────────────
+  // subtotal was already present. The remaining fields mirror
+  // PriceBreakdown from checkoutStore and are now returned by
+  // the detail endpoint. All optional so old API responses
+  // without them still type-check safely.
   total_amount:           number;
   subtotal:               number;
+  service_charge?:        number | null;
+  delivery_fee?:          number | null;
+  km_surcharge?:          number | null;
+  tip?:                   number | null;
+  grand_total?:           number | null;
+
   requires_prescription:  boolean;
   payment_method:         string;
   notes:                  string | null;
