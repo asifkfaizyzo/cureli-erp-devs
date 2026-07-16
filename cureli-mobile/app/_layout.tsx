@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Inter_400Regular,
@@ -16,13 +17,12 @@ import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useAuthStore } from '../src/store/authStore';
-import { authEventEmitter } from '../src/services/api';
+import { api, authEventEmitter } from '../src/services/api';
 import { ThemeProvider } from '../src/theme/ThemeContext';
 import { DialogProvider } from '../src/components/Dialog/DialogProvider';
 import { GlobalCartBar } from '../src/components/CartBar/GlobalCartBar';
 import { useMobileSSE } from '../src/hooks/useMobileSSE';
 import { PushManager } from '../src/components/PushManager/PushManager';
-// ── DEV ONLY: temporary theme toggle ──────────────────────────────────────────
 import { DevThemeToggle } from '../src/components/DevThemeToggle/DevThemeToggle';
 
 SplashScreen.preventAutoHideAsync();
@@ -45,7 +45,6 @@ function SSEManager() {
   return null;
 }
 
-// ── DEV flag: set to false or remove entirely before shipping ─────────────────
 const __DEV_SHOW_THEME_TOGGLE__ = true;
 
 export default function RootLayout() {
@@ -57,8 +56,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_800ExtraBold,
-    Amulya:           require('../assets/fonts/Amulya-Variable.ttf'),
-    'Amulya-Variable':require('../assets/fonts/Amulya-Variable.ttf'),
+    Amulya:            require('../assets/fonts/Amulya-Variable.ttf'),
+    'Amulya-Variable': require('../assets/fonts/Amulya-Variable.ttf'),
   });
 
   useEffect(() => {
@@ -71,12 +70,39 @@ export default function RootLayout() {
     initialize();
   }, []);
 
+  // ── Logout event from axios interceptor ──────────────────
   useEffect(() => {
     const unsubscribe = authEventEmitter.on('logout', () => {
       logout();
     });
     return unsubscribe;
   }, [logout]);
+
+  // ── Profile incomplete gate ───────────────────────────────
+  // Catches any 403 PROFILE_INCOMPLETE response from any API call
+  // made while the user is inside the app (post-splash).
+  // This is the safety net for the mid-session case — e.g. user
+  // somehow reaches checkout without completing profile.
+  // The primary gate is in splash.tsx navigateNext().
+  // This interceptor is the secondary defence.
+  useEffect(() => {
+    const interceptorId = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (
+          error?.response?.status === 403 &&
+          error?.response?.data?.data?.code === 'PROFILE_INCOMPLETE'
+        ) {
+          router.replace('/onboarding/profile' as any);
+        }
+        return Promise.reject(error);
+      },
+    );
+
+    return () => {
+      api.interceptors.response.eject(interceptorId);
+    };
+  }, []);
 
   if (!fontsLoaded) return null;
 
@@ -101,6 +127,7 @@ export default function RootLayout() {
               <Stack.Screen name="cart"                   options={{ headerShown: false }} />
               <Stack.Screen name="checkout"               options={{ headerShown: false }} />
               <Stack.Screen name="onboarding/name"        options={{ headerShown: false, animation: 'slide_from_right' }} />
+              <Stack.Screen name="onboarding/profile"     options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="onboarding/email"       options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen name="profile/edit"           options={{ headerShown: false }} />
               <Stack.Screen name="profile/addresses"      options={{ headerShown: false }} />
@@ -109,6 +136,7 @@ export default function RootLayout() {
               <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
               <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
               <Stack.Screen name="profile/dispensed"      options={{ headerShown: false }} />
+              <Stack.Screen name="profile/members"        options={{ headerShown: false }} />
               <Stack.Screen name="profile/notifications"  options={{ headerShown: false }} />
               <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
               <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
@@ -118,10 +146,6 @@ export default function RootLayout() {
 
             <GlobalCartBar />
 
-            {/* ── DEV ONLY: Draggable theme toggle ───────────────────────
-                Floating pill at bottom-right. Tap to expand, tap switch
-                to toggle light ↔ dark. Drag to reposition.
-                Remove __DEV_SHOW_THEME_TOGGLE__ or set to false before release. */}
             {__DEV_SHOW_THEME_TOGGLE__ && <DevThemeToggle />}
           </DialogProvider>
         </QueryClientProvider>

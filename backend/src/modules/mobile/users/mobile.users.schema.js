@@ -2,39 +2,7 @@
 
 import { z } from "zod";
 
-// ── Profile Update ────────────────────────────────────────────
-// All fields optional — PATCH semantics.
-// At least one field required (validated at service layer).
-
-export const updateProfileSchema = z.object({
-  full_name: z
-    .string()
-    .trim()
-    .min(2, { message: "Name must be at least 2 characters" })
-    .max(200, { message: "Name must not exceed 200 characters" })
-    .optional(),
-
-  email: z
-    .string()
-    .trim()
-    .email({ message: "Invalid email address" })
-    .max(255)
-    .optional()
-    .nullable(),
-
-  profile_image_key: z
-    .string()
-    .trim()
-    .max(500)
-    .optional()
-    .nullable(),
-});
-
-// ── Address ───────────────────────────────────────────────────
-
-const addressLabel = z.enum(["Home", "Work", "Other"], {
-  errorMap: () => ({ message: "Label must be Home, Work, or Other" }),
-});
+// ── Helpers ───────────────────────────────────────────────────
 
 const indianPincode = z
   .string()
@@ -59,6 +27,68 @@ const recipientPhone = z
   .optional()
   .nullable();
 
+const addressLabel = z.enum(["Home", "Work", "Other"], {
+  errorMap: () => ({ message: "Label must be Home, Work, or Other" }),
+});
+
+// ── Profile Update ────────────────────────────────────────────
+// All fields optional — PATCH semantics.
+// At least one field required (validated at service layer).
+// date_of_birth accepted as ISO string "YYYY-MM-DD" from client.
+
+export const updateProfileSchema = z.object({
+  full_name: z
+    .string()
+    .trim()
+    .min(2, { message: "Name must be at least 2 characters" })
+    .max(200, { message: "Name must not exceed 200 characters" })
+    .optional(),
+
+  email: z
+    .string()
+    .trim()
+    .email({ message: "Invalid email address" })
+    .max(255)
+    .optional()
+    .nullable(),
+
+  profile_image_key: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .nullable(),
+
+  date_of_birth: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, {
+      message: "Date of birth must be in YYYY-MM-DD format",
+    })
+    .refine(
+      (val) => {
+        const date = new Date(val);
+        if (isNaN(date.getTime())) return false;
+        const now = new Date();
+        const minDate = new Date("1900-01-01");
+        // Must be in the past and after 1900
+        return date < now && date >= minDate;
+      },
+      { message: "Please enter a valid date of birth" }
+    )
+    .optional()
+    .nullable(),
+
+  sex: z
+    .enum(["MALE", "FEMALE", "OTHER"], {
+      errorMap: () => ({ message: "Sex must be MALE, FEMALE, or OTHER" }),
+    })
+    .optional()
+    .nullable(),
+});
+
+// ── Address ───────────────────────────────────────────────────
+
 export const createAddressSchema = z
   .object({
     label: addressLabel,
@@ -81,10 +111,7 @@ export const createAddressSchema = z
   })
   .refine(
     (data) => {
-      // custom_label is required when label is "Other"
-      if (data.label === "Other" && !data.custom_label?.trim()) {
-        return false;
-      }
+      if (data.label === "Other" && !data.custom_label?.trim()) return false;
       return true;
     },
     {
@@ -93,7 +120,6 @@ export const createAddressSchema = z
     }
   );
 
-// Update address — all fields optional
 export const updateAddressSchema = z
   .object({
     label: addressLabel.optional(),
@@ -123,10 +149,74 @@ export const updateAddressSchema = z
     }
   );
 
-  export const confirmDeleteAccountSchema = z.object({
+export const confirmDeleteAccountSchema = z.object({
   otp: z
     .string()
     .trim()
     .length(6, { message: "OTP must be exactly 6 digits" })
     .regex(/^\d{6}$/, { message: "OTP must contain only digits" }),
+});
+
+// ── Family Members ────────────────────────────────────────────
+
+const familyMemberDateOfBirth = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "Date of birth must be in YYYY-MM-DD format",
+  })
+  .refine(
+    (val) => {
+      const date = new Date(val);
+      if (isNaN(date.getTime())) return false;
+      const now = new Date();
+      const minDate = new Date("1900-01-01");
+      return date < now && date >= minDate;
+    },
+    { message: "Please enter a valid date of birth" }
+  );
+
+const familyMemberSex = z.enum(["MALE", "FEMALE", "OTHER"], {
+  errorMap: () => ({ message: "Sex must be MALE, FEMALE, or OTHER" }),
+});
+
+const familyMemberPhone = z
+  .string()
+  .trim()
+  .transform((val) => val.replace(/\s+/g, ""))
+  .refine(
+    (val) => {
+      const stripped = val.replace(/^\+?91/, "");
+      return /^[6-9]\d{9}$/.test(stripped);
+    },
+    { message: "Invalid Indian mobile number" }
+  )
+  .transform((val) => {
+    const stripped = val.replace(/^\+?91/, "");
+    return `+91${stripped}`;
+  })
+  .optional()
+  .nullable();
+
+export const createFamilyMemberSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, { message: "Name must be at least 2 characters" })
+    .max(200, { message: "Name must not exceed 200 characters" }),
+  date_of_birth: familyMemberDateOfBirth,
+  sex: familyMemberSex,
+  phone: familyMemberPhone,
+});
+
+export const updateFamilyMemberSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, { message: "Name must be at least 2 characters" })
+    .max(200, { message: "Name must not exceed 200 characters" })
+    .optional(),
+  date_of_birth: familyMemberDateOfBirth.optional(),
+  sex: familyMemberSex.optional(),
+  phone: familyMemberPhone,
 });

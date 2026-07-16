@@ -1,6 +1,7 @@
 // src/features/profile/types/profile.types.ts
 
 import type { AddressLabel } from "../constants/profile.constants";
+import type { MobileUser, UserSex } from "../../../types/auth";
 
 // ── Address ───────────────────────────────────────────────────
 
@@ -30,6 +31,9 @@ export interface Address {
 export interface ProfileFormData {
   full_name?: string;
   email?: string | null;
+  profile_image_key?: string | null;
+  date_of_birth?: string | null;  // "YYYY-MM-DD"
+  sex?: UserSex | null;
 }
 
 // ── Address form ──────────────────────────────────────────────
@@ -51,13 +55,12 @@ export interface AddressFormData {
 }
 
 // ── Update uses Partial so only changed fields are required ───
+
 export interface UpdateAddressPayload extends Partial<AddressFormData> {
   id: string;
 }
 
 // ── API response shapes ───────────────────────────────────────
-
-import type { MobileUser } from "../../../types/auth";
 
 export interface MeResponseData {
   user: MobileUser & { address_count: number };

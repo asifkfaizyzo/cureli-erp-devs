@@ -12,6 +12,15 @@ export const quoteSchema = z.object({
   tip:         z.number().min(0).max(1000).optional().default(0),
 });
 
+// ── Patient schema (reusable) ─────────────────────────────────
+export const patientSchema = z.object({
+  is_self: z.boolean(),
+  name:    z.string().trim().min(1).max(200),
+  // Age in years — computed client-side from dob, sent as integer
+  age:     z.number().int().min(0).max(150),
+  sex:     z.enum(['MALE', 'FEMALE', 'OTHER']),
+});
+
 export const createSessionSchema = z.object({
   branch_id:           z.string().uuid(),
   delivery_address_id: z.string().uuid(),
@@ -27,6 +36,8 @@ export const createSessionSchema = z.object({
     mime_type:        z.enum(['image/jpeg','image/jpg','image/png','application/pdf']),
     file_size:        z.number().int().min(1),
   })).max(5).optional().default([]),
+  // patient is required at checkout time
+  patient: patientSchema,
 });
 
 export const confirmSchema = z.object({

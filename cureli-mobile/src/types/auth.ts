@@ -1,9 +1,6 @@
 // src/types/auth.ts
-//
-// All auth-related types for Cureli Mobile.
-// These mirror the API response shapes from the backend exactly.
 
-// ── User ──────────────────────────────────────────────────────
+export type UserSex = 'MALE' | 'FEMALE' | 'OTHER';
 
 export interface MobileUser {
   id: string;
@@ -11,6 +8,9 @@ export interface MobileUser {
   phone_verified: boolean;
   full_name: string | null;
   email: string | null;
+  date_of_birth: string | null;   // "YYYY-MM-DD"
+  sex: UserSex | null;
+  profile_complete: boolean;
   profile_image_key: string | null;
   status: 'active' | 'suspended' | 'deleted';
   referral_code: string | null;
@@ -18,18 +18,14 @@ export interface MobileUser {
   last_seen_at: string | null;
 }
 
-// ── API Response Shapes ───────────────────────────────────────
-// These match the backend success() response wrapper exactly:
-// { success: true, message: string, data: T }
-
 export interface SendOtpResponse {
-  expires_in: number;  // seconds until OTP expires (300)
+  expires_in: number;
 }
 
 export interface VerifyOtpResponse {
   access_token: string;
   refresh_token: string;
-  expires_in: number;   // access token lifetime in seconds (900)
+  expires_in: number;
   token_type: 'Bearer';
   is_new_user: boolean;
   user: MobileUser;
@@ -47,12 +43,9 @@ export interface MeResponse {
   };
 }
 
-// ── Auth State ────────────────────────────────────────────────
-// Shape of the Zustand auth store
-
 export type AuthStatus =
-  | 'unknown'      // app just opened, haven't checked yet
-  | 'checking'     // actively verifying stored token
+  | 'unknown'
+  | 'checking'
   | 'authenticated'
   | 'unauthenticated';
 
@@ -61,7 +54,6 @@ export interface AuthState {
   user: MobileUser | null;
   accessToken: string | null;
 
-  // Actions
   initialize: () => Promise<void>;
   login: (phone: string, otp: string, deviceInfo?: DeviceInfo) => Promise<{ isNewUser: boolean }>;
   sendOtp: (phone: string) => Promise<{ expiresIn: number }>;
@@ -70,13 +62,32 @@ export interface AuthState {
   setAccessToken: (token: string) => void;
 }
 
-// ── Device Info ───────────────────────────────────────────────
-// Sent to backend on login for session tracking
-
 export interface DeviceInfo {
   device_id?: string;
   device_name?: string;
   device_platform?: 'ios' | 'android';
   device_os_version?: string;
   app_version?: string;
+}
+
+// ── Family Members ────────────────────────────────────────────
+
+export interface FamilyMember {
+  id: string;
+  name: string;
+  date_of_birth: string;   // "YYYY-MM-DD"
+  age: number;             // computed by backend at response time
+  sex: UserSex;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Checkout Patient ──────────────────────────────────────────
+
+export interface CheckoutPatient {
+  is_self: boolean;
+  name: string;
+  age: number;
+  sex: UserSex;
 }

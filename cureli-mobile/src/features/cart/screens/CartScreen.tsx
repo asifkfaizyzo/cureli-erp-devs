@@ -38,10 +38,16 @@ import { RecommendationSection } from "../components/RecommendationSection";
 import { PrescriptionUploadCard } from "../components/PrescriptionUploadCard";
 import { AddressPickerSheet } from "../components/AddressPickerSheet";
 
-// ── NEW IMPORTS ───────────────────────────────────────────────
+// ── Change 1 — New imports ────────────────────────────────────
+import { PatientSelectorCard } from "../components/PatientSelectorCard";
+import { PatientPickerSheet } from "../components/PatientPickerSheet";
+import { useCheckoutStore } from "../../../store/checkoutStore";
+import { useAuthStore } from "../../../store/authStore";
+import type { CheckoutPatient } from "../../../types/auth";
+// ─────────────────────────────────────────────────────────────
+
 import { useCheckout } from "../hooks/useCheckout";
 import { useDeliveryETA } from "../../../hooks/useDeliveryETA";
-// ─────────────────────────────────────────────────────────────
 
 import { useCartStore } from "../../../store/cartStore";
 import { usePrescriptionStore } from "../../../store/prescriptionStore";
@@ -140,6 +146,38 @@ export function CartScreen() {
   // ── Sheet state ───────────────────────────────────────────
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
 
+  // ── Change 2 — Patient state ──────────────────────────────
+  const [patientSheetVisible, setPatientSheetVisible] = useState(false);
+
+  const selectedPatient = useCheckoutStore((s) => s.selectedPatient);
+  const setSelectedPatient = useCheckoutStore((s) => s.setSelectedPatient);
+  const user = useAuthStore((s) => s.user);
+
+  // Auto-select "Myself" on first mount if profile is complete
+  // and nothing is selected yet
+  useEffect(() => {
+    if (
+      selectedPatient === null &&
+      user?.full_name &&
+      user?.date_of_birth &&
+      user?.sex
+    ) {
+      const dob = new Date(user.date_of_birth);
+      const now = new Date();
+      let age = now.getFullYear() - dob.getFullYear();
+      const m = now.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age -= 1;
+
+      setSelectedPatient({
+        is_self: true,
+        name: user.full_name,
+        age,
+        sex: user.sex,
+      });
+    }
+  }, []);
+  // ─────────────────────────────────────────────────────────
+
   const handleAddressPress = useCallback(() => {
     setAddressSheetVisible(true);
   }, []);
@@ -219,7 +257,6 @@ export function CartScreen() {
   if (items.length === 0) {
     return (
       <SafeAreaView
-        // ✅ CHANGED 1: "#EEF5FC" → colors.background.page
         style={[styles.safe, { backgroundColor: colors.background.page }]}
         edges={["top"]}
       >
@@ -269,7 +306,6 @@ export function CartScreen() {
   return (
     <>
       <SafeAreaView
-        // ✅ CHANGED 2: "#EEF5FC" → colors.background.page
         style={[styles.safe, { backgroundColor: colors.background.page }]}
         edges={["top"]}
       >
@@ -302,17 +338,18 @@ export function CartScreen() {
           {/* ── Delivery address — first card in scroll ──── */}
           <DeliveryAddressCard onChangePress={handleAddressPress} />
 
+          {/* ── Change 3 — Who is this order for ─────────── */}
+          <PatientSelectorCard
+            patient={selectedPatient}
+            onPress={() => setPatientSheetVisible(true)}
+          />
+
           <DeliverySummaryCard />
 
           {requiresPrescription && <PrescriptionUploadCard />}
 
           <RecommendationSection />
 
-          {/*
-            ✅ CHANGED 3 & 4: seeAllBtn backgroundColor + seeAllText color
-            moved out of StyleSheet into inline style so they can reference
-            theme tokens. Layout/spacing/radius stays in stylesheet.
-          */}
           <TouchableOpacity
             onPress={() => router.push("/(tabs)" as any)}
             activeOpacity={0.8}
@@ -371,6 +408,16 @@ export function CartScreen() {
           onClose={handleAddressSheetClose}
         />
       )}
+
+      {/* ── Change 4 — Patient picker sheet ─────────────── */}
+      {patientSheetVisible && (
+        <PatientPickerSheet
+          visible={patientSheetVisible}
+          selectedPatient={selectedPatient}
+          onSelect={(patient: CheckoutPatient) => setSelectedPatient(patient)}
+          onClose={() => setPatientSheetVisible(false)}
+        />
+      )}
     </>
   );
 }
@@ -403,7 +450,6 @@ const styles = StyleSheet.create({
   seeAllBtn: {
     height: 44,
     borderRadius: 12,
-    // backgroundColor removed — now inline with colors.background.tint
     alignItems: "center",
     justifyContent: "center",
     marginHorizontal: 16,
@@ -412,7 +458,6 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    // color removed — now inline with colors.text.brand
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

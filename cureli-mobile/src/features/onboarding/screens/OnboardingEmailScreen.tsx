@@ -32,7 +32,6 @@ export function OnboardingEmailScreen() {
   });
 
   function finishOnboarding() {
-    StorageService.setOnboardingComplete();
     router.replace('/(tabs)/home');
   }
 

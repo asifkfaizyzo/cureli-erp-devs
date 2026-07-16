@@ -33,6 +33,10 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
   const { breakdown, isQuoteLoading, tip, setBreakdown, setQuoteLoading } =
     useCheckoutStore();
 
+  // ── Change 1 — Read selectedPatient from store ────────────
+  const selectedPatient = useCheckoutStore((s) => s.selectedPatient);
+  // ─────────────────────────────────────────────────────────
+
   const quoteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch quote whenever cart, distance, or tip changes ──
@@ -105,6 +109,16 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
       return;
     }
 
+    // ── Change 2 — Guard: patient must be selected ────────
+    if (!selectedPatient) {
+      Alert.alert(
+        "Select Patient",
+        "Please select who this order is for before placing your order.",
+      );
+      return;
+    }
+    // ─────────────────────────────────────────────────────
+
     try {
       // ── Step 1: Create checkout session ──────────────────
       const sessionRes = await checkoutApi.createSession({
@@ -117,6 +131,7 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         distance_km: distanceKm,
         tip,
         prescription_files: tempPrescriptions,
+        patient: selectedPatient,   // ← Change 2 — pass patient
       });
 
       const { session_id, razorpay_order_id, amount_paise, currency, key_id } =
@@ -129,7 +144,7 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         description: "Medicine Order",
         currency,
         key: key_id,
-        amount: amount_paise, // ← was String(amount_paise)
+        amount: amount_paise,
         order_id: razorpay_order_id,
         name: "Cureli",
         prefill: {},
@@ -182,6 +197,7 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
     items,
     tip,
     tempPrescriptions,
+    selectedPatient,    // ← Change 3 — added to dep array
     clearCart,
     clearPrescriptions,
     onSuccess,

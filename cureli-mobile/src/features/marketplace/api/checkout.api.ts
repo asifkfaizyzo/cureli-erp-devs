@@ -1,6 +1,7 @@
 // src/features/marketplace/api/checkout.api.ts
 
 import { api } from '../../../services/api';
+import type { CheckoutPatient } from '../../../types/auth';
 
 export const checkoutApi = {
   getQuote: (data: {
@@ -22,6 +23,7 @@ export const checkoutApi = {
       mime_type:        string;
       file_size:        number;
     }[];
+    patient: CheckoutPatient;
   }) => api.post('/mobile/checkout/create-session', data),
 
   confirm: (data: {

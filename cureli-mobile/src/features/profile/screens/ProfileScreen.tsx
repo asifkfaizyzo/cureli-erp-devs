@@ -1,6 +1,6 @@
 // src/features/profile/screens/ProfileScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   ScrollView,
   View,
@@ -8,27 +8,27 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
 
-import { ProfileHeader } from '../components/ProfileHeader';
-import { ProfileSection } from '../components/ProfileSection';
-import { ProfileMenuItem } from '../components/ProfileMenuItem';
-import { AddressCard } from '../components/AddressCard';
-import { EmptyAddressState } from '../components/EmptyAddressState';
-import { LogoutButton } from '../components/LogoutButton';
+import { ProfileHeader } from "../components/ProfileHeader";
+import { ProfileSection } from "../components/ProfileSection";
+import { ProfileMenuItem } from "../components/ProfileMenuItem";
+import { AddressCard } from "../components/AddressCard";
+import { EmptyAddressState } from "../components/EmptyAddressState";
+import { LogoutButton } from "../components/LogoutButton";
 
-import { useProfile } from '../hooks/useProfile';
-import { useAddresses } from '../hooks/useAddresses';
-import { useAddressMutations } from '../hooks/useAddressMutations';
-import { profileApi, extractErrorMessage } from '../api/profile.api';
-import { useAuthStore } from '../../../store/authStore';
-import { useTheme } from '../../../theme/ThemeContext';
-import { useDialog } from '../../../components/Dialog/DialogProvider';
-import { useLayoutStore } from '../../../store/layoutStore';
-import { Spacing } from '../../../theme/spacing';
+import { useProfile } from "../hooks/useProfile";
+import { useAddresses } from "../hooks/useAddresses";
+import { useAddressMutations } from "../hooks/useAddressMutations";
+import { profileApi, extractErrorMessage } from "../api/profile.api";
+import { useAuthStore } from "../../../store/authStore";
+import { useTheme } from "../../../theme/ThemeContext";
+import { useDialog } from "../../../components/Dialog/DialogProvider";
+import { useLayoutStore } from "../../../store/layoutStore";
+import { Spacing } from "../../../theme/spacing";
 
 export function ProfileScreen() {
   const { colors, isDark } = useTheme();
@@ -59,12 +59,12 @@ export function ProfileScreen() {
 
   const handleDeleteAddress = async (id: string) => {
     const confirmed = await confirm({
-      title: 'Remove address',
-      message: 'Are you sure you want to remove this address?',
-      confirmLabel: 'Remove',
-      cancelLabel: 'Cancel',
+      title: "Remove address",
+      message: "Are you sure you want to remove this address?",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
       destructive: true,
-      icon: 'delete-outline',
+      icon: "delete-outline",
     });
 
     if (!confirmed) return;
@@ -74,10 +74,10 @@ export function ProfileScreen() {
       await deleteAddress(id);
     } catch (error) {
       await alert({
-        title: 'Error',
+        title: "Error",
         message: extractErrorMessage(error),
-        confirmLabel: 'OK',
-        icon: 'error-outline',
+        confirmLabel: "OK",
+        icon: "error-outline",
       });
     } finally {
       setDeletingId(null);
@@ -90,10 +90,10 @@ export function ProfileScreen() {
       await setDefaultAddress(id);
     } catch (error) {
       await alert({
-        title: 'Error',
+        title: "Error",
         message: extractErrorMessage(error),
-        confirmLabel: 'OK',
-        icon: 'error-outline',
+        confirmLabel: "OK",
+        icon: "error-outline",
       });
     } finally {
       setSettingDefaultId(null);
@@ -102,13 +102,13 @@ export function ProfileScreen() {
 
   const handleLogoutAll = async () => {
     const confirmed = await confirm({
-      title: 'Log out of all devices',
+      title: "Log out of all devices",
       message:
-        'This will end all active sessions across every device. You will need to log in again on this device.',
-      confirmLabel: 'Log out everywhere',
-      cancelLabel: 'Cancel',
+        "This will end all active sessions across every device. You will need to log in again on this device.",
+      confirmLabel: "Log out everywhere",
+      cancelLabel: "Cancel",
       destructive: true,
-      icon: 'devices',
+      icon: "devices",
     });
 
     if (!confirmed) return;
@@ -119,7 +119,7 @@ export function ProfileScreen() {
       // Clear locally even if API fails
     }
     await logout();
-    router.replace('/(auth)/login');
+    router.replace("/(auth)/login");
   };
 
   // ── Loading ───────────────────────────────────────────────
@@ -128,7 +128,7 @@ export function ProfileScreen() {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={['top']}
+        edges={["top"]}
       >
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={brandColor} />
@@ -143,10 +143,14 @@ export function ProfileScreen() {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={['top']}
+        edges={["top"]}
       >
         <View style={styles.centered}>
-          <MaterialIcons name="wifi-off" size={48} color={colors.text.disabled} />
+          <MaterialIcons
+            name="wifi-off"
+            size={48}
+            color={colors.text.disabled}
+          />
           <Text style={[styles.errorTitle, { color: colors.text.primary }]}>
             Couldn't load profile
           </Text>
@@ -169,7 +173,7 @@ export function ProfileScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={['top']}
+      edges={["top"]}
     >
       <ScrollView
         style={styles.scroll}
@@ -186,19 +190,19 @@ export function ProfileScreen() {
           <Text
             style={[
               styles.sectionTitle,
-              { color: colors.text.muted, fontFamily: 'Inter_700Bold' },
+              { color: colors.text.muted, fontFamily: "Inter_700Bold" },
             ]}
           >
             SAVED ADDRESSES
           </Text>
           <TouchableOpacity
-            onPress={() => router.push('/profile/addresses')}
+            onPress={() => router.push("/profile/addresses")}
             activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.sectionAction,
-                { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+                { color: brandColor, fontFamily: "Inter_600SemiBold" },
               ]}
             >
               Manage all
@@ -228,18 +232,22 @@ export function ProfileScreen() {
             {addresses.length > 2 && (
               <TouchableOpacity
                 style={styles.viewAllAddresses}
-                onPress={() => router.push('/profile/addresses')}
+                onPress={() => router.push("/profile/addresses")}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
                     styles.viewAllText,
-                    { color: brandColor, fontFamily: 'Inter_600SemiBold' },
+                    { color: brandColor, fontFamily: "Inter_600SemiBold" },
                   ]}
                 >
                   View all {addresses.length} addresses
                 </Text>
-                <MaterialIcons name="chevron-right" size={16} color={brandColor} />
+                <MaterialIcons
+                  name="chevron-right"
+                  size={16}
+                  color={brandColor}
+                />
               </TouchableOpacity>
             )}
           </>
@@ -259,19 +267,25 @@ export function ProfileScreen() {
           <ProfileMenuItem
             icon="medication"
             label="Dispensed Medicines"
-            onPress={() => router.push('/profile/dispensed' as any)}
+            onPress={() => router.push("/profile/dispensed" as any)}
+            showSeparator
+          />
+          <ProfileMenuItem
+            icon="group"
+            label="Family Members"
+            onPress={() => router.push("/profile/members" as any)}
             showSeparator
           />
           <ProfileMenuItem
             icon="notifications-none"
             label="Notification Preferences"
-            onPress={() => router.push('/profile/notifications' as any)}
+            onPress={() => router.push("/profile/notifications" as any)}
             showSeparator
           />
           <ProfileMenuItem
             icon="settings"
             label="App Settings"
-            onPress={() => router.push('/profile/settings')}
+            onPress={() => router.push("/profile/settings")}
             showSeparator
           />
           <ProfileMenuItem
@@ -299,7 +313,7 @@ export function ProfileScreen() {
           <ProfileMenuItem
             icon="delete-forever"
             label="Delete Account"
-            onPress={() => router.push('/profile/delete-account')}
+            onPress={() => router.push("/profile/delete-account")}
             destructive
             showSeparator={false}
           />
@@ -308,7 +322,7 @@ export function ProfileScreen() {
         <Text
           style={[
             styles.version,
-            { color: colors.text.disabled, fontFamily: 'Inter_400Regular' },
+            { color: colors.text.disabled, fontFamily: "Inter_400Regular" },
           ]}
         >
           Cureli v1.0.0
@@ -326,8 +340,8 @@ const styles = StyleSheet.create({
   content: {},
   centered: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
     padding: 32,
   },
@@ -337,7 +351,7 @@ const styles = StyleSheet.create({
   },
   errorSubtitle: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
   },
   retryButton: {
     marginTop: 8,
@@ -347,13 +361,13 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#ffffff',
+    fontFamily: "Inter_600SemiBold",
+    color: "#ffffff",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     marginBottom: 10,
     marginTop: 8,
@@ -361,19 +375,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   sectionAction: {
     fontSize: 13,
   },
   addressLoadingWrapper: {
     paddingVertical: 32,
-    alignItems: 'center',
+    alignItems: "center",
   },
   viewAllAddresses: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     paddingVertical: 12,
     marginHorizontal: 16,
@@ -382,7 +396,7 @@ const styles = StyleSheet.create({
   viewAllText: { fontSize: 13 },
   spacer: { height: 24 },
   version: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 11,
     marginBottom: 16,
   },

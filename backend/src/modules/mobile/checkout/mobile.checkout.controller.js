@@ -41,6 +41,7 @@ export async function createSessionHandler(req, res) {
       distance_km:         parsed.data.distance_km,
       tip:                 parsed.data.tip,
       prescription_files:  parsed.data.prescription_files,
+      patient:             parsed.data.patient,  // ← ADDED
     });
 
     return success(res, result, 'Checkout session created', 201);
@@ -81,9 +82,9 @@ export async function confirmHandler(req, res) {
     return success(res, result, 'Payment confirmed, order placed');
   } catch (err) {
     console.error('[Checkout] confirm error:', err.message);
-    if (err.message === 'Session not found')        return fail(res, 'Session not found', 404);
-    if (err.message === 'Session expired')          return fail(res, 'Your checkout session has expired. Please try again.', 410);
-    if (err.message === 'Already paid')             return fail(res, 'This order has already been placed.', 409);
+    if (err.message === 'Session not found')         return fail(res, 'Session not found', 404);
+    if (err.message === 'Session expired')           return fail(res, 'Your checkout session has expired. Please try again.', 410);
+    if (err.message === 'Already paid')              return fail(res, 'This order has already been placed.', 409);
     if (err.message === 'Invalid payment signature') return fail(res, 'Payment verification failed.', 400);
     return fail(res, 'Failed to confirm payment', 500);
   }

@@ -33,7 +33,7 @@ export async function updateMobileProfile(userId, fields) {
     throw err;
   }
 
-  // If email is being updated, check it is not already taken
+  // If email is being updated, check uniqueness
   if (fields.email !== undefined && fields.email !== null) {
     const existing = await prisma.cureliMobileUser.findFirst({
       where: {
@@ -52,10 +52,17 @@ export async function updateMobileProfile(userId, fields) {
     }
   }
 
+  // Coerce date_of_birth string → Date if present
+  const dataToWrite = { ...fields };
+  if (dataToWrite.date_of_birth) {
+    dataToWrite.date_of_birth = new Date(dataToWrite.date_of_birth);
+  }
+
+  // Write the update first
   const updated = await prisma.cureliMobileUser.update({
     where: { id: userId },
     data: {
-      ...fields,
+      ...dataToWrite,
       updated_at: new Date(),
     },
     select: {
@@ -64,6 +71,9 @@ export async function updateMobileProfile(userId, fields) {
       phone_verified: true,
       email: true,
       full_name: true,
+      date_of_birth: true,
+      sex: true,
+      profile_complete: true,
       profile_image_key: true,
       status: true,
       referral_code: true,
@@ -73,8 +83,23 @@ export async function updateMobileProfile(userId, fields) {
     },
   });
 
+  // Check if profile is now complete — set flag if not already set
+  if (
+    !updated.profile_complete &&
+    updated.full_name &&
+    updated.date_of_birth &&
+    updated.sex
+  ) {
+    await prisma.cureliMobileUser.update({
+      where: { id: userId },
+      data: { profile_complete: true },
+    });
+    updated.profile_complete = true;
+  }
+
   return updated;
 }
+
 
 // ── Addresses ─────────────────────────────────────────────────
 

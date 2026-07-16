@@ -17,6 +17,27 @@ import { useProfile } from "../hooks/useProfile";
 import { useUpdateProfile } from "../hooks/useUpdateProfile";
 import { useTheme } from "../../../theme/ThemeContext";
 import { useDialog } from "../../../components/Dialog/DialogProvider";
+import { WheelDatePicker } from "../../onboarding/screens/WheelDatePicker";
+import type { UserSex } from "../../../types/auth";
+
+// ── Constants ─────────────────────────────────────────────────
+
+const SEX_OPTIONS: { value: UserSex; label: string }[] = [
+  { value: "MALE",   label: "Male"   },
+  { value: "FEMALE", label: "Female" },
+  { value: "OTHER",  label: "Other"  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────
+
+function formatDobForDisplay(dob: string): string {
+  const [year, month, day] = dob.split("-").map(Number);
+  const months = [
+    "Jan","Feb","Mar","Apr","May","Jun",
+    "Jul","Aug","Sep","Oct","Nov","Dec",
+  ];
+  return `${day} ${months[month - 1]} ${year}`;
+}
 
 interface FormErrors {
   full_name?: string;
@@ -39,6 +60,8 @@ function validate(name: string, email: string): FormErrors {
   return errors;
 }
 
+// ── Screen ────────────────────────────────────────────────────
+
 export function EditProfileScreen() {
   const { colors, isDark } = useTheme();
   const { alert } = useDialog();
@@ -51,22 +74,29 @@ export function EditProfileScreen() {
   } = useUpdateProfile();
 
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [touched, setTouched] = useState({ full_name: false, email: false });
+  const [email,    setEmail]    = useState("");
+  const [dob,      setDob]      = useState<string | null>(null);
+  const [sex,      setSex]      = useState<UserSex | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [errors,  setErrors]    = useState<FormErrors>({});
+  const [touched, setTouched]   = useState({ full_name: false, email: false });
 
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
+  // Pre-fill from current user data
   useEffect(() => {
     if (user) {
       setFullName(user.full_name ?? "");
       setEmail(user.email ?? "");
+      setDob(user.date_of_birth ?? null);
+      setSex(user.sex ?? null);
     }
   }, [user]);
 
+  // Clear mutation error when user edits any field
   useEffect(() => {
     if (mutationError) reset();
-  }, [fullName, email]);
+  }, [fullName, email, dob, sex]);
 
   const handleBlur = (field: "full_name" | "email") => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -79,14 +109,24 @@ export function EditProfileScreen() {
     setTouched({ full_name: true, email: true });
     if (Object.keys(errs).length > 0) return;
 
-    const trimmedName = fullName.trim();
+    const trimmedName  = fullName.trim();
     const trimmedEmail = email.trim();
-    const payload: { full_name?: string; email?: string | null } = {};
+
+    const payload: {
+      full_name?: string;
+      email?: string | null;
+      date_of_birth?: string | null;
+      sex?: UserSex | null;
+    } = {};
 
     if (trimmedName !== (user?.full_name ?? ""))
       payload.full_name = trimmedName || undefined;
     if (trimmedEmail !== (user?.email ?? ""))
       payload.email = trimmedEmail || null;
+    if (dob !== (user?.date_of_birth ?? null))
+      payload.date_of_birth = dob;
+    if (sex !== (user?.sex ?? null))
+      payload.sex = sex;
 
     if (Object.keys(payload).length === 0) {
       router.back();
@@ -94,7 +134,12 @@ export function EditProfileScreen() {
     }
 
     updateProfile(
-      { full_name: trimmedName, email: trimmedEmail },
+      {
+        full_name:     trimmedName,
+        email:         trimmedEmail || null,
+        date_of_birth: dob,
+        sex,
+      },
       {
         onError: async (err) => {
           await alert({
@@ -112,7 +157,9 @@ export function EditProfileScreen() {
 
   const hasChanges =
     fullName.trim() !== (user?.full_name ?? "") ||
-    email.trim() !== (user?.email ?? "");
+    email.trim()    !== (user?.email ?? "")     ||
+    dob             !== (user?.date_of_birth ?? null) ||
+    sex             !== (user?.sex ?? null);
 
   return (
     <SafeAreaView
@@ -134,11 +181,7 @@ export function EditProfileScreen() {
           style={styles.backButton}
           activeOpacity={0.7}
         >
-          <MaterialIcons
-            name="arrow-back"
-            size={22}
-            color={colors.text.primary}
-          />
+          <MaterialIcons name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           Edit Profile
@@ -162,11 +205,7 @@ export function EditProfileScreen() {
               },
             ]}
           >
-            <MaterialIcons
-              name="error-outline"
-              size={16}
-              color={colors.status.error}
-            />
+            <MaterialIcons name="error-outline" size={16} color={colors.status.error} />
             <Text
               style={[
                 styles.errorBannerText,
@@ -178,14 +217,9 @@ export function EditProfileScreen() {
           </View>
         ) : null}
 
-        {/* Full Name */}
+        {/* ── Full Name ──────────────────────────────────── */}
         <View style={styles.field}>
-          <Text
-            style={[
-              styles.label,
-              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
-            ]}
-          >
+          <Text style={[styles.label, { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" }]}>
             Full Name
           </Text>
           <TextInput
@@ -198,7 +232,7 @@ export function EditProfileScreen() {
                     ? colors.status.error
                     : colors.border.input,
                 color: colors.text.primary,
-                fontFamily: "Inter_400Regular", // ← moved into style
+                fontFamily: "Inter_400Regular",
               },
             ]}
             value={fullName}
@@ -212,32 +246,84 @@ export function EditProfileScreen() {
             maxLength={200}
           />
           {touched.full_name && errors.full_name ? (
-            <Text
-              style={[
-                styles.fieldError,
-                { color: colors.status.error, fontFamily: "Inter_500Medium" },
-              ]}
-            >
+            <Text style={[styles.fieldError, { color: colors.status.error, fontFamily: "Inter_500Medium" }]}>
               {errors.full_name}
             </Text>
           ) : null}
         </View>
 
-        {/* Email */}
+        {/* ── Date of Birth ──────────────────────────────── */}
         <View style={styles.field}>
-          <Text
+          <Text style={[styles.label, { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" }]}>
+            Date of Birth
+          </Text>
+          <TouchableOpacity
             style={[
-              styles.label,
-              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
+              styles.input,
+              styles.pickerTrigger,
+              {
+                backgroundColor: colors.background.input,
+                borderColor: colors.border.input,
+              },
             ]}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
           >
-            Email{" "}
             <Text
-              style={{
-                color: colors.text.faint,
-                fontFamily: "Inter_400Regular",
-              }}
+              style={[
+                styles.pickerText,
+                { color: dob ? colors.text.primary : colors.text.faint, fontFamily: "Inter_400Regular" },
+              ]}
             >
+              {dob ? formatDobForDisplay(dob) : "Select date of birth"}
+            </Text>
+            <MaterialIcons name="calendar-today" size={17} color={colors.text.muted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sex ───────────────────────────────────────── */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" }]}>
+            Sex
+          </Text>
+          <View style={styles.sexRow}>
+            {SEX_OPTIONS.map((opt) => {
+              const isSelected = sex === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.sexChip,
+                    {
+                      backgroundColor: isSelected ? brandColor : colors.background.input,
+                      borderColor:     isSelected ? brandColor : colors.border.input,
+                    },
+                  ]}
+                  onPress={() => setSex(opt.value)}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.sexChipText,
+                      {
+                        color:      isSelected ? "#ffffff" : colors.text.secondary,
+                        fontFamily: isSelected ? "Inter_600SemiBold" : "Inter_400Regular",
+                      },
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ── Email ─────────────────────────────────────── */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" }]}>
+            Email{" "}
+            <Text style={{ color: colors.text.faint, fontFamily: "Inter_400Regular" }}>
               (optional)
             </Text>
           </Text>
@@ -251,7 +337,7 @@ export function EditProfileScreen() {
                     ? colors.status.error
                     : colors.border.input,
                 color: colors.text.primary,
-                fontFamily: "Inter_400Regular", // ← moved into style
+                fontFamily: "Inter_400Regular",
               },
             ]}
             value={email}
@@ -266,88 +352,56 @@ export function EditProfileScreen() {
             maxLength={255}
           />
           {touched.email && errors.email ? (
-            <Text
-              style={[
-                styles.fieldError,
-                { color: colors.status.error, fontFamily: "Inter_500Medium" },
-              ]}
-            >
+            <Text style={[styles.fieldError, { color: colors.status.error, fontFamily: "Inter_500Medium" }]}>
               {errors.email}
             </Text>
           ) : null}
-          <Text
-            style={[
-              styles.fieldHint,
-              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
-            ]}
-          >
+          <Text style={[styles.fieldHint, { color: colors.text.faint, fontFamily: "Inter_400Regular" }]}>
             Used for order confirmations and receipts
           </Text>
         </View>
 
-        {/* Phone — locked */}
+        {/* ── Phone — locked ────────────────────────────── */}
         <View style={styles.field}>
-          <Text
-            style={[
-              styles.label,
-              { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" },
-            ]}
-          >
+          <Text style={[styles.label, { color: colors.text.secondary, fontFamily: "Inter_600SemiBold" }]}>
             Phone Number
           </Text>
           <View style={styles.phoneRow}>
-  <TextInput
-    style={[
-      styles.input,
-      styles.inputLocked,
-      {
-        backgroundColor: colors.background.elevated,
-        borderColor: colors.border.subtle,
-        color: colors.text.faint,
-        fontFamily: "Inter_400Regular",
-      },
-    ]}
-    value={user?.phone ?? ""}
-    editable={false}
-  />
+            <TextInput
+              style={[
+                styles.input,
+                styles.inputLocked,
+                {
+                  backgroundColor: colors.background.elevated,
+                  borderColor:     colors.border.subtle,
+                  color:           colors.text.faint,
+                  fontFamily:      "Inter_400Regular",
+                },
+              ]}
+              value={user?.phone ?? ""}
+              editable={false}
+            />
             <View
               style={[
                 styles.verifiedBadge,
                 {
                   backgroundColor: colors.status.successBg,
-                  borderColor: colors.status.successBorder,
+                  borderColor:     colors.status.successBorder,
                 },
               ]}
             >
-              <MaterialIcons
-                name="verified"
-                size={13}
-                color={colors.status.success}
-              />
-              <Text
-                style={[
-                  styles.verifiedText,
-                  {
-                    color: colors.status.success,
-                    fontFamily: "Inter_600SemiBold",
-                  },
-                ]}
-              >
+              <MaterialIcons name="verified" size={13} color={colors.status.success} />
+              <Text style={[styles.verifiedText, { color: colors.status.success, fontFamily: "Inter_600SemiBold" }]}>
                 Verified
               </Text>
             </View>
           </View>
-          <Text
-            style={[
-              styles.fieldHint,
-              { color: colors.text.faint, fontFamily: "Inter_400Regular" },
-            ]}
-          >
+          <Text style={[styles.fieldHint, { color: colors.text.faint, fontFamily: "Inter_400Regular" }]}>
             Phone number cannot be changed — it is your login identity
           </Text>
         </View>
 
-        {/* Save */}
+        {/* ── Save ──────────────────────────────────────── */}
         <TouchableOpacity
           style={[
             styles.saveButton,
@@ -359,13 +413,22 @@ export function EditProfileScreen() {
           activeOpacity={0.8}
         >
           {isPending ? <ActivityIndicator size={18} color="#ffffff" /> : null}
-          <Text
-            style={[styles.saveButtonText, { fontFamily: "Inter_700Bold" }]}
-          >
+          <Text style={[styles.saveButtonText, { fontFamily: "Inter_700Bold" }]}>
             {isPending ? "Saving…" : "Save Changes"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Date Picker */}
+      <WheelDatePicker
+        visible={showDatePicker}
+        value={dob}
+        onConfirm={(dateStr) => {
+          setDob(dateStr);
+          setShowDatePicker(false);
+        }}
+        onClose={() => setShowDatePicker(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -387,9 +450,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 8,
   },
-  headerTitle: {
-    fontSize: 17,
-  },
+  headerTitle: { fontSize: 17 },
   headerRight: { width: 36 },
   scroll: { flex: 1 },
   content: { padding: 20, gap: 8 },
@@ -413,6 +474,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputLocked: { flex: 1 },
+  pickerTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  pickerText: { fontSize: 15 },
+  sexRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  sexChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sexChipText: { fontSize: 14 },
   phoneRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -16,8 +16,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
-import { StorageService } from '../../src/services/storage';
 import { useTheme } from '../../src/theme/ThemeContext';
+
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
@@ -73,9 +73,14 @@ export default function OtpScreen() {
 
     try {
       const { isNewUser } = await login(phone, code);
-      const onboardingDone = StorageService.isOnboardingComplete();
-      if (isNewUser && !onboardingDone) {
-        router.replace('/onboarding/name');
+      const user = useAuthStore.getState().user;
+
+      // Route based on profile_complete — server-driven, not a local flag.
+      // Both new users AND returning users who never completed their profile
+      // are sent to onboarding. isNewUser is only used for welcome messaging.
+      if (!user?.profile_complete) {
+        router.replace('/onboarding/profile' as any);
+
       } else {
         router.replace('/(tabs)/home');
       }
@@ -98,7 +103,7 @@ export default function OtpScreen() {
 
     try {
       console.log("send otp");
-      
+
       await sendOtp(phone);
       setResendCooldown(RESEND_COOLDOWN);
     } catch (err: unknown) {

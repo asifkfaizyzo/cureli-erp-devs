@@ -71,6 +71,11 @@ function formatUserForResponse(user) {
     phone_verified: user.phone_verified,
     full_name: user.full_name,
     email: user.email,
+    date_of_birth: user.date_of_birth
+      ? user.date_of_birth.toISOString().split("T")[0]
+      : null,
+    sex: user.sex ?? null,
+    profile_complete: user.profile_complete,
     profile_image_key: user.profile_image_key,
     status: user.status,
     referral_code: user.referral_code,
@@ -78,6 +83,7 @@ function formatUserForResponse(user) {
     last_seen_at: user.last_seen_at,
   };
 }
+
 
 // ── Service Functions ─────────────────────────────────────────
 
@@ -586,6 +592,9 @@ export async function getMobileMe(userId) {
       phone_verified: true,
       email: true,
       full_name: true,
+      date_of_birth: true,
+      sex: true,
+      profile_complete: true,
       profile_image_key: true,
       status: true,
       referral_code: true,
@@ -608,8 +617,21 @@ export async function getMobileMe(userId) {
   }
 
   return {
-    ...user,
+    id: user.id,
+    phone: user.phone,
+    phone_verified: user.phone_verified,
+    email: user.email,
+    full_name: user.full_name,
+    date_of_birth: user.date_of_birth
+      ? user.date_of_birth.toISOString().split("T")[0]
+      : null,
+    sex: user.sex ?? null,
+    profile_complete: user.profile_complete,
+    profile_image_key: user.profile_image_key,
+    status: user.status,
+    referral_code: user.referral_code,
+    created_at: user.created_at,
+    last_seen_at: user.last_seen_at,
     address_count: user._count.addresses,
-    _count: undefined,
   };
 }

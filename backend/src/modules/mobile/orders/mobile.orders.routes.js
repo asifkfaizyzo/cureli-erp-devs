@@ -2,6 +2,8 @@
 
 import { Router } from 'express';
 import { mobileAuth } from '../../../middleware/mobile.auth.js';
+import { requireProfileComplete } from "../../../middleware/requireProfileComplete.js";
+
 import {
   placeOrderHandler,
   listOrdersHandler,
@@ -14,6 +16,7 @@ import {
 const router = Router();
 
 router.use(mobileAuth);
+router.use(requireProfileComplete); 
 
 router.post('/',                                                    placeOrderHandler);
 router.get('/',                                                     listOrdersHandler);

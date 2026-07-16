@@ -53,28 +53,41 @@ export default function SplashScreenPage() {
   // even though it is called from inside a setTimeout closure
   // that was created when status was still 'checking'.
   function navigateNext() {
-    const currentStatus = statusRef.current;
+  const currentStatus = statusRef.current;
 
-    // Auth check still running — poll every 100ms until ready.
-    // This is a safety net for very slow devices or networks.
-    // In practice initialize() finishes well within 2550ms.
-    if (currentStatus === 'unknown' || currentStatus === 'checking') {
-      setTimeout(() => runOnJS(navigateNext)(), 100);
-      return;
-    }
-
-    const introSeen = StorageService.isIntroSeen();
-    if (!introSeen) {
-      router.replace('/intro');
-      return;
-    }
-
-    if (currentStatus === 'authenticated') {
-      router.replace('/(tabs)/home');
-    } else {
-      router.replace('/(auth)/login');
-    }
+  // Auth check still running — poll every 100ms until ready.
+  if (currentStatus === 'unknown' || currentStatus === 'checking') {
+    setTimeout(() => runOnJS(navigateNext)(), 100);
+    return;
   }
+
+  const introSeen = StorageService.isIntroSeen();
+  if (!introSeen) {
+    router.replace('/intro');
+    return;
+  }
+
+  if (currentStatus !== 'authenticated') {
+    router.replace('/(auth)/login');
+    return;
+  }
+
+  // ── Profile gate ──────────────────────────────────────────
+  // Read fresh user directly from store at call time.
+  // statusRef already confirmed authenticated so user is non-null.
+  // We check all three required fields individually rather than
+  // relying on profile_complete flag alone — this handles the edge
+  // case where the flag is true but a field is somehow null
+  // (shouldn't happen, but defensive is better here).
+  const user = useAuthStore.getState().user;
+
+  if (!user?.full_name || !user?.date_of_birth || !user?.sex) {
+    router.replace('/onboarding/profile' as any);
+    return;
+  }
+
+  router.replace('/(tabs)/home');
+}
 
   // ── Animation sequence ────────────────────────────────────
   useEffect(() => {

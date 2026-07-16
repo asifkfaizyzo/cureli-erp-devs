@@ -1,11 +1,11 @@
 // pharmacy-web/src/pages/marketplace-orders/components/OrderDetailPanel.jsx
-// Full file — adds completed/rejected/cancelled to timeline. Everything else unchanged.
 
 import { useState, useCallback } from 'react';
 import {
   X,
   Loader2,
   User,
+  Users,
   Phone,
   MapPin,
   Package,
@@ -17,6 +17,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+// ── Constants ─────────────────────────────────────────────────
+
 const STATUS_LABELS = {
   PLACED:           'Placed',
   ACCEPTED:         'Accepted',
@@ -25,6 +27,14 @@ const STATUS_LABELS = {
   REJECTED:         'Rejected',
   CANCELLED:        'Cancelled',
 };
+
+const SEX_LABEL = {
+  MALE:   'Male',
+  FEMALE: 'Female',
+  OTHER:  'Other',
+};
+
+// ── Helpers ───────────────────────────────────────────────────
 
 function formatDateTime(isoString) {
   if (!isoString) return '—';
@@ -38,6 +48,8 @@ function formatDateTime(isoString) {
     hour12: true,
   });
 }
+
+// ── Shared sub-components ─────────────────────────────────────
 
 const SectionCard = ({ title, icon: Icon, children }) => (
   <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-3">
@@ -57,6 +69,57 @@ const InfoRow = ({ label, value }) => (
     <span className="text-xs text-white/70 text-right">{value || '—'}</span>
   </div>
 );
+
+// ── Patient Section ───────────────────────────────────────────
+//
+// Shows who the medicine was ordered for.
+// Handles three cases gracefully:
+//   1. patient is null            → old order, field didn't exist yet → render nothing
+//   2. patient fields are all null → same as above → render nothing
+//   3. patient has data            → render the card
+
+function PatientSection({ patient }) {
+  // Old orders placed before this feature will have patient.is_self = true
+  // but name/age/sex all null. Hide the section entirely for those.
+  if (!patient || (!patient.name && patient.age === null && !patient.sex)) {
+    return null;
+  }
+
+  const sexLabel = patient.sex ? (SEX_LABEL[patient.sex] ?? patient.sex) : null;
+  const meta = [sexLabel, patient.age !== null ? `${patient.age} yrs` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+  return (
+    <SectionCard title="Ordering For" icon={Users}>
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div className="w-9 h-9 rounded-full bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+          <User size={15} className="text-white/40" />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-white truncate">
+              {patient.name}
+            </span>
+            {patient.is_self && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-white/[0.08] text-white/40 border border-white/[0.08] uppercase tracking-wide flex-shrink-0">
+                Self
+              </span>
+            )}
+          </div>
+          {meta ? (
+            <p className="text-xs text-white/40 mt-0.5">{meta}</p>
+          ) : null}
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────
 
 const OrderDetailPanel = ({
   orderId,
@@ -85,6 +148,8 @@ const OrderDetailPanel = ({
       setLoadingPrescriptionId(null);
     }
   }, [orderId, onGetPrescriptionUrl]);
+
+  // ── Empty state ───────────────────────────────────────────
 
   if (!orderId) {
     return (
@@ -118,6 +183,8 @@ const OrderDetailPanel = ({
 
   if (!orderDetail) return null;
 
+  // ── Destructure ───────────────────────────────────────────
+
   const {
     order_number,
     status,
@@ -128,6 +195,10 @@ const OrderDetailPanel = ({
     prescriptions,
     total_amount,
     subtotal,
+    service_charge,
+    delivery_fee,
+    km_surcharge,
+    tip,
     requires_prescription,
     notes,
     rejection_reason,
@@ -139,17 +210,30 @@ const OrderDetailPanel = ({
     rejected_at,
     cancelled_at,
     payment_method,
+    patient,
   } = orderDetail;
 
-  const canAccept   = status === 'PLACED';
-  const canReject   = status === 'PLACED';
+  const canAccept    = status === 'PLACED';
+  const canReject    = status === 'PLACED';
   const canMarkReady = status === 'ACCEPTED';
-  const canComplete = status === 'READY_FOR_PICKUP';
-  const isTerminal  = ['COMPLETED', 'REJECTED', 'CANCELLED'].includes(status);
+  const canComplete  = status === 'READY_FOR_PICKUP';
+  const isTerminal   = ['COMPLETED', 'REJECTED', 'CANCELLED'].includes(status);
+
+  // Whether any fee breakdown is available
+  // Old orders (COD flow) only have subtotal = total_amount.
+  // New orders (Razorpay) have itemised fees.
+  const hasFeeBreakdown =
+    (service_charge && Number(service_charge) > 0) ||
+    (delivery_fee   && Number(delivery_fee)   > 0) ||
+    (km_surcharge   && Number(km_surcharge)   > 0) ||
+    (tip            && Number(tip)            > 0);
+
+  // ── Render ────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+
+      {/* ── Header ───────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] flex-shrink-0">
         <div>
           <h2 className="text-base font-bold text-white">{order_number}</h2>
@@ -166,9 +250,10 @@ const OrderDetailPanel = ({
         </button>
       </div>
 
-      {/* Scrollable body */}
+      {/* ── Scrollable body ───────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
 
+        {/* Action error banner */}
         {actionError && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300">
             <AlertCircle size={14} className="flex-shrink-0" />
@@ -176,13 +261,16 @@ const OrderDetailPanel = ({
           </div>
         )}
 
-        {/* Customer */}
+        {/* ── Customer ─────────────────────────────────── */}
         <SectionCard title="Customer" icon={User}>
           <InfoRow label="Name"  value={customer_name}  />
           <InfoRow label="Phone" value={customer_phone} />
         </SectionCard>
 
-        {/* Delivery Address */}
+        {/* ── Ordering For (patient) ────────────────────── */}
+        <PatientSection patient={patient} />
+
+        {/* ── Delivery Address ──────────────────────────── */}
         {delivery_address && (
           <SectionCard title="Delivery Address" icon={MapPin}>
             <p className="text-xs text-white/60 leading-relaxed">
@@ -206,7 +294,7 @@ const OrderDetailPanel = ({
           </SectionCard>
         )}
 
-        {/* Order Items */}
+        {/* ── Order Items ───────────────────────────────── */}
         <SectionCard title="Order Items" icon={Package}>
           <div className="space-y-3">
             {items?.map((item) => (
@@ -228,14 +316,58 @@ const OrderDetailPanel = ({
               </div>
             ))}
 
+            {/* Bill breakdown */}
             <div className="pt-3 border-t border-white/[0.06] space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-xs text-white/40">Subtotal</span>
-                <span className="text-xs text-white/60">₹{Number(subtotal).toFixed(2)}</span>
+                <span className="text-xs text-white/60">
+                  ₹{Number(subtotal).toFixed(2)}
+                </span>
               </div>
-              <div className="flex justify-between">
+
+              {/* Itemised fees — only shown for Razorpay orders */}
+              {hasFeeBreakdown && (
+                <>
+                  {Number(service_charge) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-white/40">Service charge</span>
+                      <span className="text-xs text-white/60">
+                        ₹{Number(service_charge).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {Number(delivery_fee) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-white/40">Delivery fee</span>
+                      <span className="text-xs text-white/60">
+                        ₹{Number(delivery_fee).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {Number(km_surcharge) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-white/40">Distance surcharge</span>
+                      <span className="text-xs text-white/60">
+                        ₹{Number(km_surcharge).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {Number(tip) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-xs text-white/40">Tip</span>
+                      <span className="text-xs text-white/60">
+                        ₹{Number(tip).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="flex justify-between pt-1">
                 <span className="text-sm font-bold text-white">Total</span>
-                <span className="text-sm font-bold text-white">₹{Number(total_amount).toFixed(2)}</span>
+                <span className="text-sm font-bold text-white">
+                  ₹{Number(total_amount).toFixed(2)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs text-white/40">Payment</span>
@@ -245,7 +377,7 @@ const OrderDetailPanel = ({
           </div>
         </SectionCard>
 
-        {/* Prescriptions */}
+        {/* ── Prescriptions ─────────────────────────────── */}
         {requires_prescription && prescriptions?.length > 0 && (
           <SectionCard title="Prescriptions" icon={FileText}>
             <div className="space-y-2">
@@ -273,14 +405,14 @@ const OrderDetailPanel = ({
           </SectionCard>
         )}
 
-        {/* Notes */}
+        {/* ── Customer Notes ────────────────────────────── */}
         {notes && (
           <SectionCard title="Customer Notes" icon={FileText}>
             <p className="text-sm text-white/60 leading-relaxed">{notes}</p>
           </SectionCard>
         )}
 
-        {/* Rejection reason */}
+        {/* ── Rejection Reason ──────────────────────────── */}
         {status === 'REJECTED' && rejection_reason && (
           <SectionCard title="Rejection Reason" icon={XCircle}>
             <InfoRow label="Reason"  value={rejection_reason.replace(/_/g, ' ')} />
@@ -290,7 +422,7 @@ const OrderDetailPanel = ({
           </SectionCard>
         )}
 
-        {/* Timeline — now includes all terminal timestamps */}
+        {/* ── Timeline ──────────────────────────────────── */}
         <SectionCard title="Timeline" icon={Clock}>
           <div className="space-y-2">
             {placed_at    && <InfoRow label="Placed"    value={formatDateTime(placed_at)}    />}
@@ -301,11 +433,13 @@ const OrderDetailPanel = ({
             {cancelled_at && <InfoRow label="Cancelled" value={formatDateTime(cancelled_at)} />}
           </div>
         </SectionCard>
+
       </div>
 
-      {/* Action buttons */}
+      {/* ── Action buttons ────────────────────────────────── */}
       {!isTerminal && (
         <div className="flex-shrink-0 px-5 py-4 border-t border-white/[0.06] space-y-2">
+
           {canAccept && (
             <div className="flex gap-2">
               <button
@@ -360,6 +494,7 @@ const OrderDetailPanel = ({
               Mark Completed
             </button>
           )}
+
         </div>
       )}
     </div>
