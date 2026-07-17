@@ -2,22 +2,22 @@
 // backend/src/modules/notifications/user/userNotifications.routes.js
 // ============================================
 
-import { Router } from 'express';
-import jwt from 'jsonwebtoken';
-import * as controller from './userNotifications.controller.js';
-import { requireAuth } from '../../../middleware/auth.js';
-import { validate } from '../../../middleware/validate.js';
-import { ACCESS_SECRET } from '../../../config/jwt.js';
-import { sseService } from '../../../services/sse.service.js';
-import { validateUserSession } from '../../../utils/session.js';
-import prisma from '../../../config/prisma.js';
+import { Router } from "express";
+import jwt from "jsonwebtoken";
+import * as controller from "./userNotifications.controller.js";
+import { requireAuth } from "../../../middleware/auth.js";
+import { validate } from "../../../middleware/validate.js";
+import { ACCESS_SECRET } from "../../../config/jwt.js";
+import { sseService } from "../../../services/sse.service.js";
+import { validateUserSession } from "../../../utils/session.js";
+import prisma from "../../../config/prisma.js";
 import {
   listNotificationsSchema,
   markAsReadSchema,
   markAllAsReadSchema,
   deleteNotificationSchema,
   clearInventoryAlertsSchema,
-} from './userNotifications.schema.js';
+} from "./userNotifications.schema.js";
 
 const router = Router();
 
@@ -31,7 +31,7 @@ const router = Router();
  * @desc    SSE stream for real-time notifications
  * @access  Public (inline JWT verification)
  */
-router.get('/stream', async (req, res) => {
+router.get("/stream", async (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(401).end();
 
@@ -40,7 +40,10 @@ router.get('/stream', async (req, res) => {
 
     // Validate session if session_id is present in payload
     if (payload.session_id) {
-      const session = await validateUserSession(payload.user_id, payload.session_id);
+      const session = await validateUserSession(
+        payload.user_id,
+        payload.session_id,
+      );
       if (!session) return res.status(401).end();
     }
 
@@ -48,9 +51,10 @@ router.get('/stream', async (req, res) => {
 
     // Set SSE headers
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // ← tells Nginx not to buffer even without location block
     });
 
     // Register client with SSE service
@@ -60,17 +64,18 @@ router.get('/stream', async (req, res) => {
     const unreadCount = await prisma.notification.count({
       where: { user_id: userId, is_read: false },
     });
-    res.write(sseService.formatSSEMessage('connected', { unread_count: unreadCount }));
+    res.write(
+      sseService.formatSSEMessage("connected", { unread_count: unreadCount }),
+    );
 
     // Heartbeat every 30 seconds to keep connection alive
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 30000);
+    const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 30000);
 
     // Cleanup on client disconnect
-    req.on('close', () => {
+    req.on("close", () => {
       clearInterval(heartbeat);
       sseService.removeUserClient(userId, res);
     });
-
   } catch (err) {
     return res.status(401).end();
   }
@@ -89,9 +94,9 @@ router.use(requireAuth);
  * @access  Private
  */
 router.get(
-  '/',
-  validate(listNotificationsSchema.query, 'query'),
-  controller.listNotifications
+  "/",
+  validate(listNotificationsSchema.query, "query"),
+  controller.listNotifications,
 );
 
 /**
@@ -99,20 +104,14 @@ router.get(
  * @desc    Get unread notification count (for badge)
  * @access  Private
  */
-router.get(
-  '/unread-count',
-  controller.getUnreadCount
-);
+router.get("/unread-count", controller.getUnreadCount);
 
 /**
  * @route   GET /api/notifications/recent
  * @desc    Get recent notifications (for dropdown)
  * @access  Private
  */
-router.get(
-  '/recent',
-  controller.getRecentNotifications
-);
+router.get("/recent", controller.getRecentNotifications);
 
 /**
  * @route   PATCH /api/notifications/read-all
@@ -121,9 +120,9 @@ router.get(
  * @note    Must come BEFORE /:id routes to avoid param conflict
  */
 router.patch(
-  '/read-all',
-  validate(markAllAsReadSchema.body, 'body'),
-  controller.markAllAsRead
+  "/read-all",
+  validate(markAllAsReadSchema.body, "body"),
+  controller.markAllAsRead,
 );
 
 /**
@@ -132,9 +131,9 @@ router.patch(
  * @access  Private
  */
 router.post(
-  '/clear-inventory-alerts',
-  validate(clearInventoryAlertsSchema.body, 'body'),
-  controller.clearInventoryAlerts
+  "/clear-inventory-alerts",
+  validate(clearInventoryAlertsSchema.body, "body"),
+  controller.clearInventoryAlerts,
 );
 
 /**
@@ -143,9 +142,9 @@ router.post(
  * @access  Private
  */
 router.get(
-  '/:id',
-  validate(markAsReadSchema.params, 'params'),
-  controller.getNotification
+  "/:id",
+  validate(markAsReadSchema.params, "params"),
+  controller.getNotification,
 );
 
 /**
@@ -154,9 +153,9 @@ router.get(
  * @access  Private
  */
 router.patch(
-  '/:id/read',
-  validate(markAsReadSchema.params, 'params'),
-  controller.markAsRead
+  "/:id/read",
+  validate(markAsReadSchema.params, "params"),
+  controller.markAsRead,
 );
 
 /**
@@ -165,9 +164,9 @@ router.patch(
  * @access  Private
  */
 router.delete(
-  '/:id',
-  validate(deleteNotificationSchema.params, 'params'),
-  controller.deleteNotification
+  "/:id",
+  validate(deleteNotificationSchema.params, "params"),
+  controller.deleteNotification,
 );
 
 export default router;
