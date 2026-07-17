@@ -1,13 +1,16 @@
 // backend/src/modules/notifications/cadmin/cadminNotifications.routes.js
 
-import { Router } from 'express';
-import jwt from 'jsonwebtoken';
-import * as controller from './cadminNotifications.controller.js';
-import { requireCAdmin } from '../../../middleware/requireCAdmin.js';
-import { validate } from '../../../middleware/validate.js';
-import { ADMIN_ACCESS_SECRET, ADMIN_REFRESH_SECRET } from '../../../config/cadmin_jwt.js';
-import prisma from '../../../config/prisma.js';
-import * as schema from './cadminNotifications.schema.js';
+import { Router } from "express";
+import jwt from "jsonwebtoken";
+import * as controller from "./cadminNotifications.controller.js";
+import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
+import { validate } from "../../../middleware/validate.js";
+import {
+  ADMIN_ACCESS_SECRET,
+  ADMIN_REFRESH_SECRET,
+} from "../../../config/cadmin_jwt.js";
+import prisma from "../../../config/prisma.js";
+import * as schema from "./cadminNotifications.schema.js";
 
 const router = Router();
 
@@ -17,7 +20,7 @@ const router = Router();
 // so the stream stays alive for the whole session
 // ─────────────────────────────────────────────────────────────────────────────
 
-router.get('/notifications/stream', async (req, res) => {
+router.get("/notifications/stream", async (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(401).end();
 
@@ -56,10 +59,11 @@ router.get('/notifications/stream', async (req, res) => {
 
     // Set SSE headers
     res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': req.headers.origin || '*',
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+      "Access-Control-Allow-Origin": req.headers.origin || "*",
     });
 
     // Track this connection
@@ -71,19 +75,21 @@ router.get('/notifications/stream', async (req, res) => {
     const unreadCount = await prisma.notification.count({
       where: { cadmin_id: cadminId, is_read: false },
     });
-    res.write(`event: connected\ndata: ${JSON.stringify({ unread_count: unreadCount })}\n\n`);
+    res.write(
+      `event: connected\ndata: ${JSON.stringify({ unread_count: unreadCount })}\n\n`,
+    );
 
     // Heartbeat every 30 seconds
     const heartbeat = setInterval(() => {
       try {
-        res.write(': heartbeat\n\n');
+        res.write(": heartbeat\n\n");
       } catch {
         clearInterval(heartbeat);
       }
     }, 30000);
 
     // Cleanup on disconnect
-    req.on('close', () => {
+    req.on("close", () => {
       clearInterval(heartbeat);
       const set = clients.get(cadminId);
       if (set) {
@@ -91,9 +97,8 @@ router.get('/notifications/stream', async (req, res) => {
         if (set.size === 0) clients.delete(cadminId);
       }
     });
-
   } catch (err) {
-    console.error('[SSE] Stream error:', err);
+    console.error("[SSE] Stream error:", err);
     return res.status(401).end();
   }
 });
@@ -108,37 +113,37 @@ const sseClients = new Map(); // Map<cadminId, Set<Response>>
 router.use(requireCAdmin);
 
 router.get(
-  '/notifications/',
-  validate(schema.listNotificationsQuerySchema, 'query'),
-  controller.listNotifications
+  "/notifications/",
+  validate(schema.listNotificationsQuerySchema, "query"),
+  controller.listNotifications,
 );
 
-router.get('/notifications/unread-count', controller.getUnreadCount);
+router.get("/notifications/unread-count", controller.getUnreadCount);
 
-router.get('/notifications/recent', controller.getRecentNotifications);
+router.get("/notifications/recent", controller.getRecentNotifications);
 
 router.patch(
-  '/notifications/read-all',
-  validate(schema.markAllAsReadBodySchema, 'body'),
-  controller.markAllAsRead
+  "/notifications/read-all",
+  validate(schema.markAllAsReadBodySchema, "body"),
+  controller.markAllAsRead,
 );
 
 router.get(
-  '/notifications/:id',
-  validate(schema.notificationIdParamSchema, 'params'),
-  controller.getNotification
+  "/notifications/:id",
+  validate(schema.notificationIdParamSchema, "params"),
+  controller.getNotification,
 );
 
 router.patch(
-  '/notifications/:id/read',
-  validate(schema.notificationIdParamSchema, 'params'),
-  controller.markAsRead
+  "/notifications/:id/read",
+  validate(schema.notificationIdParamSchema, "params"),
+  controller.markAsRead,
 );
 
 router.delete(
-  '/notifications/:id',
-  validate(schema.notificationIdParamSchema, 'params'),
-  controller.deleteNotification
+  "/notifications/:id",
+  validate(schema.notificationIdParamSchema, "params"),
+  controller.deleteNotification,
 );
 
 export default router;
