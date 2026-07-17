@@ -1,29 +1,9 @@
 // src/features/marketplace/components/product/ShopListingRow.tsx
-//
-// A single branch row inside the "Available at" bottom sheet on the
-// product detail screen.
-//
-// Shows per-branch real data:
-//   - Shop logo + name + branch name
-//   - Distance (null if no user location)
-//   - Open / closed status
-//   - Delivery / pickup badges
-//   - Real listing price (or "Price not set" if null)
-//   - Stock status badge (IN_STOCK / LOW_STOCK)
-//
-// Two actions:
-//   "View Shop"  → navigates to /shop/:shopId (goes to shop screen,
-//                  branch is auto-selected as the nearest/first enabled)
-//   "Add"        → calls onAdd(shop) — parent handles cart conflict logic
-//
-// The user cannot add from two different branches simultaneously —
-// cart conflict is handled at the parent (ShopsBottomSheet) level.
 
 import React, { useCallback } from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
@@ -32,12 +12,12 @@ import { router } from "expo-router";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
+import { RemoteImage } from "../../../../components/RemoteImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 import type { MedicineShopListing } from "../../../../types/medicine";
 
 interface ShopListingRowProps {
   shop: MedicineShopListing;
-  /** Quantity of this variant already in cart (0 if none). */
   cartQuantity: number;
   onAdd: (shop: MedicineShopListing) => void;
   onIncrement: (shop: MedicineShopListing) => void;
@@ -57,15 +37,9 @@ export function ShopListingRow({
     router.push(`/shop/${shop.shopId}` as any);
   }, [shop.shopId]);
 
-  const handleAdd = useCallback(() => onAdd(shop), [onAdd, shop]);
-  const handleIncrement = useCallback(
-    () => onIncrement(shop),
-    [onIncrement, shop],
-  );
-  const handleDecrement = useCallback(
-    () => onDecrement(shop),
-    [onDecrement, shop],
-  );
+  const handleAdd       = useCallback(() => onAdd(shop),       [onAdd, shop]);
+  const handleIncrement = useCallback(() => onIncrement(shop), [onIncrement, shop]);
+  const handleDecrement = useCallback(() => onDecrement(shop), [onDecrement, shop]);
 
   const inCart = cartQuantity > 0;
 
@@ -81,29 +55,24 @@ export function ShopListingRow({
     >
       {/* ── Top: shop identity + distance ── */}
       <View style={styles.topRow}>
-        {/* Logo */}
-        <View
+        {/*
+          Shop logo — mode="shop" so storefront icon is used as fallback.
+          This is semantically correct: a shop logo placeholder should look
+          like a shop, not a medicine bottle.
+        */}
+        <RemoteImage
+          uri={shop.logoUrl ?? null}
           style={[
             styles.logoWrap,
             { backgroundColor: colors.background.tint },
           ]}
-        >
-          {shop.logoUrl ? (
-            <Image
-              source={{ uri: shop.logoUrl }}
-              style={styles.logo}
-              resizeMode="cover"
-            />
-          ) : (
-            <Ionicons
-              name="storefront-outline"
-              size={20}
-              color={colors.text.brand}
-            />
-          )}
-        </View>
+          resizeMode="cover"
+          mode="shop"
+          fallbackIcon="storefront-outline"
+          fallbackIconSize={20}
+          fallbackIconColor={colors.text.brand}
+        />
 
-        {/* Shop + branch name */}
         <View style={styles.nameBlock}>
           <Text
             style={[styles.shopName, { color: colors.text.primary }]}
@@ -121,7 +90,6 @@ export function ShopListingRow({
           ) : null}
         </View>
 
-        {/* Distance */}
         {shop.distanceKm !== null ? (
           <Text style={[styles.distance, { color: colors.text.faint }]}>
             {shop.distanceKm} km
@@ -140,7 +108,6 @@ export function ShopListingRow({
       ) : null}
 
       <View style={styles.badgeRow}>
-        {/* Open / closed */}
         <View
           style={[
             styles.badge,
@@ -168,7 +135,6 @@ export function ShopListingRow({
           </Text>
         </View>
 
-        {/* Delivery */}
         {shop.deliveryEnabled ? (
           <View
             style={[
@@ -179,18 +145,13 @@ export function ShopListingRow({
               },
             ]}
           >
-            <Ionicons
-              name="bicycle-outline"
-              size={11}
-              color={colors.text.brand}
-            />
+            <Ionicons name="bicycle-outline" size={11} color={colors.text.brand} />
             <Text style={[styles.badgeText, { color: colors.text.brand }]}>
               Delivery
             </Text>
           </View>
         ) : null}
 
-        {/* Pickup */}
         {shop.pickupEnabled ? (
           <View
             style={[
@@ -201,18 +162,13 @@ export function ShopListingRow({
               },
             ]}
           >
-            <Ionicons
-              name="bag-handle-outline"
-              size={11}
-              color={colors.text.brand}
-            />
+            <Ionicons name="bag-handle-outline" size={11} color={colors.text.brand} />
             <Text style={[styles.badgeText, { color: colors.text.brand }]}>
               Pickup
             </Text>
           </View>
         ) : null}
 
-        {/* Stock status */}
         <View
           style={[
             styles.badge,
@@ -246,7 +202,6 @@ export function ShopListingRow({
 
       {/* ── Bottom: price + actions ── */}
       <View style={styles.bottomRow}>
-        {/* Price */}
         <View>
           <Text style={[styles.priceLabel, { color: colors.text.faint }]}>
             Price
@@ -256,18 +211,11 @@ export function ShopListingRow({
           </Text>
         </View>
 
-        {/* Actions */}
         <View style={styles.actions}>
-          {/* View Shop */}
           <TouchableOpacity
             onPress={handleViewShop}
             activeOpacity={0.8}
-            style={[
-              styles.viewBtn,
-              {
-                borderColor: colors.brand.primary,
-              },
-            ]}
+            style={[styles.viewBtn, { borderColor: colors.brand.primary }]}
             accessibilityLabel={`View ${shop.shopName}`}
           >
             <Text style={[styles.viewBtnText, { color: colors.brand.primary }]}>
@@ -275,38 +223,24 @@ export function ShopListingRow({
             </Text>
           </TouchableOpacity>
 
-          {/* Add / Stepper */}
           {inCart ? (
-            <View
-              style={[
-                styles.stepper,
-                { borderColor: colors.brand.primary },
-              ]}
-            >
+            <View style={[styles.stepper, { borderColor: colors.brand.primary }]}>
               <TouchableOpacity
                 onPress={handleDecrement}
                 activeOpacity={0.7}
-                style={[
-                  styles.stepperBtn,
-                  { backgroundColor: colors.brand.primary },
-                ]}
+                style={[styles.stepperBtn, { backgroundColor: colors.brand.primary }]}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Decrease quantity"
               >
                 <Ionicons name="remove" size={13} color="#ffffff" />
               </TouchableOpacity>
-              <Text
-                style={[styles.stepperCount, { color: colors.brand.primary }]}
-              >
+              <Text style={[styles.stepperCount, { color: colors.brand.primary }]}>
                 {cartQuantity}
               </Text>
               <TouchableOpacity
                 onPress={handleIncrement}
                 activeOpacity={0.7}
-                style={[
-                  styles.stepperBtn,
-                  { backgroundColor: colors.brand.primary },
-                ]}
+                style={[styles.stepperBtn, { backgroundColor: colors.brand.primary }]}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Increase quantity"
               >
@@ -317,15 +251,10 @@ export function ShopListingRow({
             <TouchableOpacity
               onPress={handleAdd}
               activeOpacity={0.8}
-              style={[
-                styles.addBtn,
-                { borderColor: colors.brand.primary },
-              ]}
+              style={[styles.addBtn, { borderColor: colors.brand.primary }]}
               accessibilityLabel={`Add from ${shop.shopName}`}
             >
-              <Text
-                style={[styles.addBtnText, { color: colors.brand.primary }]}
-              >
+              <Text style={[styles.addBtnText, { color: colors.brand.primary }]}>
                 ADD
               </Text>
             </TouchableOpacity>
@@ -350,18 +279,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  // RemoteImage fills this container
   logoWrap: {
     width: 40,
     height: 40,
     borderRadius: Radius.md,
-    alignItems: "center",
-    justifyContent: "center",
     overflow: "hidden",
     flexShrink: 0,
-  },
-  logo: {
-    width: "100%",
-    height: "100%",
   },
   nameBlock: {
     flex: 1,

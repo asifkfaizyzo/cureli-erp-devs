@@ -73,7 +73,7 @@ function compositionLine(items: CompositionItem[]): string {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   // ── Medicine detail ───────────────────────────────────────
   const { variant, siblings, isLoading, isError, refetch } =
@@ -258,7 +258,7 @@ export default function ProductDetailScreen() {
         ]}
       >
         {/* Image / carousel */}
-        <ProductImageCarousel images={galleryImages} colors={colors} />
+        <ProductImageCarousel images={galleryImages} colors={colors} isDark={isDark}   />
 
         {/* Name block */}
         <View style={styles.nameBlock}>
@@ -436,6 +436,7 @@ export default function ProductDetailScreen() {
                   medicine={s}
                   onPress={handlePressSibling}
                   colors={colors}
+                  isDark={isDark}   
                 />
               ))}
             </ScrollView>

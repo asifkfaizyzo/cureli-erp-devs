@@ -1,4 +1,4 @@
-// src/hooks/useMobileSSE.ts
+// cureli-mobile/src/hooks/useMobileSSE.ts
 //
 // Establishes and maintains an SSE connection to the mobile notifications
 // stream endpoint. Designed to be mounted once from _layout.tsx after
@@ -15,6 +15,7 @@
 //   connected            — confirms connection, no action needed
 //   heartbeat            — keeps connection alive, no action needed
 //   order_status_changed — updates orderNotificationStore
+//   branch_status_changed — updates branchStatusStore
 
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
@@ -24,20 +25,26 @@ import { StorageService } from '../services/storage';
 import { CONFIG } from '../constants/config';
 import { useOrderNotificationStore } from '../store/orderNotificationStore';
 import { useAuthStore } from '../store/authStore';
+import { useBranchStatusStore } from '../store/branchStatusStore';
 
 // ── Custom SSE event names this hook subscribes to ────────────────────────────
 // Must be declared here and passed as the generic to EventSource so TypeScript
 // accepts them in .addEventListener() calls. Any event not in this union will
 // be a compile-time error — intentional, keeps the contract explicit.
-type SSEEvents = 'connected' | 'heartbeat' | 'order_status_changed';
+type SSEEvents =
+  | 'connected'
+  | 'heartbeat'
+  | 'order_status_changed'
+  | 'branch_status_changed';
 
 // Backoff config — doubles on each retry, capped at 30s
 const INITIAL_BACKOFF_MS = 2_000;
 const MAX_BACKOFF_MS     = 30_000;
 
 export function useMobileSSE() {
-  const status              = useAuthStore((s) => s.status);
-  const setLastStatusUpdate = useOrderNotificationStore((s) => s.setLastStatusUpdate);
+  const status                = useAuthStore((s) => s.status);
+  const setLastStatusUpdate   = useOrderNotificationStore((s) => s.setLastStatusUpdate);
+  const setBranchStatusUpdate = useBranchStatusStore((s) => s.setBranchStatusUpdate);
 
   const esRef         = useRef<EventSource<SSEEvents> | null>(null);
   const backoffRef    = useRef<number>(INITIAL_BACKOFF_MS);
@@ -57,9 +64,9 @@ export function useMobileSSE() {
 
   const connect = useCallback(() => {
     // Do not connect if already connected, not authenticated, or unmounted
-    if (!isMountedRef.current)       return;
-    if (status !== 'authenticated')  return;
-    if (esRef.current)               return;
+    if (!isMountedRef.current)      return;
+    if (status !== 'authenticated') return;
+    if (esRef.current)              return;
 
     const token = StorageService.getAccessToken();
     if (!token) return;
@@ -104,6 +111,27 @@ export function useMobileSSE() {
       }
     });
 
+    // ── Branch status changed ─────────────────────────────────────────────
+    // Fired by the marketplace scheduler when a branch auto-opens or
+    // auto-closes based on its configured open_days / opening_time /
+    // closing_time. Updates branchStatusStore so any mounted ShopProfile
+    // screen can patch its React Query cache without a full refetch.
+    es.addEventListener('branch_status_changed', (event: CustomEvent<'branch_status_changed'>) => {
+      if (!event.data) return;
+      try {
+        const data = JSON.parse(event.data);
+        setBranchStatusUpdate({
+          branch_id:    data.branch_id,
+          is_open:      data.is_open,
+          opening_time: data.opening_time ?? null,
+          closing_time: data.closing_time ?? null,
+          is_24_hours:  data.is_24_hours  ?? false,
+        });
+      } catch {
+        // Malformed payload — ignore
+      }
+    });
+
     // ── Error: connection dropped ─────────────────────────────────────────
     // Reconnect with exponential backoff.
     es.addEventListener('error', () => {
@@ -120,7 +148,7 @@ export function useMobileSSE() {
         if (isMountedRef.current) connect();
       }, delay);
     });
-  }, [status, setLastStatusUpdate]);
+  }, [status, setLastStatusUpdate, setBranchStatusUpdate]);
 
   // ── Mount / unmount ───────────────────────────────────────────────────────
   useEffect(() => {

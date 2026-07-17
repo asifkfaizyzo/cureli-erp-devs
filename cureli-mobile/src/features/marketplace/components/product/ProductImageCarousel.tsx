@@ -1,98 +1,222 @@
 // src/features/marketplace/components/product/ProductImageCarousel.tsx
-//
-// Medicine image display for the product detail screen.
-//
-// Behavior:
-//   - 0 images → branded placeholder (Ionicons medical icon)
-//   - 1 image  → static single image, no carousel chrome, no dots
-//   - 2+ images → horizontal swipeable carousel with dot indicator below
-//
-// Uses react-native-reanimated-carousel (already installed).
-// Autoplay is disabled — user-driven only.
-// Dots update in sync with the active slide index.
-//
-// Image area background matches colors.background.card (same as before).
-// The component is fully controlled by the parent — it receives
-// `images: string[]` and derives its own display mode internally.
 
-import React, { useState, useCallback } from "react";
-import {
-  View,
-  Image,
-  StyleSheet,
-  Dimensions,
-} from "react-native";
+import React, { useState, useCallback, useEffect } from "react";
+import { View, StyleSheet, Dimensions } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 import Carousel from "react-native-reanimated-carousel";
-import { Ionicons } from "@expo/vector-icons";
 import { Radius } from "../../../../theme/radius";
 import { Spacing } from "../../../../theme/spacing";
+import { getPlaceholder } from "../../../../utils/placeholderImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-// Image area dimensions — matches the previous single-image layout
 const IMAGE_AREA_HEIGHT = SCREEN_WIDTH * 0.62;
 const IMAGE_SIZE = SCREEN_WIDTH * 0.42;
 
 interface ProductImageCarouselProps {
   images: string[];
   colors: ReturnType<typeof useTheme>["colors"];
+  isDark: boolean;
 }
+
+// ── Per-slide component ───────────────────────────────────────
+// Each slide manages its own load/error state independently.
+// Placeholder shown only while loading; removed once real image is ready.
+// Transparent PNG edges show the card background color, not the placeholder.
+
+function CarouselSlide({
+  uri,
+  placeholder,
+  backgroundColor,
+}: {
+  uri: string;
+  placeholder: ReturnType<typeof getPlaceholder>;
+  backgroundColor: string;
+}) {
+  const imageOpacity = useSharedValue(0);
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+    imageOpacity.value = 0;
+  }, [uri]);
+
+  const realImageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+  }));
+
+  const handleLoad = useCallback(() => {
+    setImageReady(true);
+    imageOpacity.value = withTiming(1, { duration: 180 });
+  }, [imageOpacity]);
+
+  const handleError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  const showPlaceholder = !imageReady || imageError;
+
+  return (
+    <View style={[carouselSlideStyles.wrap, { backgroundColor }]}>
+      {showPlaceholder ? (
+        <Animated.Image
+          source={placeholder}
+          style={carouselSlideStyles.image}
+          resizeMode="contain"
+        />
+      ) : null}
+
+      {!imageError ? (
+        <Animated.Image
+          source={{ uri }}
+          style={[
+            carouselSlideStyles.image,
+            carouselSlideStyles.overlay,
+            realImageAnimatedStyle,
+          ]}
+          resizeMode="contain"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const carouselSlideStyles = StyleSheet.create({
+  wrap: {
+    width: SCREEN_WIDTH,
+    height: IMAGE_AREA_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing["2xl"],
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  overlay: {
+    position: "absolute",
+    top: 0,
+    left: Spacing["2xl"],
+    right: Spacing["2xl"],
+  },
+});
+
+// ── Single static image ───────────────────────────────────────
+
+function SingleImage({
+  uri,
+  placeholder,
+  backgroundColor,
+}: {
+  uri: string;
+  placeholder: ReturnType<typeof getPlaceholder>;
+  backgroundColor: string;
+}) {
+  const imageOpacity = useSharedValue(0);
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+    imageOpacity.value = 0;
+  }, [uri]);
+
+  const realImageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+  }));
+
+  const handleLoad = useCallback(() => {
+    setImageReady(true);
+    imageOpacity.value = withTiming(1, { duration: 180 });
+  }, [imageOpacity]);
+
+  const handleError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  const showPlaceholder = !imageReady || imageError;
+
+  return (
+    <View style={[styles.singleImageWrap, { backgroundColor }]}>
+      {showPlaceholder ? (
+        <Animated.Image
+          source={placeholder}
+          style={styles.singleImage}
+          resizeMode="contain"
+        />
+      ) : null}
+
+      {!imageError ? (
+        <Animated.Image
+          source={{ uri }}
+          style={[
+            styles.singleImage,
+            styles.singleImageOverlay,
+            realImageAnimatedStyle,
+          ]}
+          resizeMode="contain"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────
 
 export function ProductImageCarousel({
   images,
   colors,
+  isDark,
 }: ProductImageCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const placeholder = getPlaceholder(isDark);
 
   const handleSnapToItem = useCallback((index: number) => {
     setActiveIndex(index);
   }, []);
 
-  // ── 0 images — placeholder ────────────────────────────────
+  // ── 0 images — placeholder only ───────────────────────────
   if (images.length === 0) {
     return (
       <View
-        style={[
-          styles.imageArea,
-          { backgroundColor: colors.background.card },
-        ]}
+        style={[styles.imageArea, { backgroundColor: colors.background.card }]}
       >
-        <View
-          style={[
-            styles.imagePlaceholder,
-            { backgroundColor: colors.background.tint },
-          ]}
-        >
-          <Ionicons
-            name="medical-outline"
-            size={64}
-            color={colors.text.brand}
-          />
-        </View>
-      </View>
-    );
-  }
-
-  // ── 1 image — static, no carousel chrome ─────────────────
-  if (images.length === 1) {
-    return (
-      <View
-        style={[
-          styles.imageArea,
-          { backgroundColor: colors.background.card },
-        ]}
-      >
-        <Image
-          source={{ uri: images[0] }}
-          style={styles.singleImage}
+        <Animated.Image
+          source={placeholder}
+          style={styles.placeholderImage}
           resizeMode="contain"
         />
       </View>
     );
   }
 
-  // ── 2+ images — carousel with dots ───────────────────────
+  // ── 1 image — static ──────────────────────────────────────
+  if (images.length === 1) {
+    return (
+      <View
+        style={[styles.imageArea, { backgroundColor: colors.background.card }]}
+      >
+        <SingleImage
+          uri={images[0]}
+          placeholder={placeholder}
+          backgroundColor={colors.background.card}
+        />
+      </View>
+    );
+  }
+
+  // ── 2+ images — carousel ──────────────────────────────────
   return (
     <View
       style={[
@@ -108,17 +232,14 @@ export function ProductImageCarousel({
         onSnapToItem={handleSnapToItem}
         scrollAnimationDuration={300}
         renderItem={({ item }) => (
-          <View style={styles.slideWrap}>
-            <Image
-              source={{ uri: item }}
-              style={styles.slideImage}
-              resizeMode="contain"
-            />
-          </View>
+          <CarouselSlide
+            uri={item}
+            placeholder={placeholder}
+            backgroundColor={colors.background.card}
+          />
         )}
       />
 
-      {/* Dot indicator */}
       <View style={styles.dotsRow}>
         {images.map((_, i) => (
           <View
@@ -141,48 +262,29 @@ export function ProductImageCarousel({
 }
 
 const styles = StyleSheet.create({
-  // ── Shared container for 0 and 1 image modes ──────────────
   imageArea: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: Spacing["2xl"],
   },
-
-  // ── 0 image — placeholder ─────────────────────────────────
-  imagePlaceholder: {
+  placeholderImage: {
     width: IMAGE_SIZE,
     height: IMAGE_SIZE,
-    borderRadius: Radius.xl,
-    alignItems: "center",
-    justifyContent: "center",
   },
-
-  // ── 1 image — static ──────────────────────────────────────
+  singleImageWrap: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE,
+  },
   singleImage: {
-    width: IMAGE_SIZE,
-    height: IMAGE_SIZE,
-  },
-
-  // ── 2+ images — carousel container ───────────────────────
-  carouselArea: {
-    // No vertical padding — carousel fills its own height
-  },
-
-  // ── Each carousel slide ───────────────────────────────────
-  slideWrap: {
-    width: SCREEN_WIDTH,
-    height: IMAGE_AREA_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing["2xl"],
-  },
-
-  slideImage: {
     width: "100%",
     height: "100%",
   },
-
-  // ── Dot indicator row ─────────────────────────────────────
+  singleImageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+  carouselArea: {},
   dotsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -190,10 +292,8 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
   },
-
   dot: {
     height: 6,
     borderRadius: 3,
-    // width is set inline — active dot is wider (pill shape)
   },
 });

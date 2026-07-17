@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/components/BranchConfigCard.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/components/BranchConfigCard.jsx
 
 import { useState, useRef, useEffect } from "react";
 import {
@@ -425,6 +425,7 @@ const BranchConfigCard = ({
                   done={!!isTimingValid}
                 >
                   <div className="space-y-2.5">
+                    {/* 24h toggle */}
                     <div className="flex items-center gap-2.5">
                       <button
                         type="button"
@@ -446,6 +447,17 @@ const BranchConfigCard = ({
                       </button>
                       <span className="text-xs text-white/50">24 hours</span>
                     </div>
+
+                    {/* Open days — always shown regardless of 24h toggle */}
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-white/25">Open days</p>
+                      <DaySelector
+                        value={config.open_days ?? ['MON','TUE','WED','THU','FRI','SAT','SUN']}
+                        onChange={(days) => update({ open_days: days })}
+                      />
+                    </div>
+
+                    {/* Time pickers — only when not 24h */}
                     {!config.is_24_hours && (
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -595,6 +607,46 @@ const ToggleChip = ({ icon, label, active, onClick }) => (
   >
     {icon} {label}
   </button>
+);
+
+const ALL_DAYS = [
+  { key: 'MON', label: 'M' },
+  { key: 'TUE', label: 'T' },
+  { key: 'WED', label: 'W' },
+  { key: 'THU', label: 'T' },
+  { key: 'FRI', label: 'F' },
+  { key: 'SAT', label: 'S' },
+  { key: 'SUN', label: 'S' },
+];
+
+const DaySelector = ({ value = [], onChange }) => (
+  <div className="flex items-center gap-1">
+    {ALL_DAYS.map((day) => {
+      const active = value.includes(day.key);
+      return (
+        <button
+          key={day.key}
+          type="button"
+          onClick={() => {
+            const next = active
+              ? value.filter((d) => d !== day.key)
+              : [...value, day.key];
+            onChange(next);
+          }}
+          title={day.key}
+          className={`
+            w-7 h-7 rounded-lg text-[10px] font-bold transition-all
+            ${active
+              ? 'bg-white/15 text-white border border-white/20'
+              : 'bg-white/[0.03] text-white/20 border border-white/[0.06] hover:border-white/15'
+            }
+          `}
+        >
+          {day.label}
+        </button>
+      );
+    })}
+  </div>
 );
 
 export default BranchConfigCard;

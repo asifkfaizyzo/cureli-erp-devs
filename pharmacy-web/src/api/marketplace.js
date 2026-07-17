@@ -83,3 +83,14 @@ export const searchPlaces = (query) =>
 
 export const getPlaceDetails = (place_id) =>
   API.get("/marketplace/places/details", { params: { place_id } });
+
+
+export const listHolidays = (branchId) =>
+  API.get('/marketplace/holidays', { params: { branch_id: branchId } })
+    .then((r) => r.data);
+
+export const createHoliday = (data) =>
+  API.post('/marketplace/holidays', data).then((r) => r.data);
+
+export const deleteHoliday = (holidayId) =>
+  API.delete(`/marketplace/holidays/${holidayId}`).then((r) => r.data);

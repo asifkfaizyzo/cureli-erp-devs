@@ -1,19 +1,25 @@
 // src/features/cart/components/DeliverySummaryCard.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   StyleSheet,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../../theme/ThemeContext';
 import { Spacing } from '../../../theme/spacing';
+import { Radius } from '../../../theme/radius';
+import { getPlaceholder } from '../../../utils/placeholderImage';
 import { useCartStore, type CartItem } from '../../../store/cartStore';
 import { useDeliveryLocationStore } from '../../../store/deliveryLocationStore';
 import { useDeliveryETA } from '../../../hooks/useDeliveryETA';
@@ -74,6 +80,69 @@ function QuantitySelector({ item }: { item: CartItem }) {
   );
 }
 
+// ── Cart item image ───────────────────────────────────────────
+
+function CartItemImage({ uri }: { uri: string | null }) {
+  const { colors, isDark } = useTheme();
+  const placeholder = getPlaceholder(isDark);
+  const imageOpacity = useSharedValue(0);
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+    imageOpacity.value = 0;
+  }, [uri]);
+
+  const realImageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+  }));
+
+  const handleLoad = useCallback(() => {
+    setImageReady(true);
+    imageOpacity.value = withTiming(1, { duration: 180 });
+  }, [imageOpacity]);
+
+  const handleError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  const showPlaceholder = !imageReady || imageError;
+
+  return (
+    <View
+      style={[
+        styles.imageBox,
+        {
+          backgroundColor: colors.background.elevated,
+          borderColor: colors.border.subtle,
+        },
+      ]}
+    >
+      {/* Placeholder: only while real image is loading or errored */}
+      {showPlaceholder ? (
+        <Animated.Image
+          source={placeholder}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      ) : null}
+
+      {/* Real image: loads invisibly, fades in, placeholder unmounts */}
+      {uri && !imageError ? (
+        <Animated.Image
+          source={{ uri }}
+          style={[styles.image, styles.realImageOverlay, realImageAnimatedStyle]}
+          resizeMode="contain"
+          onLoad={handleLoad}
+          onError={handleError}
+        />
+      ) : null}
+    </View>
+  );
+}
+
 // ── Cart item row ─────────────────────────────────────────────
 
 function CartItemRow({ item }: { item: CartItem }) {
@@ -83,26 +152,7 @@ function CartItemRow({ item }: { item: CartItem }) {
   return (
     <View style={styles.itemRow}>
       {/* Image */}
-      <View
-        style={[
-          styles.imageBox,
-          { backgroundColor: colors.background.tint },
-        ]}
-      >
-        {item.image ? (
-          <Image
-            source={{ uri: item.image }}
-            style={styles.image}
-            resizeMode="contain"
-          />
-        ) : (
-          <Ionicons
-            name="medical-outline"
-            size={22}
-            color={colors.text.brand}
-          />
-        )}
-      </View>
+      <CartItemImage uri={item.image ?? null} />
 
       {/* Details */}
       <View style={styles.itemDetails}>
@@ -155,9 +205,8 @@ function ETAHeader({
 }) {
   const { colors } = useTheme();
 
-  // Build the ETA display string
   const etaLine = (() => {
-    if (isLoading) return null; // spinner shown instead
+    if (isLoading) return null;
     if (durationText) return `Delivery in ${durationText}`;
     return 'Estimating delivery time…';
   })();
@@ -207,33 +256,8 @@ export function DeliverySummaryCard() {
   const cartPharmacy = useCartStore((s) => s.cartPharmacy);
   const location = useDeliveryLocationStore((s) => s.location);
 
-  // Branch coordinates come from the cart pharmacy.
-  // We don't store branch coordinates on CartItem directly — they live
-  // in the shop profile. For now we use the delivery location coordinates
-  // as origin and would need branch lat/lng as destination.
-  //
-  // What we have available:
-  //   - user location: location.latitude, location.longitude
-  //   - branch: we only have shopId/branchId on CartItem, not coordinates
-  //
-  // The branch coordinates ARE returned by the shop profile API but we
-  // don't cache them in the cart store. The simplest approach without
-  // adding a new API call: use the distance from deliveryLocationStore
-  // if available (set when user picked their location near a shop).
-  //
-  // For a future improvement: store branchLat/branchLng on CartItem.
-  // For now: if we have user location but no branch coords, we show
-  // the ETA spinner briefly then fall back to null (no ETA shown).
-  //
-  // The pharmacy object from cartPharmacy() only has shopId/branchId/names.
-  // We need to extend CartItem or make a separate lookup to get branch coords.
-  // Decision: extend CartItem with optional branchLatitude/branchLongitude.
-  // This is a one-line change in the store and the shop screen addItem call.
-
   const pharmacy = cartPharmacy();
 
-  // Read branch coordinates from the first cart item if available.
-  // We will add these fields to CartItem in cartStore.ts below.
   const firstItem = items[0] as (CartItem & {
     branchLatitude?: number | null;
     branchLongitude?: number | null;
@@ -316,7 +340,8 @@ const styles = StyleSheet.create({
   imageBox: {
     width: 60,
     height: 60,
-    borderRadius: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -325,6 +350,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  realImageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   itemDetails: {
     flex: 1,

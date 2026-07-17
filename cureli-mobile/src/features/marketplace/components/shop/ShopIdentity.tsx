@@ -1,30 +1,13 @@
 // src/features/marketplace/components/shop/ShopIdentity.tsx
-//
-// Banner image, logo, shop name, rating, description, and support phone.
-// Rendered as the top of the shop profile FlatList header.
-//
-// ── DESIGN ─────────────────────────────────────────────────────
-// Hero layout:
-//   [ Banner image (200h) ]
-//   [   dark gradient overlay at bottom half                  ]
-//   [   ★ rating pill (top-right on banner)                   ]
-//   [   Shop name (white, bold, bottom-left, offset for logo) ]
-//   [ Floating logo card overlaps bottom edge of banner       ]
-//   [ Description on page background                          ]
-//   [ Support phone chip                                      ]
-//
-// Fallbacks:
-//   - No banner → brand-color block with centered storefront icon
-//   - No logo   → tinted circle with storefront icon
-//   - No description / phone → section hidden
 
 import React from "react";
-import { View, Text, Image, StyleSheet, Platform } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
+import { RemoteImage } from "../../../../components/RemoteImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 import type { ShopProfileResponse } from "../../../../types/shop";
 
@@ -35,37 +18,30 @@ interface ShopIdentityProps {
 
 const BANNER_HEIGHT = 200;
 const LOGO_SIZE = 80;
-const LOGO_OVERLAP = 40; // how much the logo hangs below the banner
+const LOGO_OVERLAP = 40;
 
 export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
   return (
     <View>
-      {/* ── Hero (banner + gradient + name + rating) ────────── */}
+      {/* ── Hero (banner + gradient + name + rating) ── */}
       <View style={styles.hero}>
-        {/* Banner or fallback */}
-        {profile.bannerUrl ? (
-          <Image
-            source={{ uri: profile.bannerUrl }}
-            style={styles.banner}
-            resizeMode="cover"
-          />
-        ) : (
-          <View
-            style={[
-              styles.banner,
-              styles.bannerFallback,
-              { backgroundColor: colors.brand.primary },
-            ]}
-          >
-            <Ionicons
-              name="storefront-outline"
-              size={56}
-              color="rgba(255,255,255,0.9)"
-            />
-          </View>
-        )}
+        {/*
+          Banner — shop asset, so storefront icon fallback is correct.
+          resizeMode="cover" fills the full-width banner area.
+          Load/error handled internally by RemoteImage.
+        */}
+        <RemoteImage
+          uri={profile.bannerUrl ?? null}
+          style={styles.banner}
+          resizeMode="cover"
+          mode="shop"
+          fallbackIcon="storefront-outline"
+          fallbackIconSize={56}
+          fallbackIconColor="rgba(255,255,255,0.9)"
+          fallbackBg={colors.brand.primary}
+        />
 
-        {/* Dark gradient at bottom half — always applied for readability */}
+        {/* Dark gradient for text legibility */}
         <LinearGradient
           colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.75)"]}
           locations={[0, 0.55, 1]}
@@ -73,7 +49,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
           pointerEvents="none"
         />
 
-        {/* Rating pill — top-right of banner */}
+        {/* Rating pill */}
         <View style={styles.ratingPill}>
           <Ionicons
             name="star"
@@ -87,7 +63,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
           </Text>
         </View>
 
-        {/* Shop name — bottom-left of banner, offset from logo */}
+        {/* Shop name */}
         <View style={styles.nameOverlay}>
           <Text style={styles.shopName} numberOfLines={2}>
             {profile.name}
@@ -95,45 +71,31 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
         </View>
       </View>
 
-      {/* ── Floating logo card ──────────────────────────────── */}
+      {/* ── Floating logo card ── */}
       <View style={styles.logoContainer}>
-        {profile.logoUrl ? (
-          <View
-            style={[
-              styles.logoCard,
-              {
-                backgroundColor: colors.background.card,
-                borderColor: colors.border.subtle,
-              },
-            ]}
-          >
-            <Image
-              source={{ uri: profile.logoUrl }}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.logoCard,
-              styles.logoPlaceholder,
-              {
-                backgroundColor: colors.background.tint,
-                borderColor: colors.border.subtle,
-              },
-            ]}
-          >
-            <Ionicons
-              name="storefront-outline"
-              size={32}
-              color={colors.text.brand}
-            />
-          </View>
-        )}
+        {/*
+          Logo — shop asset, storefront icon fallback is correct.
+          resizeMode="contain" preserves logo aspect ratio.
+        */}
+        <RemoteImage
+          uri={profile.logoUrl ?? null}
+          style={[
+            styles.logoCard,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.subtle,
+            },
+          ]}
+          resizeMode="contain"
+          mode="shop"
+          fallbackIcon="storefront-outline"
+          fallbackIconSize={32}
+          fallbackIconColor={colors.text.brand}
+          fallbackBg={colors.background.tint}
+        />
       </View>
 
-      {/* ── Content block (description + phone) ─────────────── */}
+      {/* ── Content block ── */}
       <View style={styles.content}>
         {profile.description ? (
           <Text
@@ -153,11 +115,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
               },
             ]}
           >
-            <Ionicons
-              name="call-outline"
-              size={14}
-              color={colors.text.brand}
-            />
+            <Ionicons name="call-outline" size={14} color={colors.text.brand} />
             <Text style={[styles.phoneText, { color: colors.text.brand }]}>
               {profile.supportPhone}
             </Text>
@@ -169,19 +127,15 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
 }
 
 const styles = StyleSheet.create({
-  // ── Hero ────────────────────────────────────────────────
   hero: {
     width: "100%",
     height: BANNER_HEIGHT,
     position: "relative",
   },
+  // RemoteImage fills this absolutely
   banner: {
     width: "100%",
     height: "100%",
-  },
-  bannerFallback: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   gradient: {
     position: "absolute",
@@ -190,8 +144,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: BANNER_HEIGHT * 0.7,
   },
-
-  // ── Rating pill ─────────────────────────────────────────
   ratingPill: {
     position: "absolute",
     top: Spacing.md,
@@ -209,11 +161,9 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontFamily: "Inter_600SemiBold",
   },
-
-  // ── Name overlay ────────────────────────────────────────
   nameOverlay: {
     position: "absolute",
-    left: Spacing.base + LOGO_SIZE + Spacing.md, // offset past logo
+    left: Spacing.base + LOGO_SIZE + Spacing.md,
     right: Spacing.base,
     bottom: Spacing.md,
   },
@@ -225,12 +175,11 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-
-  // ── Floating logo ───────────────────────────────────────
   logoContainer: {
     paddingHorizontal: Spacing.base,
     marginTop: -LOGO_OVERLAP,
   },
+  // RemoteImage receives this as its style prop
   logoCard: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
@@ -249,16 +198,6 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  logoPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  // ── Content ─────────────────────────────────────────────
   content: {
     paddingHorizontal: Spacing.base,
     marginTop: Spacing.md,

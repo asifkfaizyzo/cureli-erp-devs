@@ -5,6 +5,8 @@ import { requireAuth } from "../../middleware/auth.js";
 import { requireRole } from "../../middleware/rbac.js";
 import { validate } from "../../middleware/validate.js";
 import * as Controller from "./marketplace.controller.js";
+import * as HolidayController from './marketplace.holidays.controller.js';
+
 import {
   storefrontSchema,
   branchSelectionSchema,
@@ -119,6 +121,24 @@ router.post(
   "/resume",
   requireRole("super_admin"),
   Controller.postResume
+);
+
+router.get(
+  '/holidays',
+  requireRole('super_admin', 'branch_admin'),
+  HolidayController.getHolidays,
+);
+
+router.post(
+  '/holidays',
+  requireRole('super_admin', 'branch_admin'),
+  HolidayController.postHoliday,
+);
+
+router.delete(
+  '/holidays/:holiday_id',
+  requireRole('super_admin', 'branch_admin'),
+  HolidayController.deleteHolidayHandler,
 );
 
 export default router;

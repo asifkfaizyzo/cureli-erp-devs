@@ -562,7 +562,38 @@ export async function getMedicineShops(variantId, lat, lng) {
     },
   });
 
-  const rows = listings.map((l) => {
+  // ── Deduplicate by branchId ───────────────────────────────
+  // A branch may appear multiple times if the shop has linked
+  // multiple medicine records to the same master variant.
+  // Keep the listing with the lowest price per branch.
+  const byBranch = new Map();
+  for (const l of listings) {
+    const branchId = l.branch?.branch_id;
+    if (!branchId) continue;
+
+    const existing = byBranch.get(branchId);
+    if (!existing) {
+      byBranch.set(branchId, l);
+      continue;
+    }
+
+    // Keep whichever has a lower price
+    const existingPrice = existing.marketplace_price
+      ? Number(existing.marketplace_price)
+      : Infinity;
+    const newPrice = l.marketplace_price
+      ? Number(l.marketplace_price)
+      : Infinity;
+
+    if (newPrice < existingPrice) {
+      byBranch.set(branchId, l);
+    }
+  }
+
+  const deduped = Array.from(byBranch.values());
+  // ─────────────────────────────────────────────────────────
+
+  const rows = deduped.map((l) => {
     const bs = l.branch?.marketplaceSettings;
     const branchLat = bs?.latitude ? Number(bs.latitude) : null;
     const branchLng = bs?.longitude ? Number(bs.longitude) : null;

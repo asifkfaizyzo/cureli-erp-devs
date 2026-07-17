@@ -1,11 +1,8 @@
-// backend/src/cron/checkoutSessionCleanup.js
-
 import prisma from '../config/prisma.js';
-import  cronLogger  from '../utils/cronLogger.js';
+import cronLogger from '../utils/cronLogger.js';
 
 export async function expireStaleCheckoutSessions() {
-  const logger = cronLogger('expire-checkout-sessions');
-  logger.start();
+  cronLogger.info('Checking for stale checkout sessions...');
 
   try {
     const result = await prisma.checkoutSession.updateMany({
@@ -16,10 +13,10 @@ export async function expireStaleCheckoutSessions() {
       data: { status: 'expired' },
     });
 
-    logger.success(`Expired ${result.count} stale checkout sessions`);
+    cronLogger.success(`Expired ${result.count} stale checkout sessions`);
     return result.count;
   } catch (err) {
-    logger.error(err);
+    cronLogger.error('Checkout session cleanup failed', err);
     throw err;
   }
 }

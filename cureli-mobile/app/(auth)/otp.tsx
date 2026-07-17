@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -70,17 +71,14 @@ export default function OtpScreen() {
 
     setError(null);
     setLoading(true);
+    Keyboard.dismiss();
 
     try {
-      const { isNewUser } = await login(phone, code);
+      await login(phone, code);
       const user = useAuthStore.getState().user;
 
-      // Route based on profile_complete — server-driven, not a local flag.
-      // Both new users AND returning users who never completed their profile
-      // are sent to onboarding. isNewUser is only used for welcome messaging.
       if (!user?.profile_complete) {
         router.replace('/onboarding/profile' as any);
-
       } else {
         router.replace('/(tabs)/home');
       }
@@ -102,8 +100,6 @@ export default function OtpScreen() {
     setOtp('');
 
     try {
-      console.log("send otp");
-
       await sendOtp(phone);
       setResendCooldown(RESEND_COOLDOWN);
     } catch (err: unknown) {
@@ -159,9 +155,7 @@ export default function OtpScreen() {
               onPress={() => inputRef.current?.focus()}
               activeOpacity={1}
             >
-              <Text
-                style={[styles.otpChar, { color: colors.text.primary }]}
-              >
+              <Text style={[styles.otpChar, { color: colors.text.primary }]}>
                 {char}
               </Text>
               {isCurrent && (
@@ -205,9 +199,7 @@ export default function OtpScreen() {
               size={20}
               color={colors.text.muted}
             />
-            <Text
-              style={[styles.backText, { color: colors.text.muted }]}
-            >
+            <Text style={[styles.backText, { color: colors.text.muted }]}>
               Change number
             </Text>
           </TouchableOpacity>
@@ -259,39 +251,35 @@ export default function OtpScreen() {
             {renderOtpBoxes()}
           </View>
 
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorRow}>
-              <MaterialIcons
-                name="error-outline"
-                size={14}
-                color={colors.status.error}
-              />
-              <Text
-                style={[styles.errorText, { color: colors.status.error }]}
-              >
-                {error}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Loading */}
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator
-                color={colors.brand.accent}
-                size="small"
-              />
-              <Text
-                style={[
-                  styles.loadingText,
-                  { color: colors.brand.accent },
-                ]}
-              >
-                Verifying…
-              </Text>
-            </View>
-          ) : null}
+          {/* Fixed-height status slot — error OR loading, never both, never shifts layout */}
+          <View style={styles.statusSlot}>
+            {loading ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color={colors.brand.accent} size="small" />
+                <Text
+                  style={[styles.loadingText, { color: colors.brand.accent }]}
+                >
+                  Verifying…
+                </Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorRow}>
+                <MaterialIcons
+                  name="error-outline"
+                  size={14}
+                  color={colors.status.error}
+                />
+                <Text
+                  style={[styles.errorText, { color: colors.status.error }]}
+                >
+                  {error}
+                </Text>
+              </View>
+            ) : (
+              // Empty — keeps height stable so resend row never moves
+              <View />
+            )}
+          </View>
 
           {/* Resend */}
           <View style={styles.resendRow}>
@@ -305,10 +293,7 @@ export default function OtpScreen() {
               disabled={resendCooldown > 0 || resending || loading}
             >
               {resending ? (
-                <ActivityIndicator
-                  color={colors.brand.accent}
-                  size="small"
-                />
+                <ActivityIndicator color={colors.brand.accent} size="small" />
               ) : resendCooldown > 0 ? (
                 <Text
                   style={[
@@ -442,6 +427,16 @@ const styles = StyleSheet.create({
     width: 2,
     height: 22,
     borderRadius: 1,
+  },
+
+  // ── Status slot (error OR loading) ──
+  statusSlot: {
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Cancels out the gap: 24 above/below so the slot
+    // doesn't add extra whitespace when empty
+    marginVertical: -8,
   },
 
   // ── Error ──

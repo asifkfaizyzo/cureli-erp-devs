@@ -78,7 +78,8 @@ function useDebounce<T>(value: T, delay: number): T {
 // ── Screen ────────────────────────────────────────────────────
 
 export default function ShopScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+
   const { id: shopId } = useLocalSearchParams<{ id: string }>();
 
   // ── Delivery location ─────────────────────────────────────
@@ -272,6 +273,7 @@ export default function ShopScreen() {
         onDecrement={handleDecrementCart}
         cartQuantity={cartQuantityMap.get(item.variantId) ?? 0}
         colors={colors}
+        isDark={isDark}   
       />
     ),
     [

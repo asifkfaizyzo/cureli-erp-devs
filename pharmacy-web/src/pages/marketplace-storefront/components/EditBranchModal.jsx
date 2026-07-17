@@ -1,4 +1,4 @@
-// src/pages/marketplace-storefront/components/EditBranchModal.jsx
+// pharmacy-web/src/pages/marketplace-storefront/components/EditBranchModal.jsx
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,13 +16,21 @@ import {
   Lock,
   Shield,
   ImageIcon,
+  CalendarX,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import LocationPicker from "../../marketplace-onboarding/components/LocationPicker";
 import TimePicker from "../../marketplace-onboarding/components/TimePicker";
 import UnifiedBranchMap from "../../marketplace-onboarding/components/UnifiedBranchMap";
 import { useGoogleMaps } from "../../../hooks/useGoogleMaps";
-import { uploadMarketplaceAsset } from "../../../api/marketplace";
+import {
+  uploadMarketplaceAsset,
+  listHolidays as apiListHolidays,
+  createHoliday as apiCreateHoliday,
+  deleteHoliday as apiDeleteHoliday,
+} from "../../../api/marketplace";
 
 // ─────────────────────────────────────────────────────────────────
 // IMAGE URL RESOLVER
@@ -32,6 +40,52 @@ const resolveImageUrl = (url) => {
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   return `${import.meta.env.VITE_API_URL}${url}`;
 };
+
+// ─────────────────────────────────────────────────────────────────
+// DAY SELECTOR
+// ─────────────────────────────────────────────────────────────────
+const ALL_DAYS = [
+  { key: 'MON', label: 'M' },
+  { key: 'TUE', label: 'T' },
+  { key: 'WED', label: 'W' },
+  { key: 'THU', label: 'T' },
+  { key: 'FRI', label: 'F' },
+  { key: 'SAT', label: 'S' },
+  { key: 'SUN', label: 'S' },
+];
+
+const DaySelector = ({ value = [], onChange, disabled = false }) => (
+  <div className="flex items-center gap-1">
+    {ALL_DAYS.map((day) => {
+      const active = value.includes(day.key);
+      return (
+        <button
+          key={day.key}
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (disabled) return;
+            const next = active
+              ? value.filter((d) => d !== day.key)
+              : [...value, day.key];
+            onChange(next);
+          }}
+          title={day.key}
+          className={`
+            w-8 h-8 rounded-lg text-[10px] font-bold transition-all
+            ${active
+              ? 'bg-white/15 text-white border border-white/20'
+              : 'bg-white/[0.03] text-white/20 border border-white/[0.06] hover:border-white/15'
+            }
+            ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
+          `}
+        >
+          {day.label}
+        </button>
+      );
+    })}
+  </div>
+);
 
 // ─────────────────────────────────────────────────────────────────
 // VALIDATION
@@ -139,6 +193,245 @@ const ToggleRow = ({
 );
 
 // ─────────────────────────────────────────────────────────────────
+// HOLIDAY SECTION
+// ─────────────────────────────────────────────────────────────────
+const HolidaySection = ({ branchId }) => {
+  const [holidays, setHolidays]       = useState([]);
+  const [isLoading, setIsLoading]     = useState(false);
+  const [isAdding, setIsAdding]       = useState(false);
+  const [newDate, setNewDate]         = useState('');
+  const [newReason, setNewReason]     = useState('');
+  const [applyToShop, setApplyToShop] = useState(false);
+  const [addError, setAddError]       = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingId, setDeletingId]   = useState(null);
+
+  useEffect(() => {
+    if (!branchId) return;
+    setIsLoading(true);
+    apiListHolidays(branchId)
+      .then((res) => setHolidays(res.data?.holidays ?? []))
+      .catch(() => setHolidays([]))
+      .finally(() => setIsLoading(false));
+  }, [branchId]);
+
+  const handleAdd = async () => {
+    if (!newDate) { setAddError('Select a date'); return; }
+    setIsAdding(true);
+    setAddError(null);
+    try {
+      const res = await apiCreateHoliday({
+        branch_id:    branchId,
+        scope:        applyToShop ? 'SHOP' : 'BRANCH',
+        holiday_date: newDate,
+        reason:       newReason.trim() || undefined,
+      });
+      setHolidays((prev) =>
+        [...prev, res.data.holiday].sort((a, b) =>
+          a.holiday_date.localeCompare(b.holiday_date)
+        )
+      );
+      setNewDate('');
+      setNewReason('');
+      setApplyToShop(false);
+      setShowAddForm(false);
+    } catch (err) {
+      setAddError(err.response?.data?.message ?? 'Failed to add holiday');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const handleDelete = async (holidayId) => {
+    setDeletingId(holidayId);
+    try {
+      await apiDeleteHoliday(holidayId);
+      setHolidays((prev) => prev.filter((h) => h.holiday_id !== holidayId));
+    } catch {
+      // silent fail — holiday stays in list
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <CalendarX size={12} className="text-white/25" />
+          <p className="text-[10px] text-white/25 uppercase tracking-wider font-semibold">
+            Closed Days / Holidays
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAddForm((v) => !v)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]
+            font-semibold text-white/40 border border-white/[0.06]
+            hover:border-white/15 hover:text-white/60 transition-all"
+        >
+          <Plus size={10} /> Add
+        </button>
+      </div>
+
+      {/* Add form */}
+      <AnimatePresence initial={false}>
+        {showAddForm && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2.5 p-3 rounded-xl border border-white/[0.08] bg-white/[0.02]">
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-white/25">Date</p>
+                <input
+                  type="date"
+                  min={todayStr}
+                  value={newDate}
+                  onChange={(e) => { setNewDate(e.target.value); setAddError(null); }}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10
+                    text-white text-xs focus:outline-none focus:ring-2 focus:ring-white/10
+                    focus:border-white/20 transition-all [color-scheme:dark]"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-white/25">Reason (optional)</p>
+                <input
+                  type="text"
+                  value={newReason}
+                  onChange={(e) => setNewReason(e.target.value)}
+                  placeholder="e.g. Diwali, Emergency"
+                  maxLength={100}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10
+                    text-white text-xs placeholder-white/15 focus:outline-none focus:ring-2
+                    focus:ring-white/10 focus:border-white/20 transition-all"
+                />
+              </div>
+
+              {/* Apply to all branches toggle */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setApplyToShop((v) => !v)}
+                  className={`
+                    relative inline-flex h-4 w-7 items-center rounded-full transition-colors
+                    ${applyToShop ? 'bg-amber-500' : 'bg-white/10'}
+                  `}
+                >
+                  <span
+                    className={`
+                      inline-block h-3 w-3 rounded-full bg-white shadow
+                      transform transition-transform
+                      ${applyToShop ? 'translate-x-3.5' : 'translate-x-0.5'}
+                    `}
+                  />
+                </button>
+                <span className="text-[11px] text-white/40">
+                  Apply to all branches
+                </span>
+              </div>
+
+              {addError && (
+                <p className="text-[11px] text-red-400 flex items-center gap-1">
+                  <AlertCircle size={10} /> {addError}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddForm(false); setAddError(null); }}
+                  className="flex-1 py-2 rounded-lg text-[11px] font-medium
+                    text-white/30 hover:text-white/50 border border-white/[0.06]
+                    hover:border-white/15 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={isAdding}
+                  className="flex-[2] py-2 rounded-lg text-[11px] font-semibold
+                    bg-white/10 text-white hover:bg-white/15 transition-all
+                    disabled:opacity-40 flex items-center justify-center gap-1.5"
+                >
+                  {isAdding ? (
+                    <><Loader2 size={10} className="animate-spin" /> Adding...</>
+                  ) : (
+                    'Add Holiday'
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Holiday list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 size={14} className="animate-spin text-white/20" />
+        </div>
+      ) : holidays.length === 0 ? (
+        <p className="text-[11px] text-white/20 px-1">
+          No upcoming closed days. Add dates when your branch won't be open.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {holidays.map((h) => (
+            <div
+              key={h.holiday_id}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl
+                bg-white/[0.02] border border-white/[0.06]"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-white/70 font-medium">
+                    {new Date(h.holiday_date + 'T00:00:00').toLocaleDateString('en-IN', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })}
+                  </p>
+                  {h.scope === 'SHOP' && (
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold
+                      bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      All branches
+                    </span>
+                  )}
+                </div>
+                {h.reason && (
+                  <p className="text-[10px] text-white/30 mt-0.5 truncate">
+                    {h.reason}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDelete(h.holiday_id)}
+                disabled={deletingId === h.holiday_id}
+                className="w-7 h-7 rounded-lg flex items-center justify-center
+                  text-white/20 hover:text-red-400 hover:bg-red-500/10
+                  transition-all disabled:opacity-40 flex-shrink-0 ml-2"
+              >
+                {deletingId === h.holiday_id
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : <Trash2 size={11} />
+                }
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────
 // MODAL
 // ─────────────────────────────────────────────────────────────────
 const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
@@ -146,27 +439,26 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
 
   const [form, setForm] = useState({
     marketplace_enabled: false,
-    shop_image_url: null,
-    latitude: null,
-    longitude: null,
-    google_place_id: null,
-    formatted_address: null,
-    opening_time: null,
-    closing_time: null,
-    is_24_hours: false,
-    pickup_enabled: false,
-    delivery_enabled: false,
-    contact_override: "",
+    shop_image_url:      null,
+    latitude:            null,
+    longitude:           null,
+    google_place_id:     null,
+    formatted_address:   null,
+    opening_time:        null,
+    closing_time:        null,
+    is_24_hours:         false,
+    open_days:           ['MON','TUE','WED','THU','FRI','SAT','SUN'],
+    pickup_enabled:      false,
+    delivery_enabled:    false,
+    contact_override:    "",
   });
 
-  const [errors, setErrors] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [submitErr, setSubmitErr] = useState(null);
-
-  // ── Image upload state ────────────────────────────────────────
-  const [isImageUploading, setIsImageUploading] = useState(false);
+  const [errors, setErrors]                   = useState({});
+  const [isSaving, setIsSaving]               = useState(false);
+  const [submitErr, setSubmitErr]             = useState(null);
+  const [isImageUploading, setIsImageUploading]       = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
-  const [imageUploadError, setImageUploadError] = useState(null);
+  const [imageUploadError, setImageUploadError]       = useState(null);
   const imageInputRef = useRef(null);
 
   // Seed form from branch on open
@@ -174,17 +466,18 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     if (!isOpen || !branch) return;
     setForm({
       marketplace_enabled: branch.marketplace_enabled ?? false,
-      shop_image_url: branch.shop_image_url ?? null,
-      latitude: branch.latitude ?? null,
-      longitude: branch.longitude ?? null,
-      google_place_id: branch.google_place_id ?? null,
-      formatted_address: branch.formatted_address ?? null,
-      opening_time: branch.opening_time ?? null,
-      closing_time: branch.closing_time ?? null,
-      is_24_hours: branch.is_24_hours ?? false,
-      pickup_enabled: branch.pickup_enabled ?? false,
-      delivery_enabled: branch.delivery_enabled ?? false,
-      contact_override: branch.contact_override ?? "",
+      shop_image_url:      branch.shop_image_url      ?? null,
+      latitude:            branch.latitude             ?? null,
+      longitude:           branch.longitude            ?? null,
+      google_place_id:     branch.google_place_id      ?? null,
+      formatted_address:   branch.formatted_address    ?? null,
+      opening_time:        branch.opening_time         ?? null,
+      closing_time:        branch.closing_time         ?? null,
+      is_24_hours:         branch.is_24_hours          ?? false,
+      open_days:           branch.open_days            ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'],
+      pickup_enabled:      branch.pickup_enabled       ?? false,
+      delivery_enabled:    branch.delivery_enabled     ?? false,
+      contact_override:    branch.contact_override     ?? "",
     });
     setErrors({});
     setSubmitErr(null);
@@ -194,19 +487,17 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
   // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
   const patch = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     const errorKeyMap = {
-      pickup_enabled: ["fulfillment"],
+      pickup_enabled:   ["fulfillment"],
       delivery_enabled: ["fulfillment"],
-      opening_time: ["opening_time"],
-      closing_time: ["closing_time"],
-      is_24_hours: ["opening_time", "closing_time"],
+      opening_time:     ["opening_time"],
+      closing_time:     ["closing_time"],
+      is_24_hours:      ["opening_time", "closing_time"],
       contact_override: ["contact_override"],
     };
     const keys = errorKeyMap[key] ?? [key];
@@ -219,7 +510,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     }
   };
 
-  // ── Image upload handler ──────────────────────────────────────
   const handleImageUpload = async (file) => {
     if (!file) return;
     setIsImageUploading(true);
@@ -244,55 +534,42 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     }
   };
 
-  // Location change from LocationPicker search
   const handleLocationChange = (locationData) => {
     setForm((prev) => ({
       ...prev,
-      latitude: locationData.latitude ?? null,
-      longitude: locationData.longitude ?? null,
-      google_place_id: locationData.google_place_id ?? null,
+      latitude:          locationData.latitude          ?? null,
+      longitude:         locationData.longitude         ?? null,
+      google_place_id:   locationData.google_place_id   ?? null,
       formatted_address: locationData.formatted_address ?? null,
     }));
     if (errors.location) {
-      setErrors((prev) => {
-        const n = { ...prev };
-        delete n.location;
-        return n;
-      });
+      setErrors((prev) => { const n = { ...prev }; delete n.location; return n; });
     }
   };
 
-  // Location update from map pin drag
   const handleLocationUpdate = (_branchId, locationData) => {
     setForm((prev) => ({
       ...prev,
-      latitude: locationData.latitude,
-      longitude: locationData.longitude,
+      latitude:          locationData.latitude,
+      longitude:         locationData.longitude,
       formatted_address: locationData.formatted_address,
     }));
   };
 
-  // Build the branch list the map needs
   const mapBranches = useMemo(() => {
     if (!isSuperAdmin || !form.latitude || !form.longitude) return [];
     return [
       {
-        branch_id: branch?.branch_id ?? "editing",
-        branch_name: branch?.branch_name ?? "Branch",
-        latitude: form.latitude,
-        longitude: form.longitude,
+        branch_id:         branch?.branch_id     ?? "editing",
+        branch_name:       branch?.branch_name   ?? "Branch",
+        latitude:          form.latitude,
+        longitude:         form.longitude,
         formatted_address: form.formatted_address,
-        isPersisted: branch?.is_configured ?? false,
-        isActive: true,
+        isPersisted:       branch?.is_configured ?? false,
+        isActive:          true,
       },
     ];
-  }, [
-    isSuperAdmin,
-    form.latitude,
-    form.longitude,
-    form.formatted_address,
-    branch,
-  ]);
+  }, [isSuperAdmin, form.latitude, form.longitude, form.formatted_address, branch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -307,17 +584,18 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     setIsSaving(true);
     const payload = {
       marketplace_enabled: form.marketplace_enabled,
-      shop_image_url: form.shop_image_url,
-      latitude: form.latitude,
-      longitude: form.longitude,
-      google_place_id: form.google_place_id,
-      formatted_address: form.formatted_address,
-      opening_time: form.is_24_hours ? null : form.opening_time,
-      closing_time: form.is_24_hours ? null : form.closing_time,
-      is_24_hours: form.is_24_hours,
-      pickup_enabled: form.pickup_enabled,
-      delivery_enabled: form.delivery_enabled,
-      contact_override: form.contact_override?.trim(),
+      shop_image_url:      form.shop_image_url,
+      latitude:            form.latitude,
+      longitude:           form.longitude,
+      google_place_id:     form.google_place_id,
+      formatted_address:   form.formatted_address,
+      opening_time:        form.is_24_hours ? null : form.opening_time,
+      closing_time:        form.is_24_hours ? null : form.closing_time,
+      is_24_hours:         form.is_24_hours,
+      open_days:           form.open_days,
+      pickup_enabled:      form.pickup_enabled,
+      delivery_enabled:    form.delivery_enabled,
+      contact_override:    form.contact_override?.trim(),
     };
 
     const result = await onSave(branch.branch_id, payload);
@@ -416,7 +694,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                       {/* ── Branch Image ─────────────────────── */}
                       <Section title="Branch Image">
                         <div className="flex items-start gap-3">
-                          {/* Preview / upload zone */}
                           <div
                             className={`
                               relative w-24 h-24 rounded-xl border-2 border-dashed
@@ -428,7 +705,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               }
                             `}
                           >
-                            {/* Existing image */}
                             {form.shop_image_url && !isImageUploading && (
                               <>
                                 <img
@@ -436,7 +712,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                   alt="Branch"
                                   className="absolute inset-0 w-full h-full object-cover"
                                 />
-                                {/* Hover overlay — re-upload */}
                                 <button
                                   type="button"
                                   onClick={() => imageInputRef.current?.click()}
@@ -446,7 +721,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                 >
                                   <ImageIcon size={14} className="text-white/70" />
                                 </button>
-                                {/* Clear button */}
                                 <button
                                   type="button"
                                   onClick={() => patch("shop_image_url", null)}
@@ -459,16 +733,12 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               </>
                             )}
 
-                            {/* Upload progress */}
                             {isImageUploading && (
                               <div
                                 className="absolute inset-0 bg-black/60 flex flex-col
                                   items-center justify-center gap-1.5 z-20"
                               >
-                                <Loader2
-                                  size={14}
-                                  className="text-white/60 animate-spin"
-                                />
+                                <Loader2 size={14} className="text-white/60 animate-spin" />
                                 <div className="w-14 h-1 rounded-full bg-white/10 overflow-hidden">
                                   <div
                                     className="h-full bg-white/40 rounded-full transition-all duration-300"
@@ -481,7 +751,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               </div>
                             )}
 
-                            {/* Empty state */}
                             {!form.shop_image_url && !isImageUploading && (
                               <button
                                 type="button"
@@ -508,7 +777,6 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             />
                           </div>
 
-                          {/* Right-side hints */}
                           <div className="flex-1 pt-1 space-y-1">
                             <p className="text-[11px] text-white/30 leading-relaxed">
                               Shown on your branch's marketplace page. Helps
@@ -532,10 +800,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                           <div className="space-y-3">
                             <LocationPicker
                               value={{
-                                google_place_id: form.google_place_id,
+                                google_place_id:   form.google_place_id,
                                 formatted_address: form.formatted_address,
-                                latitude: form.latitude,
-                                longitude: form.longitude,
+                                latitude:          form.latitude,
+                                longitude:         form.longitude,
                               }}
                               onChange={handleLocationChange}
                               disabled={false}
@@ -563,10 +831,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                         ) : (
                           <div className="px-3 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                             <div className="flex items-start gap-2">
-                              <Lock
-                                size={12}
-                                className="text-white/20 mt-0.5 flex-shrink-0"
-                              />
+                              <Lock size={12} className="text-white/20 mt-0.5 flex-shrink-0" />
                               <div className="min-w-0">
                                 <p className="text-[10px] text-white/25 font-medium mb-1">
                                   Location (super admin only)
@@ -584,8 +849,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                   </div>
                                 ) : (
                                   <p className="text-xs text-amber-400/60">
-                                    Location not configured — contact your super
-                                    admin
+                                    Location not configured — contact your super admin
                                   </p>
                                 )}
                               </div>
@@ -630,6 +894,19 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             onChange={(v) => patch("is_24_hours", v)}
                           />
 
+                          {/* Open days — always shown */}
+                          <div className="space-y-2 mt-1">
+                            <div className="px-3.5 py-3 rounded-xl border bg-white/[0.02] border-white/[0.04]">
+                              <p className="text-[10px] text-white/25 font-medium mb-2">
+                                Open days
+                              </p>
+                              <DaySelector
+                                value={form.open_days}
+                                onChange={(days) => patch('open_days', days)}
+                              />
+                            </div>
+                          </div>
+
                           <AnimatePresence initial={false}>
                             {!form.is_24_hours && (
                               <motion.div
@@ -651,8 +928,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                     />
                                     {errors.opening_time && (
                                       <p className="text-[11px] text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={10} />{" "}
-                                        {errors.opening_time}
+                                        <AlertCircle size={10} /> {errors.opening_time}
                                       </p>
                                     )}
                                   </div>
@@ -667,8 +943,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                     />
                                     {errors.closing_time && (
                                       <p className="text-[11px] text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={10} />{" "}
-                                        {errors.closing_time}
+                                        <AlertCircle size={10} /> {errors.closing_time}
                                       </p>
                                     )}
                                   </div>
@@ -689,9 +964,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             <input
                               type="tel"
                               value={form.contact_override}
-                              onChange={(e) =>
-                                patch("contact_override", e.target.value)
-                              }
+                              onChange={(e) => patch("contact_override", e.target.value)}
                               placeholder="e.g. +91 98765 43210"
                               maxLength={15}
                               className={`
@@ -708,16 +981,19 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                           </div>
                           {errors.contact_override ? (
                             <p className="text-[11px] text-red-400 flex items-center gap-1">
-                              <AlertCircle size={10} />{" "}
-                              {errors.contact_override}
+                              <AlertCircle size={10} /> {errors.contact_override}
                             </p>
                           ) : (
                             <p className="text-[10px] text-white/15">
-                              Required — customers will use this number to reach
-                              the branch
+                              Required — customers will use this number to reach the branch
                             </p>
                           )}
                         </div>
+                      </Section>
+
+                      {/* ── Holidays ──────────────────────────── */}
+                      <Section title="Closed Days / Holidays">
+                        <HolidaySection branchId={branch?.branch_id} />
                       </Section>
                     </motion.div>
                   )}
@@ -726,10 +1002,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                 {/* Submit error */}
                 {submitErr && (
                   <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/[0.08] border border-red-500/20">
-                    <AlertCircle
-                      size={13}
-                      className="text-red-400 flex-shrink-0 mt-0.5"
-                    />
+                    <AlertCircle size={13} className="text-red-400 flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-red-400">{submitErr}</p>
                   </div>
                 )}
@@ -752,13 +1025,9 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                   className="flex items-center gap-2 px-5 py-2 rounded-xl bg-white text-[#010015] text-sm font-semibold hover:bg-white/90 transition-all disabled:opacity-40"
                 >
                   {isSaving ? (
-                    <>
-                      <Loader2 size={13} className="animate-spin" /> Saving...
-                    </>
+                    <><Loader2 size={13} className="animate-spin" /> Saving...</>
                   ) : (
-                    <>
-                      <Check size={13} /> Save Changes
-                    </>
+                    <><Check size={13} /> Save Changes</>
                   )}
                 </button>
               </div>

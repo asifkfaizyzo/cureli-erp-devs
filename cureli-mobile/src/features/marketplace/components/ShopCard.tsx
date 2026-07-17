@@ -1,22 +1,13 @@
 // src/features/marketplace/components/ShopCard.tsx
-//
-// Shop card used in the Shops tab of the search screen.
-//
-// PHASE 4 CHANGE: updated to use real ShopSearchResult type instead
-// of DummyShop. Fields that have no real data are handled gracefully:
-//   - rating: null → shows "No rating yet"
-//   - deliveryTimeEstimate: null → hidden (not shown in UI)
-//   - category: replaced by Pickup / Delivery capability pills
-//
-// DummyShop is no longer imported. dummyShops.ts is deleted.
 
 import React, { memo } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
+import { RemoteImage } from "../../../components/RemoteImage";
 import type { ShopSearchResult } from "../../../types/shop";
 
 interface ShopCardProps {
@@ -40,28 +31,27 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         },
       ]}
     >
-      {/* ── Top row: icon + name + open badge ── */}
+      {/* ── Top row: logo + name + open badge ── */}
       <View style={styles.topRow}>
-        {shop.logoUrl ? (
-          <Image
-            source={{ uri: shop.logoUrl }}
-            style={[styles.logoCircle, { borderColor: colors.border.subtle }]}
-            resizeMode="contain"
-          />
-        ) : (
-          <View
-            style={[
-              styles.iconCircle,
-              { backgroundColor: colors.background.tint },
-            ]}
-          >
-            <Ionicons
-              name="storefront-outline"
-              size={22}
-              color={colors.text.brand}
-            />
-          </View>
-        )}
+        {/*
+          Shop logo — mode="shop" so storefront icon is the fallback.
+          Semantically correct for a shop card.
+        */}
+        <RemoteImage
+          uri={shop.logoUrl ?? null}
+          style={[
+            styles.logoCircle,
+            {
+              backgroundColor: colors.background.tint,
+              borderColor: colors.border.subtle,
+            },
+          ]}
+          resizeMode="contain"
+          mode="shop"
+          fallbackIcon="storefront-outline"
+          fallbackIconSize={22}
+          fallbackIconColor={colors.text.brand}
+        />
 
         <View style={styles.nameBlock}>
           <Text
@@ -70,8 +60,6 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           >
             {shop.name}
           </Text>
-
-          {/* Medicine count line */}
           <Text
             style={[styles.medicineCount, { color: colors.text.muted }]}
             numberOfLines={1}
@@ -82,7 +70,6 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           </Text>
         </View>
 
-        {/* Open / Closed badge — driven by branch isOpen */}
         {branch ? (
           <View
             style={[
@@ -98,9 +85,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
             <View
               style={[
                 styles.dot,
-                {
-                  backgroundColor: branch.isOpen ? "#22C55E" : "#9E9E9E",
-                },
+                { backgroundColor: branch.isOpen ? "#22C55E" : "#9E9E9E" },
               ]}
             />
             <Text
@@ -117,7 +102,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         ) : null}
       </View>
 
-      {/* ── Description (tagline equivalent) ── */}
+      {/* ── Description ── */}
       {shop.description ? (
         <Text
           style={[styles.description, { color: colors.text.secondary }]}
@@ -127,7 +112,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         </Text>
       ) : null}
 
-      {/* ── Capability pills: Pickup / Delivery ── */}
+      {/* ── Capability pills ── */}
       {branch ? (
         <View style={styles.pillRow}>
           {branch.pickupEnabled ? (
@@ -140,11 +125,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
                 },
               ]}
             >
-              <Ionicons
-                name="bag-handle-outline"
-                size={11}
-                color={colors.text.brand}
-              />
+              <Ionicons name="bag-handle-outline" size={11} color={colors.text.brand} />
               <Text style={[styles.pillText, { color: colors.text.brand }]}>
                 Pickup
               </Text>
@@ -161,11 +142,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
                 },
               ]}
             >
-              <Ionicons
-                name="bicycle-outline"
-                size={11}
-                color={colors.text.brand}
-              />
+              <Ionicons name="bicycle-outline" size={11} color={colors.text.brand} />
               <Text style={[styles.pillText, { color: colors.text.brand }]}>
                 Delivery
               </Text>
@@ -176,14 +153,9 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
 
       {/* ── Bottom row: address + distance + rating + CTA ── */}
       <View style={styles.bottomRow}>
-        {/* Address */}
         {branch?.address ? (
           <View style={styles.metaItem}>
-            <Ionicons
-              name="location-outline"
-              size={13}
-              color={colors.text.muted}
-            />
+            <Ionicons name="location-outline" size={13} color={colors.text.muted} />
             <Text
               style={[styles.metaText, { color: colors.text.muted }]}
               numberOfLines={1}
@@ -193,21 +165,15 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           </View>
         ) : null}
 
-        {/* Distance — only shown when distanceKm is available */}
         {branch?.distanceKm != null ? (
           <View style={styles.metaItem}>
-            <Ionicons
-              name="navigate-outline"
-              size={13}
-              color={colors.text.muted}
-            />
+            <Ionicons name="navigate-outline" size={13} color={colors.text.muted} />
             <Text style={[styles.metaText, { color: colors.text.muted }]}>
               {branch.distanceKm} km
             </Text>
           </View>
         ) : null}
 
-        {/* Rating — always shown, "No rating yet" when null */}
         <View style={styles.metaItem}>
           <Ionicons
             name="star"
@@ -218,8 +184,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
             style={[
               styles.metaText,
               {
-                color:
-                  shop.rating != null ? colors.text.muted : colors.text.faint,
+                color: shop.rating != null ? colors.text.muted : colors.text.faint,
               },
             ]}
           >
@@ -227,7 +192,6 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
           </Text>
         </View>
 
-        {/* View Shop CTA */}
         <TouchableOpacity
           onPress={() => onPress(shop)}
           activeOpacity={0.8}
@@ -256,12 +220,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  iconCircle: {
+  // RemoteImage fills this container
+  logoCircle: {
     width: 44,
     height: 44,
     borderRadius: Radius.full,
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    overflow: "hidden",
     flexShrink: 0,
   },
   nameBlock: {
@@ -332,13 +297,6 @@ const styles = StyleSheet.create({
   metaText: {
     ...Typography.small,
     flexShrink: 1,
-  },
-  logoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    backgroundColor: "#FFFFFF",
   },
   cta: {
     marginLeft: "auto",

@@ -1,14 +1,11 @@
 // src/features/orders/components/OrderHistoryCard.tsx
-// Changes:
-//   - Removed onDelete prop and its usage
-//   - rejection_reason now uses getRejectionLabel helper
-//   - onReorder navigates to order detail (reorder handled there)
 
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../../../theme/ThemeContext";
+import { RemoteImage } from "../../../components/RemoteImage";
 import {
   getStatusLabel,
   getStatusColorKey,
@@ -21,7 +18,6 @@ import type { MobileOrderSummary, MobileOrderItem } from "../../../types/order";
 
 const MAX_VISIBLE_ITEMS = 3;
 
-// onDelete removed — no backend endpoint exists for hiding orders
 interface OrderHistoryCardProps {
   order: MobileOrderSummary;
   onOpen: () => void;
@@ -63,7 +59,13 @@ function ItemRow({
         },
       ]}
     >
-      <View
+      {/*
+        Medicine thumbnail.
+        mode="medicine" → branded placeholder bottle image.
+        Transparent PNG edges show background.elevated, not the placeholder.
+      */}
+      <RemoteImage
+        uri={item.image_url ?? null}
         style={[
           styles.itemThumb,
           {
@@ -71,21 +73,9 @@ function ItemRow({
             borderColor: colors.border.subtle,
           },
         ]}
-      >
-        {item.image_url ? (
-          <Image
-            source={{ uri: item.image_url }}
-            style={styles.itemThumbImage}
-            resizeMode="contain"
-          />
-        ) : (
-          <Ionicons
-            name="medkit-outline"
-            size={20}
-            color={colors.text.disabled}
-          />
-        )}
-      </View>
+        resizeMode="contain"
+        mode="medicine"
+      />
 
       <View style={styles.itemDetails}>
         <Text
@@ -238,7 +228,7 @@ export function OrderHistoryCard({
         )}
       </View>
 
-      {/* Rejection reason — human-readable label */}
+      {/* Rejection reason */}
       {order.status === "REJECTED" && order.rejection_reason ? (
         <>
           <View
@@ -325,7 +315,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     overflow: "hidden",
   },
-
   topBar: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -348,9 +337,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12 },
   dateText: { fontSize: 11 },
   totalAmount: { fontSize: 17 },
-
   divider: { height: 1 },
-
   itemList: { paddingHorizontal: 14, paddingVertical: 4 },
   itemRow: {
     flexDirection: "row",
@@ -358,24 +345,21 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 10,
   },
+  // RemoteImage receives this as its style prop — controls size/shape
   itemThumb: {
     width: 44,
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
     overflow: "hidden",
+    flexShrink: 0,
   },
-  itemThumbImage: { width: 38, height: 38 },
   itemDetails: { flex: 1, gap: 3 },
   itemName: { fontSize: 13, lineHeight: 18 },
   itemSub: { fontSize: 11 },
   itemPriceCol: { alignItems: "flex-end", gap: 2, flexShrink: 0 },
   itemPrice: { fontSize: 13 },
   itemQty: { fontSize: 11 },
-
   moreRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -384,7 +368,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   moreText: { fontSize: 12 },
-
   rejectionBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -393,7 +376,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   rejectionText: { fontSize: 12, flex: 1 },
-
   footer: {
     flexDirection: "row",
     alignItems: "center",

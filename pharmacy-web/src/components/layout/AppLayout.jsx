@@ -1,4 +1,5 @@
-// src/components/layout/AppLayout.jsx
+// pharmacy-web/src/components/layout/AppLayout.jsx
+
 
 import React, { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +12,10 @@ import { useMenuStore } from "../../store/useMenuStore";
 import { useSubscriptionStore } from "../../store/useSubscriptionStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useAppMode } from "../../store/useAppModeStore";
+
+// ── NEW ───────────────────────────────────────────────────────────────────────
+import NewOrderBanner from "../common/NewOrderBanner";
+// ─────────────────────────────────────────────────────────────────────────────
 
 const NON_SIDEBAR_ROUTES = {
   "/erp/notifications": {
@@ -27,7 +32,6 @@ const NON_SIDEBAR_ROUTES = {
   },
 };
 
-// ─── Page content transition (within same mode) ─────────────────
 const pageVariants = {
   initial: { opacity: 0, x: 60 },
   animate: {
@@ -42,7 +46,6 @@ const pageVariants = {
   },
 };
 
-// ─── Mode switch overlay (cross-fade between ERP ↔ Marketplace) ─
 const modeOverlayVariants = {
   initial: { opacity: 1 },
   animate: { opacity: 0, transition: { duration: 0.5, ease: "easeOut" } },
@@ -53,11 +56,9 @@ const AppLayout = () => {
   const location = useLocation();
   const { isMarketplace } = useAppMode();
 
-  // Track previous mode to detect actual mode switches
   const prevModeRef = useRef(isMarketplace);
   const isModeSwitch = prevModeRef.current !== isMarketplace;
 
-  // Update ref after render — we need the stale value during this render
   useEffect(() => {
     prevModeRef.current = isMarketplace;
   });
@@ -67,7 +68,7 @@ const AppLayout = () => {
     (s) => s.loadSubscriptionStatus,
   );
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
-  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
+  const setActiveMenu  = useMenuStore((s) => s.setActiveMenu);
 
   useEffect(() => {
     if (user?.role === "super_admin") {
@@ -88,18 +89,13 @@ const AppLayout = () => {
   return (
     <motion.div
       data-theme={isMarketplace ? "marketplace" : "erp"}
-      // Animate the background color on mode switch
       animate={{
         backgroundColor: isMarketplace ? "#010015" : "#f9fafb",
       }}
       transition={{ duration: 0.4, ease: "easeInOut" }}
       className="group h-screen w-full flex overflow-hidden"
     >
-      {/* ── Mode switch flash overlay ──────────────────────────────
-          Renders a full-screen cover that immediately appears opaque
-          on mode switch then fades out — hides the jarring mid-state
-          where old sidebar content is visible against new background.
-      ─────────────────────────────────────────────────────────── */}
+      {/* ── Mode switch flash overlay ────────────────────────────────────── */}
       <AnimatePresence>
         {isModeSwitch && (
           <motion.div
@@ -121,8 +117,14 @@ const AppLayout = () => {
       <div className="flex-1 flex flex-col overflow-hidden w-full">
         <TopHeader />
 
+        {/* ── NEW: Persistent order alert banner ────────────────────────────
+            Renders as a fixed overlay below the header.
+            Visible on all routes except /marketplace/orders.
+            Handles its own visibility logic internally.
+        ──────────────────────────────────────────────────────────────────── */}
+        <NewOrderBanner />
+
         <motion.main
-          // Animate main content area background too
           animate={{
             backgroundColor: isMarketplace ? "#010015" : "transparent",
           }}

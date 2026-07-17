@@ -1,20 +1,6 @@
 // src/features/marketplace/components/shop/MedicineRow.tsx
-//
-// Horizontal medicine card used inside the shop profile medicine list.
-//
-// ADD button design:
-//   - quantity === 0 → plain "ADD" button (outlined, brand color)
-//   - quantity  > 0 → inline stepper:  [ − ]  { count }  [ + ]
-//     The stepper replaces the ADD button entirely.
-//     Tapping − at quantity 1 removes the item from cart (goes back to ADD).
-//
-// listingPrice: real price from MarketplaceListing (set by the shop).
-//   - Non-null → label "Price", real value shown
-//   - Null     → label "Approx.", fake generateMarketplaceData value shown
-//
-// Tapping the card body navigates to the product detail screen.
 
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -33,6 +19,7 @@ import { router } from "expo-router";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
+import { getPlaceholder } from "../../../../utils/placeholderImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 import type { EnrichedBranchMedicine } from "../../hooks/useShopMedicines";
 
@@ -43,6 +30,7 @@ interface MedicineRowProps {
   onIncrement: (item: EnrichedBranchMedicine) => void;
   onDecrement: (item: EnrichedBranchMedicine) => void;
   colors: ReturnType<typeof useTheme>["colors"];
+  isDark: boolean;
 }
 
 export function MedicineRow({
@@ -52,8 +40,13 @@ export function MedicineRow({
   onIncrement,
   onDecrement,
   colors,
+  isDark,
 }: MedicineRowProps) {
   const scale = useSharedValue(1);
+  const placeholder = getPlaceholder(isDark);
+
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -71,21 +64,21 @@ export function MedicineRow({
     router.push(`/product/${item.skuId}` as any);
   }, [item.skuId]);
 
-  const handleAdd = useCallback(() => {
-    onAdd(item);
-  }, [onAdd, item]);
-
-  const handleIncrement = useCallback(() => {
-    onIncrement(item);
-  }, [onIncrement, item]);
-
-  const handleDecrement = useCallback(() => {
-    onDecrement(item);
-  }, [onDecrement, item]);
+  const handleAdd = useCallback(() => onAdd(item), [onAdd, item]);
+  const handleIncrement = useCallback(
+    () => onIncrement(item),
+    [onIncrement, item],
+  );
+  const handleDecrement = useCallback(
+    () => onDecrement(item),
+    [onDecrement, item],
+  );
 
   const displayPrice = item.listingPrice ?? item.marketplace.startsAt;
   const hasRealPrice = item.listingPrice != null;
   const inCart = cartQuantity > 0;
+
+  const showRealImage = !!item.image && imageReady && !imageError;
 
   return (
     <Animated.View style={animStyle}>
@@ -111,24 +104,31 @@ export function MedicineRow({
             },
           ]}
         >
-          {item.image ? (
+          {/* Placeholder always underneath */}
+          <Image
+            source={placeholder}
+            style={styles.image}
+            resizeMode="contain"
+          />
+
+          {/* Real image on top, fades in after load */}
+          {item.image && !imageError ? (
             <Image
               source={{ uri: item.image }}
-              style={styles.image}
+              style={[
+                styles.image,
+                styles.realImageOverlay,
+                { opacity: showRealImage ? 1 : 0 },
+              ]}
               resizeMode="contain"
+              onLoad={() => setImageReady(true)}
+              onError={() => setImageError(true)}
             />
-          ) : (
-            <Ionicons
-              name="medical-outline"
-              size={26}
-              color={colors.text.brand}
-            />
-          )}
+          ) : null}
         </View>
 
         {/* ── Details ── */}
         <View style={styles.details}>
-          {/* Name + Rx badge */}
           <View style={styles.nameRow}>
             <Text
               style={[styles.name, { color: colors.text.primary }]}
@@ -173,9 +173,7 @@ export function MedicineRow({
             </Text>
           ) : null}
 
-          {/* ── Price + Action row ── */}
           <View style={styles.bottom}>
-            {/* Price block */}
             <View>
               <Text
                 style={[styles.priceLabel, { color: colors.text.faint }]}
@@ -187,16 +185,10 @@ export function MedicineRow({
               </Text>
             </View>
 
-            {/* ── ADD  /  Stepper ── */}
             {inCart ? (
-              // ── Quantity stepper ─────────────────────────────
               <View
-                style={[
-                  styles.stepper,
-                  { borderColor: colors.brand.primary },
-                ]}
+                style={[styles.stepper, { borderColor: colors.brand.primary }]}
               >
-                {/* Decrement */}
                 <TouchableOpacity
                   onPress={handleDecrement}
                   activeOpacity={0.7}
@@ -214,7 +206,6 @@ export function MedicineRow({
                   />
                 </TouchableOpacity>
 
-                {/* Count */}
                 <Text
                   style={[
                     styles.stepperCount,
@@ -224,7 +215,6 @@ export function MedicineRow({
                   {cartQuantity}
                 </Text>
 
-                {/* Increment */}
                 <TouchableOpacity
                   onPress={handleIncrement}
                   activeOpacity={0.7}
@@ -243,7 +233,6 @@ export function MedicineRow({
                 </TouchableOpacity>
               </View>
             ) : (
-              // ── Plain ADD button ──────────────────────────────
               <TouchableOpacity
                 onPress={handleAdd}
                 activeOpacity={0.8}
@@ -279,7 +268,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     gap: Spacing.md,
-    // backgroundColor + borderColor set inline
   },
   imageWrap: {
     width: 72,
@@ -290,11 +278,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
     overflow: "hidden",
-    // backgroundColor + borderColor set inline
   },
   image: {
     width: "100%",
     height: "100%",
+  },
+  realImageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   details: {
     flex: 1,
@@ -310,7 +302,6 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     flex: 1,
     lineHeight: 20,
-    // color set inline
   },
   rxBadge: {
     paddingHorizontal: 6,
@@ -319,20 +310,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 2,
     flexShrink: 0,
-    // backgroundColor + borderColor set inline
   },
   rxText: {
     ...Typography.smallBold,
     fontSize: 10,
-    // color set inline
   },
   mfr: {
     ...Typography.caption,
-    // color set inline
   },
   pack: {
     ...Typography.caption,
-    // color set inline
   },
   bottom: {
     flexDirection: "row",
@@ -343,14 +330,10 @@ const styles = StyleSheet.create({
   priceLabel: {
     ...Typography.caption,
     fontSize: 10,
-    // color set inline
   },
   price: {
     ...Typography.h4,
-    // color set inline
   },
-
-  // ── Plain ADD button (quantity === 0) ──────────────────────
   addBtn: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xs,
@@ -359,15 +342,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     minWidth: 64,
-    // backgroundColor + borderColor set inline
   },
   addBtnText: {
     ...Typography.smallMedium,
     letterSpacing: 0.8,
-    // color set inline
   },
-
-  // ── Quantity stepper (quantity > 0) ────────────────────────
   stepper: {
     flexDirection: "row",
     alignItems: "center",
@@ -375,20 +354,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     overflow: "hidden",
     minWidth: 96,
-    // borderColor set inline
   },
   stepperBtn: {
     width: 30,
     height: 30,
     alignItems: "center",
     justifyContent: "center",
-    // backgroundColor set inline
   },
   stepperCount: {
     flex: 1,
     textAlign: "center",
     ...Typography.bodyMedium,
     fontSize: 14,
-    // color set inline
   },
 });

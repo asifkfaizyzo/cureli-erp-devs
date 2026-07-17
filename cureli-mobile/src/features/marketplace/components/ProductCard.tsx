@@ -1,31 +1,9 @@
 // src/features/marketplace/components/ProductCard.tsx
-//
-// Product card used in horizontal home rails and vertical category grid.
-//
-// PHASE 4 CHANGE: ADD button now navigates to the product detail page
-// instead of adding directly to cart. This is intentional — the cart
-// now requires pharmacy context (shopId, branchId) which is not available
-// from the home feed or category screen. The user must select a pharmacy
-// on the detail page before adding to cart.
-//
-// The ADD button visual is preserved so the card looks identical to before.
-// Tapping it routes to /product/:skuId — same destination as tapping the
-// card body. The distinction will become meaningful in Phase 5 when the
-// detail page has a pharmacy selector and a real Add to Cart flow.
-//
-// cartItem / quantityInCart are removed — cart state is no longer
-// reflected on this card since items can only be added via the detail page.
-//
-// DARK MODE FIX: previously used hardcoded "#ffffff" for the image
-// container background and the ADD button background. Both are now
-// driven by theme tokens (colors.background.card) so the card renders
-// correctly in dark mode.
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
-  Image,
   Pressable,
   TouchableOpacity,
   StyleSheet,
@@ -35,17 +13,18 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
+import { getPlaceholder } from "../../../utils/placeholderImage";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
 const CARD_HEIGHT = 200;
 const IMAGE_HEIGHT = 120;
+const REAL_IMAGE_SCALE = 1.16;
 
 interface ProductCardProps {
   medicine: EnrichedMedicine;
@@ -64,11 +43,27 @@ function compositionSummary(med: EnrichedMedicine): string {
 }
 
 function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const scale = useSharedValue(1);
+  const imageOpacity = useSharedValue(0);
+  const placeholder = getPlaceholder(isDark);
+
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Reset whenever the source image changes
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+    imageOpacity.value = 0;
+  }, [medicine.image]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  const realImageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
   }));
 
   const handlePressIn = useCallback(() => {
@@ -83,12 +78,21 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
     onPress(medicine);
   }, [onPress, medicine]);
 
-  // ADD button navigates to detail page — pharmacy selection happens there.
-  // Does NOT add to cart directly. cartStore.addItem requires pharmacy
-  // context that is not available from the feed/category context.
   const handleAdd = useCallback(() => {
     router.push(`/product/${medicine.skuId}` as any);
   }, [medicine.skuId]);
+
+  const handleLoad = useCallback(() => {
+    setImageReady(true);
+    imageOpacity.value = withTiming(1, { duration: 180 });
+  }, [imageOpacity]);
+
+  const handleError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  // Placeholder is shown only while image hasn't loaded or errored
+  const showPlaceholder = !imageReady || imageError;
 
   return (
     <Animated.View style={[animatedStyle, { width }]}>
@@ -117,28 +121,38 @@ function ProductCardBase({ medicine, width, onPress }: ProductCardProps) {
             },
           ]}
         >
-          {medicine.image ? (
-            <Image
-              source={{ uri: medicine.image }}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          ) : (
-            <View
-              style={[
-                styles.imagePlaceholder,
-                { backgroundColor: colors.background.tint },
-              ]}
-            >
-              <Ionicons
-                name="medical-outline"
-                size={32}
-                color={colors.text.brand}
+          {/*
+            Inner frame clips the zoomed real image.
+            Background here is what shows through transparent PNG edges.
+          */}
+          <View
+            style={[
+              styles.imageFrame,
+              { backgroundColor: colors.background.card },
+            ]}
+          >
+            {/* Placeholder: only while real image is loading or errored */}
+            {showPlaceholder ? (
+              <Animated.Image
+                source={placeholder}
+                style={styles.placeholderImage}
+                resizeMode="contain"
               />
-            </View>
-          )}
+            ) : null}
 
-          {/* ── Floating ADD button — navigates to detail page ── */}
+            {/* Real image: loads invisibly, fades in, placeholder unmounts */}
+            {medicine.image && !imageError ? (
+              <Animated.Image
+                source={{ uri: medicine.image }}
+                style={[styles.realImage, realImageAnimatedStyle]}
+                resizeMode="contain"
+                onLoad={handleLoad}
+                onError={handleError}
+              />
+            ) : null}
+          </View>
+
+          {/* ── Floating ADD button ── */}
           <TouchableOpacity
             onPress={handleAdd}
             activeOpacity={0.8}
@@ -199,20 +213,30 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: "visible",
+    position: "relative",
+  },
+  // Inner clipping frame — overflow hidden clips the zoomed real image
+  // backgroundColor set inline so transparent PNG edges show card color
+  imageFrame: {
+    width: "100%",
+    height: "100%",
+    borderRadius: Radius.lg,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "flex-end",
     position: "relative",
   },
-  image: {
+  placeholderImage: {
     width: "80%",
     height: "100%",
   },
-  imagePlaceholder: {
+  realImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
     width: "100%",
     height: "100%",
-    borderRadius: Radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
+    transform: [{ scale: REAL_IMAGE_SCALE }],
   },
   addButton: {
     position: "absolute",

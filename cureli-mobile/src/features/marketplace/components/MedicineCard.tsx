@@ -1,20 +1,7 @@
 // src/features/marketplace/components/MedicineCard.tsx
-//
-// THE core marketplace listing card. This component carries the "real
-// marketplace" feel, so its details are deliberate.
-//
-// Layout:
-//   LEFT  — clean white image container; branded placeholder when no image.
-//   RIGHT — name (max 2 lines) + Rx badge, composition/manufacturer,
-//           the CRITICAL "Available at N nearby pharmacies" line,
-//           and a bottom row: "Starts at ₹X"  •  "ETA mins • distance km".
-//
-// Receives an EnrichedMedicine (real catalog data + deterministic fake
-// marketplace data) — see useMedicineFeed. Purely presentational + memoized.
-// Subtle Reanimated scale-on-press; no other animation.
 
-import React, { useCallback } from "react";
-import { View, Text, Image, Pressable, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -25,6 +12,7 @@ import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
+import { getPlaceholder } from "../../../utils/placeholderImage";
 import type { EnrichedMedicine } from "../types/marketplace.types";
 
 interface MedicineCardProps {
@@ -32,23 +20,37 @@ interface MedicineCardProps {
   onPress: (medicine: EnrichedMedicine) => void;
 }
 
-// Build a one-line composition summary from the composition array.
 function compositionSummary(med: EnrichedMedicine): string {
   if (Array.isArray(med.composition) && med.composition.length > 0) {
     return med.composition
       .map((c) => (c.strength ? `${c.name} ${c.strength}` : c.name))
       .join(" + ");
   }
-  // Fall back to strength or generic name if composition is empty.
   return med.strength || med.genericName || "—";
 }
 
 function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const scale = useSharedValue(1);
+  const imageOpacity = useSharedValue(0);
+  const placeholder = getPlaceholder(isDark);
+
+  const [imageReady, setImageReady] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Reset whenever the source image changes
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+    imageOpacity.value = 0;
+  }, [medicine.image]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  const realImageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
   }));
 
   const handlePressIn = useCallback(() => {
@@ -63,6 +65,16 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
     onPress(medicine);
   }, [onPress, medicine]);
 
+  const handleLoad = useCallback(() => {
+    setImageReady(true);
+    imageOpacity.value = withTiming(1, { duration: 180 });
+  }, [imageOpacity]);
+
+  const handleError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  const showPlaceholder = !imageReady || imageError;
   const { marketplace } = medicine;
 
   return (
@@ -81,36 +93,40 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
           },
         ]}
       >
-        {/* LEFT — image / placeholder */}
+        {/* LEFT — image box */}
+        {/*
+          background.elevated is the background that shows through
+          transparent PNG edges — matches the card surface in both themes.
+          light → #ffffff, dark → #2c2c2e
+        */}
         <View
           style={[
             styles.imageBox,
             {
-              backgroundColor: "#ffffff",
+              backgroundColor: colors.background.elevated,
               borderColor: colors.border.subtle,
             },
           ]}
         >
-          {medicine.image ? (
-            <Image
-              source={{ uri: medicine.image }}
+          {/* Placeholder: only while real image is loading or errored */}
+          {showPlaceholder ? (
+            <Animated.Image
+              source={placeholder}
               style={styles.image}
               resizeMode="contain"
             />
-          ) : (
-            <View
-              style={[
-                styles.placeholder,
-                { backgroundColor: colors.background.tint },
-              ]}
-            >
-              <Ionicons
-                name="medical-outline"
-                size={28}
-                color={colors.text.brand}
-              />
-            </View>
-          )}
+          ) : null}
+
+          {/* Real image: loads invisibly, fades in, placeholder unmounts */}
+          {medicine.image && !imageError ? (
+            <Animated.Image
+              source={{ uri: medicine.image }}
+              style={[styles.image, styles.realImageOverlay, realImageAnimatedStyle]}
+              resizeMode="contain"
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          ) : null}
         </View>
 
         {/* RIGHT — details */}
@@ -140,7 +156,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             ) : null}
           </View>
 
-          {/* Composition */}
           <Text
             style={[styles.composition, { color: colors.text.muted }]}
             numberOfLines={1}
@@ -148,7 +163,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             {compositionSummary(medicine)}
           </Text>
 
-          {/* Manufacturer */}
           {medicine.manufacturer ? (
             <Text
               style={[styles.manufacturer, { color: colors.text.faint }]}
@@ -158,7 +172,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             </Text>
           ) : null}
 
-          {/* CRITICAL — nearby pharmacies */}
           <View style={styles.pharmacyRow}>
             <Ionicons
               name="storefront-outline"
@@ -171,7 +184,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             </Text>
           </View>
 
-          {/* Bottom row — price + ETA/distance */}
           <View
             style={[styles.bottomRow, { borderTopColor: colors.border.subtle }]}
           >
@@ -228,7 +240,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
     gap: Spacing.md,
-    // Lightweight shadow (premium, not heavy).
     shadowColor: "#090025",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -248,11 +259,10 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  placeholder: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
+  realImageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   details: {
     flex: 1,
@@ -335,8 +345,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Memoise on medicine identity + handler. The enriched object is stable
-// (memoised in the hook), so this prevents re-renders during scroll.
 export const MedicineCard = React.memo(
   MedicineCardBase,
   (prev: MedicineCardProps, next: MedicineCardProps) =>

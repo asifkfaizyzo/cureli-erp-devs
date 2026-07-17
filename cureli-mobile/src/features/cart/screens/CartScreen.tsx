@@ -350,20 +350,7 @@ export function CartScreen() {
 
           <RecommendationSection />
 
-          <TouchableOpacity
-            onPress={() => router.push("/(tabs)" as any)}
-            activeOpacity={0.8}
-            style={[
-              styles.seeAllBtn,
-              { backgroundColor: colors.background.tint },
-            ]}
-          >
-            <Text
-              style={[styles.seeAllText, { color: colors.text.brand }]}
-            >
-              Browse more medicines →
-            </Text>
-          </TouchableOpacity>
+          
 
           <BillDetailsCard />
 

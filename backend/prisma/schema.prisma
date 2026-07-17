@@ -730,17 +730,66 @@ model BranchMarketplaceSettings {
   delivery_enabled       Boolean  @default(false)
   contact_override       String?  @db.VarChar(20)
 
+  // Schedule — which days this branch is open
+  // Values: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"
+  // Empty array = no days configured (branch will never auto-open)
+  // Default: all 7 days (pharmacists deselect their off days)
+  open_days              String[] @default([])
+
+  // Tracks the IST date string (YYYY-MM-DD) when cron last auto-opened
+  // this branch. Used to detect manual mid-day closure:
+  // if marketplace_enabled=false AND last_auto_opened_date=today
+  // → pharmacist manually closed → cron skips re-opening until tomorrow.
+  last_auto_opened_date  String?  @db.VarChar(10)
+
   created_at             DateTime @default(now()) @db.Timestamptz(6)
   updated_at             DateTime @updatedAt @db.Timestamptz(6)
 
   // Relations
   branch                 Branch             @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
   marketplaceProfile     MarketplaceProfile @relation(fields: [marketplace_profile_id], references: [marketplace_profile_id], onDelete: Cascade)
+  
+  // Schedule Relations
+  holidays               BranchHoliday[]
 
   @@index([marketplace_profile_id])
   @@index([branch_id])
   @@map("branch_marketplace_settings")
 }
+
+model BranchHoliday {
+  holiday_id             String             @id @default(uuid()) @db.Uuid
+
+  // Scope: BRANCH = only this branch, SHOP = all branches of this shop
+  scope                  BranchHolidayScope @default(BRANCH)
+
+  // branch_id is always set — even for SHOP scope it records which branch
+  // the holiday was created from (for audit). The cron queries by shop_id
+  // for SHOP-scope holidays.
+  branch_id              String             @db.Uuid
+  shop_id                String             @db.Uuid
+
+  // The date this branch/shop is closed (date only, no time component)
+  holiday_date           DateTime           @db.Date
+
+  // Optional note e.g. "Diwali", "Emergency closure"
+  reason                 String?            @db.VarChar(200)
+
+  // Who created this holiday override
+  created_by             String             @db.Uuid
+
+  created_at             DateTime           @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  branch                 BranchMarketplaceSettings @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
+
+  @@unique([branch_id, holiday_date, scope])
+  @@index([branch_id, holiday_date])
+  @@index([shop_id, holiday_date])
+  @@index([holiday_date])
+  @@map("branch_holidays")
+}
+
 
 model MarketplaceListing {
   listing_id            String                 @id @default(uuid()) @db.Uuid
@@ -2743,4 +2792,9 @@ enum UserSex {
   MALE
   FEMALE
   OTHER
+}
+
+enum BranchHolidayScope {
+  BRANCH
+  SHOP
 }

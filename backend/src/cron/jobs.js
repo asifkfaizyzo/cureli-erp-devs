@@ -34,6 +34,7 @@ import {
 
 // ── NEW ───────────────────────────────────────────────────────
 import { expireStaleCheckoutSessions } from "./checkoutSessionCleanup.js";
+import { runMarketplaceScheduler } from "./marketplaceScheduler.js";
 // ─────────────────────────────────────────────────────────────
 
 // ============================================
@@ -530,6 +531,17 @@ function initializeCheckoutSessionCleanupJob() {
 }
 
 // ============================================
+// MARKETPLACE AUTO OPEN/CLOSE SCHEDULER - Every minute
+// ============================================
+
+function initializeMarketplaceSchedulerJob() {
+  cron.schedule("* * * * *", () =>
+    withCronLock("marketplace-scheduler", 1, runMarketplaceScheduler),
+  );
+  cronLogger.info("Marketplace scheduler job initialized (every minute)");
+}
+
+// ============================================
 // INITIALIZE ALL CRON JOBS
 // ============================================
 
@@ -564,6 +576,7 @@ export function initializeCronJobs() {
 
   // ── NEW ─────────────────────────────────────────────────────
   initializeCheckoutSessionCleanupJob();
+  initializeMarketplaceSchedulerJob();
   // ────────────────────────────────────────────────────────────
 
   // Cleanup jobs
@@ -636,7 +649,6 @@ export function initializeCronJobs() {
   cronLogger.info("  - OTP daily limits cleanup: Daily at 3:45 AM");
   cronLogger.info("  - Marketplace order auto-complete: Every hour");
   cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
-  // ── NEW ─────────────────────────────────────────────────────
   cronLogger.info("  - Checkout session cleanup: Every 5 minutes");
-  // ────────────────────────────────────────────────────────────
+  cronLogger.info("  - Marketplace auto open/close scheduler: Every minute");
 }

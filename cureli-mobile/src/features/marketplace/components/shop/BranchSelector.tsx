@@ -18,11 +18,10 @@
 //     highlight (the active branch is unchanged).
 // Inactive (marketplace-disabled) branches cannot be highlighted.
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   Modal,
   Pressable,
@@ -34,6 +33,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
+import { RemoteImage } from "../../../../components/RemoteImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 import type { ShopProfileBranch } from "../../../../types/shop";
 
@@ -52,35 +52,27 @@ export function BranchSelector({
 }: BranchSelectorProps) {
   const [open, setOpen] = useState(false);
 
-  // In-sheet highlight — the branch being previewed/browsed inside the
-  // picker. Separate from the confirmed selection (selectedBranchId) so
-  // the user can browse without committing until they tap "Select".
   const [draftBranchId, setDraftBranchId] = useState<string>(selectedBranchId);
 
-  // The branch shown in the collapsed trigger (confirmed selection).
   const selected = useMemo(
     () => branches.find((b) => b.branchId === selectedBranchId),
     [branches, selectedBranchId],
   );
 
-  // The branch shown in the big top preview (in-sheet draft).
   const draft = useMemo(
     () => branches.find((b) => b.branchId === draftBranchId) ?? selected ?? null,
     [branches, draftBranchId, selected],
   );
 
-  // When opening the sheet, start the draft on the currently-active branch.
   const handleOpen = useCallback(() => {
     setDraftBranchId(selectedBranchId);
     setOpen(true);
   }, [selectedBranchId]);
 
-  // Tapping a row only highlights + previews — does not confirm.
   const handleHighlight = useCallback((branchId: string) => {
     setDraftBranchId(branchId);
   }, []);
 
-  // Confirm the draft and close.
   const handleConfirm = useCallback(() => {
     if (draftBranchId) onSelect(draftBranchId);
     setOpen(false);
@@ -167,27 +159,21 @@ export function BranchSelector({
           >
             {/* ── Top: large preview of the draft branch ── */}
             <View style={styles.previewWrap}>
-              {draft?.shopImageUrl ? (
-                <Image
-                  source={{ uri: draft.shopImageUrl }}
-                  style={styles.previewImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.previewImage,
-                    styles.previewPlaceholder,
-                    { backgroundColor: colors.brand.primary },
-                  ]}
-                >
-                  <Ionicons
-                    name="storefront-outline"
-                    size={44}
-                    color="#FFFFFF"
-                  />
-                </View>
-              )}
+              {/*
+                Branch shop image — shop asset, so storefront icon fallback
+                is semantically correct. RemoteImage handles load/error.
+                resizeMode="cover" to fill the preview area.
+              */}
+              <RemoteImage
+                uri={draft?.shopImageUrl ?? null}
+                style={styles.previewImage}
+                resizeMode="cover"
+                mode="shop"
+                fallbackIcon="storefront-outline"
+                fallbackIconSize={44}
+                fallbackIconColor="#FFFFFF"
+                fallbackBg={colors.brand.primary}
+              />
 
               {/* Gradient scrim for text legibility */}
               <LinearGradient
@@ -195,7 +181,7 @@ export function BranchSelector({
                 style={styles.previewScrim}
               />
 
-              {/* Close button (floats over the image) */}
+              {/* Close button */}
               <TouchableOpacity
                 onPress={() => setOpen(false)}
                 style={styles.previewClose}
@@ -222,10 +208,7 @@ export function BranchSelector({
                       ]}
                     >
                       <View
-                        style={[
-                          styles.openDot,
-                          { backgroundColor: "#FFFFFF" },
-                        ]}
+                        style={[styles.openDot, { backgroundColor: "#FFFFFF" }]}
                       />
                       <Text style={styles.previewBadgeText}>
                         {draft.isOpen ? "Open now" : "Closed"}
@@ -253,7 +236,7 @@ export function BranchSelector({
               </View>
             </View>
 
-            {/* ── Draft branch details (address + capabilities) ── */}
+            {/* ── Draft branch details ── */}
             {draft ? (
               <View style={styles.previewDetails}>
                 {draft.address ? (
@@ -298,7 +281,7 @@ export function BranchSelector({
                 : `All branches (${branches.length})`}
             </Text>
 
-            {/* ── Branch list (no thumbnails) ── */}
+            {/* ── Branch list ── */}
             <ScrollView
               style={styles.sheetScroll}
               showsVerticalScrollIndicator={false}
@@ -523,7 +506,6 @@ export function BranchSelector({
 }
 
 const styles = StyleSheet.create({
-  // ── Trigger ─────────────────────────────────────────────────
   trigger: {
     flexDirection: "row",
     alignItems: "center",
@@ -553,7 +535,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  // ── Modal shell ──────────────────────────────────────────────
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -565,19 +546,15 @@ const styles = StyleSheet.create({
     maxHeight: "88%",
     overflow: "hidden",
   },
-  // ── Top preview ──────────────────────────────────────────────
   previewWrap: {
     width: "100%",
     height: 170,
     position: "relative",
   },
+  // RemoteImage fills this absolutely positioned container
   previewImage: {
     width: "100%",
     height: "100%",
-  },
-  previewPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   previewScrim: {
     position: "absolute",
@@ -625,7 +602,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontFamily: "Inter_600SemiBold",
   },
-  // ── Draft details ────────────────────────────────────────────
   previewDetails: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.md,
@@ -641,7 +617,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
-  // ── List ─────────────────────────────────────────────────────
   listLabel: {
     ...Typography.smallMedium,
     paddingHorizontal: Spacing.base,
@@ -701,7 +676,6 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     flexShrink: 0,
   },
-  // ── Badges ───────────────────────────────────────────────────
   openBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -742,7 +716,6 @@ const styles = StyleSheet.create({
   capPillText: {
     ...Typography.caption,
   },
-  // ── Confirm bar ──────────────────────────────────────────────
   confirmBar: {
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.md,

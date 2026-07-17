@@ -1,53 +1,16 @@
-// src/modules/mobile/shops/mobile.shops.service.js
-//
-// PUBLIC mobile shop discovery — service layer.
-//
-// All queries require:
-//   MarketplaceProfile.is_live = true
-//   BranchMarketplaceSettings.marketplace_enabled = true
-//
-// Distance is computed via the Haversine formula — straight-line km between
-// user coordinates and branch coordinates. No Google Maps API call. Fast,
-// free, accurate enough for "nearby" ordering.
-//
-// is_open is computed in IST (UTC+5:30). opening_time and closing_time are
-// stored as "HH:MM" strings with no timezone — all shops are India-based.
-//
-// Rating: field is present in all response shapes, always null for now.
-// No rating data exists in the schema. Field is reserved for future use.
-//
-// Delivery time: field is present in types, always null for now. May be
-// computed from Google Maps Distance Matrix API in a future phase.
-//
-// ── IMAGE RESOLUTION NOTE ─────────────────────────────────────
-// Marketplace assets (logo, banner, branch image) are NOT stored as S3
-// keys. The marketplace upload pipeline stores them as backend-served
-// route paths, e.g. "/api/files/marketplace_assets/logo-<shop>-<ts>.png".
-// These are served by the backend's own filesRoutes, NOT from CloudFront.
-//
-// Therefore they must be resolved against the backend's public origin,
-// the same way the ERP web client does (it prepends VITE_API_URL).
-// Passing them through resolveAssetUrl (which prepends the CloudFront
-// domain) produces a URL CloudFront has no object for → 403/404 →
-// React Native <Image> renders a silent blank.
-//
-// Medicine images DO live in the bucket, so they continue to use
-// resolveAssetUrl. Only marketplace assets use resolveMarketplaceAsset.
+// backend/src/modules/mobile/shops/mobile.shops.service.js
+// FULL FILE — replaces existing
+// Changes from previous version:
+//   1. Old computeIsOpen (3 params, no open_days) removed
+//   2. Old getNowIST removed — logic inlined into new computeIsOpen
+//   3. New computeIsOpen (4 params, includes open_days check) replaces both
+//   4. shapeBranch passes open_days to computeIsOpen + returns openDays field
+//   5. Both Prisma selects include open_days: true
 
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
 
 // ── Marketplace asset resolver ────────────────────────────────
-//
-// PUBLIC_API_ORIGIN is the backend's own externally-reachable origin:
-//   prod → https://api.cureliofficial.com
-//   dev  → http://<LAN-IP>:5000   (NOT localhost — the phone cannot
-//          reach the dev machine's localhost; use the same host the
-//          mobile app points CONFIG.BASE_URL at)
-//
-// If the var is unset we warn once and return the path unchanged, which
-// keeps already-absolute (http...) values working and fails loudly-ish
-// in logs rather than crashing.
 
 const PUBLIC_API_ORIGIN = process.env.PUBLIC_API_ORIGIN || null;
 
@@ -59,55 +22,24 @@ if (!PUBLIC_API_ORIGIN) {
   );
 }
 
-/**
- * Resolve a stored marketplace-asset path to a full backend URL.
- *
- * Mirrors the ERP web resolveImageUrl():
- *   - null/empty            → null
- *   - already absolute http → returned unchanged
- *   - otherwise             → PUBLIC_API_ORIGIN + path
- *
- * @param {string|null} pathOrUrl  e.g. "/api/files/marketplace_assets/logo-x.png"
- * @returns {string|null}
- */
 function resolveMarketplaceAsset(pathOrUrl) {
   if (!pathOrUrl) return null;
-
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
     return pathOrUrl;
   }
-
-  if (!PUBLIC_API_ORIGIN) return pathOrUrl; // no config — return as-is
-
-  // Avoid double slashes at the join.
+  if (!PUBLIC_API_ORIGIN) return pathOrUrl;
   const origin = PUBLIC_API_ORIGIN.endsWith("/")
     ? PUBLIC_API_ORIGIN.slice(0, -1)
     : PUBLIC_API_ORIGIN;
   const suffix = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-
   return `${origin}${suffix}`;
 }
 
 // ── IST helpers ───────────────────────────────────────────────
 
 /**
- * Get current time in IST as { hours, minutes }.
- * IST = UTC + 5h30m.
- */
-function getNowIST() {
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
-  const istMs = utcMs + 5.5 * 60 * 60_000;
-  const ist = new Date(istMs);
-  return { hours: ist.getHours(), minutes: ist.getMinutes() };
-}
-
-/**
  * Parse "HH:MM" string → total minutes since midnight.
  * Returns null if input is null/undefined/malformed.
- *
- * @param {string|null} timeStr
- * @returns {number|null}
  */
 function toMinutes(timeStr) {
   if (!timeStr) return null;
@@ -120,50 +52,52 @@ function toMinutes(timeStr) {
 }
 
 /**
- * Compute is_open from branch timing fields.
- * Handles overnight windows (e.g. 22:00 → 06:00).
+ * Compute is_open from branch timing fields + open_days.
+ * Single authoritative version — handles day-of-week check,
+ * overnight windows, and 24h branches.
  *
- * @param {boolean} is24Hours
+ * @param {boolean}     is24Hours
  * @param {string|null} openingTime  "HH:MM"
  * @param {string|null} closingTime  "HH:MM"
+ * @param {string[]}    openDays     ["MON","TUE",...] — empty = never auto-open
  * @returns {boolean}
  */
-function computeIsOpen(is24Hours, openingTime, closingTime) {
+function computeIsOpen(is24Hours, openingTime, closingTime, openDays = []) {
   if (is24Hours) return true;
 
-  const open = toMinutes(openingTime);
-  const close = toMinutes(closingTime);
+  // Compute IST time inline (avoids separate getNowIST function)
+  const now    = new Date();
+  const utcMs  = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const istMs  = utcMs + 5.5 * 60 * 60_000;
+  const ist    = new Date(istMs);
 
+  const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const todayDay  = DAY_NAMES[ist.getDay()];
+
+  // If open_days is empty or today is not in the list → closed
+  if (!Array.isArray(openDays) || openDays.length === 0) return false;
+  if (!openDays.includes(todayDay)) return false;
+
+  const open  = toMinutes(openingTime);
+  const close = toMinutes(closingTime);
   if (open === null || close === null) return false;
 
-  const { hours, minutes } = getNowIST();
-  const nowMins = hours * 60 + minutes;
+  const nowMins = ist.getHours() * 60 + ist.getMinutes();
 
   if (open <= close) {
-    // Normal window: 09:00 → 21:00
+    // Normal window e.g. 09:00 → 21:00
     return nowMins >= open && nowMins < close;
   } else {
-    // Overnight window: 22:00 → 06:00
+    // Overnight window e.g. 22:00 → 06:00
     return nowMins >= open || nowMins < close;
   }
 }
 
 // ── Haversine distance ────────────────────────────────────────
 
-/**
- * Compute straight-line distance in km between two lat/lng points.
- * Returns null if any coordinate is missing.
- *
- * @param {number|null} lat1
- * @param {number|null} lng1
- * @param {number|null} lat2
- * @param {number|null} lng2
- * @returns {number|null}
- */
 function haversineKm(lat1, lng1, lat2, lng2) {
   if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
-
-  const R = 6371; // Earth radius in km
+  const R    = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -172,16 +106,12 @@ function haversineKm(lat1, lng1, lat2, lng2) {
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c  = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const km = R * c;
-
-  // Round to 1 decimal place
   return Math.round(km * 10) / 10;
 }
 
-// ── toFeedItem (medicines) ────────────────────────────────────
-// Mirrors the shape produced by mobile.medicines.service.js toFeedItem.
-// Kept local to avoid cross-module coupling.
+// ── Feed item helpers ─────────────────────────────────────────
 
 function resolveVariantImages(images) {
   if (!Array.isArray(images)) return [];
@@ -195,56 +125,47 @@ function buildStrength(strengthValue, strengthUnit) {
   return `${strengthValue}${strengthUnit || ""}`;
 }
 
-/**
- * Shape a single variant into the mobile feed item.
- *
- * @param {object} variant - The Prisma variant record
- * @param {boolean|null} listingRxOverride - The branch-specific setting.
- *        If null, falls back to master (scraped) data.
- */
 function toFeedItem(variant, listingRxOverride = null) {
   const images = resolveVariantImages(variant.images);
   return {
-    variantId: variant.variant_id,
-    skuId: variant.sku_id,
-    name: variant.name,
-    brand: variant.brand ?? null,
+    variantId:  variant.variant_id,
+    skuId:      variant.sku_id,
+    name:       variant.name,
+    brand:      variant.brand ?? null,
     composition: variant.composition ?? [],
-    strength: buildStrength(variant.strength_value, variant.strength_unit),
+    strength:   buildStrength(variant.strength_value, variant.strength_unit),
     manufacturer: variant.manufacturer ?? null,
-    packSize: variant.pack_size ?? null,
-    image: images[0] ?? null,
-    // Use branch override if provided, else fall back to master
+    packSize:   variant.pack_size ?? null,
+    image:      images[0] ?? null,
     prescriptionRequired:
       listingRxOverride !== null
         ? listingRxOverride
         : (variant.master?.prescription_required ?? false),
-    form: variant.master?.form ?? null,
-    category: variant.master?.primary_category ?? null,
+    form:        variant.master?.form ?? null,
+    category:    variant.master?.primary_category ?? null,
     genericName: variant.master?.generic_name ?? null,
-    type: variant.master?.type ?? null,
+    type:        variant.master?.type ?? null,
   };
 }
 
-// Shared variant select — mirrors VARIANT_SELECT in medicines service
 const VARIANT_SELECT = {
-  variant_id: true,
-  sku_id: true,
-  name: true,
-  brand: true,
-  composition: true,
+  variant_id:     true,
+  sku_id:         true,
+  name:           true,
+  brand:          true,
+  composition:    true,
   strength_value: true,
-  strength_unit: true,
-  manufacturer: true,
-  pack_size: true,
-  images: true,
+  strength_unit:  true,
+  manufacturer:   true,
+  pack_size:      true,
+  images:         true,
   master: {
     select: {
-      generic_name: true,
-      type: true,
-      form: true,
+      generic_name:          true,
+      type:                  true,
+      form:                  true,
       prescription_required: true,
-      primary_category: true,
+      primary_category:      true,
     },
   },
 };
@@ -253,96 +174,61 @@ const VARIANT_SELECT = {
 
 /**
  * Shape a BranchMarketplaceSettings row into a BranchResult.
- * Used by both search results and shop profile.
- *
- * @param {object} bs - BranchMarketplaceSettings with branch relation
- * @param {number|null} userLat
- * @param {number|null} userLng
- * @param {number} listedMedicineCount
- * @returns {object}
+ * Used by both searchShops and getShopProfile.
  */
 function shapeBranch(bs, userLat, userLng, listedMedicineCount = 0) {
-  const lat = bs.latitude ? Number(bs.latitude) : null;
+  const lat = bs.latitude  ? Number(bs.latitude)  : null;
   const lng = bs.longitude ? Number(bs.longitude) : null;
 
   return {
-    branchId: bs.branch_id,
+    branchId:   bs.branch_id,
     branchName: bs.branch?.branch_name ?? null,
-    address: bs.formatted_address ?? null,
-    latitude: lat,
-    longitude: lng,
+    address:    bs.formatted_address ?? null,
+    latitude:   lat,
+    longitude:  lng,
     distanceKm: haversineKm(userLat, userLng, lat, lng),
-    isOpen: computeIsOpen(bs.is_24_hours, bs.opening_time, bs.closing_time),
-    is24Hours: bs.is_24_hours,
-    openingTime: bs.opening_time ?? null,
-    closingTime: bs.closing_time ?? null,
-    pickupEnabled: bs.pickup_enabled,
-    deliveryEnabled: bs.delivery_enabled,
-    contact: bs.contact_override ?? bs.branch?.contact_number ?? null,
+
+    // Open/closed — now checks open_days + time window
+    isOpen: computeIsOpen(
+      bs.is_24_hours,
+      bs.opening_time,
+      bs.closing_time,
+      bs.open_days ?? [],
+    ),
+
+    is24Hours:          bs.is_24_hours,
+    openDays:           bs.open_days ?? [],       // NEW — exposed to mobile
+    openingTime:        bs.opening_time  ?? null,
+    closingTime:        bs.closing_time  ?? null,
+    pickupEnabled:      bs.pickup_enabled,
+    deliveryEnabled:    bs.delivery_enabled,
+    contact:            bs.contact_override ?? bs.branch?.contact_number ?? null,
     marketplaceEnabled: bs.marketplace_enabled,
     listedMedicineCount,
-    // Reserved for future use — Google Maps Distance Matrix ETA
     deliveryTimeEstimate: null,
   };
 }
 
 // ── SEARCH SHOPS ──────────────────────────────────────────────
 
-/**
- * Search live shops by name, description, or address.
- * Returns one result per shop with its nearest branch.
- *
- * @param {object} opts
- * @param {string} [opts.q]
- * @param {number} [opts.lat]
- * @param {number} [opts.lng]
- * @param {number} [opts.page]
- * @param {number} [opts.limit]
- */
 export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
-  const skip = (page - 1) * limit;
+  const skip        = (page - 1) * limit;
   const hasLocation = lat != null && lng != null;
-
-  // ── Build search filter ───────────────────────────────────
-  // Match against storefront_name, storefront_description on
-  // MarketplaceProfile, and formatted_address on branch settings.
-  // If q is absent or too short, return all live shops.
-
-  const hasQuery = q && q.trim().length >= 2;
+  const hasQuery    = q && q.trim().length >= 2;
 
   const profileWhere = {
     is_live: true,
     ...(hasQuery
       ? {
           OR: [
-            {
-              storefront_name: {
-                contains: q.trim(),
-                mode: "insensitive",
-              },
-            },
-            {
-              storefront_description: {
-                contains: q.trim(),
-                mode: "insensitive",
-              },
-            },
-            {
-              shop: {
-                business_name: {
-                  contains: q.trim(),
-                  mode: "insensitive",
-                },
-              },
-            },
+            { storefront_name:        { contains: q.trim(), mode: "insensitive" } },
+            { storefront_description: { contains: q.trim(), mode: "insensitive" } },
+            { shop: { business_name:  { contains: q.trim(), mode: "insensitive" } } },
             {
               branchSettings: {
                 some: {
                   marketplace_enabled: true,
-                  formatted_address: {
-                    contains: q.trim(),
-                    mode: "insensitive",
-                  },
+                  formatted_address:   { contains: q.trim(), mode: "insensitive" },
                 },
               },
             },
@@ -351,41 +237,35 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
       : {}),
   };
 
-  // ── Fetch profiles with branch settings ───────────────────
   const [profiles, total] = await Promise.all([
     prisma.marketplaceProfile.findMany({
       where: profileWhere,
       select: {
         marketplace_profile_id: true,
-        shop_id: true,
-        storefront_name: true,
+        shop_id:                true,
+        storefront_name:        true,
         storefront_description: true,
-        logo_url: true,
+        logo_url:               true,
         shop: {
-          select: {
-            business_name: true,
-            shop_id: true,
-          },
+          select: { business_name: true, shop_id: true },
         },
         branchSettings: {
           where: { marketplace_enabled: true },
           select: {
-            branch_id: true,
+            branch_id:           true,
             marketplace_enabled: true,
-            latitude: true,
-            longitude: true,
-            formatted_address: true,
-            opening_time: true,
-            closing_time: true,
-            is_24_hours: true,
-            pickup_enabled: true,
-            delivery_enabled: true,
-            contact_override: true,
+            latitude:            true,
+            longitude:           true,
+            formatted_address:   true,
+            opening_time:        true,
+            closing_time:        true,
+            open_days:           true,   // ← NEW
+            is_24_hours:         true,
+            pickup_enabled:      true,
+            delivery_enabled:    true,
+            contact_override:    true,
             branch: {
-              select: {
-                branch_name: true,
-                contact_number: true,
-              },
+              select: { branch_name: true, contact_number: true },
             },
           },
         },
@@ -396,17 +276,11 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
     prisma.marketplaceProfile.count({ where: profileWhere }),
   ]);
 
-  // ── Get listing counts for all shops in one query ─────────
-  // One aggregation query instead of N per-shop queries.
   const shopIds = profiles.map((p) => p.shop_id);
 
   const listingCounts = await prisma.marketplaceListing.groupBy({
-    by: ["shop_id"],
-    where: {
-      shop_id: { in: shopIds },
-      is_visible: true,
-      stock_status: "IN_STOCK",
-    },
+    by:    ["shop_id"],
+    where: { shop_id: { in: shopIds }, is_visible: true, stock_status: "IN_STOCK" },
     _count: { listing_id: true },
   });
 
@@ -414,26 +288,21 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
     listingCounts.map((lc) => [lc.shop_id, lc._count.listing_id])
   );
 
-  // ── Shape results ─────────────────────────────────────────
   const shops = profiles
     .map((profile) => {
-      const name = profile.storefront_name || profile.shop.business_name;
-
+      const name                = profile.storefront_name || profile.shop.business_name;
       const listedMedicineCount = countMap.get(profile.shop_id) ?? 0;
 
-      // Find nearest branch
       let nearestBranch = null;
 
       if (profile.branchSettings.length > 0) {
         if (hasLocation) {
-          // Sort by distance and pick the closest
           const withDistance = profile.branchSettings.map((bs) => ({
             bs,
             dist: haversineKm(
-              lat,
-              lng,
-              bs.latitude ? Number(bs.latitude) : null,
-              bs.longitude ? Number(bs.longitude) : null
+              lat, lng,
+              bs.latitude  ? Number(bs.latitude)  : null,
+              bs.longitude ? Number(bs.longitude) : null,
             ),
           }));
 
@@ -443,44 +312,26 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
             return a.dist - b.dist;
           });
 
-          nearestBranch = shapeBranch(
-            withDistance[0].bs,
-            lat,
-            lng,
-            listedMedicineCount
-          );
+          nearestBranch = shapeBranch(withDistance[0].bs, lat, lng, listedMedicineCount);
         } else {
-          // No location — pick first alphabetically by branch name
-          const sorted = [...profile.branchSettings].sort((a, b) => {
-            const nameA = a.branch?.branch_name ?? "";
-            const nameB = b.branch?.branch_name ?? "";
-            return nameA.localeCompare(nameB);
-          });
-
-          nearestBranch = shapeBranch(
-            sorted[0],
-            null,
-            null,
-            listedMedicineCount
+          const sorted = [...profile.branchSettings].sort((a, b) =>
+            (a.branch?.branch_name ?? "").localeCompare(b.branch?.branch_name ?? "")
           );
+          nearestBranch = shapeBranch(sorted[0], null, null, listedMedicineCount);
         }
       }
 
       return {
-        shopId: profile.shop_id,
+        shopId:              profile.shop_id,
         name,
-        description: profile.storefront_description ?? null,
-        // CHANGED: marketplace asset, resolve against backend origin
-        logoUrl: resolveMarketplaceAsset(profile.logo_url),
+        description:         profile.storefront_description ?? null,
+        logoUrl:             resolveMarketplaceAsset(profile.logo_url),
         nearestBranch,
-        totalBranches: profile.branchSettings.length,
+        totalBranches:       profile.branchSettings.length,
         listedMedicineCount,
-        // Rating — reserved, no data yet
-        rating: null,
+        rating:              null,
       };
     })
-    // Sort: if location provided → by nearest branch distance asc
-    //       otherwise → by listing count desc
     .sort((a, b) => {
       if (hasLocation) {
         const dA = a.nearestBranch?.distanceKm ?? Infinity;
@@ -494,96 +345,61 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
 
   return {
     shops,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-    },
+    meta: { total, page, limit, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
   };
 }
 
 // ── GET SHOP PROFILE ──────────────────────────────────────────
 
-/**
- * Fetch full shop profile with all marketplace-onboarded branches.
- * Inactive branches (marketplace_enabled = false) are included but
- * flagged — the frontend greys them out. Only branches that were
- * ever onboarded to the marketplace appear; non-onboarded branches
- * are excluded entirely.
- *
- * Branches sorted: nearest first if location provided, else alphabetically.
- *
- * @param {string} shopId
- * @param {number|null} lat
- * @param {number|null} lng
- * @returns {Promise<object|null>}
- */
 export async function getShopProfile(shopId, lat, lng) {
   const hasLocation = lat != null && lng != null;
 
   const profile = await prisma.marketplaceProfile.findUnique({
-    where: { shop_id: shopId },
+    where:  { shop_id: shopId },
     select: {
       marketplace_profile_id: true,
-      shop_id: true,
-      storefront_name: true,
+      shop_id:                true,
+      storefront_name:        true,
       storefront_description: true,
-      support_phone: true,
-      logo_url: true,
-      banner_url: true,
-      is_live: true,
-      marketplace_status: true,
+      support_phone:          true,
+      logo_url:               true,
+      banner_url:             true,
+      is_live:                true,
+      marketplace_status:     true,
       shop: {
-        select: {
-          business_name: true,
-          city: true,
-          state: true,
-        },
+        select: { business_name: true, city: true, state: true },
       },
-      // All onboarded branches — both enabled and disabled
-      // marketplace_enabled: false means disabled by owner, still show (greyed)
       branchSettings: {
         select: {
-          branch_id: true,
+          branch_id:           true,
           marketplace_enabled: true,
-          latitude: true,
-          longitude: true,
-          formatted_address: true,
-          opening_time: true,
-          closing_time: true,
-          is_24_hours: true,
-          pickup_enabled: true,
-          delivery_enabled: true,
-          contact_override: true,
-          shop_image_url: true,
+          latitude:            true,
+          longitude:           true,
+          formatted_address:   true,
+          opening_time:        true,
+          closing_time:        true,
+          open_days:           true,   // ← NEW
+          is_24_hours:         true,
+          pickup_enabled:      true,
+          delivery_enabled:    true,
+          contact_override:    true,
+          shop_image_url:      true,
           branch: {
-            select: {
-              branch_name: true,
-              contact_number: true,
-              is_active: true,
-            },
+            select: { branch_name: true, contact_number: true, is_active: true },
           },
         },
       },
     },
   });
 
-  if (!profile) return null;
+  if (!profile)        return null;
   if (!profile.is_live) return null;
 
-  // ── Get per-branch listing counts ─────────────────────────
   const branchIds = profile.branchSettings.map((bs) => bs.branch_id);
 
   const branchListingCounts = await prisma.marketplaceListing.groupBy({
-    by: ["branch_id"],
-    where: {
-      branch_id: { in: branchIds },
-      is_visible: true,
-      stock_status: "IN_STOCK",
-    },
+    by:    ["branch_id"],
+    where: { branch_id: { in: branchIds }, is_visible: true, stock_status: "IN_STOCK" },
     _count: { listing_id: true },
   });
 
@@ -591,84 +407,49 @@ export async function getShopProfile(shopId, lat, lng) {
     branchListingCounts.map((blc) => [blc.branch_id, blc._count.listing_id])
   );
 
-  // ── Shape branches ────────────────────────────────────────
   const branches = profile.branchSettings.map((bs) => {
-    const count = branchCountMap.get(bs.branch_id) ?? 0;
+    const count  = branchCountMap.get(bs.branch_id) ?? 0;
     const shaped = shapeBranch(
       bs,
       hasLocation ? lat : null,
       hasLocation ? lng : null,
-      count
+      count,
     );
     return {
       ...shaped,
-      // CHANGED: marketplace asset, resolve against backend origin
       shopImageUrl: resolveMarketplaceAsset(bs.shop_image_url),
-      isActive: bs.branch?.is_active ?? true,
+      isActive:     bs.branch?.is_active ?? true,
     };
   });
 
-  // ── Sort branches ─────────────────────────────────────────
   branches.sort((a, b) => {
-    // Enabled branches before disabled
     if (a.marketplaceEnabled !== b.marketplaceEnabled) {
       return a.marketplaceEnabled ? -1 : 1;
     }
-
     if (hasLocation) {
-      const dA = a.distanceKm ?? Infinity;
-      const dB = b.distanceKm ?? Infinity;
-      return dA - dB;
+      return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
     }
-
     return (a.branchName ?? "").localeCompare(b.branchName ?? "");
   });
 
   const name = profile.storefront_name || profile.shop.business_name;
 
   return {
-    shopId: profile.shop_id,
+    shopId:            profile.shop_id,
     name,
-    description: profile.storefront_description ?? null,
-    // CHANGED: marketplace assets, resolve against backend origin
-    logoUrl: resolveMarketplaceAsset(profile.logo_url),
-    bannerUrl: resolveMarketplaceAsset(profile.banner_url),
-    supportPhone: profile.support_phone ?? null,
+    description:       profile.storefront_description ?? null,
+    logoUrl:           resolveMarketplaceAsset(profile.logo_url),
+    bannerUrl:         resolveMarketplaceAsset(profile.banner_url),
+    supportPhone:      profile.support_phone ?? null,
     marketplaceStatus: profile.marketplace_status,
-    isLive: profile.is_live,
+    isLive:            profile.is_live,
     branches,
-    rating: null,
+    rating:            null,
   };
 }
 
 // ── GET BRANCH MEDICINES ──────────────────────────────────────
 
-/**
- * Paginated medicines listed by a specific branch.
- * Only returns visible, in-stock listings.
- * Supports in-shop search by medicine name, brand, generic name.
- *
- * Returns the same toFeedItem shape as the main feed so MedicineCard
- * and ProductCard work without modification.
- *
- * prescriptionRequired is now driven by the branch-specific
- * listing.requires_prescription value, not the master scraped flag.
- *
- * Deduplication: a branch can theoretically have two separate ERP
- * medicines (different medicine_id) both linked to the same master
- * variant (same linked_variant_id). The schema unique constraint is on
- * [medicine_id, branch_id], not [linked_variant_id, branch_id], so
- * this can occur. We deduplicate by variant_id after fetching so the
- * mobile FlatList never receives two rows with the same key.
- * First occurrence wins (alphabetical by name, so deterministic).
- *
- * @param {string} shopId
- * @param {string} branchId
- * @param {object} opts
- * @param {string} [opts.search]
- * @param {number} [opts.page]
- * @param {number} [opts.limit]
- */
 export async function getBranchMedicines(
   shopId,
   branchId,
@@ -676,10 +457,9 @@ export async function getBranchMedicines(
 ) {
   const skip = (page - 1) * limit;
 
-  // Verify the branch belongs to the shop and is marketplace-onboarded
   const branch = await prisma.branchMarketplaceSettings.findFirst({
     where: {
-      branch_id: branchId,
+      branch_id:          branchId,
       marketplaceProfile: { shop_id: shopId, is_live: true },
     },
     select: { branch_id: true },
@@ -687,29 +467,15 @@ export async function getBranchMedicines(
 
   if (!branch) return null;
 
-  // ── Build search filter ───────────────────────────────────
   const searchFilter =
     search && search.trim().length >= 1
       ? {
           OR: [
+            { linkedVariant: { name:  { contains: search.trim(), mode: "insensitive" } } },
+            { linkedVariant: { brand: { contains: search.trim(), mode: "insensitive" } } },
             {
               linkedVariant: {
-                name: { contains: search.trim(), mode: "insensitive" },
-              },
-            },
-            {
-              linkedVariant: {
-                brand: { contains: search.trim(), mode: "insensitive" },
-              },
-            },
-            {
-              linkedVariant: {
-                master: {
-                  generic_name: {
-                    contains: search.trim(),
-                    mode: "insensitive",
-                  },
-                },
+                master: { generic_name: { contains: search.trim(), mode: "insensitive" } },
               },
             },
           ],
@@ -717,44 +483,25 @@ export async function getBranchMedicines(
       : {};
 
   const where = {
-    shop_id: shopId,
-    branch_id: branchId,
-    is_visible: true,
+    shop_id:      shopId,
+    branch_id:    branchId,
+    is_visible:   true,
     stock_status: "IN_STOCK",
     ...searchFilter,
   };
 
-  // ── Fetch all matching listings — no skip/take yet ────────
-  //
-  // We cannot paginate before deduplication. If page 1 fetches 20 rows
-  // from the DB but 3 are duplicate variant_ids, the user only sees 17
-  // unique medicines instead of 20. Fetching all first, deduping in JS,
-  // then slicing gives correct page sizes and correct total counts.
-  //
-  // orderBy name asc is kept so that when two listings share the same
-  // variant_id the first one encountered (kept by the Set) is
-  // deterministic — whichever medicine name sorts first alphabetically.
   const allListings = await prisma.marketplaceListing.findMany({
     where,
     orderBy: { linkedVariant: { name: "asc" } },
     select: {
-      listing_id: true,
-      marketplace_price: true,
+      listing_id:            true,
+      marketplace_price:     true,
       requires_prescription: true,
-      stock_status: true,
-      linkedVariant: {
-        select: VARIANT_SELECT,
-      },
+      stock_status:          true,
+      linkedVariant:         { select: VARIANT_SELECT },
     },
   });
 
-  // ── Deduplicate by variant_id ─────────────────────────────
-  //
-  // Two ERP medicines with different medicine_ids can be linked to the
-  // same master variant. Both pass the [medicine_id, branch_id] unique
-  // constraint but produce the same variantId in the API response,
-  // causing React Native FlatList to warn about duplicate keys.
-  // Keep the first occurrence; discard the rest.
   const seenVariantIds = new Set();
   const uniqueListings = allListings.filter((l) => {
     if (!l.linkedVariant) return false;
@@ -764,29 +511,19 @@ export async function getBranchMedicines(
     return true;
   });
 
-  // ── Paginate the deduplicated list ────────────────────────
-  const total = uniqueListings.length;
+  const total      = uniqueListings.length;
   const totalPages = Math.ceil(total / limit);
   const pageListings = uniqueListings.slice(skip, skip + limit);
 
-  // ── Shape ─────────────────────────────────────────────────
-  // Identical map to the original — nothing changed here.
   const medicines = pageListings.map((l) => ({
     ...toFeedItem(l.linkedVariant, l.requires_prescription),
-    listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
+    listingPrice:         l.marketplace_price ? Number(l.marketplace_price) : null,
     requiresPrescription: l.requires_prescription,
-    stockStatus: l.stock_status,
+    stockStatus:          l.stock_status,
   }));
 
   return {
     medicines,
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-    },
+    meta: { total, page, limit, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
   };
 }

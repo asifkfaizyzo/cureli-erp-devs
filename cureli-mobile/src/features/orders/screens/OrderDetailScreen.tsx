@@ -1,19 +1,7 @@
 // src/features/orders/screens/OrderDetailScreen.tsx
-// Changes:
-//   - SSE polling via orderNotificationStore
-//   - 30s interval polling for non-terminal orders as fallback
-//   - Prescription section with signed URL + expiry handling
-//   - Customer notes displayed in Order Info
-//   - Rejection reason uses getRejectionLabel helper
-//   - Reorder uses bottom sheet via ReorderSheet
-//   - onDelete removed
-//   - Bill Details now reflects expanded breakdown:
-//       subtotal, service_charge, delivery_fee, km_surcharge, tip, grand_total
-//   - FIXED: useMemo moved before early returns (Rules of Hooks)
-//   - Prescription images open in-app modal instead of browser
-//   - Prescription PDFs open in browser (no native PDF renderer needed)
-//   - Improved timeline design with status icons, relative time, actor label
-//   - FIXED: duplicate StyleSheet keys removed
+// Changes from previous version:
+//   - itemImageWrap now uses RemoteImage (mode="medicine") instead of
+//     hardcoded medkit-outline icon. item.image_url is used if available.
 
 import React, {
   useCallback,
@@ -43,6 +31,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useTheme } from "../../../theme/ThemeContext";
 import { PriceRow } from "../components/PriceRow";
 import { ReorderSheet } from "../components/ReorderSheet";
+import { RemoteImage } from "../../../components/RemoteImage";
 import { ordersApi } from "../../marketplace/api/orders.api";
 import { useOrderNotificationStore } from "../../../store/orderNotificationStore";
 import {
@@ -58,10 +47,7 @@ import type {
   ReorderItemsResponse,
 } from "../../../types/order";
 
-// ── Terminal statuses — no polling needed once reached ────────────────────────
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function safeNum(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -76,25 +62,22 @@ function getRelativeTime(dateString: string): string | null {
     const now    = Date.now();
     const then   = new Date(dateString).getTime();
     const diffMs = now - then;
-
     if (diffMs < 0) return null;
-
     const minutes = Math.floor(diffMs / 60_000);
     const hours   = Math.floor(diffMs / 3_600_000);
     const days    = Math.floor(diffMs / 86_400_000);
-
-    if (minutes < 1)  return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours   < 24) return `${hours}h ago`;
+    if (minutes < 1)   return "Just now";
+    if (minutes < 60)  return `${minutes}m ago`;
+    if (hours   < 24)  return `${hours}h ago`;
     if (days    === 1) return "Yesterday";
-    if (days    < 7)  return `${days}d ago`;
+    if (days    < 7)   return `${days}d ago`;
     return null;
   } catch {
     return null;
   }
 }
 
-// ── In-app image preview modal ────────────────────────────────────────────────
+// ── In-app image preview modal ────────────────────────────────
 
 interface ImagePreviewModalProps {
   url:     string;
@@ -105,7 +88,6 @@ interface ImagePreviewModalProps {
 
 function ImagePreviewModal({ url, name, onClose }: ImagePreviewModalProps) {
   const { width, height } = Dimensions.get("window");
-
   return (
     <Modal
       visible
@@ -116,7 +98,6 @@ function ImagePreviewModal({ url, name, onClose }: ImagePreviewModalProps) {
     >
       <View style={previewStyles.backdrop}>
         <StatusBar backgroundColor="rgba(0,0,0,0.95)" barStyle="light-content" />
-
         <View style={previewStyles.header}>
           <Text style={previewStyles.headerName} numberOfLines={1}>
             {name}
@@ -129,7 +110,6 @@ function ImagePreviewModal({ url, name, onClose }: ImagePreviewModalProps) {
             <Ionicons name="close" size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
-
         <Image
           source={{ uri: url }}
           style={{ width, height: height * 0.8 }}
@@ -177,7 +157,7 @@ const previewStyles = StyleSheet.create({
   },
 });
 
-// ── Prescription row ──────────────────────────────────────────────────────────
+// ── Prescription row ──────────────────────────────────────────
 
 interface PrescriptionRowProps {
   prescription: MobileOrderPrescription;
@@ -196,7 +176,6 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
 
   const handlePress = useCallback(async () => {
     if (isExpired) return;
-
     setIsLoading(true);
     try {
       const res = await ordersApi.getPrescriptionUrl(
@@ -205,7 +184,6 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
       );
       const url = res.data?.data?.url;
       if (!url) return;
-
       if (isImage) {
         setPreviewUrl(url);
       } else {
@@ -300,7 +278,7 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
+// ── Main screen ───────────────────────────────────────────────
 
 interface OrderDetailScreenProps {
   orderId: string;
@@ -345,16 +323,12 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
 
   useEffect(() => {
     if (!order) return;
-
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
-
     if (TERMINAL_STATUSES.has(order.status)) return;
-
     pollingIntervalRef.current = setInterval(fetchDetail, 30_000);
-
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
@@ -363,7 +337,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     };
   }, [order?.status, fetchDetail]);
 
-  // ── Cancel ────────────────────────────────────────────────────────────────
   const handleCancel = useCallback(() => {
     Alert.alert("Cancel Order", "Are you sure you want to cancel this order?", [
       { text: "No", style: "cancel" },
@@ -385,13 +358,11 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     ]);
   }, [orderId, fetchDetail]);
 
-  // ── Reorder ───────────────────────────────────────────────────────────────
   const handleReorder = useCallback(async () => {
     setReorderLoading(true);
     try {
       const res  = await ordersApi.getReorderItems(orderId);
       const data: ReorderItemsResponse = res.data.data;
-
       if (data.available.length === 0 && data.unavailable.length > 0) {
         Alert.alert(
           "Items Unavailable",
@@ -399,7 +370,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         );
         return;
       }
-
       setReorderData(data);
       setReorderSheetVisible(true);
     } catch (err) {
@@ -410,7 +380,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     }
   }, [orderId]);
 
-  // ── Bill derivation — all useMemos before any early return ───────────────
+  // All useMemos before early returns
   const billSubtotal = useMemo(() => {
     if (!order) return 0;
     return (
@@ -423,22 +393,18 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     () => (order ? safeNum(order.service_charge) : null),
     [order],
   );
-
   const billDeliveryFee = useMemo(
     () => (order ? safeNum(order.delivery_fee) : null),
     [order],
   );
-
   const billKmSurcharge = useMemo(
     () => (order ? safeNum(order.km_surcharge) : null),
     [order],
   );
-
   const billTip = useMemo(
     () => (order ? safeNum(order.tip) : null),
     [order],
   );
-
   const billGrandTotal = useMemo(() => {
     if (!order) return 0;
     return safeNum(order.grand_total) ?? safeNum(order.total_amount) ?? billSubtotal;
@@ -449,17 +415,14 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
       billServiceCharge != null ||
       billDeliveryFee   != null ||
       billKmSurcharge   != null;
-
     if (hasBreakdown) return null;
-
     const knownTotal = safeNum(order?.grand_total) ?? safeNum(order?.total_amount);
     if (knownTotal == null) return null;
-
     const gap = knownTotal - billSubtotal;
     return gap > 0.01 ? gap : null;
   }, [order, billSubtotal, billServiceCharge, billDeliveryFee, billKmSurcharge]);
 
-  // ── Loading / error guards — after ALL hooks ──────────────────────────────
+  // Loading / error guards — after ALL hooks
   if (isLoading) {
     return (
       <SafeAreaView
@@ -498,7 +461,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     );
   }
 
-  // ── Derived display values ────────────────────────────────────────────────
   const colorKey    = getStatusColorKey(order.status);
   const statusIcon  = getStatusIcon(order.status) as any;
   const statusLabel = getStatusLabel(order.status);
@@ -541,7 +503,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
       : []),
   ];
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
@@ -646,7 +607,13 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 />
               )}
               <View style={styles.itemRow}>
-                <View
+                {/*
+                  Medicine image with branded placeholder.
+                  item.image_url comes from the order API — may be null.
+                  RemoteImage handles null uri gracefully (shows placeholder only).
+                */}
+                <RemoteImage
+                  uri={(item as any).image_url ?? null}
                   style={[
                     styles.itemImageWrap,
                     {
@@ -654,9 +621,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       borderColor:     colors.border.subtle,
                     },
                   ]}
-                >
-                  <Ionicons name="medkit-outline" size={24} color={colors.text.faint} />
-                </View>
+                  resizeMode="contain"
+                  mode="medicine"
+                />
+
                 <View style={styles.itemInfo}>
                   <Text
                     style={[
@@ -756,27 +724,21 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           </Text>
           <View style={styles.priceRows}>
             <PriceRow label="Items total" value={formatCurrency(billSubtotal)} />
-
             {billServiceCharge != null && (
               <PriceRow label="Service charge" value={formatCurrency(billServiceCharge)} />
             )}
-
             {billDeliveryFee != null && (
               <PriceRow label="Delivery fee" value={formatCurrency(billDeliveryFee)} />
             )}
-
             {billKmSurcharge != null && billKmSurcharge > 0 && (
               <PriceRow label="Distance surcharge" value={formatCurrency(billKmSurcharge)} />
             )}
-
             {billTip != null && billTip > 0 && (
               <PriceRow label="Tip" value={formatCurrency(billTip)} />
             )}
-
             {billOtherCharges != null && (
               <PriceRow label="Delivery & charges" value={formatCurrency(billOtherCharges)} />
             )}
-
             <View style={[styles.totalDivider, { borderTopColor: colors.border.default }]}>
               <PriceRow
                 label="Grand Total"
@@ -867,7 +829,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
 
               return (
                 <View key={index} style={styles.timelineRow}>
-                  {/* Left: icon column */}
                   <View style={styles.timelineIconCol}>
                     <View
                       style={[
@@ -889,7 +850,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         }
                       />
                     </View>
-
                     {index < order.status_history.length - 1 && (
                       <View
                         style={[
@@ -904,7 +864,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     )}
                   </View>
 
-                  {/* Right: content */}
                   <View
                     style={[
                       styles.timelineContent,
@@ -924,7 +883,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       >
                         {getStatusLabel(entry.to_status)}
                       </Text>
-
                       {isLatest && (
                         <View
                           style={[
@@ -1078,7 +1036,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         )}
       </View>
 
-      {/* ── Reorder bottom sheet ── */}
       {reorderData && (
         <ReorderSheet
           visible={reorderSheetVisible}
@@ -1098,14 +1055,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-// Each key appears exactly once. Old duplicate timeline keys removed.
-
 const styles = StyleSheet.create({
   safe:     { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   notFoundText: { fontSize: 16 },
-
   header: {
     flexDirection:     "row",
     alignItems:        "center",
@@ -1117,13 +1070,10 @@ const styles = StyleSheet.create({
   backButton:  { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 8 },
   headerTitle: { fontSize: 17 },
   headerRight: { width: 36 },
-
   scroll:        { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
-
   card:      { borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
   cardTitle: { fontSize: 15, marginBottom: 4 },
-
   summaryHeader: { gap: 6 },
   statusBadge: {
     flexDirection:     "row",
@@ -1146,24 +1096,22 @@ const styles = StyleSheet.create({
     marginTop:         4,
   },
   rejectionText: { fontSize: 13, flex: 1 },
-
   itemDivider:   { height: 1, marginVertical: 10 },
   itemRow:       { flexDirection: "row", alignItems: "center", gap: 12 },
+  // RemoteImage receives this as its style prop
   itemImageWrap: {
-    width:          56,
-    height:         56,
-    borderRadius:   10,
-    borderWidth:    1,
-    alignItems:     "center",
-    justifyContent: "center",
-    flexShrink:     0,
+    width:        56,
+    height:       56,
+    borderRadius: 10,
+    borderWidth:  1,
+    overflow:     "hidden",
+    flexShrink:   0,
   },
   itemInfo:  { flex: 1, gap: 3 },
   itemName:  { fontSize: 14, lineHeight: 20 },
   itemBrand: { fontSize: 12 },
   itemQty:   { fontSize: 12 },
   itemPrice: { fontSize: 15, flexShrink: 0 },
-
   prescriptionList: { gap: 8 },
   prescriptionRow: {
     flexDirection:     "row",
@@ -1179,18 +1127,14 @@ const styles = StyleSheet.create({
   prescriptionActionText:  { fontSize: 12 },
   expiredLabel:            { fontSize: 11 },
   prescriptionExpiredNote: { fontSize: 11, lineHeight: 16, marginTop: 4 },
-
   priceRows:    { gap: 2 },
   totalDivider: { borderTopWidth: 1, marginTop: 6 },
-
   metaRow:   { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 6 },
   metaText:  { flex: 1, gap: 2 },
   metaLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
   metaValue: { fontSize: 13, lineHeight: 18 },
-
-  // ── Timeline ──────────────────────────────────────────────────────────────
-  timelineRow: { flexDirection: "row", gap: 12 },
-  timelineIconCol: { alignItems: "center", width: 32 },
+  timelineRow:            { flexDirection: "row", gap: 12 },
+  timelineIconCol:        { alignItems: "center", width: 32 },
   timelineIconWrap: {
     width:          32,
     height:         32,
@@ -1206,18 +1150,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderRadius: 1,
   },
-  timelineContent:        { flex: 1, gap: 3, paddingTop: 4 },
-  timelineContentSpaced:  { paddingBottom: 20 },
-  timelineTextRow:        { flexDirection: "row", alignItems: "center", gap: 8 },
-  timelineStatus:         { fontSize: 14 },
-  timelineLatestBadge:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  timelineLatestText:     { fontSize: 10 },
-  timelineDate:           { fontSize: 12 },
-  timelineByRow:          { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  timelineBy:             { fontSize: 11, textTransform: "capitalize" },
-  timelineReason:         { fontSize: 12, lineHeight: 16, marginTop: 2 },
-
-  // ── Bottom bar ────────────────────────────────────────────────────────────
+  timelineContent:       { flex: 1, gap: 3, paddingTop: 4 },
+  timelineContentSpaced: { paddingBottom: 20 },
+  timelineTextRow:       { flexDirection: "row", alignItems: "center", gap: 8 },
+  timelineStatus:        { fontSize: 14 },
+  timelineLatestBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  timelineLatestText:    { fontSize: 10 },
+  timelineDate:          { fontSize: 12 },
+  timelineByRow:         { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  timelineBy:            { fontSize: 11, textTransform: "capitalize" },
+  timelineReason:        { fontSize: 12, lineHeight: 16, marginTop: 2 },
   bottomPad:   { height: 80 },
   stickyBar: {
     borderTopWidth:    1,
@@ -1227,20 +1169,20 @@ const styles = StyleSheet.create({
     gap:               6,
   },
   actionButton: {
-    flexDirection:  "row",
-    alignItems:     "center",
-    justifyContent: "center",
-    gap:            8,
+    flexDirection:   "row",
+    alignItems:      "center",
+    justifyContent:  "center",
+    gap:             8,
     paddingVertical: 14,
-    borderRadius:   12,
+    borderRadius:    12,
   },
   actionButtonText: { fontSize: 15, color: "#ffffff" },
   actionNote:       { fontSize: 11, textAlign: "center" },
   statusInfoBar: {
-    flexDirection:  "row",
-    alignItems:     "center",
-    justifyContent: "center",
-    gap:            8,
+    flexDirection:   "row",
+    alignItems:      "center",
+    justifyContent:  "center",
+    gap:             8,
     paddingVertical: 14,
   },
   statusInfoText: { fontSize: 14 },

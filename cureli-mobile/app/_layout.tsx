@@ -146,7 +146,7 @@ export default function RootLayout() {
 
             <GlobalCartBar />
 
-            {__DEV_SHOW_THEME_TOGGLE__ && <DevThemeToggle />}
+            {/* {__DEV_SHOW_THEME_TOGGLE__ && <DevThemeToggle />} */}
           </DialogProvider>
         </QueryClientProvider>
       </ThemeProvider>

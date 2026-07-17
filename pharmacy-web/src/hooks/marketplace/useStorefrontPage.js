@@ -60,6 +60,7 @@ function normalizeConfiguredBranch(bs) {
     opening_time:          bs.opening_time ?? null,
     closing_time:          bs.closing_time ?? null,
     is_24_hours:           bs.is_24_hours  ?? false,
+    open_days:             bs.open_days    ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'], // ← ADD
 
     pickup_enabled:        bs.pickup_enabled   ?? false,
     delivery_enabled:      bs.delivery_enabled ?? false,
@@ -132,11 +133,13 @@ function buildBranchPayload(branch, overrides = {}) {
     opening_time:         merged.opening_time      ?? null,
     closing_time:         merged.closing_time      ?? null,
     is_24_hours:          merged.is_24_hours        ?? false,
+    open_days:            merged.open_days         ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'], // ← ADD
     pickup_enabled:       merged.pickup_enabled    ?? false,
     delivery_enabled:     merged.delivery_enabled  ?? false,
     contact_override:     merged.contact_override  ?? null,
   };
 }
+
 
 // ─────────────────────────────────────────────────────────────────
 // HOOK
