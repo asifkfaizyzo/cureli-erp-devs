@@ -127,7 +127,7 @@ export async function createCheckoutSession({
   // ── 8. Create Razorpay order ─────────────────────────────
   const amount_paise = Math.round(pricing.grand_total * 100);
 
-  const rzpOrder = razorpayMobile.orders.create({
+  const rzpOrder = await razorpayMobile.orders.create({
     amount: amount_paise,
     currency: RAZORPAY_MOBILE_CURRENCY,
     notes: {
