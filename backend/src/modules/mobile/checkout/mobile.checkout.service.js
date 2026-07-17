@@ -2,9 +2,9 @@
 
 import prisma from "../../../config/prisma.js";
 import {
-  razorpay,
-  RAZORPAY_CURRENCY,
-  verifyPaymentSignature,
+  razorpayMobile,
+  RAZORPAY_MOBILE_CURRENCY,
+  verifyMobilePaymentSignature,
 } from "../../../config/razorpay.js";
 import { computePricing, normaliseConfig } from "./pricing.engine.js";
 import { fireOrderPlacedEvents } from "../../marketplace-orders/marketplace.orders.events.js";
@@ -127,9 +127,9 @@ export async function createCheckoutSession({
   // ── 8. Create Razorpay order ─────────────────────────────
   const amount_paise = Math.round(pricing.grand_total * 100);
 
-  const rzpOrder = await razorpay.orders.create({
+  const rzpOrder = razorpayMobile.orders.create({
     amount: amount_paise,
-    currency: RAZORPAY_CURRENCY,
+    currency: RAZORPAY_MOBILE_CURRENCY,
     notes: {
       customer_id,
       branch_id,
@@ -170,8 +170,8 @@ export async function createCheckoutSession({
     session_id: session.session_id,
     razorpay_order_id: rzpOrder.id,
     amount_paise,
-    currency: RAZORPAY_CURRENCY,
-    key_id: process.env.RAZORPAY_KEY_ID,
+    currency: RAZORPAY_MOBILE_CURRENCY,
+    key_id: process.env.RAZORPAY_MOBILE_KEY_ID,
     pricing,
     expires_at,
   };
@@ -206,7 +206,7 @@ export async function confirmCheckoutPayment({
   }
 
   // ── 2. Verify Razorpay signature ─────────────────────────
-  const isValid = verifyPaymentSignature(
+  const isValid = verifyMobilePaymentSignature(
     razorpay_order_id,
     razorpay_payment_id,
     razorpay_signature,
