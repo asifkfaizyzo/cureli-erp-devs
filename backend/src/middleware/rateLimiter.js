@@ -112,7 +112,7 @@ export const signupLimiter = rateLimit({
 // ============================================
 export const mobileLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 120,
+  max: 200, // was 120, bumped for normal app usage
   keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
