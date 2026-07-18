@@ -32,8 +32,6 @@ const CONFIG = {
   shop: {
     business_name: "Cureli Pharmacy",
     legal_name: "Cureli Pharmacy Pvt Ltd",
-    // Must match what your UI sends to updateShopGst
-    // Common values: "PHARMACY", "MEDICAL_STORE", "HOSPITAL" etc.
     business_type: "Partnership",
     gst_number: "32ABCDE1234F1Z5",
     address_line_1: "MG Road",
@@ -47,7 +45,6 @@ const CONFIG = {
   branches: [
     {
       name: "Main Branch",
-      // First branch is always "main" — matches setup.service.js
       type: "main",
       address_line_1: "MG Road",
       address_line_2: "Ground Floor",
@@ -74,8 +71,6 @@ const CONFIG = {
     },
     {
       name: "Second Branch",
-      // Non-first branches use "branch" — matches setup.service.js:
-      // branch_type: isFirst ? "main" : "branch"
       type: "branch",
       address_line_1: "Kakkanad Road",
       address_line_2: "First Floor",
@@ -106,23 +101,12 @@ const CONFIG = {
     name: "Free Plan",
     plan_code: "FREE-001",
     description: "Free plan for development and staging use",
-    // max_branches and max_users: -1 means unlimited in your subscription logic
-    // Use a real number if you want to test limit enforcement
     max_branches: 5,
     max_users: 10,
     price: 0,
     is_featured: false,
   },
 
-  // File types must match the keys your shopFiles.service.js uses
-  // From shopFiles.service.js mapping:
-  //   drug_license → step 7
-  //   pharmacy_registration → step 8
-  //   business_registration_proof → step 9
-  //   shop_establishment_license → step 10
-  //   pan_card → step 11
-  //   address_proof → step 12
-  // Seeding as "verified" since this is a staging-ready shop
   shopFiles: [
     {
       file_type: "drug_license",
@@ -147,7 +131,6 @@ const CONFIG = {
     },
   ],
 
-  // One supplier per branch
   suppliers: [
     {
       name: "MedLife Distributors",
@@ -175,7 +158,6 @@ const CONFIG = {
     },
   ],
 
-  // One customer per branch
   customers: [
     {
       name: "Priya Nair",
@@ -257,6 +239,9 @@ async function cleanup() {
   await prisma.supplierBranch.deleteMany();
   await prisma.supplier.deleteMany();
 
+  // Checkout sessions (FK to branch + mobile user)
+  await prisma.checkoutSession.deleteMany();
+
   // Marketplace
   await prisma.marketplaceOrderStatusHistory.deleteMany();
   await prisma.marketplaceOrderPrescription.deleteMany();
@@ -264,6 +249,7 @@ async function cleanup() {
   await prisma.marketplaceOrder.deleteMany();
   await prisma.branchCategoryVisibility.deleteMany();
   await prisma.marketplaceListing.deleteMany();
+  await prisma.branchHoliday.deleteMany();
   await prisma.branchMarketplaceSettings.deleteMany();
   await prisma.marketplaceProfile.deleteMany();
 
@@ -291,26 +277,23 @@ async function cleanup() {
   await prisma.userSession.deleteMany();
   await prisma.pendingUser.deleteMany();
 
+  // Mobile
+  await prisma.cureliMobileNotification.deleteMany();
+  await prisma.cureliMobilePushPreference.deleteMany();
+  await prisma.cureliMobileFamilyMember.deleteMany();
+  await prisma.cureliMobileSession.deleteMany();
+  await prisma.cureliMobileAddress.deleteMany();
+  await prisma.cureliMobileUser.deleteMany();
+
+  // ── Delivery pricing config — no FKs, safe to wipe anytime ──
+  await prisma.deliveryPricingConfig.deleteMany();
+
   // ── CRITICAL ORDER ──────────────────────────────────────────
-  // Shop.owner_user_id → users (RESTRICT)
-  // Branch.shop_id     → shops (CASCADE implied but still needs shop first)
-  // User.shop_id       → shops (optional FK)
-  // User.branch_id     → branches (optional FK)
-  //
-  // Safe order:
-  //   branches → shops → users
-  // Because:
-  //   - branches reference shops (delete branches before shops)
-  //   - shops reference users via owner_user_id RESTRICT
-  //     (delete shops before users)
-  //   - users reference shops/branches optionally
-  //     (delete after shops and branches are gone)
-  // ────────────────────────────────────────────────────────────
   await prisma.branch.deleteMany();
   await prisma.shop.deleteMany();
   await prisma.user.deleteMany();
 
-  // Plans (no FKs remaining after subscriptions deleted)
+  // Plans
   await prisma.plan.deleteMany();
 
   // CAdmin
@@ -407,9 +390,6 @@ async function main() {
 
   /* ─────────────────────────────────────────
      3. PHARMACY OWNER
-     role: "super_admin"   — from auth.service.js createOwnerAccount
-     status: "active"      — set by setup.service.js completeSetup after setup done
-     onboarding_step: 12   — setup.service.js sets this on completeSetup
   ───────────────────────────────────────── */
   console.log("👤 Creating Pharmacy Owner...");
 
@@ -424,13 +404,9 @@ async function main() {
       phone_number: CONFIG.pharmacyOwner.phone,
       password_hash: await bcrypt.hash(CONFIG.pharmacyOwner.password, 10),
       login_provider: "password",
-      // From auth.service.js createOwnerAccount:
       role: "super_admin",
-      // "pending_setup" is initial state, but setup is complete in seed
-      // so we mirror what setup.service.js sets after completeSetup
       status: "active",
       is_active: true,
-      // 12 = fully completed onboarding — from setup.service.js completeSetup
       onboarding_step: 12,
       first_login_after_verification: false,
       first_verified_at: now,
@@ -441,7 +417,6 @@ async function main() {
 
   /* ─────────────────────────────────────────
      4. SHOP
-     verification_status: "verified" — cadmin approved
   ───────────────────────────────────────── */
   console.log("🏪 Creating Shop...");
 
@@ -464,8 +439,6 @@ async function main() {
     },
   });
 
-  // Owner needs shop_id — set after shop is created
-  // (mirrors the real flow: owner exists first, shop created next, then owner linked)
   await prisma.user.update({
     where: { user_id: owner.user_id },
     data: { shop_id: shop.shop_id },
@@ -475,8 +448,6 @@ async function main() {
 
   /* ─────────────────────────────────────────
      5. SHOP FILES
-     file_type values from shopFiles.service.js mapping keys
-     status: "verified" — cadmin already verified these for staging
   ───────────────────────────────────────── */
   console.log("📄 Creating Shop Files...");
 
@@ -490,7 +461,6 @@ async function main() {
         original_name: fileConfig.original_name,
         mime_type: fileConfig.mime_type,
         file_size: fileConfig.file_size,
-        // "verified" = cadmin has approved this document
         status: "verified",
         uploaded_by: owner.user_id,
         uploaded_at: now,
@@ -505,8 +475,6 @@ async function main() {
 
   /* ─────────────────────────────────────────
      6. SUBSCRIPTION
-     status: "ACTIVE"       — from SubscriptionStatus enum
-     payment_status: "PAID" — from PaymentStatus enum
   ───────────────────────────────────────── */
   console.log("💳 Creating Subscription...");
 
@@ -521,27 +489,23 @@ async function main() {
       renewal_date: oneYearLater,
       branch_limit_snapshot: CONFIG.plan.max_branches,
       user_limit_snapshot: CONFIG.plan.max_users,
-      // From subscription.js SubscriptionStatus enum
       status: "ACTIVE",
-      // From subscription.js PaymentStatus enum
       payment_status: "PAID",
       is_active: true,
     },
   });
 
-  // Link subscription to shop
   await prisma.shop.update({
     where: { shop_id: shop.shop_id },
     data: { current_subscription_id: subscription.subscription_id },
   });
 
   console.log(
-    `   ✅ Subscription active until ${oneYearLater.toDateString()}\n`,
+    `   ✅ Subscription active until ${oneYearLater.toDateString()}\n`
   );
 
   /* ─────────────────────────────────────────
      7. MARKETPLACE PROFILE
-     NOT_STARTED = shop hasn't begun marketplace onboarding
   ───────────────────────────────────────── */
   console.log("🛒 Creating Marketplace Profile...");
 
@@ -558,7 +522,27 @@ async function main() {
   console.log(`   ✅ Marketplace profile created (NOT_STARTED)\n`);
 
   /* ─────────────────────────────────────────
-     8. BRANCHES + USERS + SUPPLIERS + CUSTOMERS
+     8. DELIVERY PRICING CONFIG
+     All fields have schema-level defaults so we pass nothing.
+     Only one config row should ever exist — this is the global
+     pricing config used by the checkout pricing engine.
+     The seed creates it fresh so the pricing engine always has
+     a valid row to read from without needing a manual DB insert.
+  ───────────────────────────────────────── */
+  console.log("💰 Creating Delivery Pricing Config...");
+
+  const pricingConfig = await prisma.deliveryPricingConfig.create({
+    data: {},
+  });
+
+  console.log(`   ✅ Delivery pricing config created (all schema defaults)\n`);
+  console.log(`      Service tiers  : ≤₹${pricingConfig.service_tier_1_max} → ₹${pricingConfig.service_tier_1_charge} | ≤₹${pricingConfig.service_tier_2_max} → ₹${pricingConfig.service_tier_2_charge} | above → ₹${pricingConfig.service_tier_3_charge}`);
+  console.log(`      Delivery tiers : ≤₹${pricingConfig.delivery_tier_1_max} → ₹${pricingConfig.delivery_tier_1_charge} | ≤₹${pricingConfig.delivery_tier_2_max} → ₹${pricingConfig.delivery_tier_2_charge} | ≤₹${pricingConfig.delivery_tier_3_max} → ₹${pricingConfig.delivery_tier_3_charge} | above → ₹${pricingConfig.delivery_tier_4_charge}`);
+  console.log(`      KM surcharge   : free within ${pricingConfig.free_km_radius}km | ₹${pricingConfig.per_km_tier_1_rate}/km up to ≤₹${pricingConfig.per_km_tier_1_max} order | ₹${pricingConfig.per_km_tier_2_rate}/km above`);
+  console.log(`      Tip enabled    : ${pricingConfig.tip_enabled}\n`);
+
+  /* ─────────────────────────────────────────
+     9. BRANCHES + USERS + SUPPLIERS + CUSTOMERS
   ───────────────────────────────────────── */
   console.log("🏬 Creating Branches...\n");
 
@@ -573,8 +557,6 @@ async function main() {
         branch_id: uuid(),
         shop_id: shop.shop_id,
         branch_name: branchConfig.name,
-        // First branch = "main", rest = "branch"
-        // Matches setup.service.js: isFirst ? "main" : "branch"
         branch_type: branchConfig.type,
         address_line_1: branchConfig.address_line_1,
         address_line_2: branchConfig.address_line_2,
@@ -600,11 +582,7 @@ async function main() {
       },
     });
 
-    /* ── Branch Admin ──
-       role: "branch_admin"  — from users.service.js createUser / getUsers filter
-       status: "verified"    — from users.service.js createUser
-       onboarding_step: 12   — from setup.service.js completeSetup
-    */
+    /* ── Branch Admin ── */
     const admin = await prisma.user.create({
       data: {
         user_id: uuid(),
@@ -618,9 +596,7 @@ async function main() {
         phone_number: branchConfig.admin.phone,
         password_hash: await bcrypt.hash(branchConfig.admin.password, 10),
         login_provider: "password",
-        // From users.service.js: role: { in: ["branch_admin", "staff"] }
         role: "branch_admin",
-        // From users.service.js createUser: status: "verified"
         status: "verified",
         is_active: true,
         onboarding_step: 12,
@@ -631,10 +607,7 @@ async function main() {
 
     console.log(`   ✅ Admin: ${admin.full_name} (${admin.role})`);
 
-    /* ── Staff ──
-       role: "staff"      — from users.service.js getUsers filter
-       status: "verified" — from users.service.js createUser
-    */
+    /* ── Staff ── */
     const staff = await prisma.user.create({
       data: {
         user_id: uuid(),
@@ -648,9 +621,7 @@ async function main() {
         phone_number: branchConfig.staff.phone,
         password_hash: await bcrypt.hash(branchConfig.staff.password, 10),
         login_provider: "password",
-        // From users.service.js: role: { in: ["branch_admin", "staff"] }
         role: "staff",
-        // From users.service.js createUser: status: "verified"
         status: "verified",
         is_active: true,
         onboarding_step: 12,
@@ -661,9 +632,7 @@ async function main() {
 
     console.log(`   ✅ Staff: ${staff.full_name} (${staff.role})`);
 
-    /* ── Supplier ──
-       created_by: admin.user_id — branch admin creates suppliers in their branch
-    */
+    /* ── Supplier ── */
     const supplier = await prisma.supplier.create({
       data: {
         supplier_id: uuid(),
@@ -683,7 +652,6 @@ async function main() {
       },
     });
 
-    // SupplierBranch link — from supplier.service.js createSupplier
     await prisma.supplierBranch.create({
       data: {
         id: uuid(),
@@ -696,10 +664,7 @@ async function main() {
 
     console.log(`   ✅ Supplier: ${supplier.name}`);
 
-    /* ── Customer ──
-       created_by: staff.user_id — staff creates customers
-       phone unique per shop — from customer.service.js createCustomer
-    */
+    /* ── Customer ── */
     await prisma.customer.create({
       data: {
         customer_id: uuid(),
@@ -759,17 +724,17 @@ async function main() {
   console.log("═".repeat(60));
   console.log("\n🔐 LOGIN CREDENTIALS:\n");
   console.log(
-    `   CAdmin  │ ${CONFIG.superAdmin.username.padEnd(20)} │ ${CONFIG.superAdmin.password}`,
+    `   CAdmin  │ ${CONFIG.superAdmin.username.padEnd(20)} │ ${CONFIG.superAdmin.password}`
   );
   console.log(
-    `   Owner   │ ${CONFIG.pharmacyOwner.email.padEnd(20)} │ ${CONFIG.pharmacyOwner.password}`,
+    `   Owner   │ ${CONFIG.pharmacyOwner.email.padEnd(20)} │ ${CONFIG.pharmacyOwner.password}`
   );
   for (const b of CONFIG.branches) {
     console.log(
-      `   Admin   │ ${b.admin.email.padEnd(20)} │ ${b.admin.password}`,
+      `   Admin   │ ${b.admin.email.padEnd(20)} │ ${b.admin.password}`
     );
     console.log(
-      `   Staff   │ ${b.staff.email.padEnd(20)} │ ${b.staff.password}`,
+      `   Staff   │ ${b.staff.email.padEnd(20)} │ ${b.staff.password}`
     );
   }
 
@@ -780,12 +745,13 @@ async function main() {
   console.log(`   ${CONFIG.shopFiles.length}  Shop Files (verified)`);
   console.log(`   1  Plan + Subscription (ACTIVE / PAID)`);
   console.log(`   1  Marketplace Profile (NOT_STARTED)`);
+  console.log(`   1  Delivery Pricing Config (schema defaults)`);
   console.log(`   ${CONFIG.branches.length}  Branches`);
   console.log(
-    `   ${CONFIG.branches.length * 2}  Branch Users (${CONFIG.branches.length} branch_admin + ${CONFIG.branches.length} staff)`,
+    `   ${CONFIG.branches.length * 2}  Branch Users (${CONFIG.branches.length} branch_admin + ${CONFIG.branches.length} staff)`
   );
   console.log(
-    `   ${CONFIG.suppliers.length}  Suppliers + SupplierBranch links`,
+    `   ${CONFIG.suppliers.length}  Suppliers + SupplierBranch links`
   );
   console.log(`   ${CONFIG.customers.length}  Customers`);
   console.log(`   ${CONFIG.branches.length + 1}  Welcome Notifications`);
