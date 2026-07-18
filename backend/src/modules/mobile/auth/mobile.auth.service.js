@@ -110,6 +110,7 @@ function formatUserForResponse(user) {
  */
 export async function sendMobileOtp(phone) {
   // phone is already normalized to +91XXXXXXXXXX by the Zod schema
+  console.log("[sendMobileOtp] incoming phone:", JSON.stringify(phone)); 
 
   // ── 1. Daily SMS limit ──────────────────────────────────
   const limitCheck = await checkSmsOtpLimit(`mobile:${phone}`);

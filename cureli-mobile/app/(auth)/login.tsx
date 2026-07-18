@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Keyboard,
+  Platform,
 } from 'react-native';
 import { useState, useRef } from 'react';
 import { router } from 'expo-router';
@@ -17,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { useTheme } from '../../src/theme/ThemeContext';
+import { FontFamily } from '../../src/theme/typography';
 
 export default function LoginScreen() {
   const { sendOtp } = useAuthStore();
@@ -224,9 +226,6 @@ export default function LoginScreen() {
         </View>
 
         {/* ── Scroll padding ─────────────────────────── */}
-        {/* This empty view gives scrollToEnd something to scroll into */}
-        {/* Without it, the content ends at the button and there's */}
-        {/* nowhere to scroll when the keyboard opens */}
         <View style={styles.keyboardSpacer} />
       </ScrollView>
     </SafeAreaView>
@@ -272,9 +271,10 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 34,
-    fontFamily: 'Amulya',
-    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? FontFamily.amulyaBold : FontFamily.amulya,
+    lineHeight: Platform.OS === 'ios' ? 42 : 38,
     letterSpacing: -0.5,
+    ...(Platform.OS === 'android' ? { fontWeight: '700' as const } : {}),
   },
   tagline: {
     fontSize: 13,
@@ -379,8 +379,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Keyboard spacer ──
-  // Provides scroll room when keyboard opens.
-  // scrollToEnd scrolls this into view, pushing the form up above the keyboard.
   keyboardSpacer: {
     height: 320,
   },

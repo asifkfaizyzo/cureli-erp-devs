@@ -50,7 +50,7 @@ const __DEV_SHOW_THEME_TOGGLE__ = true;
 export default function RootLayout() {
   const { initialize, logout } = useAuthStore();
 
-  const [fontsLoaded] = useFonts({
+const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -58,6 +58,7 @@ export default function RootLayout() {
     Inter_800ExtraBold,
     Amulya:            require('../assets/fonts/Amulya-Variable.ttf'),
     'Amulya-Variable': require('../assets/fonts/Amulya-Variable.ttf'),
+    'Amulya-Bold':     require('../assets/fonts/Amulya-Bold.ttf'),
   });
 
   useEffect(() => {

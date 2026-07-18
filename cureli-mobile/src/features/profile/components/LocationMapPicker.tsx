@@ -8,7 +8,7 @@ import {
   Text,
   Platform,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { useTheme } from '../../../theme/ThemeContext';
 
 interface Coordinate {
@@ -96,7 +96,7 @@ export function LocationMapPicker({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
         initialRegion={initialRegion}
         onMapReady={() => {
           setIsMapReady(true);

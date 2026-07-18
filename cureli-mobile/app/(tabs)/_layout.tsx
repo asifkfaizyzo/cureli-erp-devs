@@ -31,7 +31,7 @@ const NOTCH_RADIUS = 34;
 const BAR_CONTENT_HEIGHT = 64;
 
 const DOCK_SIDE_MARGIN = 12;
-const DOCK_BOTTOM_GAP = 12;
+const DOCK_BOTTOM_GAP = Platform.OS === "ios" ? 22 : 12;
 
 // This is the transparent headroom above the dock so the FAB can
 // visually float upward without getting clipped.
@@ -270,8 +270,12 @@ function FloatingNotchTabBar({
 
   const [dockWidth, setDockWidth] = useState(0);
 
-  const bottomInset = insets.bottom > 0 ? insets.bottom : 8;
-  const dockHeight = BAR_CONTENT_HEIGHT + bottomInset;
+  const rawBottomInset = insets.bottom > 0 ? insets.bottom : 8;
+const bottomInset =
+  Platform.OS === "ios" ? Math.min(rawBottomInset, 5) : rawBottomInset;
+
+const dockHeight = BAR_CONTENT_HEIGHT + bottomInset;
+
   const totalFloatingHeight =
     FAB_OVERHANG_SPACE + dockHeight + DOCK_BOTTOM_GAP;
 

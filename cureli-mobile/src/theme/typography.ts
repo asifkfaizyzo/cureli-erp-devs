@@ -17,9 +17,8 @@ export const FontFamily = {
   extraBold:   'Inter_800ExtraBold',
 
   // ── Amulya (brand wordmark only) ────────────────────────────
-  // Amulya is a variable font — load it once in _layout.tsx as
-  // { 'Amulya-Variable': require('../../assets/fonts/Amulya-Variable.ttf') }
   amulya:      'Amulya-Variable',
+  amulyaBold:  'Amulya-Bold',
 } as const;
 
 export const Typography = {

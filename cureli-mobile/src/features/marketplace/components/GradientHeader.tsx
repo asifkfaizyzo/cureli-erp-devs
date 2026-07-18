@@ -8,10 +8,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { FontFamily } from '../../../theme/typography';
 
 import { Typography } from '../../../theme/typography';
 import { Spacing } from '../../../theme/spacing';
@@ -309,13 +311,13 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
   },
-  wordmark: {
-    // color applied inline
+wordmark: {
     ...Typography.wordmark,
     fontSize: 40,
-    lineHeight: 34,
+    lineHeight: Platform.OS === 'ios' ? 58: 34,
     letterSpacing: -0.3,
-    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? FontFamily.amulyaBold : FontFamily.amulya,
+    ...(Platform.OS === 'android' ? { fontWeight: '800' as const } : {}),
   },
 
   // ── Location pill ────────────────────────────────────────────
