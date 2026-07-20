@@ -76,4 +76,56 @@ router.patch(
   Controller.updateListing
 );
 
+router.get('/search', auth, async (req, res) => {
+  try {
+    const { branch_id, search, limit = 10 } = req.query;
+
+    if (!branch_id) return fail(res, 'branch_id is required', 400);
+
+    const shopId = req.user.shop_id;
+
+    const listings = await prisma.marketplaceListing.findMany({
+      where: {
+        branch_id,
+        shop_id:    shopId,
+        is_visible: true,
+        ...(search && search.trim().length >= 2 ? {
+          OR: [
+            { linkedVariant: { name:  { contains: search.trim(), mode: 'insensitive' } } },
+            { linkedVariant: { brand: { contains: search.trim(), mode: 'insensitive' } } },
+          ],
+        } : {}),
+      },
+      take: Number(limit),
+      select: {
+        listing_id:        true,
+        marketplace_price: true,
+        requires_prescription: true,
+        linkedVariant: {
+          select: {
+            name:      true,
+            brand:     true,
+            pack_size: true,
+            sku_id:    true,
+          },
+        },
+      },
+    });
+
+    const formatted = listings.map((l) => ({
+      listing_id:        l.listing_id,
+      medicine_name:     l.linkedVariant?.name ?? '',
+      brand:             l.linkedVariant?.brand ?? null,
+      pack_size:         l.linkedVariant?.pack_size ?? null,
+      marketplace_price: l.marketplace_price ? Number(l.marketplace_price) : null,
+      requires_prescription: l.requires_prescription,
+    }));
+
+    return success(res, { listings: formatted });
+  } catch (err) {
+    console.error('[ListingsSearch] Error:', err.message);
+    return fail(res, 'Failed to search listings', 500);
+  }
+});
+
 export default router;

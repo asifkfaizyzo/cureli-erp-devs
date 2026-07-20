@@ -8,6 +8,7 @@ import {
 } from "../../../config/razorpay.js";
 import { computePricing, normaliseConfig } from "./pricing.engine.js";
 import { fireOrderPlacedEvents } from "../../marketplace-orders/marketplace.orders.events.js";
+import { markConverted } from "../../prescription-requests/prescription.requests.service.js";
 
 const SESSION_TTL_MINS = 15;
 
@@ -59,6 +60,8 @@ export async function createCheckoutSession({
   tip = 0,
   prescription_files = [],
   patient,
+  prescription_request_id = null,
+  prescription_recipient_id = null,
 }) {
   const config = await getConfig();
 
@@ -160,6 +163,8 @@ export async function createCheckoutSession({
       patient_name_snapshot: patient.name,
       patient_age_snapshot: patient.age,
       patient_sex_snapshot: patient.sex,
+      prescription_request_id,
+      prescription_recipient_id,
 
       status: "created",
       expires_at,
@@ -425,11 +430,23 @@ async function _createOrderFromSession({
     return order;
   });
 
-  // Fire events post-commit
+ // Fire events post-commit
   await fireOrderPlacedEvents({
     ...createdOrder,
     items: cartItems,
   });
+
+  // ── Fire-and-forget: link order back to prescription request if applicable ──
+  if (session.prescription_request_id && session.prescription_recipient_id) {
+    markConverted(
+      session.prescription_request_id,
+      session.prescription_recipient_id,
+      createdOrder.order_id,
+    ).catch((err) =>
+      console.error('[Checkout] markConverted failed (non-fatal):', err.message),
+    );
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   return createdOrder;
 }

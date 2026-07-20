@@ -1,15 +1,10 @@
 // pharmacy-web/src/hooks/useSSENotifications.js
-// MODIFIED
-// Removed: audio ref, audio creation, broken Zustand v5 subscription
-// Added: addPendingOrder + resolvePendingOrder calls (audio is now
-//        triggered inside the store, not here)
-// Everything else unchanged.
 
-import { useEffect, useRef } from 'react';
-import { useNotificationStore } from '../store/useNotificationStore';
-import useOrderAlertStore from '../store/useOrderAlertStore';
+import { useEffect, useRef }            from 'react';
+import { useNotificationStore }         from '../store/useNotificationStore';
+import useOrderAlertStore               from '../store/useOrderAlertStore';
+import usePrescriptionRequestAlertStore from '../store/usePrescriptionRequestAlertStore';
 
-// Statuses that mean the order no longer needs pharmacy action
 const RESOLVE_STATUSES = new Set(['ACCEPTED', 'REJECTED', 'CANCELLED']);
 
 export const useSSENotifications = () => {
@@ -19,6 +14,8 @@ export const useSSENotifications = () => {
 
   const addPendingOrder     = useOrderAlertStore((s) => s.addPendingOrder);
   const resolvePendingOrder = useOrderAlertStore((s) => s.resolvePendingOrder);
+
+  const addPendingRequest   = usePrescriptionRequestAlertStore((s) => s.addPendingRequest);
 
   const eventSourceRef = useRef(null);
 
@@ -30,39 +27,34 @@ export const useSSENotifications = () => {
       const url = `${import.meta.env.VITE_API_URL}/api/notifications/stream?token=${token}`;
       const es  = new EventSource(url);
 
-      // ── Existing: initial unread count on connect ───────────────────────
       es.addEventListener('connected', (e) => {
         const data = JSON.parse(e.data);
         useNotificationStore.setState({ unreadCount: data.unread_count });
       });
 
-      // ── Existing: notification bell update ─────────────────────────────
       es.addEventListener('new_notification', (e) => {
         receiveSSE(JSON.parse(e.data));
       });
 
-      // ── Existing + NEW: new marketplace order ───────────────────────────
-      // receiveNewOrder  → updates badge + triggers list refresh (unchanged)
-      // addPendingOrder  → registers order in alert store → audio starts
       es.addEventListener('marketplace_new_order', (e) => {
         const data = JSON.parse(e.data);
         receiveNewOrder(data);
-
-        if (data.order_id) {
-          addPendingOrder(data.order_id);
-        }
+        if (data.order_id) addPendingOrder(data.order_id);
       });
 
-      // ── Existing + NEW: order status changed ────────────────────────────
-      // receiveStatusChange  → refreshes list + detail panel (unchanged)
-      // resolvePendingOrder  → removes order from registry → audio stops
-      //                        when registry hits zero
       es.addEventListener('marketplace_order_status_changed', (e) => {
         const data = JSON.parse(e.data);
         receiveStatusChange(data);
-
         if (data.order_id && RESOLVE_STATUSES.has(data.new_status)) {
           resolvePendingOrder(data.order_id);
+        }
+      });
+
+      // ── Prescription request arrived at this branch ────────────────────
+      es.addEventListener('prescription_request_new', (e) => {
+        const data = JSON.parse(e.data);
+        if (data.recipient_id) {
+          addPendingRequest(data.recipient_id);
         }
       });
 
@@ -84,7 +76,14 @@ export const useSSENotifications = () => {
       window.removeEventListener('storage', handleStorage);
       eventSourceRef.current?.close();
     };
-  }, [receiveSSE, receiveNewOrder, receiveStatusChange, addPendingOrder, resolvePendingOrder]);
+  }, [
+    receiveSSE,
+    receiveNewOrder,
+    receiveStatusChange,
+    addPendingOrder,
+    resolvePendingOrder,
+    addPendingRequest,
+  ]);
 
   return null;
 };

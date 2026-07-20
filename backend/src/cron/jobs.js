@@ -7,6 +7,12 @@ import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.s
 import { cleanupExpiredSessions } from "../utils/session.js";
 import { deleteFile } from "../services/fileStorage.service.js";
 
+
+import {
+  startQuoteExpiryCron,
+  startPrescriptionCleanupCron,
+} from './prescriptionRequestJobs.js';
+
 import {
   cleanupOldPendingUsers,
   cleanupIncompleteUsers,
@@ -32,10 +38,16 @@ import {
   NOTIFICATION_EVENTS,
 } from "../modules/notifications/index.js";
 
-// ── NEW ───────────────────────────────────────────────────────
 import { expireStaleCheckoutSessions } from "./checkoutSessionCleanup.js";
 import { runMarketplaceScheduler } from "./marketplaceScheduler.js";
-// ─────────────────────────────────────────────────────────────
+
+// ── NEW ───────────────────────────────────────────────────────────────────────
+import {
+  expireStaleQuotes,
+  expireStaleRequests,
+  cleanupExpiredRequestFiles,
+} from "../modules/prescription-requests/prescription.requests.service.js";
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ============================================
 // CRON 5: SCHEDULED BROADCASTS - Every 5 minutes
@@ -159,7 +171,6 @@ function initializeSubscriptionLifecycleJob() {
       cronLogger.info("Starting subscription lifecycle check...");
 
       try {
-        // 1. Expired → Grace Period
         const graceResult = await transitionExpiredToGrace();
         if (graceResult.transitioned > 0) {
           cronLogger.info(
@@ -183,7 +194,6 @@ function initializeSubscriptionLifecycleJob() {
           }
         }
 
-        // 2. Grace Expired → Suspended
         const suspendResult = await suspendExpiredGrace();
         if (suspendResult.suspended > 0) {
           cronLogger.info(
@@ -253,7 +263,6 @@ function initializeReminderJob() {
       try {
         const reminders = await getSubscriptionsDueForReminders();
 
-        // 7 DAYS BEFORE EXPIRY
         if (reminders.expiring7Days.length > 0) {
           cronLogger.info(
             `Expiring in 7 days: ${reminders.expiring7Days.length} shops`,
@@ -272,7 +281,6 @@ function initializeReminderJob() {
           }
         }
 
-        // 3 DAYS BEFORE EXPIRY
         if (reminders.expiring3Days.length > 0) {
           cronLogger.info(
             `Expiring in 3 days: ${reminders.expiring3Days.length} shops`,
@@ -291,7 +299,6 @@ function initializeReminderJob() {
           }
         }
 
-        // GRACE ENDING TOMORROW
         if (reminders.graceEndingSoon.length > 0) {
           cronLogger.info(
             `Grace ending tomorrow: ${reminders.graceEndingSoon.length} shops`,
@@ -542,6 +549,66 @@ function initializeMarketplaceSchedulerJob() {
 }
 
 // ============================================
+// ── NEW: PRESCRIPTION QUOTE EXPIRY - Every 5 minutes
+// ============================================
+
+async function runQuoteExpiryJob() {
+  try {
+    const result = await expireStaleQuotes();
+    if (result.expired > 0) {
+      cronLogger.info(
+        `[PRx] Expired ${result.expired} stale quote recipient(s)`,
+      );
+    }
+  } catch (err) {
+    cronLogger.error("Prescription quote expiry job failed", err);
+  }
+}
+
+function initializePrescriptionQuoteExpiryJob() {
+  cron.schedule("*/5 * * * *", () =>
+    withCronLock("prescription-quote-expiry", 4, runQuoteExpiryJob),
+  );
+  cronLogger.info(
+    "Prescription quote expiry job scheduled (every 5 minutes)",
+  );
+}
+
+// ============================================
+// ── NEW: PRESCRIPTION REQUEST DAILY CLEANUP - Daily at 02:00 IST (20:30 UTC)
+// ============================================
+
+async function runPrescriptionRequestCleanupJob() {
+  try {
+    cronLogger.info("[PRx] Starting prescription request cleanup run");
+
+    // a. Expire stale requests (48h window passed, no acceptance)
+    const requestResult = await expireStaleRequests();
+    cronLogger.info(
+      `[PRx] Expired ${requestResult.expired} stale prescription request(s)`,
+    );
+
+    // b. Delete S3 files for request images older than 7 days
+    const fileResult = await cleanupExpiredRequestFiles();
+    cronLogger.info(
+      `[PRx] File cleanup: ${fileResult.deleted} deleted, ${fileResult.failed} failed`,
+    );
+  } catch (err) {
+    cronLogger.error("Prescription request cleanup job failed", err);
+  }
+}
+
+function initializePrescriptionRequestCleanupJob() {
+  // 20:30 UTC = 02:00 IST
+  cron.schedule("30 20 * * *", () =>
+    withCronLock("prescription-request-cleanup", 30, runPrescriptionRequestCleanupJob),
+  );
+  cronLogger.info(
+    "Prescription request cleanup job scheduled (daily at 02:00 IST / 20:30 UTC)",
+  );
+}
+
+// ============================================
 // INITIALIZE ALL CRON JOBS
 // ============================================
 
@@ -573,11 +640,13 @@ export function initializeCronJobs() {
   initializeScheduledBroadcastsJob();
   initializeMarketplaceOrderAutoComplete();
   initializePrescriptionCleanupJob();
-
-  // ── NEW ─────────────────────────────────────────────────────
   initializeCheckoutSessionCleanupJob();
   initializeMarketplaceSchedulerJob();
-  // ────────────────────────────────────────────────────────────
+
+  // ── NEW ───────────────────────────────────────────────────────────────────
+  initializePrescriptionQuoteExpiryJob();
+  initializePrescriptionRequestCleanupJob();
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
@@ -651,4 +720,6 @@ export function initializeCronJobs() {
   cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
   cronLogger.info("  - Checkout session cleanup: Every 5 minutes");
   cronLogger.info("  - Marketplace auto open/close scheduler: Every minute");
+  cronLogger.info("  - Prescription quote expiry: Every 5 minutes");        // NEW
+  cronLogger.info("  - Prescription request cleanup: Daily at 02:00 IST");  // NEW
 }

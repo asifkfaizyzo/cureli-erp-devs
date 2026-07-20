@@ -1,14 +1,4 @@
 // src/features/marketplace/screens/HomeScreen.tsx
-//
-// Home tab — main marketplace entry point.
-//
-// Category section:
-//   Replaced the old backend-driven CategoryGrid with TopLevelCategoryGrid —
-//   three hardcoded top-level cards (English Medicine, Ayurvedic, Veterinary).
-//   No useCategories call needed on this screen any more.
-//
-// Feed sections:
-//   Still driven by useHomeFeed — curated product rails per category.
 
 import React, { useCallback, useState } from "react";
 import {
@@ -16,12 +6,16 @@ import {
   ScrollView,
   RefreshControl,
   StyleSheet,
+  TouchableOpacity,
+  Text,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
+import { Radius } from "../../../theme/radius";
 
 import { GradientHeader, HEADER_HEIGHT } from "../components/GradientHeader";
 import { HeroCarousel } from "../components/HeroCarousel";
@@ -32,6 +26,46 @@ import { HomeFooter } from "../components/HomeFooter";
 
 import { useHomeFeed } from "../hooks/useHomeFeed";
 import { useLayoutStore } from "../../../store/layoutStore";
+
+// ── Prescription request entry banner ─────────────────────────────────────────
+
+function PrescriptionRequestBanner() {
+  const { colors } = useTheme();
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/prescription-request' as any)}
+      activeOpacity={0.85}
+      style={[
+        styles.prescriptionBanner,
+        {
+          backgroundColor: colors.background.card,
+          borderColor:     colors.border.brand,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.prescriptionIcon,
+          { backgroundColor: colors.background.tint },
+        ]}
+      >
+        <Ionicons name="document-text-outline" size={22} color={colors.text.brand} />
+      </View>
+      <View style={styles.prescriptionText}>
+        <Text style={[styles.prescriptionTitle, { color: colors.text.primary }]}>
+          Have a prescription?
+        </Text>
+        <Text style={[styles.prescriptionSub, { color: colors.text.muted }]}>
+          Upload it and let pharmacies send you a quote
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.text.faint} />
+    </TouchableOpacity>
+  );
+}
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
   const { colors } = useTheme();
@@ -102,6 +136,10 @@ export function HomeScreen() {
 
         <TopLevelCategoryGrid />
 
+        {/* ── Prescription request entry point ─────────────────────────── */}
+        <PrescriptionRequestBanner />
+        {/* ───────────────────────────────────────────────────────────────── */}
+
         {isFeedLoading ? (
           [
             { key: "s1", label: "" },
@@ -151,4 +189,26 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
+  // ── Prescription banner ───────────────────────────────────────────────────
+  prescriptionBanner: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    gap:              Spacing.md,
+    marginHorizontal: Spacing.base,
+    marginVertical:   Spacing.sm,
+    padding:          Spacing.md,
+    borderRadius:     Radius.lg,
+    borderWidth:      1,
+  },
+  prescriptionIcon: {
+    width:          44,
+    height:         44,
+    borderRadius:   Radius.md,
+    alignItems:     'center',
+    justifyContent: 'center',
+    flexShrink:     0,
+  },
+  prescriptionText: { flex: 1, gap: 3 },
+  prescriptionTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  prescriptionSub:   { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 17 },
 });

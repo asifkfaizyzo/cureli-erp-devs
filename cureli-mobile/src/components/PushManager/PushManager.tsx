@@ -12,20 +12,12 @@ import {
 } from '../../services/pushNotificationService';
 import type { NotificationTapData } from '../../constants/pushCategories';
 
-// ── Helper — safely extract tap data from notification payload ────────────────
-// expo-notifications types content.data as { [key: string]: unknown }.
-// We cast through unknown first (the correct pattern for this scenario)
-// then validate that what we got is actually usable.
-
 function extractTapData(
   raw: Record<string, unknown> | undefined,
 ): NotificationTapData | undefined {
   if (!raw) return undefined;
-  // Cast through unknown — intentional, see TS error note in pushCategories.ts
   return raw as unknown as NotificationTapData;
 }
-
-// ── Tap routing ───────────────────────────────────────────────────────────────
 
 function handleNotificationTap(data?: NotificationTapData) {
   if (!data?.screen) {
@@ -69,14 +61,22 @@ function handleNotificationTap(data?: NotificationTapData) {
       router.push('/prescription/upload' as any);
       break;
 
+    // ── NEW ────────────────────────────────────────────────────────────────
+    case 'prescription_request_detail':
+      if (data.requestId) {
+        router.push(`/prescription-request/${data.requestId}` as any);
+      } else {
+        router.push('/prescription-request' as any);
+      }
+      break;
+    // ──────────────────────────────────────────────────────────────────────
+
     case 'home':
     default:
       router.push('/(tabs)' as any);
       break;
   }
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function PushManager() {
   const status      = useAuthStore((s) => s.status);
@@ -86,12 +86,9 @@ export function PushManager() {
     (s) => s.loadPreferences,
   );
 
-  // ── Notification response listener (tap handler) ──────────────────────────
   useEffect(() => {
     const subscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        // content.data is typed as { [key: string]: unknown } by expo-notifications
-        // extractTapData casts through unknown safely
         const data = extractTapData(
           response.notification.request.content.data,
         );
@@ -103,7 +100,6 @@ export function PushManager() {
     return () => subscription.remove();
   }, []);
 
-  // ── Foreground notification listener ──────────────────────────────────────
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(
       (notification) => {
@@ -117,7 +113,6 @@ export function PushManager() {
     return () => subscription.remove();
   }, []);
 
-  // ── Auth state → push lifecycle ───────────────────────────────────────────
   useEffect(() => {
     const prev = prevStatus.current;
     prevStatus.current = status;
@@ -137,7 +132,6 @@ export function PushManager() {
     }
   }, [status, loadPreferences]);
 
-  // ── Handle app launched from tapped notification (killed state) ───────────
   useEffect(() => {
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return;
@@ -147,7 +141,6 @@ export function PushManager() {
       );
 
       if (data) {
-        // Delay to let navigation stack initialize before pushing
         setTimeout(() => handleNotificationTap(data), 500);
       }
     });

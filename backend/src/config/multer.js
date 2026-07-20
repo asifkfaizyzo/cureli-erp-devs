@@ -161,6 +161,12 @@ export const prescriptionUpload = createUploader("order_prescriptions", {
   maxFileSize: 10 * 1024 * 1024,
 });
 
+export const prescriptionRequestUpload = createUploader('prescription_requests', {
+  fieldName:   'files',
+  maxFiles:    5,
+  maxFileSize: 10 * 1024 * 1024,
+});
+
 // ============================================
 // GENERIC MULTER INSTANCE (for backwards compatibility)
 // ============================================
@@ -258,5 +264,6 @@ export default {
   broadcastUpload,
   emailAttachmentUpload,
   prescriptionUpload,
+  prescriptionRequestUpload,
   handleMulterError,
 };

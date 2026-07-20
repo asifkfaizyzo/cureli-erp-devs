@@ -612,6 +612,18 @@ export const MobilePush = {
       data: { screen: 'prescription_upload' },
     }),
 
+    prescriptionQuoteReceived: (userId, requestId, requestNumber, pharmacyName) =>
+  sendPushToUser({
+    userId,
+    title: 'Quote received!',
+    body:  `${pharmacyName} has sent you a quote for your prescription ${requestNumber}.`,
+    category: 'prescription_updates',
+    data: {
+      screen:    'prescription_request_detail',
+      requestId,
+    },
+  }),
+
   // ── System notifications ──────────────────────────────────────────────────
 
   accountSuspended: (userId) =>

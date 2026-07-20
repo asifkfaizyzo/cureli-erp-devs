@@ -46,7 +46,8 @@ import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.j
 import marketplaceOrdersRoutes from "./src/modules/marketplace-orders/marketplace.orders.routes.js";
 import marketplaceDashboardRoutes from "./src/modules/marketplace-dashboard/marketplaceDashboard.routes.js";
 import inventoryImportRoutes from "./src/modules/inventory-import/inventoryImport.routes.js";
-
+import prescriptionRequestsMobileRouter from './src/modules/prescription-requests/prescription.requests.routes.js';
+import prescriptionRequestsErpRouter    from './src/modules/prescription-requests/prescription.requests.erp.routes.js';
 // ============================================
 // CADMIN ROUTES
 // ============================================
@@ -233,7 +234,7 @@ app.use("/api/marketplace-listing", listingsRoutes);
 app.use("/api/marketplace-orders", marketplaceOrdersRoutes);
 app.use("/api/marketplace/dashboard", marketplaceDashboardRoutes);
 app.use("/api/inventory/import", inventoryImportRoutes);
-
+app.use('/api/prescription-requests', prescriptionRequestsErpRouter);
 // ============================================
 // CADMIN ROUTES
 // ============================================
@@ -273,6 +274,7 @@ app.use("/mobile/prescriptions", mobilePrescriptionsRoutes);
 app.use("/mobile/notifications", mobileNotificationsRoutes);
 app.use("/mobile/push", mobilePushRoutes);
 app.use("/mobile/checkout", mobileCheckoutRoutes);
+app.use('/mobile/prescription-requests', prescriptionRequestsMobileRouter);
 
 // ============================================
 // HEALTH CHECK

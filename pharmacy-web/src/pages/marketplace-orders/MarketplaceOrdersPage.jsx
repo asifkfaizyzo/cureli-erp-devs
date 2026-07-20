@@ -1,22 +1,41 @@
-// ============================================
 // pharmacy-web/src/pages/marketplace-orders/MarketplaceOrdersPage.jsx
-// ============================================
+// MODIFIED — routes Prescriptions tab to PrescriptionRequestsTab
 
-import { ShoppingBag } from 'lucide-react';
+import { useState }          from 'react';
+import { ShoppingBag }       from 'lucide-react';
 import { useOrdersPage, ORDER_TABS } from '../../hooks/marketplace/useOrdersPage';
-import OrdersTabBar from './components/OrdersTabBar';
-import OrderListPanel from './components/OrderListPanel';
-import OrderDetailPanel from './components/OrderDetailPanel';
-import RejectModal from './components/RejectModal';
+import OrdersTabBar, { PRESCRIPTION_TAB_ID } from './components/OrdersTabBar';
+import OrderListPanel        from './components/OrderListPanel';
+import OrderDetailPanel      from './components/OrderDetailPanel';
+import RejectModal           from './components/RejectModal';
+import PrescriptionRequestsTab from '../prescription-requests/PrescriptionRequestsTab';
+import usePrescriptionRequestAlertStore from '../../store/usePrescriptionRequestAlertStore';
 
 const MarketplaceOrdersPage = () => {
   const page = useOrdersPage();
 
-  // Build tab counts from current data
-  // We only know the count for the active tab since we fetch per-tab
-  const tabCounts = {
-    [page.activeTab]: page.total,
+  // Active tab — starts on 'new' (existing default from useOrdersPage)
+  // When user clicks Prescriptions tab we switch locally
+  const [activeTab, setActiveTab] = useState(page.activeTab);
+
+  const pendingRequestIds = usePrescriptionRequestAlertStore((s) => s.pendingRequestIds);
+  const pendingRequestCount = Object.keys(pendingRequestIds).length;
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId !== PRESCRIPTION_TAB_ID) {
+      // Delegate to existing order tab handler
+      page.onTabChange(tabId);
+    }
   };
+
+  // Tab counts — merge order counts + prescription count
+  const tabCounts = {
+    [page.activeTab]:    page.total,
+    [PRESCRIPTION_TAB_ID]: pendingRequestCount,
+  };
+
+  const isPrescriptionTab = activeTab === PRESCRIPTION_TAB_ID;
 
   return (
     <div className="h-full flex flex-col bg-[#010015] overflow-hidden">
@@ -32,7 +51,7 @@ const MarketplaceOrdersPage = () => {
               Marketplace Orders
             </h1>
             <p className="text-[12px] text-white/35 mt-0.5">
-              Review and manage customer orders from your storefront
+              Review and manage customer orders and prescription requests
             </p>
           </div>
         </div>
@@ -41,55 +60,59 @@ const MarketplaceOrdersPage = () => {
       {/* ── Tabs ── */}
       <div className="flex-shrink-0">
         <OrdersTabBar
-          activeTab={page.activeTab}
-          onTabChange={page.onTabChange}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
           counts={tabCounts}
         />
       </div>
 
-      {/* ── Two-panel layout ── */}
-      <div className="flex-1 overflow-hidden grid grid-cols-[380px_1fr]">
+      {/* ── Content ── */}
+      {isPrescriptionTab ? (
+        // Prescription requests tab — completely separate layout + data
+        <PrescriptionRequestsTab />
+      ) : (
+        // Existing orders layout — unchanged
+        <div className="flex-1 overflow-hidden grid grid-cols-[380px_1fr]">
+          <OrderListPanel
+            activeTab={page.activeTab}
+            orders={page.orders}
+            isLoading={page.isLoading}
+            error={page.error}
+            selectedOrderId={page.selectedOrderId}
+            onSelectOrder={page.onSelectOrder}
+            page={page.page}
+            totalPages={page.totalPages}
+            total={page.total}
+            onPageChange={page.onPageChange}
+            onRefresh={page.onRefresh}
+          />
+          <OrderDetailPanel
+            orderId={page.selectedOrderId}
+            orderDetail={page.orderDetail}
+            isLoading={page.isDetailLoading}
+            error={page.detailError}
+            actionLoading={page.actionLoading}
+            actionError={page.actionError}
+            onClose={page.onCloseDetail}
+            onAccept={page.onAccept}
+            onOpenReject={page.onOpenReject}
+            onMarkReady={page.onMarkReady}
+            onComplete={page.onComplete}
+            onGetPrescriptionUrl={page.onGetPrescriptionUrl}
+          />
+        </div>
+      )}
 
-        {/* Left: Order list */}
-        <OrderListPanel
-          activeTab={page.activeTab}
-          orders={page.orders}
-          isLoading={page.isLoading}
-          error={page.error}
-          selectedOrderId={page.selectedOrderId}
-          onSelectOrder={page.onSelectOrder}
-          page={page.page}
-          totalPages={page.totalPages}
-          total={page.total}
-          onPageChange={page.onPageChange}
-          onRefresh={page.onRefresh}
+      {/* ── Reject Modal (orders only) ── */}
+      {!isPrescriptionTab && (
+        <RejectModal
+          open={page.rejectModal.open}
+          onClose={page.onCloseReject}
+          onSubmit={page.onRejectSubmit}
+          isLoading={page.actionLoading}
+          error={page.actionError}
         />
-
-        {/* Right: Order detail */}
-        <OrderDetailPanel
-          orderId={page.selectedOrderId}
-          orderDetail={page.orderDetail}
-          isLoading={page.isDetailLoading}
-          error={page.detailError}
-          actionLoading={page.actionLoading}
-          actionError={page.actionError}
-          onClose={page.onCloseDetail}
-          onAccept={page.onAccept}
-          onOpenReject={page.onOpenReject}
-          onMarkReady={page.onMarkReady}
-          onComplete={page.onComplete}
-          onGetPrescriptionUrl={page.onGetPrescriptionUrl}
-        />
-      </div>
-
-      {/* ── Reject Modal ── */}
-      <RejectModal
-        open={page.rejectModal.open}
-        onClose={page.onCloseReject}
-        onSubmit={page.onRejectSubmit}
-        isLoading={page.actionLoading}
-        error={page.actionError}
-      />
+      )}
     </div>
   );
 };
