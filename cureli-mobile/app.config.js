@@ -1,8 +1,8 @@
 // app.config.js
-import 'dotenv/config';
+import "dotenv/config";
 
 export default {
- expo: {
+  expo: {
     owner: "your-zeros-and-ones",
     name: "Cureli",
     slug: "cureli-mobile",
@@ -13,43 +13,44 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
-  supportsTablet: true,
-  bundleIdentifier: "com.cureli.mobile",
-  infoPlist: {
-    ITSAppUsesNonExemptEncryption: false,  // ← ADD THIS
-    NSLocationWhenInUseUsageDescription:
-      "Cureli needs your location to help fill your delivery address.",
-    NSLocationAlwaysAndWhenInUseUsageDescription:
-      "Cureli needs your location to help fill your delivery address.",
-  },
-  config: {
-    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
-  },
-},
-    android: {
-  adaptiveIcon: {
-    backgroundColor: "#090025",
-    foregroundImage: "./assets/images/android-icon-foreground.png",
-    monochromeImage: "./assets/images/android-icon-monochrome.png",
-  },
-  edgeToEdgeEnabled: true,
-  predictiveBackGestureEnabled: false,
-  package: "com.cureli.mobile",
-  // ── FCM / Google Services ─────────────────────────────────────────────
-  googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",  // ← UPDATED
-  // ── Push notification permissions ─────────────────────────────────────
-  permissions: [
-    "android.permission.POST_NOTIFICATIONS",
-    "android.permission.RECEIVE_BOOT_COMPLETED",
-    "android.permission.VIBRATE",
-  ],
-  // ── Maps ──────────────────────────────────────────────────────────────
-  config: {
-    googleMaps: {
-      apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+      supportsTablet: true,
+      bundleIdentifier: "com.cureli.mobile",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false, // ← ADD THIS
+        NSLocationWhenInUseUsageDescription:
+          "Cureli needs your location to help fill your delivery address.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "Cureli needs your location to help fill your delivery address.",
+      },
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+      },
     },
-  },
-},
+    android: {
+      adaptiveIcon: {
+        backgroundColor: "#090025",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png",
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      package: "com.cureli.mobile",
+      // ── FCM / Google Services ─────────────────────────────────────────────
+      googleServicesFile:
+        process.env.GOOGLE_SERVICES_JSON || "./google-services.json", // ← UPDATED
+      // ── Push notification permissions ─────────────────────────────────────
+      permissions: [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+      ],
+      // ── Maps ──────────────────────────────────────────────────────────────
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+        },
+      },
+    },
     web: {
       output: "static",
       favicon: "./assets/images/favicon.png",
@@ -76,7 +77,6 @@ export default {
           isAndroidBackgroundLocationEnabled: false,
         },
       ],
-      // ── expo-notifications ────────────────────────────────────────────────
       [
         "expo-notifications",
         {
@@ -84,6 +84,15 @@ export default {
           color: "#05015A",
           defaultChannel: "default",
           sounds: [],
+        },
+      ],
+      // ── Pin AGP version for EAS build compatibility ───────────
+      [
+        "expo-build-properties",
+        {
+          android: {
+            kotlinVersion: "2.1.20",
+          },
         },
       ],
     ],
@@ -98,7 +107,7 @@ export default {
     extra: {
       router: {},
       eas: {
-         projectId: "ad36bf8e-0d58-4e84-acc9-7e64b7b4cdee",
+        projectId: "ad36bf8e-0d58-4e84-acc9-7e64b7b4cdee",
       },
     },
   },
