@@ -92,6 +92,7 @@ export default {
         {
           android: {
             kotlinVersion: "2.1.20",
+            agpVersion: "8.3.2",
           },
         },
       ],
