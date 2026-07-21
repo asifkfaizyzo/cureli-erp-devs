@@ -51,7 +51,7 @@ export function useShopDetails(shopId) {
       if (!force) {
         const cached = CACHE.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-          console.log("[useShopDetails] Cache hit for key:", cacheKey);
+          //console.log("[useShopDetails] Cache hit for key:", cacheKey);
           setCompanyDetails(cached.data);
           return;
         }
@@ -61,9 +61,9 @@ export function useShopDetails(shopId) {
       setError(null);
 
       try {
-        console.log("[useShopDetails] Fetching shop profile...");
+        //console.log("[useShopDetails] Fetching shop profile...");
         const response = await getShopProfile();
-        console.log("[useShopDetails] Raw API response:", response);
+        //console.log("[useShopDetails] Raw API response:", response);
 
         if (!isMountedRef.current) return;
 
@@ -71,10 +71,10 @@ export function useShopDetails(shopId) {
         // Shape 1: { success: true, data: { ... } }         ← your axios interceptor
         // Shape 2: { data: { success: true, data: { ... } } } ← raw axios
         const payload = response?.data ?? response;
-        console.log("[useShopDetails] Resolved payload:", payload);
+        //console.log("[useShopDetails] Resolved payload:", payload);
 
         const shopData = payload?.data ?? payload;
-        console.log("[useShopDetails] Shop data:", shopData);
+        //console.log("[useShopDetails] Shop data:", shopData);
 
         if (
           shopData &&
@@ -95,7 +95,7 @@ export function useShopDetails(shopId) {
             email: shopData.email || "",
           };
 
-          console.log("[useShopDetails] Formatted details:", formatted);
+          //console.log("[useShopDetails] Formatted details:", formatted);
 
           // Store under both keys so future lookups hit cache
           // regardless of whether shopId was available

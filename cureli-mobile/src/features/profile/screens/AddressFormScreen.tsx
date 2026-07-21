@@ -42,7 +42,6 @@ interface FormState {
   state: string;
   pincode: string;
   is_default: boolean;
-  // Coordinates — populated by location picker
   latitude: number | null;
   longitude: number | null;
 }
@@ -72,6 +71,7 @@ interface FormErrors {
   state?: string;
   pincode?: string;
   recipient_phone?: string;
+  location?: string;
 }
 
 function validateForm(form: FormState): FormErrors {
@@ -97,6 +97,9 @@ function validateForm(form: FormState): FormErrors {
     if (!/^[6-9]\d{9}$/.test(stripped)) {
       errors.recipient_phone = "Enter a valid Indian mobile number";
     }
+  }
+  if (!form.latitude || !form.longitude) {
+    errors.location = "Please set a location using the map";
   }
 
   return errors;
@@ -129,6 +132,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
 
   const scrollRef = useRef<ScrollView>(null);
   const isPending = isCreating || isUpdating;
+  const hasLocation = Boolean(form.latitude && form.longitude);
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
   // ── Seed form on mount ─────────────────────────────────────
@@ -201,8 +205,6 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
   const handleLocationConfirm = useCallback((details: PlaceDetails) => {
     setForm((prev) => ({
       ...prev,
-      // Only overwrite fields that the place returned a value for.
-      // Never blank out something the user already typed.
       address_line_1:
         details.address_line_1 && details.address_line_1.trim().length >= 5
           ? details.address_line_1
@@ -215,7 +217,6 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
       longitude: details.longitude ?? prev.longitude,
     }));
 
-    // Clear errors for fields we just filled
     setErrors((prev) => ({
       ...prev,
       address_line_1:
@@ -229,9 +230,11 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
         details.pincode && /^\d{6}$/.test(details.pincode)
           ? undefined
           : prev.pincode,
+      // Clear location error as soon as coordinates arrive
+      location:
+        details.latitude && details.longitude ? undefined : prev.location,
     }));
 
-    // Mark touched so validation messages show correctly
     setTouched((prev) => ({
       ...prev,
       address_line_1: true,
@@ -253,6 +256,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
       state: true,
       pincode: true,
       recipient_phone: true,
+      location: true,
     });
 
     const errs = validateForm(form);
@@ -274,7 +278,6 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
       state: form.state.trim(),
       pincode: form.pincode.trim(),
       is_default: form.is_default,
-      // Coordinates from location picker (optional)
       latitude: form.latitude ?? undefined,
       longitude: form.longitude ?? undefined,
     };
@@ -372,76 +375,86 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             </View>
           ) : null}
 
-          {/* ── Location picker trigger ────────────────────── */}
-          <TouchableOpacity
-            style={[
-              styles.locationPickerButton,
-              {
-                backgroundColor: colors.background.card,
-                borderColor: form.latitude
-                  ? colors.status.successBorder
-                  : brandColor,
-              },
-            ]}
-            onPress={() => setLocationPickerVisible(true)}
-            activeOpacity={0.8}
-          >
-            <View
+          {/* ── Location picker ────────────────────────────── */}
+          <View style={styles.locationPickerWrapper}>
+            <Text
               style={[
-                styles.locationPickerIcon,
-                {
-                  backgroundColor: form.latitude
-                    ? colors.status.successBg
-                    : colors.background.tint,
-                },
+                styles.locationRequiredLabel,
+                { color: colors.text.muted, fontFamily: "Inter_700Bold" },
               ]}
             >
+              LOCATION{" "}
+              <Text style={{ color: colors.status.error }}>*</Text>
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.locationPickerButton,
+                {
+                  backgroundColor: colors.background.card,
+                  borderColor: hasLocation
+                    ? colors.status.successBorder
+                    : brandColor,
+                },
+              ]}
+              onPress={() => setLocationPickerVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.locationPickerIcon,
+                  {
+                    backgroundColor: hasLocation
+                      ? colors.status.successBg
+                      : colors.background.tint,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name={hasLocation ? "location-on" : "add-location-alt"}
+                  size={20}
+                  color={hasLocation ? colors.status.success : brandColor}
+                />
+              </View>
+              <View style={styles.locationPickerTextBlock}>
+                <Text
+                  style={[
+                    styles.locationPickerTitle,
+                    {
+                      color: hasLocation
+                        ? colors.status.success
+                        : brandColor,
+                      fontFamily: "Inter_600SemiBold",
+                    },
+                  ]}
+                >
+                  {hasLocation
+                    ? "Location set — tap to change"
+                    : "Pin your location on the map"}
+                </Text>
+                <Text
+                  style={[
+                    styles.locationPickerSubtitle,
+                    {
+                      color: colors.text.faint,
+                      fontFamily: "Inter_400Regular",
+                    },
+                  ]}
+                >
+                  {hasLocation
+                    ? "Auto-filled address fields below"
+                    : "Required for accurate delivery"}
+                </Text>
+              </View>
               <MaterialIcons
-                name={form.latitude ? "location-on" : "add-location-alt"}
+                name={hasLocation ? "check-circle" : "chevron-right"}
                 size={20}
                 color={
-                  form.latitude ? colors.status.success : brandColor
+                  hasLocation ? colors.status.success : colors.text.faint
                 }
               />
-            </View>
-            <View style={styles.locationPickerTextBlock}>
-              <Text
-                style={[
-                  styles.locationPickerTitle,
-                  {
-                    color: form.latitude
-                      ? colors.status.success
-                      : brandColor,
-                    fontFamily: "Inter_600SemiBold",
-                  },
-                ]}
-              >
-                {form.latitude
-                  ? "Location set - tap to change"
-                  : "Search or use current location"}
-              </Text>
-              <Text
-                style={[
-                  styles.locationPickerSubtitle,
-                  {
-                    color: colors.text.faint,
-                    fontFamily: "Inter_400Regular",
-                  },
-                ]}
-              >
-                {form.latitude
-                  ? "Auto-filled address fields below"
-                  : "Auto-fills city, state & pincode"}
-              </Text>
-            </View>
-            <MaterialIcons
-              name={form.latitude ? "check-circle" : "chevron-right"}
-              size={20}
-              color={
-                form.latitude ? colors.status.success : colors.text.faint
-              }
-            />
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
 
           {/* ── Location picker sheet ──────────────────────── */}
           <LocationPickerSheet
@@ -707,10 +720,10 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             style={[
               styles.saveButton,
               { backgroundColor: brandColor },
-              isPending && styles.saveButtonDisabled,
+              (!hasLocation || isPending) && styles.saveButtonDisabled,
             ]}
             onPress={handleSubmit}
-            disabled={isPending}
+            disabled={!hasLocation || isPending}
             activeOpacity={0.8}
           >
             {isPending ? (
@@ -868,7 +881,16 @@ const styles = StyleSheet.create({
   },
   errorBannerText: { flex: 1, fontSize: 13 },
 
-  // Location picker trigger
+  // Location picker
+  locationPickerWrapper: {
+    marginBottom: 20,
+    gap: 8,
+  },
+  locationRequiredLabel: {
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   locationPickerButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -876,7 +898,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 12,
     padding: 14,
-    marginBottom: 20,
   },
   locationPickerIcon: {
     width: 40,

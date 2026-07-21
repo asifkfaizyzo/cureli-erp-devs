@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,14 +36,11 @@ import { StickyCheckoutBar } from "../components/StickyCheckoutBar";
 import { RecommendationSection } from "../components/RecommendationSection";
 import { PrescriptionUploadCard } from "../components/PrescriptionUploadCard";
 import { AddressPickerSheet } from "../components/AddressPickerSheet";
-
-// ── Change 1 — New imports ────────────────────────────────────
 import { PatientSelectorCard } from "../components/PatientSelectorCard";
 import { PatientPickerSheet } from "../components/PatientPickerSheet";
 import { useCheckoutStore } from "../../../store/checkoutStore";
 import { useAuthStore } from "../../../store/authStore";
 import type { CheckoutPatient } from "../../../types/auth";
-// ─────────────────────────────────────────────────────────────
 
 import { useCheckout } from "../hooks/useCheckout";
 import { useDeliveryETA } from "../../../hooks/useDeliveryETA";
@@ -53,7 +49,6 @@ import { useCartStore } from "../../../store/cartStore";
 import { usePrescriptionStore } from "../../../store/prescriptionStore";
 import { useAddresses } from "../../profile/hooks/useAddresses";
 import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
-import { CART_CONFIG } from "../../../constants/config";
 import type { Address } from "../../profile/types/profile.types";
 
 // ── Order success overlay ─────────────────────────────────────
@@ -131,30 +126,60 @@ export function CartScreen() {
   const setDeliveryNotes = usePrescriptionStore((s) => s.setDeliveryNotes);
 
   // ── Address resolution ────────────────────────────────────
-  const { addresses } = useAddresses();
+  const { addresses, isLoading: addressesLoading } = useAddresses();
+  const selectAddress = useDeliveryLocationStore((s) => s.selectAddress);
   const pickedAddressId = useDeliveryLocationStore(
     (s) => s.location.addressId ?? null,
   );
+
   const resolvedAddress: Address | null = (() => {
     if (pickedAddressId) {
       return addresses.find((a) => a.id === pickedAddressId) ?? null;
     }
     return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
   })();
-  const selectedAddressId = resolvedAddress?.id ?? null;
+
+  // ── Auto-select address ───────────────────────────────────
+  //
+  // Handles two cases:
+  //   1. Nothing selected yet (pickedAddressId is null)
+  //   2. Stale ID selected — address was deleted, ID no longer
+  //      exists in the current list (MMKV persisted a dead ID)
+  //
+  // In both cases: auto-select the default address or first.
+  // If the picked ID still exists → do nothing.
+
+  useEffect(() => {
+    if (addressesLoading) return;
+    if (addresses.length === 0) return;
+
+    const pickedExists =
+      pickedAddressId !== null &&
+      addresses.some((a) => a.id === pickedAddressId);
+
+    if (pickedExists) return;
+
+    const toSelect =
+      addresses.find((a) => a.is_default) ?? addresses[0];
+
+    selectAddress({
+      source: "saved",
+      area: toSelect.custom_label ?? toSelect.label,
+      addressLine: `${toSelect.city}, ${toSelect.state} ${toSelect.pincode}`,
+      latitude: toSelect.latitude ?? null,
+      longitude: toSelect.longitude ?? null,
+      addressId: toSelect.id,
+    });
+  }, [addresses, addressesLoading, pickedAddressId, selectAddress]);
 
   // ── Sheet state ───────────────────────────────────────────
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
-
-  // ── Change 2 — Patient state ──────────────────────────────
   const [patientSheetVisible, setPatientSheetVisible] = useState(false);
 
   const selectedPatient = useCheckoutStore((s) => s.selectedPatient);
   const setSelectedPatient = useCheckoutStore((s) => s.setSelectedPatient);
   const user = useAuthStore((s) => s.user);
 
-  // Auto-select "Myself" on first mount if profile is complete
-  // and nothing is selected yet
   useEffect(() => {
     if (
       selectedPatient === null &&
@@ -176,7 +201,6 @@ export function CartScreen() {
       });
     }
   }, []);
-  // ─────────────────────────────────────────────────────────
 
   const handleAddressPress = useCallback(() => {
     setAddressSheetVisible(true);
@@ -186,10 +210,8 @@ export function CartScreen() {
     setAddressSheetVisible(false);
   }, []);
 
-  // ── Order state ───────────────────────────────────────────
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // ── Delivery instruction state ────────────────────────────
   const [selectedInstructions, setSelectedInstructions] = useState<string[]>(
     [],
   );
@@ -220,17 +242,15 @@ export function CartScreen() {
     router.replace("/(tabs)/home" as any);
   }, []);
 
-  // ── Distance from ETA hook ────────────────────────────────
   const firstItem = items[0] as any;
   const branchLat = firstItem?.branchLatitude ?? null;
   const branchLng = firstItem?.branchLongitude ?? null;
-  const location  = useDeliveryLocationStore((s) => s.location);
-  const userLat   = location.latitude;
-  const userLng   = location.longitude;
+  const location = useDeliveryLocationStore((s) => s.location);
+  const userLat = location.latitude;
+  const userLng = location.longitude;
 
   const { distanceKm } = useDeliveryETA(userLat, userLng, branchLat, branchLng);
 
-  // ── Checkout hook ─────────────────────────────────────────
   const { placeOrder, isQuoteLoading } = useCheckout({
     distanceKm,
     onSuccess: useCallback(() => {
@@ -241,7 +261,6 @@ export function CartScreen() {
     }, [clearCart, clearPrescriptions]),
   });
 
-  // ── Success state ─────────────────────────────────────────
   if (isSuccess) {
     return (
       <SafeAreaView
@@ -253,7 +272,6 @@ export function CartScreen() {
     );
   }
 
-  // ── Empty cart ────────────────────────────────────────────
   if (items.length === 0) {
     return (
       <SafeAreaView
@@ -293,7 +311,10 @@ export function CartScreen() {
           <TouchableOpacity
             onPress={() => router.push("/(tabs)" as any)}
             activeOpacity={0.8}
-            style={[styles.emptyBtn, { backgroundColor: colors.brand.primary }]}
+            style={[
+              styles.emptyBtn,
+              { backgroundColor: colors.brand.primary },
+            ]}
           >
             <Text style={styles.emptyBtnText}>Browse Medicines</Text>
           </TouchableOpacity>
@@ -302,7 +323,6 @@ export function CartScreen() {
     );
   }
 
-  // ── Cart with items ───────────────────────────────────────
   return (
     <>
       <SafeAreaView
@@ -335,10 +355,8 @@ export function CartScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* ── Delivery address — first card in scroll ──── */}
           <DeliveryAddressCard onChangePress={handleAddressPress} />
 
-          {/* ── Change 3 — Who is this order for ─────────── */}
           <PatientSelectorCard
             patient={selectedPatient}
             onPress={() => setPatientSheetVisible(true)}
@@ -350,8 +368,6 @@ export function CartScreen() {
 
           <RecommendationSection />
 
-          
-
           <BillDetailsCard />
 
           <DeliveryInstructionCard
@@ -360,7 +376,6 @@ export function CartScreen() {
           />
         </ScrollView>
 
-        {/* Loading overlay while quote is loading / order is being placed */}
         {isQuoteLoading && (
           <View style={styles.loadingOverlay}>
             <View
@@ -385,7 +400,6 @@ export function CartScreen() {
           </View>
         )}
 
-        {/* useCheckout owns the place-order logic */}
         <StickyCheckoutBar onPlaceOrder={placeOrder} />
       </SafeAreaView>
 
@@ -396,7 +410,6 @@ export function CartScreen() {
         />
       )}
 
-      {/* ── Change 4 — Patient picker sheet ─────────────── */}
       {patientSheetVisible && (
         <PatientPickerSheet
           visible={patientSheetVisible}
@@ -490,7 +503,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: {
     ...Typography.button,
-    color: "#ffffff",         // ✅ Keep — white on brand button
+    color: "#ffffff",
   },
   successRoot: {
     flex: 1,
@@ -533,6 +546,6 @@ const styles = StyleSheet.create({
   homeBtnText: {
     fontSize: 15,
     fontFamily: "Inter_700Bold",
-    color: "#ffffff",         // ✅ Keep — white on brand button
+    color: "#ffffff",
   },
 });

@@ -1,7 +1,5 @@
-// src/features/marketplace/components/ShopCard.tsx
-
 import React, { memo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
@@ -33,24 +31,18 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
     >
       {/* ── Top row: logo + name + open badge ── */}
       <View style={styles.topRow}>
-        {/*
-          Shop logo — mode="shop" so storefront icon is the fallback.
-          Semantically correct for a shop card.
-        */}
         <RemoteImage
           uri={shop.logoUrl ?? null}
           style={[
-            styles.logoCircle,
-            {
-              backgroundColor: colors.background.tint,
-              borderColor: colors.border.subtle,
-            },
+            styles.logoCard,
+            
           ]}
           resizeMode="contain"
           mode="shop"
           fallbackIcon="storefront-outline"
           fallbackIconSize={22}
           fallbackIconColor={colors.text.brand}
+          fallbackBg={colors.background.tint}
         />
 
         <View style={styles.nameBlock}>
@@ -220,15 +212,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  // RemoteImage fills this container
-  logoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.full,
-    borderWidth: 1,
+
+  // Match ShopIdentity style: rounded square, no border, elevated
+  logoCard: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.sm,
+    borderWidth: 0,
     overflow: "hidden",
     flexShrink: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
+
   nameBlock: {
     flex: 1,
     gap: 2,

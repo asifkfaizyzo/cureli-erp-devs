@@ -216,24 +216,14 @@ export const authApi = {
   sendOtp: async (phone: string) => {
     const start = Date.now();
 
-    console.log("📲 [AUTH] Sending OTP request", {
-      phone,
-      endpoint: "/mobile/auth/send-otp",
-      timestamp: new Date().toISOString(),
-    });
+    
 
     try {
       const response = await api.post<
         ApiSuccessResponse<{ expires_in: number }>
       >("/mobile/auth/send-otp", { phone });
 
-      console.log("✅ [AUTH] OTP send success", {
-        phone,
-        status: response.status,
-        expires_in: response.data?.data?.expires_in,
-        duration_ms: Date.now() - start,
-        timestamp: new Date().toISOString(),
-      });
+      
 
       return response;
     } catch (error) {

@@ -1,14 +1,4 @@
 // src/features/marketplace/components/product/FindPharmaciesSection.tsx
-//
-// CTA card that opens the ShopsBottomSheet.
-// No longer navigates away — the sheet slides up in-place.
-// The onPress handler is provided by the parent screen.
-//
-// UX improvements:
-//   - whole card is tappable, not just the small button
-//   - immediate "Opening" feedback after tap
-//   - loading spinner shown while opening
-//   - chevron points forward instead of up
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -27,7 +17,9 @@ import type { useTheme } from "../../../../theme/ThemeContext";
 interface FindPharmaciesSectionProps {
   shopCount: number;
   isLoading: boolean;
+  isError: boolean;
   onPress: () => void;
+  onRetry: () => void;
   colors: ReturnType<typeof useTheme>["colors"];
 }
 
@@ -36,7 +28,9 @@ const OPENING_FEEDBACK_MS = 800;
 export function FindPharmaciesSection({
   shopCount,
   isLoading,
+  isError,
   onPress,
+  onRetry,
   colors,
 }: FindPharmaciesSectionProps) {
   const [isOpening, setIsOpening] = useState(false);
@@ -44,34 +38,110 @@ export function FindPharmaciesSection({
 
   useEffect(() => {
     return () => {
-      if (openingTimerRef.current) {
-        clearTimeout(openingTimerRef.current);
-      }
+      if (openingTimerRef.current) clearTimeout(openingTimerRef.current);
     };
   }, []);
 
-  const subtitle = isLoading
-    ? "Finding nearby pharmacies…"
-    : shopCount > 0
-      ? `${shopCount} ${shopCount === 1 ? "pharmacy" : "pharmacies"} near you`
-      : "Tap to check availability";
-
   const handlePress = useCallback(() => {
     if (isOpening) return;
-
     setIsOpening(true);
     onPress();
-
-    if (openingTimerRef.current) {
-      clearTimeout(openingTimerRef.current);
-    }
-
-    // Short optimistic feedback so the tap feels immediate.
-    // The sheet/backdrop will take over visually right after.
+    if (openingTimerRef.current) clearTimeout(openingTimerRef.current);
     openingTimerRef.current = setTimeout(() => {
       setIsOpening(false);
     }, OPENING_FEEDBACK_MS);
   }, [isOpening, onPress]);
+
+  // ── Error state ───────────────────────────────────────────
+  if (isError) {
+    return (
+      <View style={styles.section}>
+        <View
+          style={[
+            styles.stateCard,
+            {
+              backgroundColor: colors.status.errorBg,
+              borderColor: colors.status.error,
+            },
+          ]}
+        >
+          <Ionicons
+            name="cloud-offline-outline"
+            size={22}
+            color={colors.status.error}
+          />
+          <View style={styles.stateText}>
+            <Text style={[styles.stateTitle, { color: colors.status.error }]}>
+              Couldn't load pharmacies
+            </Text>
+            <Text style={[styles.stateSub, { color: colors.status.error }]}>
+              Check your connection and try again
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={onRetry}
+            activeOpacity={0.75}
+            style={[
+              styles.retryBtn,
+              { borderColor: colors.status.error },
+            ]}
+          >
+            <Text style={[styles.retryText, { color: colors.status.error }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Empty state — loaded but zero shops ───────────────────
+  if (!isLoading && shopCount === 0) {
+    return (
+      <View style={styles.section}>
+        <View
+          style={[
+            styles.stateCard,
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.default,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.iconWrap,
+              {
+                backgroundColor: colors.background.tint,
+                borderColor: colors.border.default,
+              },
+            ]}
+          >
+            <Ionicons
+              name="storefront-outline"
+              size={20}
+              color={colors.text.faint}
+            />
+          </View>
+          <View style={styles.stateText}>
+            <Text
+              style={[styles.stateTitle, { color: colors.text.secondary }]}
+            >
+              No pharmacies nearby
+            </Text>
+            <Text style={[styles.stateSub, { color: colors.text.muted }]}>
+              This medicine isn't listed at any pharmacy near your location
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Normal CTA (loading or has shops) ────────────────────
+  const subtitle = isLoading
+    ? "Finding nearby pharmacies…"
+    : `${shopCount} ${shopCount === 1 ? "pharmacy" : "pharmacies"} near you`;
 
   const buttonLabel = isOpening ? "Opening" : "See all";
 
@@ -137,7 +207,6 @@ export function FindPharmaciesSection({
           {isOpening ? (
             <ActivityIndicator size="small" color={colors.text.brand} />
           ) : null}
-
           <Text
             style={[
               styles.btnText,
@@ -148,7 +217,6 @@ export function FindPharmaciesSection({
           >
             {buttonLabel}
           </Text>
-
           {!isOpening ? (
             <Ionicons
               name="chevron-forward"
@@ -166,6 +234,39 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: Spacing.base,
   },
+
+  // ── Shared state card (error + empty) ──
+  stateCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  stateText: {
+    flex: 1,
+    gap: 3,
+  },
+  stateTitle: {
+    ...Typography.bodyMedium,
+  },
+  stateSub: {
+    ...Typography.small,
+    lineHeight: 17,
+  },
+  retryBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  retryText: {
+    ...Typography.smallMedium,
+  },
+
+  // ── Normal CTA card ──
   card: {
     flexDirection: "row",
     alignItems: "center",

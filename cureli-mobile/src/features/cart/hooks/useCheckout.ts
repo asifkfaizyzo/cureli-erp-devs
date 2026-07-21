@@ -137,7 +137,7 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
       const { session_id, razorpay_order_id, amount_paise, currency, key_id } =
         sessionRes.data.data;
 
-      console.log("[Checkout] key_id from backend:", key_id);
+      // console.log("[Checkout] key_id from backend:", key_id);
 
       // ── Step 2: Open Razorpay sheet ───────────────────────
       const options = {

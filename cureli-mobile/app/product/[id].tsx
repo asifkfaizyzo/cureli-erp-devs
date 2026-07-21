@@ -76,8 +76,9 @@ export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
 
   // ── Medicine detail ───────────────────────────────────────
-  const { variant, siblings, isLoading, isError, refetch } =
-    useMedicineDetail(id ?? "");
+  const { variant, siblings, isLoading, isError, refetch } = useMedicineDetail(
+    id ?? "",
+  );
 
   // ── Delivery location ─────────────────────────────────────
   const { location } = useDeliveryLocation();
@@ -149,11 +150,7 @@ export default function ProductDetailScreen() {
               },
             ]}
           >
-            <Ionicons
-              name="arrow-back"
-              size={20}
-              color={colors.text.brand}
-            />
+            <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
           </TouchableOpacity>
         </View>
         <View style={styles.center}>
@@ -184,11 +181,7 @@ export default function ProductDetailScreen() {
               },
             ]}
           >
-            <Ionicons
-              name="arrow-back"
-              size={20}
-              color={colors.text.brand}
-            />
+            <Ionicons name="arrow-back" size={20} color={colors.text.brand} />
           </TouchableOpacity>
         </View>
         <View style={styles.center}>
@@ -258,14 +251,16 @@ export default function ProductDetailScreen() {
         ]}
       >
         {/* Image / carousel */}
-        <ProductImageCarousel images={galleryImages} colors={colors} isDark={isDark}   />
+        <ProductImageCarousel
+          images={galleryImages}
+          colors={colors}
+          isDark={isDark}
+        />
 
         {/* Name block */}
         <View style={styles.nameBlock}>
           <View style={styles.nameRow}>
-            <Text
-              style={[styles.medicineName, { color: colors.text.primary }]}
-            >
+            <Text style={[styles.medicineName, { color: colors.text.primary }]}>
               {variant.name}
             </Text>
             {variant.prescriptionRequired && (
@@ -323,7 +318,9 @@ export default function ProductDetailScreen() {
           <FindPharmaciesSection
             shopCount={shops.length}
             isLoading={isShopsLoading}
+            isError={isShopsError}
             onPress={handleOpenSheet}
+            onRetry={refetchShops}
             colors={colors}
           />
         ) : (
@@ -337,7 +334,9 @@ export default function ProductDetailScreen() {
             ]}
           >
             <Ionicons name="cart-outline" size={18} color={colors.text.faint} />
-            <Text style={[styles.disabledBtnText, { color: colors.text.faint }]}>
+            <Text
+              style={[styles.disabledBtnText, { color: colors.text.faint }]}
+            >
               Not Available
             </Text>
           </View>
@@ -436,7 +435,7 @@ export default function ProductDetailScreen() {
                   medicine={s}
                   onPress={handlePressSibling}
                   colors={colors}
-                  isDark={isDark}   
+                  isDark={isDark}
                 />
               ))}
             </ScrollView>
@@ -471,17 +470,17 @@ export default function ProductDetailScreen() {
 
       {/* Shops bottom sheet */}
       {sheetVisible && (
-  <ShopsBottomSheet
-    visible={sheetVisible}
-    onClose={handleCloseSheet}
-    variant={variant}
-    shops={shops}
-    isLoading={isShopsLoading}
-    isError={isShopsError}
-    onRetry={refetchShops}
-    colors={colors}
-  />
-)}
+        <ShopsBottomSheet
+          visible={sheetVisible}
+          onClose={handleCloseSheet}
+          variant={variant}
+          shops={shops}
+          isLoading={isShopsLoading}
+          isError={isShopsError}
+          onRetry={refetchShops}
+          colors={colors}
+        />
+      )}
     </SafeAreaView>
   );
 }

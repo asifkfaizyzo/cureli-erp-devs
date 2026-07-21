@@ -1,7 +1,7 @@
 // src/features/cart/components/DeliveryAddressCard.tsx
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 import { useTheme } from '../../../theme/ThemeContext';
@@ -18,10 +18,16 @@ export function DeliveryAddressCard({ onChangePress }: DeliveryAddressCardProps)
   const { colors, isDark } = useTheme();
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
-  const { addresses } = useAddresses();
+  const { addresses, isLoading } = useAddresses();
   const pickedAddressId = useDeliveryLocationStore(
     (s) => s.location.addressId ?? null,
   );
+  console.log('[DAC]', {
+  pickedAddressId,
+  addressIds: addresses.map(a => a.id),
+  found: addresses.find(a => a.id === pickedAddressId)?.id ?? 'NOT FOUND',
+  isLoading,
+});
 
   const resolvedAddress: Address | null = (() => {
     if (pickedAddressId) {
@@ -30,14 +36,36 @@ export function DeliveryAddressCard({ onChangePress }: DeliveryAddressCardProps)
     return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
   })();
 
+  // ── While addresses are still fetching, show a neutral loading
+  // state instead of the "No delivery address set" warning.
+  // This prevents a flash of the empty state when the store already
+  // has a picked address ID but the addresses array hasn't loaded yet.
+
+  if (isLoading) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.background.card }]}>
+        <View style={styles.cardHeader}>
+          <Ionicons name="location-outline" size={18} color={brandColor} />
+          <Text style={[styles.cardTitle, { color: colors.text.primary }]}>
+            Delivery Address
+          </Text>
+        </View>
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color={brandColor} />
+          <Text style={[styles.loadingText, { color: colors.text.muted }]}>
+            Loading address…
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const hasAddress = resolvedAddress !== null;
 
-  // Label shown in the type pill — e.g. "Home", "Work", custom label
   const typeLabel = hasAddress
     ? (resolvedAddress.custom_label ?? resolvedAddress.label)
     : null;
 
-  // Icon for the type pill
   const labelIcon =
     resolvedAddress?.label === 'Home'
       ? 'home'
@@ -45,7 +73,6 @@ export function DeliveryAddressCard({ onChangePress }: DeliveryAddressCardProps)
         ? 'business'
         : 'location-on';
 
-  // Full address detail line
   const detailLine = hasAddress
     ? [
         resolvedAddress.address_line_1,
@@ -71,7 +98,6 @@ export function DeliveryAddressCard({ onChangePress }: DeliveryAddressCardProps)
       {/* ── Address body ──────────────────────────────────── */}
       {hasAddress ? (
         <View style={styles.addressRow}>
-          {/* Type icon + label */}
           <View
             style={[
               styles.iconWrap,
@@ -121,7 +147,6 @@ export function DeliveryAddressCard({ onChangePress }: DeliveryAddressCardProps)
           </TouchableOpacity>
         </View>
       ) : (
-        /* ── No address state ────────────────────────────── */
         <TouchableOpacity
           onPress={onChangePress}
           activeOpacity={0.75}
@@ -175,7 +200,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,6 +209,18 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
+  },
+
+  // ── Loading state ────────────────────────────────────────
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 4,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
   },
 
   // ── Has address ──────────────────────────────────────────

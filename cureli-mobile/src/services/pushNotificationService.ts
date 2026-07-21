@@ -68,13 +68,13 @@ async function ensureAndroidChannel() {
 export async function requestPushPermission(): Promise<boolean> {
   const { status: existing, canAskAgain } = await Notifications.getPermissionsAsync();
 
-  console.log('[Push] Permission check:', { status: existing, canAskAgain });
+  
 
   if (existing === 'granted') return true;
 
   if (existing === 'denied' && !canAskAgain) {
     // User has permanently denied — they must go to Settings manually
-    console.log('[Push] Permission permanently denied — user must enable in Settings and restart app');
+    
     return false;
   }
 
@@ -87,7 +87,7 @@ export async function requestPushPermission(): Promise<boolean> {
     },
   });
 
-  console.log('[Push] Permission after request:', status);
+  
   return status === 'granted';
 }
 
@@ -109,7 +109,7 @@ export async function getExpoPushToken(): Promise<string | null> {
       projectId,
     });
 
-    console.log('[Push] Got token:', tokenData.data);
+    
     return tokenData.data;
   } catch (err) {
     console.warn('[Push] Failed to get Expo push token:', err);
@@ -130,7 +130,7 @@ export async function registerPushToken(token: string): Promise<void> {
     });
     // Cache the registered token so we can detect future changes
     StorageService.setPushToken(token);
-    console.log('[Push] Token registered with backend');
+    
   } catch (err) {
     console.warn('[Push] Token registration failed:', err);
     // Non-fatal — will retry next app open
@@ -144,7 +144,7 @@ export async function removePushToken(): Promise<void> {
   try {
     await api.post('/mobile/push/remove-token');
     StorageService.removePushToken();
-    console.log('[Push] Token removed from backend');
+    
   } catch (err) {
     console.warn('[Push] Token removal failed:', err);
   }
@@ -160,7 +160,7 @@ export async function initializePushNotifications(): Promise<string | null> {
 
     const granted = await requestPushPermission();
     if (!granted) {
-      console.log('[Push] Permission denied — skipping token registration');
+      
       return null;
     }
 
@@ -172,7 +172,7 @@ export async function initializePushNotifications(): Promise<string | null> {
     if (token !== cachedToken) {
       await registerPushToken(token);
     } else {
-      console.log('[Push] Token unchanged — skipping registration');
+      
     }
 
     return token;

@@ -92,7 +92,7 @@ export function PushManager() {
         const data = extractTapData(
           response.notification.request.content.data,
         );
-        console.log('[Push] Notification tapped:', data);
+        // console.log('[Push] Notification tapped:', data);
         handleNotificationTap(data);
       },
     );
@@ -103,10 +103,10 @@ export function PushManager() {
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(
       (notification) => {
-        console.log(
-          '[Push] Notification received in foreground:',
-          notification.request.content.title,
-        );
+        // console.log(
+        //   '[Push] Notification received in foreground:',
+        //   notification.request.content.title,
+        // );
       },
     );
 
@@ -120,7 +120,7 @@ export function PushManager() {
     if (status === 'authenticated' && prev !== 'authenticated') {
       initializePushNotifications().then((token) => {
         if (token) {
-          console.log('[Push] Initialized with token:', token.slice(0, 30) + '...');
+          // console.log('[Push] Initialized with token:', token.slice(0, 30) + '...');
         }
       });
 

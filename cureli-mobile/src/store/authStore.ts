@@ -88,9 +88,7 @@ sendOtp: async (phone: string) => {
     const { data } = await authApi.sendOtp(phone);
     return { expiresIn: data.data.expires_in };
   } catch (err: any) {
-    console.log('[sendOtp] full error:', JSON.stringify(err?.response?.data, null, 2));
-    console.log('[sendOtp] status:', err?.response?.status);
-    console.log('[sendOtp] headers:', JSON.stringify(err?.response?.headers, null, 2));
+    
     throw err;
   }
 },

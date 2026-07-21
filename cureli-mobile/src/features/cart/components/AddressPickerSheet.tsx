@@ -1,6 +1,6 @@
 // src/features/cart/components/AddressPickerSheet.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -159,7 +159,40 @@ export function AddressPickerSheet({
   const currentLocation = useDeliveryLocationStore((s) => s.location);
   const selectedAddressId = currentLocation.addressId ?? null;
 
+  // ── Auto-select when nothing is selected yet ──────────────
+  //
+  // Fires whenever `addresses` changes (i.e. after React Query
+  // refetches on remount following a new address being created).
+  //
+  // Conditions for auto-select:
+  //   1. Not currently loading
+  //   2. There is at least one address
+  //   3. Nothing is selected yet (addressId is null)
+  //
+  // Priority: default address first, then first in list.
+  // This covers the "first-time user just created an address
+  // and came back to cart" flow without overriding a manual pick.
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (addresses.length === 0) return;
+    if (selectedAddressId !== null) return;
+
+    const toSelect =
+      addresses.find((a) => a.is_default) ?? addresses[0];
+
+    selectAddress({
+      source: 'saved',
+      area: toSelect.custom_label ?? toSelect.label,
+      addressLine: `${toSelect.city}, ${toSelect.state} ${toSelect.pincode}`,
+      latitude: toSelect.latitude ?? null,
+      longitude: toSelect.longitude ?? null,
+      addressId: toSelect.id,
+    });
+  }, [addresses, isLoading, selectedAddressId, selectAddress]);
+
   // ── Select handler ────────────────────────────────────────
+
   const handleSelect = useCallback(
     (address: Address) => {
       selectAddress({
@@ -374,12 +407,10 @@ const styles = StyleSheet.create({
     right: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    // Shadow for iOS
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
-    // Elevation for Android
     elevation: 16,
   },
 
@@ -408,7 +439,7 @@ const styles = StyleSheet.create({
 
   // ── Content area ──────────────────────────────────────────
   contentArea: {
-    flexShrink: 1, // shrinks when content is small, caps at maxHeight
+    flexShrink: 1,
   },
 
   centerContent: {

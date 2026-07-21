@@ -234,6 +234,12 @@ const QuoteBuilder = ({
   const handleSearchChange = useCallback(
     (e) => {
       const q = e.target.value;
+      // console.log("[QuoteBuilder] detail keys:", Object.keys(detail));
+      // console.log(
+      //   "[QuoteBuilder] full detail:",
+      //   JSON.stringify(detail, null, 2),
+      // );
+
       setSearchQuery(q);
       setShowResults(true);
 
@@ -253,7 +259,7 @@ const QuoteBuilder = ({
 
           // We call the mobile shops endpoint which accepts search param
           // This reuses existing backend infrastructure
-          const res = await API.get("/api/marketplace-listings/search", {
+          const res = await API.get("/marketplace-listing/search", {
             params: {
               branch_id: detail.branch_id,
               search: q.trim(),

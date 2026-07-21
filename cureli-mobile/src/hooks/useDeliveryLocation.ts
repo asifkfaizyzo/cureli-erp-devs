@@ -97,7 +97,7 @@ export function useDeliveryLocation() {
           }
         } catch {
           // GPS failed — fall through to saved addresses
-          console.log('[DeliveryLocation] GPS failed, trying saved addresses');
+          
         }
       }
 
@@ -129,7 +129,7 @@ export function useDeliveryLocation() {
       setLocation(FALLBACK_LOCATION);
       setResolved();
     } catch {
-      console.log('[DeliveryLocation] Resolution failed, using fallback');
+      
       setLocation(FALLBACK_LOCATION);
       setResolved();
     }

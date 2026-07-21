@@ -378,7 +378,7 @@ const salesAPI = {
 
   // Revert an APPROVED return to PENDING (Super Admin only)
   revertReturnToPending: async (returnId, data) => {
-    console.log("📤 Sending revert data:", data);
+    // console.log("📤 Sending revert data:", data);
     try {
       const response = await API.patch(
         `/sales/returns/${returnId}/revert`,

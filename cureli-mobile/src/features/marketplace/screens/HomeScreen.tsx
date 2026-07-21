@@ -137,7 +137,7 @@ export function HomeScreen() {
         <TopLevelCategoryGrid />
 
         {/* ── Prescription request entry point ─────────────────────────── */}
-        <PrescriptionRequestBanner />
+        {/* <PrescriptionRequestBanner /> */}
         {/* ───────────────────────────────────────────────────────────────── */}
 
         {isFeedLoading ? (

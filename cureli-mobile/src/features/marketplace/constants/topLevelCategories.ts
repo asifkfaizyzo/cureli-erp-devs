@@ -81,7 +81,7 @@ export const TOP_LEVEL_CATEGORIES: MedicineCategory[] = [
   },
   {
     key: "Pet Care",
-    label: "Veterinary",
+    label: "Pet Care",
     type: "OTC",
     icon: "paw-outline",
   },

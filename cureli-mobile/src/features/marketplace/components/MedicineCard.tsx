@@ -38,7 +38,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
   const [imageReady, setImageReady] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Reset whenever the source image changes
   useEffect(() => {
     setImageReady(false);
     setImageError(false);
@@ -75,7 +74,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
   }, []);
 
   const showPlaceholder = !imageReady || imageError;
-  const { marketplace } = medicine;
 
   return (
     <Animated.View style={[styles.wrapper, animatedStyle]}>
@@ -94,11 +92,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
         ]}
       >
         {/* LEFT — image box */}
-        {/*
-          background.elevated is the background that shows through
-          transparent PNG edges — matches the card surface in both themes.
-          light → #ffffff, dark → #2c2c2e
-        */}
         <View
           style={[
             styles.imageBox,
@@ -108,7 +101,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             },
           ]}
         >
-          {/* Placeholder: only while real image is loading or errored */}
           {showPlaceholder ? (
             <Animated.Image
               source={placeholder}
@@ -117,7 +109,6 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             />
           ) : null}
 
-          {/* Real image: loads invisibly, fades in, placeholder unmounts */}
           {medicine.image && !imageError ? (
             <Animated.Image
               source={{ uri: medicine.image }}
@@ -156,6 +147,7 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             ) : null}
           </View>
 
+          {/* Composition */}
           <Text
             style={[styles.composition, { color: colors.text.muted }]}
             numberOfLines={1}
@@ -163,6 +155,7 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             {compositionSummary(medicine)}
           </Text>
 
+          {/* Manufacturer — real field from backend */}
           {medicine.manufacturer ? (
             <Text
               style={[styles.manufacturer, { color: colors.text.faint }]}
@@ -172,56 +165,38 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             </Text>
           ) : null}
 
-          <View style={styles.pharmacyRow}>
-            <Ionicons
-              name="storefront-outline"
-              size={13}
-              color={colors.text.brand}
-            />
-            <Text style={[styles.pharmacyText, { color: colors.text.brand }]}>
-              Available at {marketplace.pharmacyCount} nearby{" "}
-              {marketplace.pharmacyCount === 1 ? "pharmacy" : "pharmacies"}
-            </Text>
-          </View>
+          {/* Form pill — real field from backend */}
+          {medicine.form ? (
+            <View
+              style={[
+                styles.formPill,
+                {
+                  backgroundColor: colors.background.tint,
+                  borderColor: colors.border.brand,
+                },
+              ]}
+            >
+              <Text style={[styles.formPillText, { color: colors.text.brand }]}>
+                {medicine.form}
+              </Text>
+            </View>
+          ) : null}
 
+          {/* Footer — check availability CTA, no fake numbers */}
           <View
-            style={[styles.bottomRow, { borderTopColor: colors.border.subtle }]}
+            style={[
+              styles.footer,
+              { borderTopColor: colors.border.subtle },
+            ]}
           >
-            <View>
-              <Text style={[styles.priceLabel, { color: colors.text.faint }]}>
-                Starts at
-              </Text>
-              <Text style={[styles.price, { color: colors.text.primary }]}>
-                ₹{marketplace.startsAt}
-              </Text>
-            </View>
-
-            <View style={styles.metaRight}>
-              {marketplace.inStock ? (
-                <View style={styles.stockRow}>
-                  <View
-                    style={[
-                      styles.stockDot,
-                      { backgroundColor: colors.status.success },
-                    ]}
-                  />
-                  <Text
-                    style={[styles.stockText, { color: colors.status.success }]}
-                  >
-                    {marketplace.stockLabel}
-                  </Text>
-                </View>
-              ) : (
-                <Text
-                  style={[styles.stockText, { color: colors.status.warning }]}
-                >
-                  {marketplace.stockLabel}
-                </Text>
-              )}
-              <Text style={[styles.eta, { color: colors.text.muted }]}>
-                {marketplace.etaMins} mins • {marketplace.distanceKm} km
-              </Text>
-            </View>
+            <Text style={[styles.checkText, { color: colors.text.muted }]}>
+              Tap to check availability &amp; price
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={14}
+              color={colors.text.faint}
+            />
           </View>
         </View>
       </Pressable>
@@ -267,6 +242,7 @@ const styles = StyleSheet.create({
   details: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
   },
   nameRow: {
     flexDirection: "row",
@@ -292,56 +268,33 @@ const styles = StyleSheet.create({
   },
   composition: {
     ...Typography.small,
-    marginTop: 3,
   },
   manufacturer: {
     ...Typography.caption,
-    marginTop: 1,
   },
-  pharmacyRow: {
+  formPill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  formPillText: {
+    ...Typography.caption,
+    fontFamily: "Inter_500Medium",
+  },
+  footer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: Spacing.sm,
-  },
-  pharmacyText: {
-    ...Typography.smallMedium,
-  },
-  bottomRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
     justifyContent: "space-between",
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
   },
-  priceLabel: {
+  checkText: {
     ...Typography.caption,
-    fontSize: 10,
-  },
-  price: {
-    ...Typography.h4,
-  },
-  metaRight: {
-    alignItems: "flex-end",
-    gap: 2,
-  },
-  stockRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  stockDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  stockText: {
-    ...Typography.smallMedium,
-    fontSize: 11,
-  },
-  eta: {
-    ...Typography.caption,
+    flex: 1,
   },
 });
 

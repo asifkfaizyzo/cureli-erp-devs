@@ -1,6 +1,4 @@
-// src/features/marketplace/components/shop/MedicineRow.tsx
-
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -48,6 +46,11 @@ export function MedicineRow({
   const [imageReady, setImageReady] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  useEffect(() => {
+    setImageReady(false);
+    setImageError(false);
+  }, [item.image]);
+
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -78,7 +81,7 @@ export function MedicineRow({
   const hasRealPrice = item.listingPrice != null;
   const inCart = cartQuantity > 0;
 
-  const showRealImage = !!item.image && imageReady && !imageError;
+  const showPlaceholder = !item.image || !imageReady || imageError;
 
   return (
     <Animated.View style={animStyle}>
@@ -104,21 +107,23 @@ export function MedicineRow({
             },
           ]}
         >
-          {/* Placeholder always underneath */}
-          <Image
-            source={placeholder}
-            style={styles.image}
-            resizeMode="contain"
-          />
+          {/* Placeholder only while loading / on error / no image */}
+          {showPlaceholder ? (
+            <Image
+              source={placeholder}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          ) : null}
 
-          {/* Real image on top, fades in after load */}
+          {/* Real image */}
           {item.image && !imageError ? (
             <Image
               source={{ uri: item.image }}
               style={[
                 styles.image,
                 styles.realImageOverlay,
-                { opacity: showRealImage ? 1 : 0 },
+                { opacity: imageReady ? 1 : 0 },
               ]}
               resizeMode="contain"
               onLoad={() => setImageReady(true)}

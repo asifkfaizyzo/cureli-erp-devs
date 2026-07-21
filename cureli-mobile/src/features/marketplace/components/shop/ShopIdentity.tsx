@@ -82,7 +82,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
           style={[
             styles.logoCard,
             {
-              backgroundColor: colors.background.card,
+              
               borderColor: colors.border.subtle,
             },
           ]}
@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
   logoCard: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
+    borderRadius: Radius.sm,
+    borderWidth: 0,
     overflow: "hidden",
     ...Platform.select({
       ios: {

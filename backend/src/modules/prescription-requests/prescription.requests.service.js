@@ -850,27 +850,29 @@ export async function getErpRequestDetail(recipientId, shopId) {
   }
 
   return {
-    recipient_id:      recipient.recipient_id,
-    request_id:        recipient.request.request_id,
-    request_number:    recipient.request.request_number,
-    branch_name:       recipient.branch_name_snapshot,
-    shop_name:         recipient.shop_name_snapshot,
-    distance_km:       recipient.branch_distance_km ? Number(recipient.branch_distance_km) : null,
-    status:            recipient.status,
-    sent_at:           recipient.sent_at,
-    quote_sent_at:     recipient.quote_sent_at,
-    quote_expires_at:  recipient.quote_expires_at,
-    accepted_at:       recipient.accepted_at,
-    converted_at:      recipient.converted_at,
-    declined_at:       recipient.declined_at,
-    expired_at:        recipient.expired_at,
-    decline_reason:    recipient.decline_reason,
-    converted_order_id: recipient.converted_order_id,
-    delivery_address:  recipient.request.delivery_address_snapshot,
-    request_expires_at: recipient.request.expires_at,
-    files:             recipient.request.files,
-    quote_items:       recipient.quoteItems.map(formatQuoteItem),
-  };
+  recipient_id:      recipient.recipient_id,
+  request_id:        recipient.request.request_id,
+  request_number:    recipient.request.request_number,
+  branch_id:         recipient.branch_id,   // ← ADD
+  shop_id:           recipient.shop_id,     // ← ADD
+  branch_name:       recipient.branch_name_snapshot,
+  shop_name:         recipient.shop_name_snapshot,
+  distance_km:       recipient.branch_distance_km ? Number(recipient.branch_distance_km) : null,
+  status:            recipient.status,
+  sent_at:           recipient.sent_at,
+  quote_sent_at:     recipient.quote_sent_at,
+  quote_expires_at:  recipient.quote_expires_at,
+  accepted_at:       recipient.accepted_at,
+  converted_at:      recipient.converted_at,
+  declined_at:       recipient.declined_at,
+  expired_at:        recipient.expired_at,
+  decline_reason:    recipient.decline_reason,
+  converted_order_id: recipient.converted_order_id,
+  delivery_address:  recipient.request.delivery_address_snapshot,
+  request_expires_at: recipient.request.expires_at,
+  files:             recipient.request.files,
+  quote_items:       recipient.quoteItems.map(formatQuoteItem),
+};
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

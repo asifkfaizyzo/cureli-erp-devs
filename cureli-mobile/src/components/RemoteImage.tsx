@@ -13,7 +13,6 @@ import { getPlaceholder } from "../utils/placeholderImage";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
-// ── Fix 1: use proper RN transform type instead of object[] ──
 type RNTransform = ImageStyle["transform"];
 
 interface RemoteImageProps {
@@ -46,13 +45,16 @@ export function RemoteImage({
   const [imageReady, setImageReady] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  // ── LOG ──────────────────────────────────────────────────────
+  // console.log('[RemoteImage] uri:', uri, '| mode:', mode);
+  // ─────────────────────────────────────────────────────────────
+
   useEffect(() => {
     setImageReady(false);
     setImageError(false);
     imageOpacity.value = 0;
   }, [uri]);
 
-  // ── Fix 2: keep animated style as ImageStyle-compatible ──
   const realImageAnimatedStyle = useAnimatedStyle(() => ({
     opacity: imageOpacity.value,
     ...(imageTransform ? { transform: imageTransform } : {}),
@@ -72,13 +74,8 @@ export function RemoteImage({
 
   return (
     <View style={style}>
-      {/* ── Placeholder ── */}
       {showPlaceholder ? (
         mode === "medicine" ? (
-          // ── Fix 3: fill 100% and let resizeMode="contain" handle sizing ──
-          // Do NOT override width to 80% — that breaks the parent clip.
-          // The placeholder image itself has natural padding/whitespace
-          // that makes it look correctly sized inside the container.
           <Animated.Image
             source={placeholder}
             style={placeholderFillStyle}
@@ -104,11 +101,9 @@ export function RemoteImage({
         )
       ) : null}
 
-      {/* ── Real image ── */}
       {uri && !imageError ? (
         <Animated.Image
           source={{ uri }}
-          // ── Fix 4: cast style array to ImageStyle to satisfy TS ──
           style={[realImageFillStyle, realImageAnimatedStyle] as any}
           resizeMode={resizeMode}
           onLoad={handleLoad}

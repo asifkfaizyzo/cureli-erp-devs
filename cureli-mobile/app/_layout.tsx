@@ -1,5 +1,3 @@
-// app/_layout.tsx
-
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { router } from 'expo-router';
@@ -15,6 +13,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'; // ← ADD
 
 import { useAuthStore } from '../src/store/authStore';
 import { api, authEventEmitter } from '../src/services/api';
@@ -45,12 +44,10 @@ function SSEManager() {
   return null;
 }
 
-const __DEV_SHOW_THEME_TOGGLE__ = true;
-
 export default function RootLayout() {
   const { initialize, logout } = useAuthStore();
 
-const [fontsLoaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
@@ -62,30 +59,16 @@ const [fontsLoaded] = useFonts({
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
-  useEffect(() => {
-    initialize();
-  }, []);
+  useEffect(() => { initialize(); }, []);
 
-  // ── Logout event from axios interceptor ──────────────────
   useEffect(() => {
-    const unsubscribe = authEventEmitter.on('logout', () => {
-      logout();
-    });
+    const unsubscribe = authEventEmitter.on('logout', () => logout());
     return unsubscribe;
   }, [logout]);
 
-  // ── Profile incomplete gate ───────────────────────────────
-  // Catches any 403 PROFILE_INCOMPLETE response from any API call
-  // made while the user is inside the app (post-splash).
-  // This is the safety net for the mid-session case — e.g. user
-  // somehow reaches checkout without completing profile.
-  // The primary gate is in splash.tsx navigateNext().
-  // This interceptor is the secondary defence.
   useEffect(() => {
     const interceptorId = api.interceptors.response.use(
       (response) => response,
@@ -99,10 +82,7 @@ const [fontsLoaded] = useFonts({
         return Promise.reject(error);
       },
     );
-
-    return () => {
-      api.interceptors.response.eject(interceptorId);
-    };
+    return () => api.interceptors.response.eject(interceptorId);
   }, []);
 
   if (!fontsLoaded) return null;
@@ -111,44 +91,46 @@ const [fontsLoaded] = useFonts({
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <SSEManager />
-          <PushManager />
+          {/* BottomSheetModalProvider must be inside GestureHandlerRootView  */}
+          {/* and wrap everything that uses @gorhom/bottom-sheet              */}
+          <BottomSheetModalProvider>
+            <SSEManager />
+            <PushManager />
 
-          <DialogProvider>
-            <Stack>
-              <Stack.Screen name="index"                  options={{ headerShown: false }} />
-              <Stack.Screen name="splash"                 options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="intro"                  options={{ headerShown: false, animation: 'fade' }} />
-              <Stack.Screen name="(auth)/login"           options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)/otp"             options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)"                 options={{ headerShown: false }} />
-              <Stack.Screen name="search"                 options={{ headerShown: false }} />
-              <Stack.Screen name="product/[id]"           options={{ headerShown: false }} />
-              <Stack.Screen name="shop/[id]"              options={{ headerShown: false }} />
-              <Stack.Screen name="cart"                   options={{ headerShown: false }} />
-              <Stack.Screen name="checkout"               options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding/name"        options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="onboarding/profile"     options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="onboarding/email"       options={{ headerShown: false, animation: 'slide_from_right' }} />
-              <Stack.Screen name="profile/edit"           options={{ headerShown: false }} />
-              <Stack.Screen name="profile/addresses"      options={{ headerShown: false }} />
-              <Stack.Screen name="profile/address/new"    options={{ headerShown: false }} />
-              <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
-              <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
-              <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
-              <Stack.Screen name="profile/dispensed"      options={{ headerShown: false }} />
-              <Stack.Screen name="profile/members"        options={{ headerShown: false }} />
-              <Stack.Screen name="profile/notifications"  options={{ headerShown: false }} />
-              <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
-              <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
-              <Stack.Screen name="marketplace/category"   options={{ headerShown: false }} />
-              <Stack.Screen name="orders"                 options={{ headerShown: false }} />
-            </Stack>
+            <DialogProvider>
+              <Stack>
+                <Stack.Screen name="index"                  options={{ headerShown: false }} />
+                <Stack.Screen name="splash"                 options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="intro"                  options={{ headerShown: false, animation: 'fade' }} />
+                <Stack.Screen name="(auth)/login"           options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)/otp"             options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)"                 options={{ headerShown: false }} />
+                <Stack.Screen name="search"                 options={{ headerShown: false }} />
+                <Stack.Screen name="product/[id]"           options={{ headerShown: false }} />
+                <Stack.Screen name="shop/[id]"              options={{ headerShown: false }} />
+                <Stack.Screen name="cart"                   options={{ headerShown: false }} />
+                <Stack.Screen name="checkout"               options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding/name"        options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="onboarding/profile"     options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="onboarding/email"       options={{ headerShown: false, animation: 'slide_from_right' }} />
+                <Stack.Screen name="profile/edit"           options={{ headerShown: false }} />
+                <Stack.Screen name="profile/addresses"      options={{ headerShown: false }} />
+                <Stack.Screen name="profile/address/new"    options={{ headerShown: false }} />
+                <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
+                <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
+                <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
+                <Stack.Screen name="profile/dispensed"      options={{ headerShown: false }} />
+                <Stack.Screen name="profile/members"        options={{ headerShown: false }} />
+                <Stack.Screen name="profile/notifications"  options={{ headerShown: false }} />
+                <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
+                <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
+                <Stack.Screen name="marketplace/category"   options={{ headerShown: false }} />
+                <Stack.Screen name="orders"                 options={{ headerShown: false }} />
+              </Stack>
 
-            <GlobalCartBar />
-
-            {/* {__DEV_SHOW_THEME_TOGGLE__ && <DevThemeToggle />} */}
-          </DialogProvider>
+              <GlobalCartBar />
+            </DialogProvider>
+          </BottomSheetModalProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
