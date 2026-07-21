@@ -1,0 +1,195 @@
+# Cureli Mobile — Build & Dev Guide
+# =====================================
+# Backend port : 5000
+# Metro port   : 8081
+# Package      : com.cureli.mobile
+# EAS owner    : your-zeros-and-ones
+# =====================================
+
+
+# ============================================================
+# IMPORTANT: config.ts — set this before anything
+# File: src/constants/config.ts
+# ============================================================
+
+# Android USB (daily dev) — use localhost via adb tunnel:
+export const CONFIG = {
+  BASE_URL: "http://localhost:5000",
+  API_TIMEOUT: 15000,
+};
+
+# iPhone / LAN / EAS-installed builds — use your machine IP:
+export const CONFIG = {
+  BASE_URL: "http://192.168.29.48:5000",   # ← replace with your current IP (ipconfig)
+  API_TIMEOUT: 15000,
+};
+
+# Production (EAS preview/production builds) — use live API:
+export const CONFIG = {
+  BASE_URL: "https://api.curelihealth.com",
+  API_TIMEOUT: 15000,
+};
+
+
+# ============================================================
+# DAILY DEV — Android USB (Windows)
+# Use this for normal JS/TS code changes — no rebuild needed
+# ============================================================
+
+# Terminal 1 — start backend
+cd backend
+npm start
+
+# Terminal 2 — reverse ports and start Metro
+adb devices
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:5000 tcp:5000
+
+cd cureli-mobile
+npx expo start --dev-client
+
+# Open app on phone manually or press 'a' in Metro terminal
+# config.ts BASE_URL must be: http://localhost:5000
+
+
+# ============================================================
+# REBUILD — Android after native config changes
+# Use this if you changed app.config.js, plugins, permissions,
+# native deps, splash, icons, maps, notifications config
+# ============================================================
+
+cd cureli-mobile
+npx expo prebuild --platform android --clean
+npx expo run:android
+
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:5000 tcp:5000
+
+npx expo start --dev-client -c
+
+
+# ============================================================
+# REBUILD — iOS after native config changes (macOS only)
+# ============================================================
+
+cd cureli-mobile
+npx expo prebuild --platform ios --clean
+npx expo run:ios
+npx expo start --dev-client -c
+
+# config.ts BASE_URL: http://localhost:5000   (Simulator)
+# config.ts BASE_URL: http://YOUR_LAN_IP:5000 (physical iPhone)
+
+
+# ============================================================
+# EAS ONE-TIME SETUP (run once, never again)
+# ============================================================
+
+cd cureli-mobile
+npx eas login
+npx eas build:configure
+
+
+# ============================================================
+# EAS — STANDALONE APK (Android)
+# Share with testers, install directly, no Play Store needed
+# ============================================================
+
+# Set config.ts BASE_URL to: https://api.curelihealth.com
+
+cd cureli-mobile
+npx eas build --profile preview --platform android
+
+# EAS gives you a download link when done
+# Download the .apk and install on any Android device
+
+
+# ============================================================
+# EAS — PLAY STORE BUILD (Android AAB)
+# Upload this to Google Play Console
+# ============================================================
+
+# Set config.ts BASE_URL to: https://api.curelihealth.com
+
+cd cureli-mobile
+npx eas build --profile production --platform android
+
+# EAS gives you a download link when done
+# Download the .aab and upload to Google Play Console
+
+
+# ============================================================
+# EAS — APP STORE BUILD (iOS IPA)
+# Upload this to App Store Connect / TestFlight
+# ============================================================
+
+# Set config.ts BASE_URL to: https://api.curelihealth.com
+
+cd cureli-mobile
+npx eas build --profile production --platform ios
+
+# EAS gives you a download link when done
+# Download the .ipa and upload via Transporter or EAS submit
+
+
+# ============================================================
+# EAS — STANDALONE iOS build for internal testing (no App Store)
+# Requires device UDID registered in Apple Developer account
+# ============================================================
+
+cd cureli-mobile
+npx eas build --profile preview --platform ios
+
+
+# ============================================================
+# WHEN TO REBUILD vs WHEN TO JUST RELOAD
+# ============================================================
+
+# Just reload Metro (press r) or restart Metro:
+#   - changed .ts .tsx .js .jsx files
+#   - changed hooks, screens, components, stores, services
+#   - changed src/constants/config.ts
+
+# Full rebuild required (npx expo run:android or run:ios):
+#   - changed app.config.js
+#   - changed eas.json
+#   - added/removed a native package (npm install something native)
+#   - changed android permissions
+#   - changed iOS permissions or infoPlist
+#   - changed google-services.json
+#   - changed expo-notifications plugin config
+#   - changed expo-location plugin config
+#   - changed splash screen or icon
+#   - changed scheme or package/bundle identifier
+#   - ran npx expo prebuild --clean
+
+
+# ============================================================
+# TROUBLESHOOTING
+# ============================================================
+
+# API calls fail on Android USB:
+#   Make sure you ran:
+#   adb reverse tcp:5000 tcp:5000
+#   and config.ts BASE_URL is http://localhost:5000
+
+# API calls fail on iPhone:
+#   Do NOT use localhost on iPhone
+#   Use your machine LAN IP: http://192.168.x.x:5000
+#   Run ipconfig to find your current IP
+#   Make sure phone and computer are on same WiFi
+
+# App won't open after Metro starts:
+#   Dev build is not installed — run:
+#   npx expo run:android
+#   (or npx expo run:ios on macOS)
+
+# Changes not reflecting:
+#   npx expo start --dev-client -c
+
+# "No development build installed" error:
+#   npx expo run:android
+#   npx expo start --dev-client
+
+# After prebuild --clean, app disappears from phone:
+#   Expected — run npx expo run:android to reinstall

@@ -1,0 +1,200 @@
+# Cureli ERP — Deployment Guide
+# ================================
+# VPS: 187.127.139.168
+# User: cureli
+# Repo: ~/cureli-erp-devs
+# PM2 process: cureli-backend
+#
+# Nginx roots:
+#   landing-web  → /var/www/landing
+#   pharmacy-web → /var/www/erp
+#   cadmin-web   → /var/www/cadmin
+#
+# Mobile (cureli-mobile) is NOT deployed here — EAS only.
+# ================================
+
+
+# ============================================================
+# STEP 1 — LOCAL: merge dev into prod and push
+# ============================================================
+# Run in PowerShell from Q:\YourZeroesAndOnes\cureli\curely_erp
+
+git checkout prod
+git merge dev
+git push origin prod
+
+
+# ============================================================
+# STEP 2 — SSH into VPS
+# ============================================================
+
+ssh cureli@187.127.139.168
+# enter password when prompted
+
+
+# ============================================================
+# STEP 3 — Pull latest prod on VPS
+# ============================================================
+
+cd ~/cureli-erp-devs
+git pull origin prod
+
+
+# ============================================================
+# STEP 4 — Backend: install, migrate, restart
+# ============================================================
+
+cd ~/cureli-erp-devs/backend
+
+npm install
+
+npx prisma migrate deploy
+
+npx prisma generate
+
+pm2 restart cureli-backend --update-env
+
+# Verify it came back up cleanly:
+pm2 logs cureli-backend --lines 30
+
+
+# ============================================================
+# STEP 5 — pharmacy-web: install, build, deploy
+# ============================================================
+
+cd ~/cureli-erp-devs/pharmacy-web
+
+npm install
+
+npm run build
+
+# Clear old build and replace:
+sudo rm -rf /var/www/erp/*
+sudo cp -r dist/* /var/www/erp/
+
+# Verify:
+ls /var/www/erp/
+
+
+# ============================================================
+# STEP 6 — cadmin-web: install, build, deploy
+# ============================================================
+
+cd ~/cureli-erp-devs/cadmin-web
+
+npm install
+
+npm run build
+
+# Clear old build and replace:
+sudo rm -rf /var/www/cadmin/*
+sudo cp -r dist/* /var/www/cadmin/
+
+# Verify:
+ls /var/www/cadmin/
+
+
+# ============================================================
+# STEP 7 — landing-web: install, build, deploy
+# ============================================================
+
+cd ~/cureli-erp-devs/landing-web
+
+npm install
+
+npm run build
+
+# Clear old build and replace:
+sudo rm -rf /var/www/landing/*
+sudo cp -r dist/* /var/www/landing/
+
+# Verify:
+ls /var/www/landing/
+
+
+# ============================================================
+# STEP 8 — Reload nginx (do this once after all frontends)
+# ============================================================
+
+sudo nginx -t
+# must say: configuration file test is successful
+
+sudo systemctl reload nginx
+
+
+# ============================================================
+# STEP 9 — Smoke test
+# ============================================================
+
+# API health check:
+curl https://api.curelihealth.com/api/health
+# Expected: {"ok":true,"maintenance_mode":false}
+
+# Frontend URLs to open in browser:
+#   https://curelihealth.com
+#   https://pharmacy.curelihealth.com
+#   https://cadmin.curelihealth.com
+
+# PM2 status:
+pm2 list
+
+
+# ============================================================
+# QUICK COPY-PASTE BLOCK
+# (after you've already SSH'd in and pulled)
+# ============================================================
+
+cd ~/cureli-erp-devs && git pull origin prod && \
+cd backend && npm install && npx prisma migrate deploy && pm2 restart cureli-backend && \
+cd ../pharmacy-web && npm install && npm run build && rm -rf /var/www/erp/* && cp -r dist/* /var/www/erp/ && \
+cd ../cadmin-web && npm install && npm run build && rm -rf /var/www/cadmin/* && cp -r dist/* /var/www/cadmin/ && \
+cd ../landing-web && npm install && npm run build && rm -rf /var/www/landing/* && cp -r dist/* /var/www/landing/ && \
+sudo nginx -t && sudo systemctl reload nginx && \
+curl https://api.curelihealth.com/api/health
+
+
+# ============================================================
+# ROLLBACK (if something breaks after deploy)
+# ============================================================
+
+# On VPS — revert to previous commit:
+cd ~/cureli-erp-devs
+git log --oneline -5
+# copy the commit hash you want to roll back to, then:
+git checkout <previous-commit-hash>
+
+# Then redo Step 4 (backend restart) and whichever
+# frontend Step broke (Steps 5/6/7 + Step 8).
+
+# On local — revert the prod branch:
+git checkout prod
+git revert HEAD
+git push origin prod
+
+
+# ============================================================
+# NOTES
+# ============================================================
+
+# .env files are NOT in git — they live only on the VPS.
+# Never overwrite them during deploy.
+# Location: ~/cureli-erp-devs/backend/.env
+#
+# If you add new env vars locally, you must manually add
+# them to the VPS .env before restarting pm2.
+#
+# Prisma:
+#   "npx prisma migrate deploy" runs pending migrations only.
+#   It does NOT reset data. Safe to run on every deploy.
+#   If you have NO new migrations, it exits cleanly — still safe.
+#
+# pm2 restart vs reload:
+#   "pm2 restart" = kills + restarts (tiny downtime, ~1s)
+#   "pm2 reload"  = zero-downtime reload (use if you care)
+#   For current traffic levels restart is fine.
+#
+# nginx reload vs restart:
+#   "sudo systemctl reload nginx" = graceful, no downtime.
+#   Only needed if nginx config changed.
+#   If only frontend files changed, reload is optional
+#   but harmless to always run.
