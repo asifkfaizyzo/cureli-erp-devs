@@ -11,7 +11,7 @@ const PROD_BASE_URL = "https://api.curelihealth.com";
 // localhost:5000
 
 export const CONFIG = {
-  BASE_URL: "http://api.curelihealth.com", // ← hardcoded for this build
+  BASE_URL: "https://api.curelihealth.com", // ← hardcoded for this build
   API_TIMEOUT: 15000,
 };
 
