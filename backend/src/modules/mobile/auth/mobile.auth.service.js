@@ -17,22 +17,25 @@ import {
   msg91SendSms,
   formatPhoneNumber,
 } from "../../../providers/msg91/sendSms.js";
+import {
+  IS_REVIEW_MODE,
+  REVIEW_PHONE,
+  REVIEW_OTP,
+} from "../../../config/reviewCredentials.js";
 
 // ── Constants ─────────────────────────────────────────────────
 const OTP_LENGTH              = 6;
-const OTP_VALIDITY_MS         = 5 * 60 * 1000;   // 5 minutes
-const OTP_VALIDITY_SECONDS    = 5 * 60;           // 300 — sent to client
+const OTP_VALIDITY_MS         = 5 * 60 * 1000;
+const OTP_VALIDITY_SECONDS    = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 30;
-const MAX_ATTEMPTS_PER_OTP   = 5;
-const MAX_FAILED_CYCLES      = 3;
-const LOCKOUT_DURATION_MS    = 60 * 60 * 1000;   // 1 hour
+const MAX_ATTEMPTS_PER_OTP    = 5;
+const MAX_FAILED_CYCLES       = 3;
+const LOCKOUT_DURATION_MS     = 60 * 60 * 1000;
 
-// ── Review / Store-Reviewer Bypass ────────────────────────────
-// Use this fixed account when submitting to App Store / Play Store.
-// The number never hits MSG91 and always accepts REVIEW_OTP.
-// Change these values whenever you rotate your review credentials.
-const REVIEW_PHONE = "1234567890";
-const REVIEW_OTP   = "123456";
+// ── Review guard ──────────────────────────────────────────────
+function isReviewPhone(phone) {
+  return IS_REVIEW_MODE && phone === REVIEW_PHONE;
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -70,9 +73,7 @@ export async function sendMobileOtp(phone) {
   console.log("[sendMobileOtp] incoming phone:", JSON.stringify(phone));
 
   // ── 1. Daily SMS limit ──────────────────────────────────
-  // Skip rate-limit check for review phone so reviewers
-  // can test as many times as needed without hitting the cap.
-  if (phone !== REVIEW_PHONE) {
+  if (!isReviewPhone(phone)) {
     const limitCheck = await checkSmsOtpLimit(`mobile:${phone}`);
     if (!limitCheck.allowed) {
       const err = new Error("Daily OTP limit reached. Please try again tomorrow.");
@@ -113,7 +114,6 @@ export async function sendMobileOtp(phone) {
       throw err;
     }
 
-    // Heal phone format if stored incorrectly
     if (user.phone !== phone) {
       await prisma.cureliMobileUser.update({
         where: { id: user.id },
@@ -123,13 +123,12 @@ export async function sendMobileOtp(phone) {
     }
 
     // ── 4. Cooldown check ─────────────────────────────────
-    // Skip cooldown for review phone
-    if (phone !== REVIEW_PHONE && user.login_otp_expires) {
-      const expiresAt = new Date(user.login_otp_expires);
-      const now       = new Date();
+    if (!isReviewPhone(phone) && user.login_otp_expires) {
+      const expiresAt        = new Date(user.login_otp_expires);
+      const now              = new Date();
 
       if (expiresAt > now) {
-        const otpSentAt       = new Date(expiresAt.getTime() - OTP_VALIDITY_MS);
+        const otpSentAt        = new Date(expiresAt.getTime() - OTP_VALIDITY_MS);
         const secondsSinceSent = Math.floor((now - otpSentAt) / 1000);
 
         if (secondsSinceSent < RESEND_COOLDOWN_SECONDS) {
@@ -137,7 +136,7 @@ export async function sendMobileOtp(phone) {
           const err = new Error(
             `Please wait ${waitTime} seconds before requesting a new OTP.`
           );
-          err.code    = "OTP_COOLDOWN";
+          err.code     = "OTP_COOLDOWN";
           err.waitTime = waitTime;
           throw err;
         }
@@ -145,9 +144,8 @@ export async function sendMobileOtp(phone) {
     }
 
     // ── 5. Lockout check ──────────────────────────────────
-    // Skip lockout for review phone
     if (
-      phone !== REVIEW_PHONE &&
+      !isReviewPhone(phone) &&
       user.otp_locked_until &&
       new Date(user.otp_locked_until) > new Date()
     ) {
@@ -163,8 +161,8 @@ export async function sendMobileOtp(phone) {
   }
 
   // ── 6. Generate and store OTP ───────────────────────────
-  const otp       = generateOtp(OTP_LENGTH);
-  const otpHash   = await hashOtp(otp);
+  const otp        = generateOtp(OTP_LENGTH);
+  const otpHash    = await hashOtp(otp);
   const otpExpires = new Date(Date.now() + OTP_VALIDITY_MS);
 
   if (user) {
@@ -190,9 +188,8 @@ export async function sendMobileOtp(phone) {
   }
 
   // ── 7. Send SMS ─────────────────────────────────────────
-  // Review phone: skip MSG91 entirely — reviewer uses the fixed OTP.
-  if (phone === REVIEW_PHONE) {
-    console.log("[MobileAuth] Review phone — skipping MSG91 send.");
+  if (isReviewPhone(phone)) {
+    console.log("[MobileAuth] Review mode — skipping MSG91 send.");
     return { timeout: OTP_VALIDITY_SECONDS };
   }
 
@@ -273,10 +270,8 @@ export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta =
   }
 
   // ── 4a. Review bypass ───────────────────────────────────
-  // Works in ALL environments so App Store / Play Store reviewers
-  // can log in with the fixed credentials provided in review notes.
-  if (user.phone === REVIEW_PHONE && otp === REVIEW_OTP) {
-    console.log("[MobileAuth] Review bypass accepted for:", user.phone);
+  if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
+    console.log("[MobileAuth] Review bypass accepted.");
     return await _completeVerification(user, deviceInfo, requestMeta);
   }
 
@@ -284,7 +279,7 @@ export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta =
   const isValid = await verifyOtp(otp, user.login_otp_hash);
 
   if (!isValid) {
-    const newAttempts     = user.login_otp_attempts + 1;
+    const newAttempts      = user.login_otp_attempts + 1;
     const newCycleFailures =
       newAttempts >= MAX_ATTEMPTS_PER_OTP
         ? user.otp_cycle_failures + 1
@@ -352,17 +347,17 @@ async function _completeVerification(user, deviceInfo, requestMeta) {
 
     const newSession = await tx.cureliMobileSession.create({
       data: {
-        user_id:          user.id,
-        refresh_token_hash: refreshTokenHash,
-        device_id:        deviceInfo?.device_id        ?? null,
-        device_name:      deviceInfo?.device_name      ?? null,
-        device_platform:  deviceInfo?.device_platform  ?? null,
-        device_os_version: deviceInfo?.device_os_version ?? null,
-        app_version:      deviceInfo?.app_version      ?? null,
-        ip_address:       requestMeta.ip               ?? null,
-        user_agent:       requestMeta.userAgent         ?? null,
-        expires_at:       sessionExpiry,
-        is_active:        true,
+        user_id:             user.id,
+        refresh_token_hash:  refreshTokenHash,
+        device_id:           deviceInfo?.device_id           ?? null,
+        device_name:         deviceInfo?.device_name         ?? null,
+        device_platform:     deviceInfo?.device_platform     ?? null,
+        device_os_version:   deviceInfo?.device_os_version   ?? null,
+        app_version:         deviceInfo?.app_version         ?? null,
+        ip_address:          requestMeta.ip                  ?? null,
+        user_agent:          requestMeta.userAgent            ?? null,
+        expires_at:          sessionExpiry,
+        is_active:           true,
       },
     });
 
@@ -384,7 +379,6 @@ async function _completeVerification(user, deviceInfo, requestMeta) {
 }
 
 // ── refreshMobileToken ────────────────────────────────────────
-// (unchanged — included for completeness)
 
 export async function refreshMobileToken(refreshToken) {
   const tokenHash = hashRefreshToken(refreshToken);

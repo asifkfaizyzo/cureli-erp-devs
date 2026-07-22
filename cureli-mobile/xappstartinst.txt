@@ -77,6 +77,9 @@ npx expo prebuild --platform ios --clean
 npx expo run:ios
 npx expo start --dev-client -c
 
+
+ipconfig getifaddr en0
+
 # config.ts BASE_URL: http://localhost:5000   (Simulator)
 # config.ts BASE_URL: http://YOUR_LAN_IP:5000 (physical iPhone)
 
