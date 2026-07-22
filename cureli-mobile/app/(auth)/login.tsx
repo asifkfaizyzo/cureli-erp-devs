@@ -19,14 +19,21 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { FontFamily } from '../../src/theme/typography';
+import {
+  REVIEW_MODE,
+  REVIEW_PHONE,
+} from '../../src/constants/config';
 
 export default function LoginScreen() {
   const { sendOtp } = useAuthStore();
   const { colors, isDark } = useTheme();
 
-  const [phone, setPhone] = useState('');
+  // ── Pre-fill for App Store / Play Store reviewers ─────────
+  // When REVIEW_MODE is true the phone field starts with the
+  // review number so the reviewer does not have to type anything.
+  const [phone, setPhone]     = useState(REVIEW_MODE ? REVIEW_PHONE : '');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -35,7 +42,9 @@ export default function LoginScreen() {
     if (cleaned.length === 0) return 'Enter your mobile number';
     if (cleaned.length < 10) return 'Enter a valid 10-digit mobile number';
     if (cleaned.length > 10) return 'Mobile number must be 10 digits';
-    if (!/^[6-9]/.test(cleaned)) return 'Enter a valid Indian mobile number';
+    // Review phone starts with 1 — skip the [6-9] check for it
+    if (!REVIEW_MODE && !/^[6-9]/.test(cleaned))
+      return 'Enter a valid Indian mobile number';
     return null;
   }
 
@@ -135,10 +144,7 @@ export default function LoginScreen() {
             >
               <Text style={styles.prefixFlag}>🇮🇳</Text>
               <Text
-                style={[
-                  styles.prefixText,
-                  { color: colors.text.secondary },
-                ]}
+                style={[styles.prefixText, { color: colors.text.secondary }]}
               >
                 +91
               </Text>
@@ -171,9 +177,7 @@ export default function LoginScreen() {
                 size={14}
                 color={colors.status.error}
               />
-              <Text
-                style={[styles.errorText, { color: colors.status.error }]}
-              >
+              <Text style={[styles.errorText, { color: colors.status.error }]}>
                 {error}
               </Text>
             </View>
@@ -199,11 +203,7 @@ export default function LoginScreen() {
             ) : (
               <>
                 <Text style={styles.buttonText}>Send OTP</Text>
-                <MaterialIcons
-                  name="arrow-forward"
-                  size={18}
-                  color="#ffffff"
-                />
+                <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
               </>
             )}
           </TouchableOpacity>
@@ -211,15 +211,11 @@ export default function LoginScreen() {
           {/* Terms */}
           <Text style={[styles.termsText, { color: colors.text.faint }]}>
             By continuing, you agree to our{' '}
-            <Text
-              style={[styles.termsLink, { color: colors.brand.accent }]}
-            >
+            <Text style={[styles.termsLink, { color: colors.brand.accent }]}>
               Terms of Service
             </Text>{' '}
             and{' '}
-            <Text
-              style={[styles.termsLink, { color: colors.brand.accent }]}
-            >
+            <Text style={[styles.termsLink, { color: colors.brand.accent }]}>
               Privacy Policy
             </Text>
           </Text>
@@ -237,7 +233,7 @@ function extractErrorMessage(err: unknown): string {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
-    const status = axiosErr.response?.status;
+    const status  = axiosErr.response?.status;
     const message = axiosErr.response?.data?.message;
     if (status === 429)
       return message ?? 'Too many attempts. Please wait before trying again.';
@@ -271,7 +267,8 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 34,
-    fontFamily: Platform.OS === 'ios' ? FontFamily.amulyaBold : FontFamily.amulya,
+    fontFamily:
+      Platform.OS === 'ios' ? FontFamily.amulyaBold : FontFamily.amulya,
     lineHeight: Platform.OS === 'ios' ? 42 : 38,
     letterSpacing: -0.5,
     ...(Platform.OS === 'android' ? { fontWeight: '700' as const } : {}),
