@@ -1,38 +1,48 @@
-// pharmacy-web/src/pages/marketplace-orders/MarketplaceOrdersPage.jsx
-// MODIFIED — routes Prescriptions tab to PrescriptionRequestsTab
-
-import { useState }          from 'react';
-import { ShoppingBag }       from 'lucide-react';
-import { useOrdersPage, ORDER_TABS } from '../../hooks/marketplace/useOrdersPage';
+//pharmacy-web\src\pages\marketplace-orders\MarketplaceOrdersPage.jsx
+import { useState }    from 'react';
+import { ShoppingBag } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { useOrdersPage } from '../../hooks/marketplace/useOrdersPage';
 import OrdersTabBar, { PRESCRIPTION_TAB_ID } from './components/OrdersTabBar';
-import OrderListPanel        from './components/OrderListPanel';
-import OrderDetailPanel      from './components/OrderDetailPanel';
-import RejectModal           from './components/RejectModal';
+import OrderListPanel    from './components/OrderListPanel';
+import OrderDetailPanel  from './components/OrderDetailPanel';
+import RejectModal       from './components/RejectModal';
 import PrescriptionRequestsTab from '../prescription-requests/PrescriptionRequestsTab';
-import usePrescriptionRequestAlertStore from '../../store/usePrescriptionRequestAlertStore';
+import usePrescriptionRequestAlertStore
+  from '../../store/usePrescriptionRequestAlertStore';
 
 const MarketplaceOrdersPage = () => {
   const page = useOrdersPage();
+  const [searchParams] = useSearchParams();
 
-  // Active tab — starts on 'new' (existing default from useOrdersPage)
-  // When user clicks Prescriptions tab we switch locally
-  const [activeTab, setActiveTab] = useState(page.activeTab);
+  const initialTab = searchParams.get('tab') === 'prescriptions'
+    ? PRESCRIPTION_TAB_ID
+    : page.activeTab;
 
-  const pendingRequestIds = usePrescriptionRequestAlertStore((s) => s.pendingRequestIds);
-  const pendingRequestCount = Object.keys(pendingRequestIds).length;
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const pendingRequestIds   = usePrescriptionRequestAlertStore((s) => s.pendingRequestIds);
+  const requestRefreshCount = usePrescriptionRequestAlertStore((s) => s.refreshCount);
+  const prescriptionCount   = Math.max(
+    Object.keys(pendingRequestIds).length,
+    requestRefreshCount > 0 ? requestRefreshCount : 0,
+  );
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     if (tabId !== PRESCRIPTION_TAB_ID) {
-      // Delegate to existing order tab handler
       page.onTabChange(tabId);
     }
   };
 
-  // Tab counts — merge order counts + prescription count
+  // ── NEW: pass counts for both alert tabs ──────────────────────────────────
+  // new orders count = API total when on 'new' tab, otherwise 0
+  // (clearNewOrderCount fires on mount so SSE count is unreliable here)
+  const newOrdersCount = page.activeTab === 'new' ? page.total : 0;
+
   const tabCounts = {
-    [page.activeTab]:    page.total,
-    [PRESCRIPTION_TAB_ID]: pendingRequestCount,
+    new:                   newOrdersCount,    // ← API total, not SSE count
+    [PRESCRIPTION_TAB_ID]: prescriptionCount,
   };
 
   const isPrescriptionTab = activeTab === PRESCRIPTION_TAB_ID;
@@ -40,7 +50,6 @@ const MarketplaceOrdersPage = () => {
   return (
     <div className="h-full flex flex-col bg-[#010015] overflow-hidden">
 
-      {/* ── Page Header ── */}
       <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
@@ -57,21 +66,17 @@ const MarketplaceOrdersPage = () => {
         </div>
       </div>
 
-      {/* ── Tabs ── */}
       <div className="flex-shrink-0">
         <OrdersTabBar
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          counts={tabCounts}
+          counts={tabCounts}   
         />
       </div>
 
-      {/* ── Content ── */}
       {isPrescriptionTab ? (
-        // Prescription requests tab — completely separate layout + data
         <PrescriptionRequestsTab />
       ) : (
-        // Existing orders layout — unchanged
         <div className="flex-1 overflow-hidden grid grid-cols-[380px_1fr]">
           <OrderListPanel
             activeTab={page.activeTab}
@@ -103,7 +108,6 @@ const MarketplaceOrdersPage = () => {
         </div>
       )}
 
-      {/* ── Reject Modal (orders only) ── */}
       {!isPrescriptionTab && (
         <RejectModal
           open={page.rejectModal.open}

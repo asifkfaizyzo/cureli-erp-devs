@@ -1,27 +1,26 @@
 // pharmacy-web/src/utils/orderAlertAudio.js
-// NEW FILE
-// Plain JS singleton that owns the single Audio instance for the order alert.
-// No React, no Zustand, no hooks.
-// Called directly by useOrderAlertStore when pending count crosses 0↔1.
+// Two independent audio singletons:
+//   1. orderAlertAudio        — for marketplace orders (cannot be muted from UI)
+//   2. prescriptionAlertAudio — for prescription requests (per-request mute)
 
-const orderAlertAudio = (() => {
+function createAlertAudio(soundFile, defaultVolume = 0.6) {
   let audio = null;
-  let isPlaying = false;
+  let isPlayingFlag = false;
   let unlocked = false;
-  let pendingPlay = false;  // play was requested before unlock
+  let pendingPlay = false;
 
   const getAudio = () => {
     if (audio) return audio;
     try {
-      audio = new Audio('/sounds/order-alert.mp3');
-      audio.loop   = true;
-      audio.volume = 0.6;
-      audio.addEventListener('play',  () => { isPlaying = true; });
-      audio.addEventListener('pause', () => { isPlaying = false; });
-      audio.addEventListener('ended', () => { isPlaying = false; });
+      audio = new Audio(soundFile);
+      audio.loop = true;
+      audio.volume = defaultVolume;
+      audio.addEventListener('play', () => { isPlayingFlag = true; });
+      audio.addEventListener('pause', () => { isPlayingFlag = false; });
+      audio.addEventListener('ended', () => { isPlayingFlag = false; });
       audio.addEventListener('error', (e) => {
-        console.warn('[OrderAlert] Audio error:', e);
-        isPlaying = false;
+        console.warn(`[AlertAudio:${soundFile}] Audio error:`, e);
+        isPlayingFlag = false;
       });
     } catch {
       audio = null;
@@ -29,27 +28,22 @@ const orderAlertAudio = (() => {
     return audio;
   };
 
-  // ── Call this on ANY user interaction ──────────────────────────────
-  // Plays a silent buffer to unlock the audio context.
-  // After this, .play() will work even without a gesture.
   const unlock = () => {
     if (unlocked) return;
     const a = getAudio();
     if (!a) return;
 
-    // Play silence to unlock
     a.volume = 0;
     a.play()
       .then(() => {
         a.pause();
         a.currentTime = 0;
-        a.volume = 0.6;
+        a.volume = defaultVolume;
         unlocked = true;
 
-        // If start() was called before unlock, play now
         if (pendingPlay) {
           pendingPlay = false;
-          orderAlertAudio.start();
+          instance.start();
         }
       })
       .catch(() => {
@@ -57,34 +51,32 @@ const orderAlertAudio = (() => {
       });
   };
 
-  // Attach unlock to common user gestures — fires once then removes itself
+  // Attach unlock to common user gestures
   const UNLOCK_EVENTS = ['click', 'keydown', 'touchstart', 'pointerdown'];
   const onUserGesture = () => {
     unlock();
-    // Keep listening — unlock() is idempotent after first success
   };
   if (typeof window !== 'undefined') {
     UNLOCK_EVENTS.forEach((e) =>
-      window.addEventListener(e, onUserGesture, { passive: true })
+      window.addEventListener(e, onUserGesture, { passive: true }),
     );
   }
 
-  return {
+  const instance = {
     start() {
       const a = getAudio();
-      if (!a || isPlaying) return;
+      if (!a || isPlayingFlag) return;
 
       if (!unlocked) {
-        // Queue play for after first user interaction
         pendingPlay = true;
-        console.warn('[OrderAlert] Audio not yet unlocked — will play after first user gesture');
+        console.warn(`[AlertAudio:${soundFile}] Not yet unlocked — will play after first user gesture`);
         return;
       }
 
       a.currentTime = 0;
       a.play().catch((err) => {
-        console.warn('[OrderAlert] Autoplay blocked:', err.message);
-        isPlaying = false;
+        console.warn(`[AlertAudio:${soundFile}] Autoplay blocked:`, err.message);
+        isPlayingFlag = false;
       });
     },
 
@@ -93,15 +85,23 @@ const orderAlertAudio = (() => {
       if (!a) return;
       a.pause();
       a.currentTime = 0;
-      isPlaying = false;
+      isPlayingFlag = false;
       pendingPlay = false;
     },
 
     isPlaying() {
-      return isPlaying;
+      return isPlayingFlag;
     },
   };
-})();
 
+  return instance;
+}
 
+// Order alert — uses the existing sound file
+const orderAlertAudio = createAlertAudio('/sounds/order-alert.mp3', 0.6);
+
+// Prescription request alert — uses the SAME sound file (change path if you want a different sound)
+const prescriptionAlertAudio = createAlertAudio('/sounds/order-alert.mp3', 0.5);
+
+export { prescriptionAlertAudio };
 export default orderAlertAudio;

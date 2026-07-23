@@ -1,6 +1,6 @@
 // pharmacy-web/src/pages/prescription-requests/components/RequestCard.jsx
 
-import { FileText, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { FileText, Volume2, VolumeX } from 'lucide-react';
 
 const STATUS_CONFIG = {
   SENT: {
@@ -64,42 +64,96 @@ function formatRelativeTime(isoString) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-const RequestCard = ({ recipient, isSelected, onSelect }) => {
+const RequestCard = ({
+  recipient,
+  isSelected,
+  onSelect,
+  isAlerting,
+  isMuted,
+  onMute,
+  onUnmute,
+}) => {
   const cfg = STATUS_CONFIG[recipient.status] ?? STATUS_CONFIG.SENT;
+
+  // Show mute button only when this request is actively alerting (pending via SSE)
+  const showMuteButton = isAlerting;
+
+  const handleMuteClick = (e) => {
+    e.stopPropagation(); // Don't select the card
+    if (isMuted) {
+      onUnmute(recipient.recipient_id);
+    } else {
+      onMute(recipient.recipient_id);
+    }
+  };
 
   return (
     <button
       onClick={() => onSelect(recipient.recipient_id)}
       className={`
         w-full text-left px-4 py-3.5 border-b border-white/[0.04]
-        transition-colors duration-100
+        transition-colors duration-100 relative group
         ${isSelected
           ? 'bg-white/[0.08] border-l-2 border-l-white'
           : 'hover:bg-white/[0.04] border-l-2 border-l-transparent'
         }
       `}
     >
-      {/* Top row: request number + status */}
+      {/* Alerting indicator — subtle left-edge glow for unmuted alerting requests */}
+      {isAlerting && !isMuted && (
+        <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full bg-red-500 animate-pulse" />
+      )}
+
+      {/* Top row: request number + status + mute button */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <span className="text-sm font-bold text-white">
           {recipient.request_number}
         </span>
 
-        <span
-          className={`
-            inline-flex items-center gap-1.5 px-2 py-0.5
-            rounded-full text-[10px] font-semibold
-            border ${cfg.bg} ${cfg.border} ${cfg.color}
-          `}
-        >
+        <div className="flex items-center gap-1.5">
+          {/* Mute / Unmute button */}
+          {showMuteButton && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleMuteClick}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleMuteClick(e); }}
+              title={isMuted ? 'Unmute alert for this request' : 'Mute alert for this request'}
+              className={`
+                inline-flex items-center justify-center
+                w-6 h-6 rounded-md
+                transition-all duration-150 cursor-pointer
+                ${isMuted
+                  ? 'bg-white/[0.06] text-white/25 hover:bg-white/[0.10] hover:text-white/50'
+                  : 'bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300'
+                }
+              `}
+            >
+              {isMuted ? (
+                <VolumeX size={12} />
+              ) : (
+                <Volume2 size={12} className="animate-pulse" />
+              )}
+            </span>
+          )}
+
+          {/* Status badge */}
           <span
             className={`
-              w-1.5 h-1.5 rounded-full ${cfg.dot}
-              ${cfg.pulse ? 'animate-pulse' : ''}
+              inline-flex items-center gap-1.5 px-2 py-0.5
+              rounded-full text-[10px] font-semibold
+              border ${cfg.bg} ${cfg.border} ${cfg.color}
             `}
-          />
-          {cfg.label}
-        </span>
+          >
+            <span
+              className={`
+                w-1.5 h-1.5 rounded-full ${cfg.dot}
+                ${cfg.pulse ? 'animate-pulse' : ''}
+              `}
+            />
+            {cfg.label}
+          </span>
+        </div>
       </div>
 
       {/* Middle row: branch name + distance */}

@@ -123,6 +123,7 @@ export default function RootLayout() {
                 <Stack.Screen name="profile/members"        options={{ headerShown: false }} />
                 <Stack.Screen name="profile/notifications"  options={{ headerShown: false }} />
                 <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
+                <Stack.Screen name="prescription-request" options={{ headerShown: false }} />
                 <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
                 <Stack.Screen name="marketplace/category"   options={{ headerShown: false }} />
                 <Stack.Screen name="orders"                 options={{ headerShown: false }} />

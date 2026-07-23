@@ -34,13 +34,13 @@ function PrescriptionRequestBanner() {
 
   return (
     <TouchableOpacity
-      onPress={() => router.push('/prescription-request' as any)}
+      onPress={() => router.push("/prescription-request" as any)}
       activeOpacity={0.85}
       style={[
         styles.prescriptionBanner,
         {
           backgroundColor: colors.background.card,
-          borderColor:     colors.border.brand,
+          borderColor: colors.border.brand,
         },
       ]}
     >
@@ -50,10 +50,16 @@ function PrescriptionRequestBanner() {
           { backgroundColor: colors.background.tint },
         ]}
       >
-        <Ionicons name="document-text-outline" size={22} color={colors.text.brand} />
+        <Ionicons
+          name="document-text-outline"
+          size={22}
+          color={colors.text.brand}
+        />
       </View>
       <View style={styles.prescriptionText}>
-        <Text style={[styles.prescriptionTitle, { color: colors.text.primary }]}>
+        <Text
+          style={[styles.prescriptionTitle, { color: colors.text.primary }]}
+        >
           Have a prescription?
         </Text>
         <Text style={[styles.prescriptionSub, { color: colors.text.muted }]}>
@@ -137,7 +143,7 @@ export function HomeScreen() {
         <TopLevelCategoryGrid />
 
         {/* ── Prescription request entry point ─────────────────────────── */}
-        {/* <PrescriptionRequestBanner /> */}
+        <PrescriptionRequestBanner />
         {/* ───────────────────────────────────────────────────────────────── */}
 
         {isFeedLoading ? (
@@ -191,24 +197,28 @@ const styles = StyleSheet.create({
   },
   // ── Prescription banner ───────────────────────────────────────────────────
   prescriptionBanner: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    gap:              Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
     marginHorizontal: Spacing.base,
-    marginVertical:   Spacing.sm,
-    padding:          Spacing.md,
-    borderRadius:     Radius.lg,
-    borderWidth:      1,
+    marginVertical: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
   },
   prescriptionIcon: {
-    width:          44,
-    height:         44,
-    borderRadius:   Radius.md,
-    alignItems:     'center',
-    justifyContent: 'center',
-    flexShrink:     0,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   prescriptionText: { flex: 1, gap: 3 },
-  prescriptionTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  prescriptionSub:   { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 17 },
+  prescriptionTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  prescriptionSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+  },
 });

@@ -18,37 +18,40 @@ export interface SubmitRequestPayload {
 }
 
 export interface QuoteItem {
-  quote_item_id:   string;
-  medicine_name:   string;
-  brand:           string | null;
-  pack_size:       string | null;
-  unit_price:      number;
-  mrp:             number;
-  quantity:        number;
-  line_total:      number;
-  is_available:    boolean;
-  is_substitute:   boolean;
-  substitute_note: string | null;
-  image_url:       string | null;
+  quote_item_id:    string;
+  medicine_name:    string;
+  brand:            string | null;
+  pack_size:        string | null;
+  // variant_sku is returned by formatQuoteItem on the backend
+  // as the MasterMedicineVariant.sku_id value
+  variant_sku:      string | null;
+  unit_price:       number;
+  mrp:              number;
+  quantity:         number;
+  line_total:       number;
+  is_available:     boolean;
+  is_substitute:    boolean;
+  substitute_note:  string | null;
+  image_url:        string | null;
 }
 
 export interface RecipientSummary {
-  recipient_id:      string;
-  shop_id:           string;
-  branch_id:         string;
-  shop_name:         string;
-  branch_name:       string;
-  distance_km:       number | null;
-  status:            string;
-  sent_at:           string;
-  quote_sent_at:     string | null;
-  quote_expires_at:  string | null;
-  accepted_at:       string | null;
-  declined_at:       string | null;
-  expired_at:        string | null;
-  decline_reason:    string | null;
+  recipient_id:       string;
+  shop_id:            string;
+  branch_id:          string;
+  shop_name:          string;
+  branch_name:        string;
+  distance_km:        number | null;
+  status:             string;
+  sent_at:            string;
+  quote_sent_at:      string | null;
+  quote_expires_at:   string | null;
+  accepted_at:        string | null;
+  declined_at:        string | null;
+  expired_at:         string | null;
+  decline_reason:     string | null;
   converted_order_id: string | null;
-  quote_summary:     {
+  quote_summary: {
     total_items:       number;
     available_items:   number;
     unavailable_items: number;
@@ -58,14 +61,14 @@ export interface RecipientSummary {
 }
 
 export interface RequestDetail {
-  request_id:      string;
-  request_number:  string;
-  status:          string;
+  request_id:       string;
+  request_number:   string;
+  status:           string;
   delivery_address: Record<string, unknown>;
-  created_at:      string;
-  expires_at:      string | null;
-  cancelled_at:    string | null;
-  completed_at:    string | null;
+  created_at:       string;
+  expires_at:       string | null;
+  cancelled_at:     string | null;
+  completed_at:     string | null;
   files: {
     file_id:       string;
     original_name: string;
@@ -73,7 +76,7 @@ export interface RequestDetail {
     file_size:     number;
     sequence:      number;
   }[];
-  recipients:      RecipientSummary[];
+  recipients: RecipientSummary[];
 }
 
 export const prescriptionRequestApi = {

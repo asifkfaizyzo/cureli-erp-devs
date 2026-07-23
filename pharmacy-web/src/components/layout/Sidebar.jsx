@@ -10,12 +10,13 @@ import {
 import {
   useNotificationStore,
   selectNewOrderCount,
-} from '../../store/useNotificationStore';
+} from "../../store/useNotificationStore";
 import {
   useAuthStore,
   selectIsSuperAdmin,
   selectIsGlobalMode,
 } from "../../store/useAuthStore";
+import usePrescriptionRequestAlertStore from "../../store/usePrescriptionRequestAlertStore";
 import {
   LayoutGrid,
   Layers,
@@ -270,16 +271,35 @@ const MarketplaceMenuItem = ({
   const isActive = activeMenu === item.id || isChildActive;
   const isOpen = openMenuId === item.id;
 
-  // New order badge — only on the Orders item
+  // ── Order badge ───────────────────────────────────────────────────────────
   const newOrderCount = useNotificationStore(selectNewOrderCount);
   const showOrderBadge = item.showOrderBadge && newOrderCount > 0;
+
+  // ── Prescription request badge ────────────────────────────────────────────
+  const pendingRequestIds = usePrescriptionRequestAlertStore(
+    (s) => s.pendingRequestIds,
+  );
+  const requestRefreshCount = usePrescriptionRequestAlertStore(
+    (s) => s.refreshCount,
+  );
+  const prescriptionCount = Math.max(
+    Object.keys(pendingRequestIds).length,
+    requestRefreshCount > 0 ? requestRefreshCount : 0,
+  );
+  const showPrescriptionBadge =
+    item.showPrescriptionBadge && prescriptionCount > 0;
+
+  // ── Combined total for the collapsed icon badge ───────────────────────────
+  // When sidebar is collapsed we show one number on the icon covering both
+  const combinedCount = newOrderCount + prescriptionCount;
+  const showAnyBadge = showOrderBadge || showPrescriptionBadge;
 
   const handleClick = (e) => {
     e.preventDefault();
     if (isParent) {
       onToggle(item.id);
     } else {
-      onNavigate(item, false, '');
+      onNavigate(item, false, "");
     }
   };
 
@@ -292,20 +312,20 @@ const MarketplaceMenuItem = ({
           transition-colors duration-200
           ${
             isActive
-              ? 'bg-white/[0.12] text-white shadow-lg shadow-black/30'
-              : 'text-white/50 hover:bg-white/[0.07] hover:text-white/90'
+              ? "bg-white/[0.12] text-white shadow-lg shadow-black/30"
+              : "text-white/50 hover:bg-white/[0.07] hover:text-white/90"
           }
         `}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
-          {/* Icon with collapsed badge */}
+          {/* Icon — collapsed badge shows combined count */}
           <div className="relative">
             <Icon size={20} />
-            {showOrderBadge && !isExpanded && (
+            {showAnyBadge && !isExpanded && (
               <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                {newOrderCount > 99 ? '99+' : newOrderCount}
+                {combinedCount > 99 ? "99+" : combinedCount}
               </span>
             )}
           </div>
@@ -317,10 +337,18 @@ const MarketplaceMenuItem = ({
           transition={SIDEBAR_TRANSITION}
         >
           {item.label}
-          {/* Expanded badge */}
+
+          {/* Expanded — orders badge */}
           {showOrderBadge && isExpanded && (
-            <span className="ml-auto px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
-              {newOrderCount > 99 ? '99+' : newOrderCount}
+            <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
+              {newOrderCount > 99 ? "99+" : newOrderCount}
+            </span>
+          )}
+
+          {/* Expanded — prescription badge */}
+          {showPrescriptionBadge && isExpanded && (
+            <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
+              {prescriptionCount > 99 ? "99+" : prescriptionCount}
             </span>
           )}
         </motion.span>
@@ -353,14 +381,14 @@ const MarketplaceMenuItem = ({
                   key={sub.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(sub, false, '');
+                    onNavigate(sub, false, "");
                   }}
                   className={`
                     flex items-center h-9 px-3 rounded-lg text-sm
                     ${
                       isSubActive
-                        ? 'bg-white/[0.12] text-white'
-                        : 'text-white/40 hover:bg-white/[0.07] hover:text-white/80'
+                        ? "bg-white/[0.12] text-white"
+                        : "text-white/40 hover:bg-white/[0.07] hover:text-white/80"
                     }
                   `}
                   whileHover={{ x: 4 }}
@@ -596,7 +624,8 @@ const Sidebar = () => {
         path: "/marketplace/orders",
         breadcrumbs: ["Marketplace", "Orders"],
         permissionKey: "marketplaceOrders",
-        showOrderBadge: true, // ← flag for order count badge
+        showOrderBadge: true,
+        showPrescriptionBadge: true, // ← ADD THIS
       },
       {
         id: "marketplace-listings",

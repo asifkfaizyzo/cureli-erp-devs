@@ -1,4 +1,10 @@
 // backend/src/modules/prescription-requests/prescription.requests.service.js
+//
+// CHANGED: acceptQuote now fetches branch coordinates from
+// BranchMarketplaceSettings and returns them in the response.
+// The mobile app uses these to compute delivery distance in CartScreen.
+//
+// All other functions are unchanged.
 
 import prisma             from '../../config/prisma.js';
 import { uploadFile, getSignedUrl, deleteFile } from '../../services/fileStorage.service.js';
@@ -13,14 +19,9 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PRESCRIPTION_REQUEST_FOLDER = 'prescription_requests';
+const QUOTE_EXPIRY_MINUTES        = 15;
+const REQUEST_EXPIRY_HOURS        = 48;
 
-// Quote is valid for 15 minutes after pharmacy sends it
-const QUOTE_EXPIRY_MINUTES = 15;
-
-// Requests auto-expire after 48 hours if no quote is accepted
-const REQUEST_EXPIRY_HOURS = 48;
-
-// Terminal statuses — no further transitions allowed
 const TERMINAL_REQUEST_STATUSES = new Set([
   'ACCEPTED',
   'COMPLETED',
@@ -39,10 +40,6 @@ const TERMINAL_RECIPIENT_STATUSES = new Set([
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Generate next request number from Postgres sequence.
- * Format: PRX-000001
- */
 async function generateRequestNumber() {
   const result = await prisma.$queryRaw`
     SELECT nextval('prescription_request_seq') AS seq
@@ -51,56 +48,29 @@ async function generateRequestNumber() {
   return `PRX-${String(seq).padStart(6, '0')}`;
 }
 
-/**
- * Compute quote expiry timestamp.
- * @param {Date} [from] - Base time (defaults to now)
- * @returns {Date}
- */
 function computeQuoteExpiry(from = new Date()) {
   return new Date(from.getTime() + QUOTE_EXPIRY_MINUTES * 60 * 1000);
 }
 
-/**
- * Compute request expiry timestamp.
- * @param {Date} [from]
- * @returns {Date}
- */
 function computeRequestExpiry(from = new Date()) {
   return new Date(from.getTime() + REQUEST_EXPIRY_HOURS * 60 * 60 * 1000);
 }
 
-/**
- * Derive the parent request status based on current recipient statuses.
- *
- * Rules:
- *   All recipients terminal (declined/expired)    → FULLY_RESPONDED
- *   At least one QUOTE_SENT, none ACCEPTED        → PARTIALLY_RESPONDED or FULLY_RESPONDED
- *   At least one SENT (still waiting)             → PARTIALLY_RESPONDED if quote exists, else PENDING
- *   One ACCEPTED                                  → ACCEPTED
- *   One CONVERTED                                 → COMPLETED
- *
- * @param {Array} recipients - Array of recipient status strings
- * @returns {string} PrescriptionRequestStatus value
- */
 function deriveRequestStatus(recipients) {
   const statuses = recipients.map((r) => r.status);
 
   if (statuses.includes('CONVERTED')) return 'COMPLETED';
   if (statuses.includes('ACCEPTED'))  return 'ACCEPTED';
 
-  const activelySent   = statuses.filter((s) => s === 'SENT').length;
-  const quoteSent      = statuses.filter((s) => s === 'QUOTE_SENT').length;
-  const allTerminal    = statuses.every((s) => TERMINAL_RECIPIENT_STATUSES.has(s));
+  const activelySent = statuses.filter((s) => s === 'SENT').length;
+  const quoteSent    = statuses.filter((s) => s === 'QUOTE_SENT').length;
+  const allTerminal  = statuses.every((s) => TERMINAL_RECIPIENT_STATUSES.has(s));
 
-  if (allTerminal)           return 'FULLY_RESPONDED';
-  if (quoteSent > 0)         return activelySent > 0 ? 'PARTIALLY_RESPONDED' : 'FULLY_RESPONDED';
+  if (allTerminal)   return 'FULLY_RESPONDED';
+  if (quoteSent > 0) return activelySent > 0 ? 'PARTIALLY_RESPONDED' : 'FULLY_RESPONDED';
   return 'PENDING';
 }
 
-/**
- * Resolve a variant's primary image URL from its images JSON array.
- * Same pattern as marketplace.orders.service.js resolveOrderItemImageUrl.
- */
 function resolveVariantImageUrl(variant) {
   if (!variant) return null;
   let imgs = variant.images ?? null;
@@ -145,7 +115,6 @@ function formatRecipientSummary(recipient) {
     expired_at:         recipient.expired_at,
     decline_reason:     recipient.decline_reason,
     converted_order_id: recipient.converted_order_id,
-    // Quote summary for list view comparison
     quote_summary: recipient.status === 'QUOTE_SENT' || recipient.status === 'ACCEPTED' || recipient.status === 'CONVERTED'
       ? {
           total_items:       totalItems,
@@ -154,7 +123,6 @@ function formatRecipientSummary(recipient) {
           quote_total:       quoteTotal,
         }
       : null,
-    // Full quote items only in detail view
     quote_items: recipient.quoteItems?.map(formatQuoteItem) ?? [],
   };
 }
@@ -199,17 +167,9 @@ function formatRequestSummary(request) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UPLOAD PRESCRIPTION IMAGES (pre-submission)
+// UPLOAD PRESCRIPTION IMAGES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Upload prescription image files for a prescription request.
- * These are stored in the prescription_requests S3 folder.
- * File keys are returned to mobile and passed back in submitRequest().
- *
- * @param {Express.Multer.File[]} files
- * @returns {Promise<Array>}
- */
 export async function uploadRequestFiles(files) {
   if (!files || files.length === 0) throw new Error('No files provided');
   if (files.length > 5)            throw new Error('Maximum 5 prescription files allowed');
@@ -237,20 +197,9 @@ export async function uploadRequestFiles(files) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SUBMIT PRESCRIPTION REQUEST (mobile customer)
+// SUBMIT PRESCRIPTION REQUEST
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Create a new prescription request and fan out to selected pharmacy branches.
- *
- * @param {Object} options
- * @param {string}   options.customerId
- * @param {Array}    options.files              - [{ file_key, original_name, mime_type, file_size }]
- * @param {string}   options.deliveryAddressId
- * @param {number}   options.searchLatitude
- * @param {number}   options.searchLongitude
- * @param {string[]} options.branchIds          - max 10
- */
 export async function submitRequest({
   customerId,
   files,
@@ -259,7 +208,6 @@ export async function submitRequest({
   searchLongitude,
   branchIds,
 }) {
-  // ── 1. Validate customer ──────────────────────────────────────────────────
   const customer = await prisma.cureliMobileUser.findUnique({
     where:  { id: customerId },
     select: { id: true, status: true },
@@ -269,7 +217,6 @@ export async function submitRequest({
     throw new Error('Customer account is not active');
   }
 
-  // ── 2. Validate delivery address ──────────────────────────────────────────
   const address = await prisma.cureliMobileAddress.findFirst({
     where: { id: deliveryAddressId, user_id: customerId, deleted_at: null },
   });
@@ -289,12 +236,6 @@ export async function submitRequest({
     recipient_name:  address.recipient_name  ?? null,
     recipient_phone: address.recipient_phone ?? null,
   };
-
-  // ── 3. Validate branches ──────────────────────────────────────────────────
-  // Each branch must:
-  //   a. exist in branch_marketplace_settings
-  //   b. have marketplace_enabled = true
-  //   c. belong to a live marketplace profile
 
   const branchSettings = await prisma.branchMarketplaceSettings.findMany({
     where: {
@@ -329,21 +270,16 @@ export async function submitRequest({
     throw new Error('No valid pharmacy branches found');
   }
 
-  // Build a map for quick lookup
   const validBranchMap = new Map(
     branchSettings.map((bs) => [bs.branch_id, bs]),
   );
 
-  // Filter to only valid branches (silently skip invalid ones rather than erroring,
-  // because in the time between pharmacy selection and submission a branch
-  // could have gone offline)
   const validBranchIds = branchIds.filter((id) => validBranchMap.has(id));
 
   if (validBranchIds.length === 0) {
     throw new Error('None of the selected pharmacies are currently available');
   }
 
-  // ── 4. Haversine distance helper (inline) ─────────────────────────────────
   function haversineKm(lat1, lng1, lat2, lng2) {
     if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null;
     const R    = 6371;
@@ -358,14 +294,11 @@ export async function submitRequest({
     return Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
   }
 
-  // ── 5. Generate request number ────────────────────────────────────────────
   const requestNumber = await generateRequestNumber();
   const now           = new Date();
   const expiresAt     = computeRequestExpiry(now);
 
-  // ── 6. Database transaction ───────────────────────────────────────────────
   const { request, recipients } = await prisma.$transaction(async (tx) => {
-    // Create parent request
     const req = await tx.prescriptionRequest.create({
       data: {
         request_number:             requestNumber,
@@ -379,7 +312,6 @@ export async function submitRequest({
       },
     });
 
-    // Create prescription files
     await tx.prescriptionRequestFile.createMany({
       data: files.map((f, idx) => ({
         request_id:    req.request_id,
@@ -391,7 +323,6 @@ export async function submitRequest({
       })),
     });
 
-    // Create one recipient per valid branch
     const recipientData = validBranchIds.map((branchId) => {
       const bs         = validBranchMap.get(branchId);
       const shopName   = bs.marketplaceProfile.storefront_name
@@ -414,7 +345,6 @@ export async function submitRequest({
 
     await tx.prescriptionRequestRecipient.createMany({ data: recipientData });
 
-    // Fetch created recipients for event firing (need recipient_id)
     const createdRecipients = await tx.prescriptionRequestRecipient.findMany({
       where: { request_id: req.request_id },
     });
@@ -422,7 +352,6 @@ export async function submitRequest({
     return { request: req, recipients: createdRecipients };
   });
 
-  // ── 7. Fire SSE events post-commit (one per pharmacy, fire-and-forget) ────
   for (const recipient of recipients) {
     firePrescriptionRequestNewEvents(recipient, request).catch((err) =>
       console.error(
@@ -443,7 +372,7 @@ export async function submitRequest({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET CUSTOMER REQUESTS (mobile list)
+// GET CUSTOMER REQUESTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getCustomerRequests(customerId, { page = 1, limit = 10 }) {
@@ -482,7 +411,7 @@ export async function getCustomerRequests(customerId, { page = 1, limit = 10 }) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET REQUEST DETAIL (mobile)
+// GET REQUEST DETAIL
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getRequestDetail(requestId, customerId) {
@@ -529,11 +458,8 @@ export async function getRequestDetail(requestId, customerId) {
     cancelled_at:             request.cancelled_at,
     completed_at:             request.completed_at,
     files:                    request.files,
-    // Recipients sorted by quote_sent_at (most recent quote first),
-    // with SENT (waiting) and non-quoted at end
     recipients: [...request.recipients]
       .sort((a, b) => {
-        // QUOTE_SENT first, sorted by quote_sent_at desc
         if (a.status === 'QUOTE_SENT' && b.status !== 'QUOTE_SENT') return -1;
         if (b.status === 'QUOTE_SENT' && a.status !== 'QUOTE_SENT') return  1;
         if (a.quote_sent_at && b.quote_sent_at) {
@@ -550,7 +476,6 @@ export async function getRequestDetail(requestId, customerId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getRequestFileUrl(requestId, fileId, customerId) {
-  // Verify ownership
   const file = await prisma.prescriptionRequestFile.findUnique({
     where:   { file_id: fileId },
     include: { request: { select: { customer_id: true, request_id: true } } },
@@ -571,27 +496,27 @@ export async function getRequestFileUrl(requestId, fileId, customerId) {
   const url = await getSignedUrl({
     folder:    PRESCRIPTION_REQUEST_FOLDER,
     filename:  file.storage_key,
-    expiresIn: 900, // 15 minutes
+    expiresIn: 900,
   });
 
   return { url, expires_in: 900 };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACCEPT QUOTE (mobile customer)
+// ACCEPT QUOTE
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Customer accepts a pharmacy's quote.
+ * CHANGED: Now also fetches branch coordinates from BranchMarketplaceSettings
+ * and returns them in the response as branch_latitude and branch_longitude.
  *
- * - Validates quote is not expired
- * - Marks chosen recipient as ACCEPTED
- * - Expires all other pending/quoted recipients
- * - Updates parent request status to ACCEPTED
- * - Returns checkout prefill data
+ * The mobile app uses these to populate CartItem.branchLatitude / branchLongitude
+ * so that CartScreen can compute the delivery distance via useDeliveryETA.
+ *
+ * Without coordinates, distanceKm is null and useCheckout passes 0 to the
+ * pricing engine, resulting in an incorrect bill calculation.
  */
 export async function acceptQuote(requestId, recipientId, customerId) {
-  // ── Fetch request and validate ownership ──────────────────────────────────
   const request = await prisma.prescriptionRequest.findUnique({
     where:   { request_id: requestId },
     include: {
@@ -607,11 +532,14 @@ export async function acceptQuote(requestId, recipientId, customerId) {
     throw new Error('Prescription request not found');
   }
 
-  if (TERMINAL_REQUEST_STATUSES.has(request.status) && request.status !== 'FULLY_RESPONDED' && request.status !== 'PARTIALLY_RESPONDED') {
+  if (
+    TERMINAL_REQUEST_STATUSES.has(request.status) &&
+    request.status !== 'FULLY_RESPONDED' &&
+    request.status !== 'PARTIALLY_RESPONDED'
+  ) {
     throw new Error(`Cannot accept a quote on a request with status ${request.status}`);
   }
 
-  // ── Find the target recipient ─────────────────────────────────────────────
   const recipient = request.recipients.find((r) => r.recipient_id === recipientId);
 
   if (!recipient) {
@@ -622,20 +550,18 @@ export async function acceptQuote(requestId, recipientId, customerId) {
     throw new Error('This pharmacy has not sent a quote');
   }
 
-  // ── Check quote has not expired ───────────────────────────────────────────
   if (recipient.quote_expires_at && new Date() > new Date(recipient.quote_expires_at)) {
     throw new Error('This quote has expired. Please wait for the pharmacy to send a new quote.');
   }
 
   const now = new Date();
 
-  // ── Fetch quote items for the accepted recipient ───────────────────────────
   const quoteItems = await prisma.prescriptionQuoteItem.findMany({
     where:   { recipient_id: recipientId, is_available: true },
     include: {
       listing: {
         select: {
-          listing_id:    true,
+          listing_id:        true,
           linked_variant_id: true,
         },
       },
@@ -646,15 +572,25 @@ export async function acceptQuote(requestId, recipientId, customerId) {
     throw new Error('This quote has no available items');
   }
 
-  // ── Atomic transaction ────────────────────────────────────────────────────
+  // ── ADDED: Fetch branch coordinates ──────────────────────────────────────
+  // BranchMarketplaceSettings stores the branch's geolocation set during
+  // marketplace onboarding. We need these so the mobile app can compute
+  // the delivery distance in CartScreen → useDeliveryETA.
+  const branchSettings = await prisma.branchMarketplaceSettings.findUnique({
+    where:  { branch_id: recipient.branch_id },
+    select: { latitude: true, longitude: true },
+  });
+
+  const branchLatitude  = branchSettings?.latitude  ? Number(branchSettings.latitude)  : null;
+  const branchLongitude = branchSettings?.longitude ? Number(branchSettings.longitude) : null;
+  // ─────────────────────────────────────────────────────────────────────────
+
   await prisma.$transaction(async (tx) => {
-    // Accept chosen recipient
     await tx.prescriptionRequestRecipient.update({
       where: { recipient_id: recipientId },
       data:  { status: 'ACCEPTED', accepted_at: now },
     });
 
-    // Expire all other non-terminal recipients
     const otherIds = request.recipients
       .filter((r) => r.recipient_id !== recipientId && !TERMINAL_RECIPIENT_STATUSES.has(r.status))
       .map((r) => r.recipient_id);
@@ -666,15 +602,12 @@ export async function acceptQuote(requestId, recipientId, customerId) {
       });
     }
 
-    // Update parent request status
     await tx.prescriptionRequest.update({
       where: { request_id: requestId },
       data:  { status: 'ACCEPTED', updated_at: now },
     });
   });
 
-  // ── Build checkout prefill ────────────────────────────────────────────────
-  // The mobile app will pass this directly to POST /mobile/checkout/create-session
   const checkoutPrefill = {
     branch_id:           recipient.branch_id,
     delivery_address_id: request.delivery_address_id,
@@ -682,29 +615,31 @@ export async function acceptQuote(requestId, recipientId, customerId) {
       variantId: item.variant_id,
       quantity:  item.quantity,
     })),
-    // Pass prescription files so they attach to the resulting order
     prescription_files: request.files.map((f) => ({
       prescription_key: f.storage_key,
       original_name:    f.original_name,
       mime_type:        f.mime_type,
       file_size:        f.file_size,
     })),
-    // Link back to this request so checkout confirm can call markConverted
     prescription_request_id:  requestId,
     prescription_recipient_id: recipientId,
   };
 
   return {
-    branch_id:      recipient.branch_id,
-    branch_name:    recipient.branch_name_snapshot,
-    shop_id:        recipient.shop_id,
-    shop_name:      recipient.shop_name_snapshot,
+    branch_id:        recipient.branch_id,
+    branch_name:      recipient.branch_name_snapshot,
+    shop_id:          recipient.shop_id,
+    shop_name:        recipient.shop_name_snapshot,
+    // ── ADDED: branch coordinates for CartScreen distance calculation ────
+    branch_latitude:  branchLatitude,
+    branch_longitude: branchLongitude,
+    // ─────────────────────────────────────────────────────────────────────
     checkout_prefill: checkoutPrefill,
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CANCEL REQUEST (mobile customer)
+// CANCEL REQUEST
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function cancelRequest(requestId, customerId) {
@@ -717,7 +652,6 @@ export async function cancelRequest(requestId, customerId) {
     throw new Error('Prescription request not found');
   }
 
-  // Cannot cancel once accepted or completed
   if (['ACCEPTED', 'COMPLETED', 'CANCELLED', 'EXPIRED'].includes(request.status)) {
     throw new Error(`Cannot cancel a request with status ${request.status}`);
   }
@@ -725,7 +659,6 @@ export async function cancelRequest(requestId, customerId) {
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
-    // Expire all non-terminal recipients
     const activeIds = request.recipients
       .filter((r) => !TERMINAL_RECIPIENT_STATUSES.has(r.status))
       .map((r) => r.recipient_id);
@@ -747,7 +680,7 @@ export async function cancelRequest(requestId, customerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET ERP REQUESTS (pharmacy — list)
+// GET ERP REQUESTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getErpRequests(shopId, { status, page = 1, limit = 20 }) {
@@ -786,24 +719,24 @@ export async function getErpRequests(shopId, { status, page = 1, limit = 20 }) {
 
   return {
     recipients: recipients.map((r) => ({
-      recipient_id:    r.recipient_id,
-      request_id:      r.request.request_id,
-      request_number:  r.request.request_number,
-      branch_name:     r.branch_name_snapshot,
-      shop_name:       r.shop_name_snapshot,
-      distance_km:     r.branch_distance_km ? Number(r.branch_distance_km) : null,
-      status:          r.status,
-      sent_at:         r.sent_at,
-      quote_sent_at:   r.quote_sent_at,
+      recipient_id:     r.recipient_id,
+      request_id:       r.request.request_id,
+      request_number:   r.request.request_number,
+      branch_name:      r.branch_name_snapshot,
+      shop_name:        r.shop_name_snapshot,
+      distance_km:      r.branch_distance_km ? Number(r.branch_distance_km) : null,
+      status:           r.status,
+      sent_at:          r.sent_at,
+      quote_sent_at:    r.quote_sent_at,
       quote_expires_at: r.quote_expires_at,
-      accepted_at:     r.accepted_at,
-      declined_at:     r.declined_at,
-      expired_at:      r.expired_at,
-      file_count:      r.request.files.length,
+      accepted_at:      r.accepted_at,
+      declined_at:      r.declined_at,
+      expired_at:       r.expired_at,
+      file_count:       r.request.files.length,
       quote_item_count: r.quoteItems.length,
-      quote_total:     r.quoteItems
-                         .filter((i) => i.is_available)
-                         .reduce((sum, i) => sum + Number(i.line_total), 0),
+      quote_total:      r.quoteItems
+                          .filter((i) => i.is_available)
+                          .reduce((sum, i) => sum + Number(i.line_total), 0),
     })),
     meta: {
       total,
@@ -815,7 +748,7 @@ export async function getErpRequests(shopId, { status, page = 1, limit = 20 }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET ERP REQUEST DETAIL (pharmacy)
+// GET ERP REQUEST DETAIL
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getErpRequestDetail(recipientId, shopId) {
@@ -850,29 +783,29 @@ export async function getErpRequestDetail(recipientId, shopId) {
   }
 
   return {
-  recipient_id:      recipient.recipient_id,
-  request_id:        recipient.request.request_id,
-  request_number:    recipient.request.request_number,
-  branch_id:         recipient.branch_id,   // ← ADD
-  shop_id:           recipient.shop_id,     // ← ADD
-  branch_name:       recipient.branch_name_snapshot,
-  shop_name:         recipient.shop_name_snapshot,
-  distance_km:       recipient.branch_distance_km ? Number(recipient.branch_distance_km) : null,
-  status:            recipient.status,
-  sent_at:           recipient.sent_at,
-  quote_sent_at:     recipient.quote_sent_at,
-  quote_expires_at:  recipient.quote_expires_at,
-  accepted_at:       recipient.accepted_at,
-  converted_at:      recipient.converted_at,
-  declined_at:       recipient.declined_at,
-  expired_at:        recipient.expired_at,
-  decline_reason:    recipient.decline_reason,
-  converted_order_id: recipient.converted_order_id,
-  delivery_address:  recipient.request.delivery_address_snapshot,
-  request_expires_at: recipient.request.expires_at,
-  files:             recipient.request.files,
-  quote_items:       recipient.quoteItems.map(formatQuoteItem),
-};
+    recipient_id:       recipient.recipient_id,
+    request_id:         recipient.request.request_id,
+    request_number:     recipient.request.request_number,
+    branch_id:          recipient.branch_id,
+    shop_id:            recipient.shop_id,
+    branch_name:        recipient.branch_name_snapshot,
+    shop_name:          recipient.shop_name_snapshot,
+    distance_km:        recipient.branch_distance_km ? Number(recipient.branch_distance_km) : null,
+    status:             recipient.status,
+    sent_at:            recipient.sent_at,
+    quote_sent_at:      recipient.quote_sent_at,
+    quote_expires_at:   recipient.quote_expires_at,
+    accepted_at:        recipient.accepted_at,
+    converted_at:       recipient.converted_at,
+    declined_at:        recipient.declined_at,
+    expired_at:         recipient.expired_at,
+    decline_reason:     recipient.decline_reason,
+    converted_order_id: recipient.converted_order_id,
+    delivery_address:   recipient.request.delivery_address_snapshot,
+    request_expires_at: recipient.request.expires_at,
+    files:              recipient.request.files,
+    quote_items:        recipient.quoteItems.map(formatQuoteItem),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -880,7 +813,6 @@ export async function getErpRequestDetail(recipientId, shopId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getErpRequestFileUrl(recipientId, fileId, shopId) {
-  // Verify the file belongs to a request that this pharmacy is a recipient of
   const file = await prisma.prescriptionRequestFile.findUnique({
     where:   { file_id: fileId },
     include: {
@@ -916,16 +848,7 @@ export async function getErpRequestFileUrl(recipientId, fileId, shopId) {
 // SUBMIT QUOTE (ERP pharmacy)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Pharmacy builds and submits a quote for a prescription request.
- * Can be called multiple times — replaces any existing quote.
- *
- * @param {string} recipientId
- * @param {string} shopId        - for scope validation
- * @param {Array}  items         - [{ listing_id, quantity, is_available, is_substitute, substitute_note }]
- */
 export async function submitQuote(recipientId, shopId, items) {
-  // ── Fetch and validate recipient ──────────────────────────────────────────
   const recipient = await prisma.prescriptionRequestRecipient.findUnique({
     where:   { recipient_id: recipientId },
     include: { request: { select: { request_id: true, customer_id: true, request_number: true } } },
@@ -939,13 +862,6 @@ export async function submitQuote(recipientId, shopId, items) {
     throw new Error(`Cannot submit a quote for a request with status ${recipient.status}`);
   }
 
-  // If replacing an existing quote, check it hasn't been accepted
-  if (recipient.status === 'QUOTE_SENT' && recipient.quote_expires_at) {
-    // Allow replacement even after expiry — pharmacy may be resending
-    // The expiry check only matters on the customer accept side
-  }
-
-  // ── Validate all listing_ids belong to this branch ────────────────────────
   const listingIds = items.map((i) => i.listing_id);
 
   const listings = await prisma.marketplaceListing.findMany({
@@ -972,7 +888,6 @@ export async function submitQuote(recipientId, shopId, items) {
 
   const listingMap = new Map(listings.map((l) => [l.listing_id, l]));
 
-  // Validate all requested listings exist and are visible
   for (const item of items) {
     if (!listingMap.has(item.listing_id)) {
       throw new Error(`Listing ${item.listing_id} is not available at this branch`);
@@ -982,21 +897,17 @@ export async function submitQuote(recipientId, shopId, items) {
   const now            = new Date();
   const quoteExpiresAt = computeQuoteExpiry(now);
 
-  // ── Atomic transaction: delete old items + create new + update recipient ──
   await prisma.$transaction(async (tx) => {
-    // Delete existing quote items if replacing
     await tx.prescriptionQuoteItem.deleteMany({
       where: { recipient_id: recipientId },
     });
 
-    // Create new quote items with snapshots
     const quoteItemData = items.map((item) => {
-      const listing     = listingMap.get(item.listing_id);
-      const variant     = listing.linkedVariant;
-      const unitPrice   = listing.marketplace_price ? Number(listing.marketplace_price) : 0;
-      const mrp         = variant.mrp ? Number(variant.mrp) : unitPrice;
-      const quantity    = item.is_available ? item.quantity : 0;
-      const lineTotal   = unitPrice * (item.is_available ? item.quantity : 0);
+      const listing   = listingMap.get(item.listing_id);
+      const variant   = listing.linkedVariant;
+      const unitPrice = listing.marketplace_price ? Number(listing.marketplace_price) : 0;
+      const mrp       = variant.mrp ? Number(variant.mrp) : unitPrice;
+      const lineTotal = unitPrice * (item.is_available ? item.quantity : 0);
 
       return {
         recipient_id:                   recipientId,
@@ -1020,17 +931,15 @@ export async function submitQuote(recipientId, shopId, items) {
 
     await tx.prescriptionQuoteItem.createMany({ data: quoteItemData });
 
-    // Update recipient status and quote timestamps
     await tx.prescriptionRequestRecipient.update({
       where: { recipient_id: recipientId },
       data: {
-        status:          'QUOTE_SENT',
-        quote_sent_at:   now,
+        status:           'QUOTE_SENT',
+        quote_sent_at:    now,
         quote_expires_at: quoteExpiresAt,
       },
     });
 
-    // Recompute and update parent request status
     const allRecipients = await tx.prescriptionRequestRecipient.findMany({
       where:  { request_id: recipient.request.request_id },
       select: { status: true },
@@ -1044,7 +953,6 @@ export async function submitQuote(recipientId, shopId, items) {
     });
   });
 
-  // ── Fire events post-commit ───────────────────────────────────────────────
   firePrescriptionQuoteReceivedEvents(
     {
       customer_id:    recipient.request.customer_id,
@@ -1097,7 +1005,6 @@ export async function declineRequest(recipientId, shopId, reason) {
       },
     });
 
-    // Recompute parent request status
     const allRecipients = await tx.prescriptionRequestRecipient.findMany({
       where:  { request_id: recipient.request.request_id },
       select: { status: true },
@@ -1115,18 +1022,9 @@ export async function declineRequest(recipientId, shopId, reason) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK CONVERTED — internal only, called by checkout service after payment
+// MARK CONVERTED
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Called by the checkout confirmation flow after a MarketplaceOrder is created.
- * Links the prescription request to the resulting order.
- * Fire-and-forget — must never block payment confirmation.
- *
- * @param {string} requestId
- * @param {string} recipientId
- * @param {string} orderId
- */
 export async function markConverted(requestId, recipientId, orderId) {
   const now = new Date();
 
@@ -1156,7 +1054,6 @@ export async function markConverted(requestId, recipientId, orderId) {
       `(recipient ${recipientId} → order ${orderId})`,
     );
   } catch (err) {
-    // Log but never throw — payment has already succeeded
     console.error(
       `[PRxService] markConverted failed for request ${requestId}:`,
       err.message,
@@ -1165,20 +1062,15 @@ export async function markConverted(requestId, recipientId, orderId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXPIRE STALE QUOTES — called by cron every 5 minutes
+// EXPIRE STALE QUOTES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Find all QUOTE_SENT recipients whose quote_expires_at has passed
- * and transition them to EXPIRED.
- * Also recomputes parent request status for each affected request.
- */
 export async function expireStaleQuotes() {
   const now = new Date();
 
   const staleRecipients = await prisma.prescriptionRequestRecipient.findMany({
     where: {
-      status:          'QUOTE_SENT',
+      status:           'QUOTE_SENT',
       quote_expires_at: { lt: now },
     },
     select: {
@@ -1223,13 +1115,9 @@ export async function expireStaleQuotes() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXPIRE STALE REQUESTS — called by cron daily
+// EXPIRE STALE REQUESTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Find all requests that have passed their 48h expiry window
- * and have not been accepted or completed.
- */
 export async function expireStaleRequests() {
   const now = new Date();
 
@@ -1254,7 +1142,6 @@ export async function expireStaleRequests() {
   for (const request of staleRequests) {
     try {
       await prisma.$transaction(async (tx) => {
-        // Expire all non-terminal recipients
         if (request.recipients.length > 0) {
           await tx.prescriptionRequestRecipient.updateMany({
             where: {
@@ -1281,14 +1168,9 @@ export async function expireStaleRequests() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLEANUP PRESCRIPTION FILES — called by cron daily
+// CLEANUP PRESCRIPTION FILES
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Delete S3 files for prescription request images older than 7 days.
- * Sets deleted_at on the DB row after successful S3 deletion.
- * Row is kept for audit — only the S3 file is removed.
- */
 export async function cleanupExpiredRequestFiles() {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -1301,7 +1183,7 @@ export async function cleanupExpiredRequestFiles() {
       file_id:     true,
       storage_key: true,
     },
-    take: 200, // Process in batches to avoid timeout
+    take: 200,
   });
 
   if (files.length === 0) return { deleted: 0, failed: 0 };

@@ -16,6 +16,11 @@ const RequestListPanel = ({
   total,
   onPageChange,
   onRefresh,
+  // Mute props
+  pendingRequestIds,
+  mutedRequestIds,
+  onMuteRequest,
+  onUnmuteRequest,
 }) => {
   const tab = REQUEST_TABS.find((t) => t.id === activeTab);
 
@@ -69,14 +74,23 @@ const RequestListPanel = ({
           </div>
         ) : (
           <>
-            {recipients.map((recipient) => (
-              <RequestCard
-                key={recipient.recipient_id}
-                recipient={recipient}
-                isSelected={selectedId === recipient.recipient_id}
-                onSelect={onSelectRequest}
-              />
-            ))}
+            {recipients.map((recipient) => {
+              const isAlerting = pendingRequestIds?.[recipient.recipient_id] === true;
+              const isMuted    = mutedRequestIds?.[recipient.recipient_id] === true;
+
+              return (
+                <RequestCard
+                  key={recipient.recipient_id}
+                  recipient={recipient}
+                  isSelected={selectedId === recipient.recipient_id}
+                  onSelect={onSelectRequest}
+                  isAlerting={isAlerting}
+                  isMuted={isMuted}
+                  onMute={onMuteRequest}
+                  onUnmute={onUnmuteRequest}
+                />
+              );
+            })}
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 py-4 px-4 border-t border-white/[0.06]">

@@ -8,10 +8,10 @@ const PROD_BASE_URL = "https://api.curelihealth.com";
 
 // 192.168.29.69:5000
 // 192.168.100.100:5000
-// localhost:5000
+// http://localhost:5000
 
 export const CONFIG = {
-  BASE_URL: "https://api.curelihealth.com", // ← hardcoded for this build
+  BASE_URL: "http://localhost:5000", // ← hardcoded for this build
   API_TIMEOUT: 15000,
 };
 
@@ -31,23 +31,3 @@ export const CART_CONFIG = {
 export const RECOMMENDATIONS_LIMIT = 6;
 export const DELIVERY_BUFFER_MINS = 8;
 
-
-
-
-// src/constants/config.ts
-
-// const PROD_BASE_URL = "https://api.curelihealth.com";
-
-// export const CONFIG = {
-//   BASE_URL: PROD_BASE_URL,
-//   API_TIMEOUT: 15000,
-// };
-
-// export const CART_CONFIG = {
-//   HANDLING_CHARGE: 10,
-//   DELIVERY_CHARGE: 30,
-//   FREE_DELIVERY_ABOVE: 500,
-// } as const;
-
-// export const RECOMMENDATIONS_LIMIT = 6;
-// export const DELIVERY_BUFFER_MINS = 8;

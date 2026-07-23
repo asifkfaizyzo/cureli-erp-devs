@@ -1,11 +1,8 @@
 // pharmacy-web/src/pages/marketplace-orders/components/OrdersTabBar.jsx
-// MODIFIED — adds Prescriptions tab with separate active state
 
 import { FileText } from 'lucide-react';
 import { ORDER_TABS } from '../../../hooks/marketplace/useOrdersPage';
 
-// Prescription requests tab definition — kept here, not in ORDER_TABS
-// because it routes to a completely different data source and hook
 export const PRESCRIPTION_TAB_ID = 'prescriptions';
 
 const PRESCRIPTION_TAB = {
@@ -19,9 +16,17 @@ const OrdersTabBar = ({ activeTab, onTabChange, counts = {} }) => {
   return (
     <div className="flex items-center gap-1 border-b border-white/[0.06] px-6">
       {allTabs.map((tab) => {
-        const isActive  = activeTab === tab.id;
-        const count     = counts[tab.id];
+        const isActive       = activeTab === tab.id;
         const isPrescription = tab.id === PRESCRIPTION_TAB_ID;
+        const isNewOrders    = tab.id === 'new';
+
+        // Only 'new' and 'prescriptions' get badges
+        // counts are passed from MarketplaceOrdersPage
+        const badgeCount = (isNewOrders || isPrescription)
+          ? (counts[tab.id] ?? 0)
+          : 0;
+
+        const showBadge = badgeCount > 0;
 
         return (
           <button
@@ -38,23 +43,25 @@ const OrdersTabBar = ({ activeTab, onTabChange, counts = {} }) => {
             `}
           >
             {isPrescription && (
-              <FileText size={13} className={isActive ? 'text-white' : 'text-white/40'} />
+              <FileText
+                size={13}
+                className={isActive ? 'text-white' : 'text-white/40'}
+              />
             )}
+
             {tab.label}
-            {count > 0 && (
+
+            {showBadge && (
               <span
                 className={`
-                  px-1.5 py-0.5 rounded-full text-[10px] font-bold min-w-[18px] text-center
-                  ${
-                    isActive && (tab.id === 'new' || isPrescription)
-                      ? 'bg-red-500 text-white animate-pulse'
-                      : isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-white/10 text-white/50'
-                  }
+                  px-1.5 py-0.5 rounded-full text-[10px] font-bold
+                  min-w-[18px] text-center animate-pulse
+                  ${isActive
+                    ? 'bg-red-500 text-white'
+                    : 'bg-red-500/70 text-white'}
                 `}
               >
-                {count}
+                {badgeCount > 99 ? '99+' : badgeCount}
               </span>
             )}
           </button>

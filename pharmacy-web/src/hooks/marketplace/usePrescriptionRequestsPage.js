@@ -67,15 +67,23 @@ export function usePrescriptionRequestsPage() {
   const resolvePendingRequest = usePrescriptionRequestAlertStore(
     (s) => s.resolvePendingRequest,
   );
+  const muteRequest = usePrescriptionRequestAlertStore(
+    (s) => s.muteRequest,
+  );
+  const unmuteRequest = usePrescriptionRequestAlertStore(
+    (s) => s.unmuteRequest,
+  );
+  const mutedRequestIds = usePrescriptionRequestAlertStore(
+    (s) => s.mutedRequestIds,
+  );
+  const pendingRequestIds = usePrescriptionRequestAlertStore(
+    (s) => s.pendingRequestIds,
+  );
 
   // ── SSE refresh trigger ───────────────────────────────────────────────────
-  // When prescription_request_new SSE fires, we need to refresh the list.
-  // We use a simple counter that triggers the fetch effect.
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const triggerRefresh = useCallback(() => setRefreshTrigger((n) => n + 1), []);
 
-  // Expose triggerRefresh so useSSENotifications can call it
-  // We store it on a ref so it's stable across renders
   const refreshRef = useRef(triggerRefresh);
   refreshRef.current = triggerRefresh;
 
@@ -183,11 +191,8 @@ export function usePrescriptionRequestsPage() {
       const res = await submitQuote(recipientId, { items });
 
       if (res.success) {
-        // Refresh detail to show updated quote
         await fetchDetail(recipientId);
-        // Refresh list so status badge updates
         fetchList(activeTab, page);
-        // Resolve from alert store — quote has been sent
         resolvePendingRequest(recipientId);
         return true;
       } else {
@@ -201,6 +206,15 @@ export function usePrescriptionRequestsPage() {
       setActionLoading(false);
     }
   }, [activeTab, page, fetchDetail, fetchList, resolvePendingRequest]);
+
+  // ── Mute / unmute handlers ────────────────────────────────────────────────
+  const onMuteRequest = useCallback((recipientId) => {
+    muteRequest(recipientId);
+  }, [muteRequest]);
+
+  const onUnmuteRequest = useCallback((recipientId) => {
+    unmuteRequest(recipientId);
+  }, [unmuteRequest]);
 
   // ── Open / close decline modal ────────────────────────────────────────────
   const onOpenDecline = useCallback((recipientId) => {
@@ -267,6 +281,12 @@ export function usePrescriptionRequestsPage() {
     actionError,
     onGetFileUrl,
     onSubmitQuote,
+
+    // Mute
+    mutedRequestIds,
+    pendingRequestIds,
+    onMuteRequest,
+    onUnmuteRequest,
 
     // Decline modal
     declineModal,

@@ -2,9 +2,13 @@
 //
 // Isolated store for the prescription request submission flow.
 // Completely separate from prescriptionStore (which serves the cart checkout flow).
-// Reset after successful submission.
+//
+// Persisted via MMKV: uploadedFiles, selectedAddressId, selectedBranchIds, currentRequestId
+// Not persisted (transient UI): isUploading, uploadError, isSubmitting, submitError
 
-import { create } from 'zustand';
+import { create }                       from 'zustand';
+import { persist, createJSONStorage }   from 'zustand/middleware';
+import { mmkvStorage }                  from '../lib/mmkvStorage';
 
 export interface UploadedRequestFile {
   file_key:      string;
@@ -29,7 +33,7 @@ interface PrescriptionRequestStore {
   isSubmitting:       boolean;
   submitError:        string | null;
 
-  // After submission — navigate to detail
+  // After submission — used to detect an already-submitted request
   currentRequestId:   string | null;
 
   // Mutations
@@ -61,42 +65,56 @@ const initialState = {
 };
 
 export const usePrescriptionRequestStore = create<PrescriptionRequestStore>()(
-  (set) => ({
-    ...initialState,
+  persist(
+    (set) => ({
+      ...initialState,
 
-    addUploadedFile: (file) =>
-      set((s) => ({
-        uploadedFiles: [...s.uploadedFiles, file].slice(0, 5),
-        uploadError:   null,
-      })),
+      addUploadedFile: (file) =>
+        set((s) => ({
+          uploadedFiles: [...s.uploadedFiles, file].slice(0, 5),
+          uploadError:   null,
+        })),
 
-    removeUploadedFile: (fileKey) =>
-      set((s) => ({
-        uploadedFiles: s.uploadedFiles.filter((f) => f.file_key !== fileKey),
-      })),
+      removeUploadedFile: (fileKey) =>
+        set((s) => ({
+          uploadedFiles: s.uploadedFiles.filter((f) => f.file_key !== fileKey),
+        })),
 
-    setUploading:   (isUploading)   => set({ isUploading }),
-    setUploadError: (uploadError)   => set({ uploadError }),
+      setUploading:   (isUploading)   => set({ isUploading }),
+      setUploadError: (uploadError)   => set({ uploadError }),
 
-    setSelectedAddress: (selectedAddressId) => set({ selectedAddressId }),
+      setSelectedAddress: (selectedAddressId) => set({ selectedAddressId }),
 
-    toggleBranch: (branchId) =>
-      set((s) => {
-        const exists = s.selectedBranchIds.includes(branchId);
-        if (exists) {
-          return { selectedBranchIds: s.selectedBranchIds.filter((id) => id !== branchId) };
-        }
-        // Max 10 branches
-        if (s.selectedBranchIds.length >= 10) return s;
-        return { selectedBranchIds: [...s.selectedBranchIds, branchId] };
+      toggleBranch: (branchId) =>
+        set((s) => {
+          const exists = s.selectedBranchIds.includes(branchId);
+          if (exists) {
+            return {
+              selectedBranchIds: s.selectedBranchIds.filter((id) => id !== branchId),
+            };
+          }
+          if (s.selectedBranchIds.length >= 10) return s;
+          return { selectedBranchIds: [...s.selectedBranchIds, branchId] };
+        }),
+
+      clearBranches: () => set({ selectedBranchIds: [] }),
+
+      setSubmitting:     (isSubmitting)     => set({ isSubmitting }),
+      setSubmitError:    (submitError)      => set({ submitError }),
+      setCurrentRequest: (currentRequestId) => set({ currentRequestId }),
+
+      reset: () => set(initialState),
+    }),
+    {
+      name:    'prescription-request-storage',
+      storage: createJSONStorage(() => mmkvStorage),
+      // Only persist the draft data — never persist transient UI state
+      partialize: (state) => ({
+        uploadedFiles:     state.uploadedFiles,
+        selectedAddressId: state.selectedAddressId,
+        selectedBranchIds: state.selectedBranchIds,
+        currentRequestId:  state.currentRequestId,
       }),
-
-    clearBranches: () => set({ selectedBranchIds: [] }),
-
-    setSubmitting:     (isSubmitting)   => set({ isSubmitting }),
-    setSubmitError:    (submitError)    => set({ submitError }),
-    setCurrentRequest: (currentRequestId) => set({ currentRequestId }),
-
-    reset: () => set(initialState),
-  }),
+    },
+  ),
 );

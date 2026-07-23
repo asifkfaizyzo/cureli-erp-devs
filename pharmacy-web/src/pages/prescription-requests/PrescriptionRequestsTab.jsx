@@ -79,6 +79,10 @@ const PrescriptionRequestsTab = () => {
           total={page.total}
           onPageChange={page.onPageChange}
           onRefresh={page.onRefresh}
+          pendingRequestIds={page.pendingRequestIds}
+          mutedRequestIds={page.mutedRequestIds}
+          onMuteRequest={page.onMuteRequest}
+          onUnmuteRequest={page.onUnmuteRequest}
         />
 
         {/* Right: request detail + quote builder */}

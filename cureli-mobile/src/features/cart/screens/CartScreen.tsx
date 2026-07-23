@@ -309,7 +309,7 @@ export function CartScreen() {
             Add medicines to get started
           </Text>
           <TouchableOpacity
-            onPress={() => router.push("/(tabs)" as any)}
+            onPress={() => router.push("/(tabs)/home" as any)}
             activeOpacity={0.8}
             style={[
               styles.emptyBtn,

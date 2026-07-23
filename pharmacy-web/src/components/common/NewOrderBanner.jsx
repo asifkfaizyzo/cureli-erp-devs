@@ -91,18 +91,19 @@ const NewOrderBanner = () => {
   }
 
   // ── Navigation — go to whichever has pending items (orders take priority) ─
-  const handleView = () => {
-    setAppMode('MARKETPLACE');
-    if (orderCount > 0) {
-      setActiveMenu('marketplace-orders');
-      setBreadcrumbs(['Marketplace', 'Orders']);
-      navigate('/marketplace/orders');
-    } else {
-      setActiveMenu('marketplace-prescription-requests');
-      setBreadcrumbs(['Marketplace', 'Prescription Requests']);
-      navigate('/marketplace/prescription-requests');
-    }
-  };
+const handleView = () => {
+  setAppMode('MARKETPLACE');
+  setActiveMenu('marketplace-orders');
+  setBreadcrumbs(['Marketplace', 'Orders']);
+
+  if (orderCount > 0) {
+    // Orders pending — land on default orders tab
+    navigate('/marketplace/orders');
+  } else {
+    // Only prescription requests pending — land on prescriptions tab
+    navigate('/marketplace/orders?tab=prescriptions');
+  }
+};
 
   return (
     <AnimatePresence>
