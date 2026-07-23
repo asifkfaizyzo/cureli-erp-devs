@@ -6,9 +6,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useDialog } from '../../../components/Dialog/DialogProvider';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -28,28 +28,28 @@ import { useDeliveryETA } from '../../../hooks/useDeliveryETA';
 
 function QuantitySelector({ item }: { item: CartItem }) {
   const { colors } = useTheme();
+  const { confirm: confirmDialog } = useDialog();
   const incrementItem = useCartStore((s) => s.incrementItem);
   const decrementItem = useCartStore((s) => s.decrementItem);
   const removeItem = useCartStore((s) => s.removeItem);
 
-  const handleDecrement = useCallback(() => {
+  const handleDecrement = useCallback(async () => {
     if (item.quantity === 1) {
-      Alert.alert(
-        'Remove Item',
-        `Remove ${item.name} from cart?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => removeItem(item.variantId),
-          },
-        ],
-      );
+      const confirmed = await confirmDialog({
+        title: 'Remove Item',
+        message: `Remove ${item.name} from cart?`,
+        confirmLabel: 'Remove',
+        cancelLabel: 'Cancel',
+        destructive: true,
+      });
+
+      if (confirmed) {
+        removeItem(item.variantId);
+      }
     } else {
       decrementItem(item.variantId);
     }
-  }, [item, decrementItem, removeItem]);
+  }, [item, decrementItem, removeItem, confirmDialog]);
 
   const handleIncrement = useCallback(() => {
     incrementItem(item.variantId);

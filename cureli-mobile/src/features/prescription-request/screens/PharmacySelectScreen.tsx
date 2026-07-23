@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
@@ -33,6 +33,7 @@ type ShopItem = ShopSearchResponse["shops"][number];
 
 export function PharmacySelectScreen() {
   const { colors } = useTheme();
+  const { confirm: confirmDialog, alert: showAlert } = useDialog();
 
   const {
     uploadedFiles,
@@ -69,14 +70,19 @@ export function PharmacySelectScreen() {
   // ── Submit ──────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(async () => {
     if (selectedBranchIds.length === 0) {
-      Alert.alert("Select Pharmacy", "Please select at least one pharmacy.");
+      await showAlert({
+        title: "Select Pharmacy",
+        message: "Please select at least one pharmacy.",
+        confirmLabel: "OK",
+      });
       return;
     }
     if (!address || lat == null || lng == null) {
-      Alert.alert(
-        "Address Error",
-        "Your delivery address is missing location data.",
-      );
+      await showAlert({
+        title: "Address Error",
+        message: "Your delivery address is missing location data.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
@@ -120,6 +126,7 @@ export function PharmacySelectScreen() {
     setSubmitError,
     setCurrentRequest,
     reset,
+    showAlert,
   ]);
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -211,12 +218,13 @@ export function PharmacySelectScreen() {
                 <PharmacySelectCard
                   shop={shop}
                   isSelected={isSelected}
-                  onToggle={(branchId) => {
+                  onToggle={async (branchId) => {
                     if (isMaxReached) {
-                      Alert.alert(
-                        "Maximum reached",
-                        "You can select up to 10 pharmacies.",
-                      );
+                      await showAlert({
+                        title: "Maximum reached",
+                        message: "You can select up to 10 pharmacies.",
+                        confirmLabel: "OK",
+                      });
                       return;
                     }
                     toggleBranch(branchId);

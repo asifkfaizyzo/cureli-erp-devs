@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Alert } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
-
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { checkoutApi } from "../../marketplace/api/checkout.api";
 import { useCheckoutStore } from "../../../store/checkoutStore";
 import { useCartStore } from "../../../store/cartStore";
@@ -22,6 +22,7 @@ interface UseCheckoutOptions {
 }
 
 export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
+  const { alert: showAlert } = useDialog();
   const items            = useCartStore((s) => s.items);
   const clearCart        = useCartStore((s) => s.clearCart);
   const tempPrescriptions = usePrescriptionStore((s) => s.tempFiles);
@@ -92,46 +93,54 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
   // ── Place order ───────────────────────────────────────────
   const placeOrder = useCallback(async () => {
     if (!resolvedAddress) {
-      Alert.alert(
-        "Address Required",
-        "Please add a delivery address before placing your order.",
-      );
+      await showAlert({
+        title: "Address Required",
+        message: "Please add a delivery address before placing your order.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
     if (distanceKm === null) {
-      Alert.alert(
-        "Location Error",
-        "Unable to calculate delivery distance. Please check your address.",
-      );
+      await showAlert({
+        title: "Location Error",
+        message: "Unable to calculate delivery distance. Please check your address.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
     if (breakdown && !breakdown.delivery_available) {
-      Alert.alert(
-        "Delivery Unavailable",
-        breakdown.unavailable_reason ??
+      await showAlert({
+        title: "Delivery Unavailable",
+        message:
+          breakdown.unavailable_reason ??
           "Delivery is not available to this location.",
-      );
+        confirmLabel: "OK",
+      });
       return;
     }
 
     const branchId = items[0]?.branchId;
     if (!branchId) {
-      Alert.alert("Error", "No branch found. Please re-add items to cart.");
+      await showAlert({
+        title: "Error",
+        message: "No branch found. Please re-add items to cart.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
     if (!selectedPatient) {
-      Alert.alert(
-        "Select Patient",
-        "Please select who this order is for before placing your order.",
-      );
+      await showAlert({
+        title: "Select Patient",
+        message: "Please select who this order is for before placing your order.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
     try {
-      // ── Step 1: Create checkout session ──────────────────
       const sessionRes = await checkoutApi.createSession({
         branch_id:           branchId,
         delivery_address_id: resolvedAddress.id,
@@ -143,15 +152,12 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         tip,
         prescription_files: tempPrescriptions,
         patient:            selectedPatient,
-        // ── NEW: pass prescription request context if present ──────────
-        // undefined fields are omitted by axios serialisation automatically
         ...(prescriptionRequestContext
           ? {
               prescription_request_id:   prescriptionRequestContext.prescription_request_id,
               prescription_recipient_id: prescriptionRequestContext.prescription_recipient_id,
             }
           : {}),
-        // ──────────────────────────────────────────────────────────────
       });
 
       const {
@@ -162,7 +168,6 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         key_id,
       } = sessionRes.data.data;
 
-      // ── Step 2: Open Razorpay sheet ───────────────────────
       const paymentData = (await RazorpayCheckout.open({
         description: "Medicine Order",
         currency,
@@ -178,7 +183,6 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         razorpay_signature:  string;
       };
 
-      // ── Step 3: Confirm payment ───────────────────────────
       await checkoutApi.confirm({
         session_id,
         razorpay_payment_id: paymentData.razorpay_payment_id,
@@ -186,12 +190,10 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         razorpay_signature:  paymentData.razorpay_signature,
       });
 
-      // ── Step 4: Clear everything ──────────────────────────
       clearCart();
       clearPrescriptions();
-      useCheckoutStore.getState().reset(); // also clears prescriptionRequestContext
+      useCheckoutStore.getState().reset();
       onSuccess();
-
     } catch (err: any) {
       if (err?.code === 0) return;
 
@@ -201,12 +203,17 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
         "Something went wrong. Please try again.";
 
       if (err?.response?.status === 410) {
-        Alert.alert(
-          "Session Expired",
-          "Your checkout session expired. Please try again.",
-        );
+        await showAlert({
+          title: "Session Expired",
+          message: "Your checkout session expired. Please try again.",
+          confirmLabel: "OK",
+        });
       } else {
-        Alert.alert("Order Failed", message);
+        await showAlert({
+          title: "Order Failed",
+          message,
+          confirmLabel: "OK",
+        });
       }
     }
   }, [
@@ -217,10 +224,11 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
     tip,
     tempPrescriptions,
     selectedPatient,
-    prescriptionRequestContext,  // ← added to dep array
+    prescriptionRequestContext,
     clearCart,
     clearPrescriptions,
     onSuccess,
+    showAlert,
   ]);
 
   return { placeOrder, isQuoteLoading };

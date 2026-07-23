@@ -25,7 +25,7 @@ import { router } from "expo-router";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
@@ -103,6 +103,7 @@ function PendingThumbnail({
 
 export function PrescriptionRequestUploadScreen() {
   const { colors } = useTheme();
+  const { alert: showAlert } = useDialog();
 
   const {
     uploadedFiles,
@@ -173,7 +174,11 @@ export function PrescriptionRequestUploadScreen() {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert("Permission Required", "Please allow gallery access.");
+          await showAlert({
+            title: "Permission Required",
+            message: "Please allow gallery access.",
+            confirmLabel: "OK",
+          });
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -192,7 +197,11 @@ export function PrescriptionRequestUploadScreen() {
       } else if (source === "camera") {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert("Permission Required", "Please allow camera access.");
+          await showAlert({
+            title: "Permission Required",
+            message: "Please allow camera access.",
+            confirmLabel: "OK",
+          });
           return;
         }
         const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
@@ -246,9 +255,7 @@ export function PrescriptionRequestUploadScreen() {
 
           // Remove this specific asset from pending once its upload finishes.
           // The confirmed thumbnail takes its visual place in the grid.
-          setPendingAssets((prev) =>
-            prev.filter((p) => p.uri !== asset.uri),
-          );
+          setPendingAssets((prev) => prev.filter((p) => p.uri !== asset.uri));
         }
       } catch (err: any) {
         console.error("[PrescriptionUpload] Upload error:", {
@@ -274,6 +281,7 @@ export function PrescriptionRequestUploadScreen() {
       addUploadedFile,
       setUploading,
       setUploadError,
+      showAlert,
     ],
   );
 

@@ -10,6 +10,8 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import { useDialog } from '../../../components/Dialog/DialogProvider';
+
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -135,6 +137,7 @@ function FileThumbnail({
 
 export function PrescriptionUploadCard() {
   const { colors } = useTheme();
+  const { alert: showAlert } = useDialog();
 
   const items = useCartStore((s) => s.items);
   const {
@@ -156,10 +159,11 @@ export function PrescriptionUploadCard() {
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission required',
-        'Please allow access to your photo library to upload prescriptions.',
-      );
+      await showAlert({
+        title: 'Permission required',
+        message: 'Please allow access to your photo library to upload prescriptions.',
+        confirmLabel: 'OK',
+      });
       return;
     }
 
@@ -187,7 +191,7 @@ export function PrescriptionUploadCard() {
     } finally {
       setUploading(false);
     }
-  }, [canUploadMore, remainingSlots, addFiles, setUploading, setUploadError]);
+  }, [canUploadMore, remainingSlots, addFiles, setUploading, setUploadError, showAlert]);
 
   const warningBorderColor = colors.status.warning + '66';
 

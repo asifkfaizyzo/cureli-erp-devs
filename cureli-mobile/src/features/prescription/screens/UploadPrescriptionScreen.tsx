@@ -17,6 +17,7 @@ import * as DocumentPicker from "expo-document-picker";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 
 import { PrescriptionGuideCard } from "../components/PrescriptionGuideCard";
 import { UploadOptionCard } from "../components/UploadOptionCard";
@@ -40,8 +41,10 @@ interface SelectedFile {
 
 export function UploadPrescriptionScreen() {
   const { colors } = useTheme();
+  const { alert: showAlert } = useDialog();
 
   const [step, setStep] = useState<Step>("upload");
+
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -52,29 +55,29 @@ export function UploadPrescriptionScreen() {
   const requestCameraPermission = useCallback(async (): Promise<boolean> => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Camera Permission",
-        "Please allow camera access to capture your prescription.",
-        [{ text: "OK" }],
-      );
+      await showAlert({
+        title: "Camera Permission",
+        message: "Please allow camera access to capture your prescription.",
+        confirmLabel: "OK",
+      });
       return false;
     }
     return true;
-  }, []);
+  }, [showAlert]);
 
-  const requestMediaPermission = useCallback(async (): Promise<boolean> => {
+    const requestMediaPermission = useCallback(async (): Promise<boolean> => {
     const { status } =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert(
-        "Gallery Permission",
-        "Please allow gallery access to select your prescription.",
-        [{ text: "OK" }],
-      );
+      await showAlert({
+        title: "Gallery Permission",
+        message: "Please allow gallery access to select your prescription.",
+        confirmLabel: "OK",
+      });
       return false;
     }
     return true;
-  }, []);
+  }, [showAlert]);
 
   // ── Upload option handlers ────────────────────────────────────
 
@@ -144,7 +147,7 @@ export function UploadPrescriptionScreen() {
 
   // ── Confirm handler — calls real API ─────────────────────────
 
-  const handleConfirm = useCallback(async () => {
+    const handleConfirm = useCallback(async () => {
     if (!selectedFile) return;
 
     setIsUploading(true);
@@ -163,20 +166,22 @@ export function UploadPrescriptionScreen() {
         setTempFiles(res.data.data.files);
         setStep("success");
       } else {
-        Alert.alert(
-          "Upload Failed",
-          "Could not upload prescription. Please try again.",
-        );
+        await showAlert({
+          title: "Upload Failed",
+          message: "Could not upload prescription. Please try again.",
+          confirmLabel: "OK",
+        });
       }
     } catch (err) {
-      Alert.alert(
-        "Upload Failed",
-        "Could not upload prescriptions. Please try again.",
-      );
+      await showAlert({
+        title: "Upload Failed",
+        message: "Could not upload prescriptions. Please try again.",
+        confirmLabel: "OK",
+      });
     } finally {
       setIsUploading(false);
     }
-  }, [selectedFile, setTempFiles]);
+  }, [selectedFile, setTempFiles, showAlert]);
 
   const handlePickAgain = useCallback(() => {
     setSelectedFile(null);
@@ -238,11 +243,7 @@ export function UploadPrescriptionScreen() {
             accessibilityLabel="Go back"
             style={styles.backButton}
           >
-            <Ionicons
-              name="arrow-back"
-              size={22}
-              color={colors.text.primary}
-            />
+            <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
           </TouchableOpacity>
 
           <Text

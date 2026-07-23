@@ -776,8 +776,12 @@ export async function getReorderItems(order_id, customer_id) {
       branch: {
         select: {
           branch_name: true,
-          latitude: true,
-          longitude: true,
+          marketplaceSettings: {
+            select: {
+              latitude: true,
+              longitude: true,
+            },
+          },
         },
       },
       items: {
@@ -819,7 +823,11 @@ export async function getReorderItems(order_id, customer_id) {
             brand: true,
             manufacturer: true,
             images: true,
-            category: true,
+            master: {
+              select: {
+                primary_category: true,
+              },
+            },
           },
         },
       },
@@ -870,17 +878,17 @@ export async function getReorderItems(order_id, customer_id) {
       image: imageUrl,
       pricePerUnit: Number(listing.marketplace_price),
       requiresPrescription: listing.requires_prescription,
-      category: listing.linkedVariant.category ?? null,
+      category: listing.linkedVariant.master?.primary_category ?? null,
       quantity: item.quantity, // original quantity as suggestion
       shopId: order.shop_id,
       shopName: order.shop?.business_name ?? "",
       branchId: order.branch_id,
       branchName: order.branch?.branch_name ?? "",
-      branchLatitude: order.branch?.latitude
-        ? Number(order.branch.latitude)
+      branchLatitude: order.branch?.marketplaceSettings?.latitude
+        ? Number(order.branch.marketplaceSettings.latitude)
         : null,
-      branchLongitude: order.branch?.longitude
-        ? Number(order.branch.longitude)
+      branchLongitude: order.branch?.marketplaceSettings?.longitude
+        ? Number(order.branch.marketplaceSettings.longitude)
         : null,
     });
   }

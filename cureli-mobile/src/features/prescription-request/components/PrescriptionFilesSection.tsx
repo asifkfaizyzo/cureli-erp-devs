@@ -22,6 +22,7 @@ import { Image } from "expo-image";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
 import { openURL, canOpenURL } from "expo-linking";
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Spacing } from "../../../theme/spacing";
@@ -55,6 +56,7 @@ function PrescriptionFileThumbnail({
   onImagePress: (url: string, name: string) => void;
 }) {
   const { colors } = useTheme();
+  const { alert: showAlert } = useDialog();
 
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,17 +101,12 @@ function PrescriptionFileThumbnail({
 
     try {
       if (Platform.OS === "android") {
-        // Android blocks file:// URIs shared across app boundaries (Android 7+).
-        // expo-intent-launcher can open a content:// URI from cache,
-        // but the simplest reliable approach is to open the signed S3 URL
-        // directly — it works universally and requires zero native config.
         await IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
           data: url,
           type: "application/pdf",
-          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          flags: 1,
         });
       } else {
-        // iOS: download to local cache, open with QuickLook via file:// URI
         const safeName = file.original_name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const localFile = new FileSystem.File(FileSystem.Paths.cache, safeName);
         const downloadedFile = await FileSystem.File.downloadFileAsync(
@@ -120,19 +117,19 @@ function PrescriptionFileThumbnail({
       }
     } catch (err) {
       console.warn("[PrescriptionFilesSection] PDF open error:", err);
-      // Universal fallback — open the signed URL in the browser
       try {
         await openURL(url);
       } catch {
-        Alert.alert(
-          "Could not open PDF",
-          "Please try again or open in your browser.",
-        );
+        await showAlert({
+          title: "Could not open PDF",
+          message: "Please try again or open in your browser.",
+          confirmLabel: "OK",
+        });
       }
     } finally {
       setPdfLoading(false);
     }
-  }, [url, file.original_name]);
+  }, [url, file.original_name, showAlert]);
 
   // ── Image handler ───────────────────────────────────────────────────────
 

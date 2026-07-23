@@ -1,3 +1,4 @@
+//cureli-mobile\app\_layout.tsx
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { router } from 'expo-router';

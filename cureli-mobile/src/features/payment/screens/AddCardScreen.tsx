@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
@@ -26,6 +26,7 @@ import { usePaymentStore } from "../../../store/paymentStore";
 
 export function AddCardScreen() {
   const { colors } = useTheme();
+  const { alert: showAlert } = useDialog();
   const setSelectedMethod = usePaymentStore((s) => s.setSelectedMethod);
 
   const [cardNumber, setCardNumber] = useState("");
@@ -37,9 +38,18 @@ export function AddCardScreen() {
     router.back();
   }, []);
 
-  const handleAddCard = useCallback(() => {
-    if (!cardNumber.trim() || !cardName.trim() || !expiry.trim() || !cvv.trim()) {
-      Alert.alert("Missing Details", "Please fill in all card details.");
+  const handleAddCard = useCallback(async () => {
+    if (
+      !cardNumber.trim() ||
+      !cardName.trim() ||
+      !expiry.trim() ||
+      !cvv.trim()
+    ) {
+      await showAlert({
+        title: "Missing Details",
+        message: "Please fill in all card details.",
+        confirmLabel: "OK",
+      });
       return;
     }
 
@@ -52,10 +62,9 @@ export function AddCardScreen() {
       icon: "card-outline",
     });
 
-    // Go back twice: add-card → payment settings → cart
     router.back();
     setTimeout(() => router.back(), 100);
-  }, [cardNumber, cardName, expiry, cvv, setSelectedMethod]);
+  }, [cardNumber, cardName, expiry, cvv, setSelectedMethod, showAlert]);
 
   // Format card number with spaces
   const handleCardNumberChange = useCallback((text: string) => {
@@ -120,9 +129,7 @@ export function AddCardScreen() {
             <Text style={styles.cardPreviewName}>
               {cardName.toUpperCase() || "YOUR NAME"}
             </Text>
-            <Text style={styles.cardPreviewExpiry}>
-              {expiry || "MM/YY"}
-            </Text>
+            <Text style={styles.cardPreviewExpiry}>{expiry || "MM/YY"}</Text>
           </View>
         </View>
 

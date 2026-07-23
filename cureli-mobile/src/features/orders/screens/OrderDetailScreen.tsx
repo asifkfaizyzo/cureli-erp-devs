@@ -27,7 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-
+import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { useTheme } from "../../../theme/ThemeContext";
 import { PriceRow } from "../components/PriceRow";
 import { ReorderSheet } from "../components/ReorderSheet";
@@ -59,18 +59,18 @@ function formatCurrency(value: number): string {
 
 function getRelativeTime(dateString: string): string | null {
   try {
-    const now    = Date.now();
-    const then   = new Date(dateString).getTime();
+    const now = Date.now();
+    const then = new Date(dateString).getTime();
     const diffMs = now - then;
     if (diffMs < 0) return null;
     const minutes = Math.floor(diffMs / 60_000);
-    const hours   = Math.floor(diffMs / 3_600_000);
-    const days    = Math.floor(diffMs / 86_400_000);
-    if (minutes < 1)   return "Just now";
-    if (minutes < 60)  return `${minutes}m ago`;
-    if (hours   < 24)  return `${hours}h ago`;
-    if (days    === 1) return "Yesterday";
-    if (days    < 7)   return `${days}d ago`;
+    const hours = Math.floor(diffMs / 3_600_000);
+    const days = Math.floor(diffMs / 86_400_000);
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days}d ago`;
     return null;
   } catch {
     return null;
@@ -80,9 +80,9 @@ function getRelativeTime(dateString: string): string | null {
 // ── In-app image preview modal ────────────────────────────────
 
 interface ImagePreviewModalProps {
-  url:     string;
-  name:    string;
-  colors:  any;
+  url: string;
+  name: string;
+  colors: any;
   onClose: () => void;
 }
 
@@ -97,7 +97,10 @@ function ImagePreviewModal({ url, name, onClose }: ImagePreviewModalProps) {
       onRequestClose={onClose}
     >
       <View style={previewStyles.backdrop}>
-        <StatusBar backgroundColor="rgba(0,0,0,0.95)" barStyle="light-content" />
+        <StatusBar
+          backgroundColor="rgba(0,0,0,0.95)"
+          barStyle="light-content"
+        />
         <View style={previewStyles.header}>
           <Text style={previewStyles.headerName} numberOfLines={1}>
             {name}
@@ -122,38 +125,38 @@ function ImagePreviewModal({ url, name, onClose }: ImagePreviewModalProps) {
 
 const previewStyles = StyleSheet.create({
   backdrop: {
-    flex:            1,
+    flex: 1,
     backgroundColor: "rgba(0,0,0,0.95)",
-    alignItems:      "center",
-    justifyContent:  "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
   header: {
-    position:          "absolute",
-    top:               0,
-    left:              0,
-    right:             0,
-    flexDirection:     "row",
-    alignItems:        "center",
-    justifyContent:    "space-between",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop:        52,
-    paddingBottom:     12,
-    backgroundColor:   "rgba(0,0,0,0.6)",
+    paddingTop: 52,
+    paddingBottom: 12,
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   headerName: {
-    flex:        1,
-    color:       "#ffffff",
-    fontSize:    14,
-    fontFamily:  "Inter_500Medium",
+    flex: 1,
+    color: "#ffffff",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
     marginRight: 12,
   },
   closeBtn: {
-    width:           36,
-    height:          36,
-    borderRadius:    18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems:      "center",
-    justifyContent:  "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
@@ -161,18 +164,23 @@ const previewStyles = StyleSheet.create({
 
 interface PrescriptionRowProps {
   prescription: MobileOrderPrescription;
-  orderId:      string;
-  colors:       any;
+  orderId: string;
+  colors: any;
 }
 
-function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps) {
-  const [isLoading, setIsLoading]   = useState(false);
+function PrescriptionRow({
+  prescription,
+  orderId,
+  colors,
+}: PrescriptionRowProps) {
+  const { alert: showAlert } = useDialog();
+  const [isLoading, setIsLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const isImage   = prescription.mime_type.startsWith("image/");
-  const isPdf     = prescription.mime_type === "application/pdf";
+  const isImage = prescription.mime_type.startsWith("image/");
+  const isPdf = prescription.mime_type === "application/pdf";
   const isExpired = prescription.is_expired;
-  const iconName  = isPdf ? "document-outline" : "image-outline";
+  const iconName = isPdf ? "document-outline" : "image-outline";
 
   const handlePress = useCallback(async () => {
     if (isExpired) return;
@@ -192,14 +200,22 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 410) {
-        Alert.alert("Expired", "This prescription file has been deleted from our servers.");
+        await showAlert({
+          title: "Expired",
+          message: "This prescription file has been deleted from our servers.",
+          confirmLabel: "OK",
+        });
       } else {
-        Alert.alert("Error", "Could not open prescription. Please try again.");
+        await showAlert({
+          title: "Error",
+          message: "Could not open prescription. Please try again.",
+          confirmLabel: "OK",
+        });
       }
     } finally {
       setIsLoading(false);
     }
-  }, [prescription, orderId, isImage, isExpired]);
+  }, [prescription, orderId, isImage, isExpired, showAlert]);
 
   return (
     <>
@@ -214,7 +230,7 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
               ? colors.background.elevated
               : colors.background.tint,
             borderColor: colors.border.subtle,
-            opacity:     isExpired ? 0.6 : 1,
+            opacity: isExpired ? 0.6 : 1,
           },
         ]}
       >
@@ -227,9 +243,9 @@ function PrescriptionRow({ prescription, orderId, colors }: PrescriptionRowProps
           style={[
             styles.prescriptionName,
             {
-              color:      isExpired ? colors.text.disabled : colors.text.secondary,
+              color: isExpired ? colors.text.disabled : colors.text.secondary,
               fontFamily: "Inter_400Regular",
-              flex:       1,
+              flex: 1,
             },
           ]}
           numberOfLines={1}
@@ -286,6 +302,7 @@ interface OrderDetailScreenProps {
 
 export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
   const { colors, isDark } = useTheme();
+  const { confirm: confirmDialog, alert: showAlert } = useDialog();
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
 
   const lastStatusUpdate = useOrderNotificationStore((s) => s.lastStatusUpdate);
@@ -293,13 +310,17 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     (s) => s.clearLastStatusUpdate,
   );
 
-  const [order, setOrder]                   = useState<MobileOrderDetail | null>(null);
-  const [isLoading, setIsLoading]           = useState(true);
+  const [order, setOrder] = useState<MobileOrderDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [reorderSheetVisible, setReorderSheetVisible] = useState(false);
-  const [reorderData, setReorderData]       = useState<ReorderItemsResponse | null>(null);
+  const [reorderData, setReorderData] = useState<ReorderItemsResponse | null>(
+    null,
+  );
   const [reorderLoading, setReorderLoading] = useState(false);
 
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -312,10 +333,12 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     }
   }, [orderId]);
 
-  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
 
   useEffect(() => {
-    if (!lastStatusUpdate)                     return;
+    if (!lastStatusUpdate) return;
     if (lastStatusUpdate.order_id !== orderId) return;
     fetchDetail();
     clearLastStatusUpdate();
@@ -337,55 +360,67 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     };
   }, [order?.status, fetchDetail]);
 
-  const handleCancel = useCallback(() => {
-    Alert.alert("Cancel Order", "Are you sure you want to cancel this order?", [
-      { text: "No", style: "cancel" },
-      {
-        text:  "Yes, Cancel",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await ordersApi.cancelOrder(orderId);
-            fetchDetail();
-          } catch (err: any) {
-            Alert.alert(
-              "Cancel Failed",
-              err.response?.data?.message || "Could not cancel order.",
-            );
-          }
-        },
-      },
-    ]);
-  }, [orderId, fetchDetail]);
+    const handleCancel = useCallback(async () => {
+    const confirmed = await confirmDialog({
+      title: "Cancel Order",
+      message: "Are you sure you want to cancel this order?",
+      confirmLabel: "Yes, Cancel",
+      cancelLabel: "No",
+      destructive: true,
+    });
 
-  const handleReorder = useCallback(async () => {
+    if (!confirmed) return;
+
+    try {
+      await ordersApi.cancelOrder(orderId);
+      fetchDetail();
+    } catch (err: any) {
+      await showAlert({
+        title: "Cancel Failed",
+        message: err.response?.data?.message || "Could not cancel order.",
+        confirmLabel: "OK",
+      });
+    }
+  }, [orderId, fetchDetail, confirmDialog, showAlert]);
+
+    const handleReorder = useCallback(async () => {
     setReorderLoading(true);
     try {
       const res  = await ordersApi.getReorderItems(orderId);
       const data: ReorderItemsResponse = res.data.data;
+
       if (data.available.length === 0 && data.unavailable.length > 0) {
-        Alert.alert(
-          "Items Unavailable",
-          "None of the items from this order are currently available at this pharmacy.",
-        );
+        await showAlert({
+          title: "Items Unavailable",
+          message: "None of the items from this order are currently available at this pharmacy.",
+          confirmLabel: "OK",
+        });
         return;
       }
+
       setReorderData(data);
       setReorderSheetVisible(true);
     } catch (err) {
       console.error("[OrderDetailScreen] getReorderItems error:", err);
-      Alert.alert("Error", "Could not load reorder information. Please try again.");
+      await showAlert({
+        title: "Error",
+        message: "Could not load reorder information. Please try again.",
+        confirmLabel: "OK",
+      });
     } finally {
       setReorderLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, showAlert]);
 
   // All useMemos before early returns
   const billSubtotal = useMemo(() => {
     if (!order) return 0;
     return (
       safeNum(order.subtotal) ??
-      order.items.reduce((sum, item) => sum + (safeNum(item.line_total) ?? 0), 0)
+      order.items.reduce(
+        (sum, item) => sum + (safeNum(item.line_total) ?? 0),
+        0,
+      )
     );
   }, [order]);
 
@@ -401,26 +436,32 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     () => (order ? safeNum(order.km_surcharge) : null),
     [order],
   );
-  const billTip = useMemo(
-    () => (order ? safeNum(order.tip) : null),
-    [order],
-  );
+  const billTip = useMemo(() => (order ? safeNum(order.tip) : null), [order]);
   const billGrandTotal = useMemo(() => {
     if (!order) return 0;
-    return safeNum(order.grand_total) ?? safeNum(order.total_amount) ?? billSubtotal;
+    return (
+      safeNum(order.grand_total) ?? safeNum(order.total_amount) ?? billSubtotal
+    );
   }, [order, billSubtotal]);
 
   const billOtherCharges = useMemo(() => {
     const hasBreakdown =
       billServiceCharge != null ||
-      billDeliveryFee   != null ||
-      billKmSurcharge   != null;
+      billDeliveryFee != null ||
+      billKmSurcharge != null;
     if (hasBreakdown) return null;
-    const knownTotal = safeNum(order?.grand_total) ?? safeNum(order?.total_amount);
+    const knownTotal =
+      safeNum(order?.grand_total) ?? safeNum(order?.total_amount);
     if (knownTotal == null) return null;
     const gap = knownTotal - billSubtotal;
     return gap > 0.01 ? gap : null;
-  }, [order, billSubtotal, billServiceCharge, billDeliveryFee, billKmSurcharge]);
+  }, [
+    order,
+    billSubtotal,
+    billServiceCharge,
+    billDeliveryFee,
+    billKmSurcharge,
+  ]);
 
   // Loading / error guards — after ALL hooks
   if (isLoading) {
@@ -452,7 +493,9 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
             Order not found
           </Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: brandColor, fontFamily: "Inter_600SemiBold" }}>
+            <Text
+              style={{ color: brandColor, fontFamily: "Inter_600SemiBold" }}
+            >
               Go back
             </Text>
           </TouchableOpacity>
@@ -461,23 +504,29 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     );
   }
 
-  const colorKey    = getStatusColorKey(order.status);
-  const statusIcon  = getStatusIcon(order.status) as any;
+  const colorKey = getStatusColorKey(order.status);
+  const statusIcon = getStatusIcon(order.status) as any;
   const statusLabel = getStatusLabel(order.status);
 
   const statusFg =
-    colorKey === "success" ? colors.status.success :
-    colorKey === "error"   ? colors.status.error   :
-    colorKey === "warning" ? colors.status.warning :
-    colors.brand.primary;
+    colorKey === "success"
+      ? colors.status.success
+      : colorKey === "error"
+        ? colors.status.error
+        : colorKey === "warning"
+          ? colors.status.warning
+          : colors.brand.primary;
 
   const statusBg =
-    colorKey === "success" ? colors.status.successBg :
-    colorKey === "error"   ? colors.status.errorBg   :
-    colorKey === "warning" ? colors.status.warningBg :
-    colors.background.tint;
+    colorKey === "success"
+      ? colors.status.successBg
+      : colorKey === "error"
+        ? colors.status.errorBg
+        : colorKey === "warning"
+          ? colors.status.warningBg
+          : colors.background.tint;
 
-  const addr        = order.delivery_address;
+  const addr = order.delivery_address;
   const addressLine = addr
     ? [
         addr.address_line_1,
@@ -492,14 +541,32 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     : "—";
 
   const orderInfoRows = [
-    { icon: "receipt-outline",    label: "Order ID",               value: order.order_number              },
-    { icon: "storefront-outline", label: "Shop",                   value: order.shop_name ?? "—"          },
-    { icon: "git-branch-outline", label: "Branch",                 value: order.branch_name ?? "—"        },
-    { icon: "location-outline",   label: "Delivery Address",       value: addressLine                      },
-    { icon: "wallet-outline",     label: "Payment",                value: order.payment_method             },
-    { icon: "time-outline",       label: "Order Placed",           value: formatDeliveryDate(order.placed_at) },
+    { icon: "receipt-outline", label: "Order ID", value: order.order_number },
+    {
+      icon: "storefront-outline",
+      label: "Shop",
+      value: order.shop_name ?? "—",
+    },
+    {
+      icon: "git-branch-outline",
+      label: "Branch",
+      value: order.branch_name ?? "—",
+    },
+    { icon: "location-outline", label: "Delivery Address", value: addressLine },
+    { icon: "wallet-outline", label: "Payment", value: order.payment_method },
+    {
+      icon: "time-outline",
+      label: "Order Placed",
+      value: formatDeliveryDate(order.placed_at),
+    },
     ...(order.notes
-      ? [{ icon: "chatbubble-outline", label: "Delivery Instructions", value: order.notes }]
+      ? [
+          {
+            icon: "chatbubble-outline",
+            label: "Delivery Instructions",
+            value: order.notes,
+          },
+        ]
       : []),
   ];
 
@@ -513,7 +580,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         style={[
           styles.header,
           {
-            backgroundColor:   colors.background.card,
+            backgroundColor: colors.background.card,
             borderBottomColor: colors.border.default,
           },
         ]}
@@ -545,7 +612,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.background.card, borderColor: colors.border.default },
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.default,
+            },
           ]}
         >
           <View style={styles.summaryHeader}>
@@ -586,7 +656,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 <Text
                   style={[
                     styles.rejectionText,
-                    { color: colors.status.error, fontFamily: "Inter_400Regular" },
+                    {
+                      color: colors.status.error,
+                      fontFamily: "Inter_400Regular",
+                    },
                   ]}
                 >
                   Reason:{" "}
@@ -603,7 +676,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
             <View key={item.item_id}>
               {index > 0 && (
                 <View
-                  style={[styles.itemDivider, { backgroundColor: colors.border.subtle }]}
+                  style={[
+                    styles.itemDivider,
+                    { backgroundColor: colors.border.subtle },
+                  ]}
                 />
               )}
               <View style={styles.itemRow}>
@@ -618,7 +694,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     styles.itemImageWrap,
                     {
                       backgroundColor: colors.background.elevated,
-                      borderColor:     colors.border.subtle,
+                      borderColor: colors.border.subtle,
                     },
                   ]}
                   resizeMode="contain"
@@ -629,7 +705,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   <Text
                     style={[
                       styles.itemName,
-                      { color: colors.text.primary, fontFamily: "Inter_600SemiBold" },
+                      {
+                        color: colors.text.primary,
+                        fontFamily: "Inter_600SemiBold",
+                      },
                     ]}
                     numberOfLines={2}
                   >
@@ -639,7 +718,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     <Text
                       style={[
                         styles.itemBrand,
-                        { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                        {
+                          color: colors.text.faint,
+                          fontFamily: "Inter_400Regular",
+                        },
                       ]}
                     >
                       {item.brand}
@@ -649,7 +731,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   <Text
                     style={[
                       styles.itemQty,
-                      { color: colors.text.muted, fontFamily: "Inter_400Regular" },
+                      {
+                        color: colors.text.muted,
+                        fontFamily: "Inter_400Regular",
+                      },
                     ]}
                   >
                     Qty: {item.quantity}
@@ -673,7 +758,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.background.card, borderColor: colors.border.default },
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.default,
+              },
             ]}
           >
             <Text
@@ -701,7 +789,8 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   { color: colors.text.faint, fontFamily: "Inter_400Regular" },
                 ]}
               >
-                Expired files are deleted from our servers after the order is resolved.
+                Expired files are deleted from our servers after the order is
+                resolved.
               </Text>
             )}
           </View>
@@ -711,7 +800,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.background.card, borderColor: colors.border.default },
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.default,
+            },
           ]}
         >
           <Text
@@ -723,23 +815,43 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
             Bill Details
           </Text>
           <View style={styles.priceRows}>
-            <PriceRow label="Items total" value={formatCurrency(billSubtotal)} />
+            <PriceRow
+              label="Items total"
+              value={formatCurrency(billSubtotal)}
+            />
             {billServiceCharge != null && (
-              <PriceRow label="Service charge" value={formatCurrency(billServiceCharge)} />
+              <PriceRow
+                label="Service charge"
+                value={formatCurrency(billServiceCharge)}
+              />
             )}
             {billDeliveryFee != null && (
-              <PriceRow label="Delivery fee" value={formatCurrency(billDeliveryFee)} />
+              <PriceRow
+                label="Delivery fee"
+                value={formatCurrency(billDeliveryFee)}
+              />
             )}
             {billKmSurcharge != null && billKmSurcharge > 0 && (
-              <PriceRow label="Distance surcharge" value={formatCurrency(billKmSurcharge)} />
+              <PriceRow
+                label="Distance surcharge"
+                value={formatCurrency(billKmSurcharge)}
+              />
             )}
             {billTip != null && billTip > 0 && (
               <PriceRow label="Tip" value={formatCurrency(billTip)} />
             )}
             {billOtherCharges != null && (
-              <PriceRow label="Delivery & charges" value={formatCurrency(billOtherCharges)} />
+              <PriceRow
+                label="Delivery & charges"
+                value={formatCurrency(billOtherCharges)}
+              />
             )}
-            <View style={[styles.totalDivider, { borderTopColor: colors.border.default }]}>
+            <View
+              style={[
+                styles.totalDivider,
+                { borderTopColor: colors.border.default },
+              ]}
+            >
               <PriceRow
                 label="Grand Total"
                 value={formatCurrency(billGrandTotal)}
@@ -753,7 +865,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.background.card, borderColor: colors.border.default },
+            {
+              backgroundColor: colors.background.card,
+              borderColor: colors.border.default,
+            },
           ]}
         >
           <Text
@@ -766,12 +881,19 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           </Text>
           {orderInfoRows.map((row) => (
             <View key={row.label} style={styles.metaRow}>
-              <Ionicons name={row.icon as any} size={16} color={colors.text.muted} />
+              <Ionicons
+                name={row.icon as any}
+                size={16}
+                color={colors.text.muted}
+              />
               <View style={styles.metaText}>
                 <Text
                   style={[
                     styles.metaLabel,
-                    { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                    {
+                      color: colors.text.faint,
+                      fontFamily: "Inter_400Regular",
+                    },
                   ]}
                 >
                   {row.label}
@@ -779,7 +901,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 <Text
                   style={[
                     styles.metaValue,
-                    { color: colors.text.primary, fontFamily: "Inter_500Medium" },
+                    {
+                      color: colors.text.primary,
+                      fontFamily: "Inter_500Medium",
+                    },
                   ]}
                 >
                   {row.value}
@@ -794,7 +919,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           <View
             style={[
               styles.card,
-              { backgroundColor: colors.background.card, borderColor: colors.border.default },
+              {
+                backgroundColor: colors.background.card,
+                borderColor: colors.border.default,
+              },
             ]}
           >
             <Text
@@ -806,22 +934,28 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
               Order Timeline
             </Text>
             {order.status_history.map((entry, index) => {
-              const isLatest      = index === order.status_history.length - 1;
-              const isPast        = !isLatest;
-              const stepIcon      = getStatusIcon(entry.to_status) as any;
-              const stepColorKey  = getStatusColorKey(entry.to_status);
+              const isLatest = index === order.status_history.length - 1;
+              const isPast = !isLatest;
+              const stepIcon = getStatusIcon(entry.to_status) as any;
+              const stepColorKey = getStatusColorKey(entry.to_status);
 
               const stepColor =
-                stepColorKey === "success" ? colors.status.success :
-                stepColorKey === "error"   ? colors.status.error   :
-                stepColorKey === "warning" ? colors.status.warning :
-                colors.brand.primary;
+                stepColorKey === "success"
+                  ? colors.status.success
+                  : stepColorKey === "error"
+                    ? colors.status.error
+                    : stepColorKey === "warning"
+                      ? colors.status.warning
+                      : colors.brand.primary;
 
               const stepBg =
-                stepColorKey === "success" ? colors.status.successBg :
-                stepColorKey === "error"   ? colors.status.errorBg   :
-                stepColorKey === "warning" ? colors.status.warningBg :
-                colors.background.tint;
+                stepColorKey === "success"
+                  ? colors.status.successBg
+                  : stepColorKey === "error"
+                    ? colors.status.errorBg
+                    : stepColorKey === "warning"
+                      ? colors.status.warningBg
+                      : colors.background.tint;
 
               const elapsed = entry.created_at
                 ? getRelativeTime(entry.created_at)
@@ -834,9 +968,13 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       style={[
                         styles.timelineIconWrap,
                         {
-                          backgroundColor: isLatest ? stepBg : colors.background.elevated,
-                          borderColor:     isLatest ? stepColor : colors.border.default,
-                          borderWidth:     isLatest ? 2 : 1,
+                          backgroundColor: isLatest
+                            ? stepBg
+                            : colors.background.elevated,
+                          borderColor: isLatest
+                            ? stepColor
+                            : colors.border.default,
+                          borderWidth: isLatest ? 2 : 1,
                         },
                       ]}
                     >
@@ -844,9 +982,11 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         name={stepIcon}
                         size={isLatest ? 16 : 14}
                         color={
-                          isLatest ? stepColor :
-                          isPast   ? colors.text.muted :
-                          colors.text.faint
+                          isLatest
+                            ? stepColor
+                            : isPast
+                              ? colors.text.muted
+                              : colors.text.faint
                         }
                       />
                     </View>
@@ -876,8 +1016,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         style={[
                           styles.timelineStatus,
                           {
-                            color:      isLatest ? stepColor : colors.text.primary,
-                            fontFamily: isLatest ? "Inter_700Bold" : "Inter_600SemiBold",
+                            color: isLatest ? stepColor : colors.text.primary,
+                            fontFamily: isLatest
+                              ? "Inter_700Bold"
+                              : "Inter_600SemiBold",
                           },
                         ]}
                       >
@@ -893,7 +1035,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                           <Text
                             style={[
                               styles.timelineLatestText,
-                              { color: stepColor, fontFamily: "Inter_600SemiBold" },
+                              {
+                                color: stepColor,
+                                fontFamily: "Inter_600SemiBold",
+                              },
                             ]}
                           >
                             Current
@@ -905,7 +1050,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     <Text
                       style={[
                         styles.timelineDate,
-                        { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                        {
+                          color: colors.text.faint,
+                          fontFamily: "Inter_400Regular",
+                        },
                       ]}
                     >
                       {formatDeliveryDate(entry.created_at)}
@@ -928,7 +1076,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         <Text
                           style={[
                             styles.timelineBy,
-                            { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                            {
+                              color: colors.text.faint,
+                              fontFamily: "Inter_400Regular",
+                            },
                           ]}
                         >
                           {entry.changed_by_type === "customer"
@@ -944,7 +1095,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       <Text
                         style={[
                           styles.timelineReason,
-                          { color: colors.text.muted, fontFamily: "Inter_400Regular" },
+                          {
+                            color: colors.text.muted,
+                            fontFamily: "Inter_400Regular",
+                          },
                         ]}
                         numberOfLines={2}
                       >
@@ -967,19 +1121,27 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           styles.stickyBar,
           {
             backgroundColor: colors.background.card,
-            borderTopColor:  colors.border.default,
+            borderTopColor: colors.border.default,
           },
         ]}
       >
         {order.status === "PLACED" ? (
           <>
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.status.error }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: colors.status.error },
+              ]}
               onPress={handleCancel}
               activeOpacity={0.8}
             >
               <Ionicons name="close-circle-outline" size={18} color="#ffffff" />
-              <Text style={[styles.actionButtonText, { fontFamily: "Inter_700Bold" }]}>
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { fontFamily: "Inter_700Bold" },
+                ]}
+              >
                 Cancel Order
               </Text>
             </TouchableOpacity>
@@ -997,7 +1159,10 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
             <TouchableOpacity
               style={[
                 styles.actionButton,
-                { backgroundColor: brandColor, opacity: reorderLoading ? 0.7 : 1 },
+                {
+                  backgroundColor: brandColor,
+                  opacity: reorderLoading ? 0.7 : 1,
+                },
               ]}
               onPress={handleReorder}
               disabled={reorderLoading}
@@ -1008,7 +1173,12 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
               ) : (
                 <Ionicons name="refresh-outline" size={18} color="#ffffff" />
               )}
-              <Text style={[styles.actionButtonText, { fontFamily: "Inter_700Bold" }]}>
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { fontFamily: "Inter_700Bold" },
+                ]}
+              >
                 Reorder
               </Text>
             </TouchableOpacity>
@@ -1056,133 +1226,163 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  safe:     { flex: 1 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  safe: { flex: 1 },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
   notFoundText: { fontSize: 16 },
   header: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    justifyContent:    "space-between",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical:   14,
+    paddingVertical: 14,
     borderBottomWidth: 1,
   },
-  backButton:  { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 8 },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
   headerTitle: { fontSize: 17 },
   headerRight: { width: 36 },
-  scroll:        { flex: 1 },
+  scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
-  card:      { borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
   cardTitle: { fontSize: 15, marginBottom: 4 },
   summaryHeader: { gap: 6 },
   statusBadge: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    gap:               6,
-    alignSelf:         "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
     paddingHorizontal: 10,
-    paddingVertical:   5,
-    borderRadius:      20,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
   statusBadgeText: { fontSize: 14 },
-  summaryMeta:     { fontSize: 13, paddingLeft: 2 },
+  summaryMeta: { fontSize: 13, paddingLeft: 2 },
   rejectionBanner: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    gap:               6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical:   8,
-    borderRadius:      8,
-    marginTop:         4,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
   },
   rejectionText: { fontSize: 13, flex: 1 },
-  itemDivider:   { height: 1, marginVertical: 10 },
-  itemRow:       { flexDirection: "row", alignItems: "center", gap: 12 },
+  itemDivider: { height: 1, marginVertical: 10 },
+  itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   // RemoteImage receives this as its style prop
   itemImageWrap: {
-    width:        56,
-    height:       56,
+    width: 56,
+    height: 56,
     borderRadius: 10,
-    borderWidth:  1,
-    overflow:     "hidden",
-    flexShrink:   0,
+    borderWidth: 1,
+    overflow: "hidden",
+    flexShrink: 0,
   },
-  itemInfo:  { flex: 1, gap: 3 },
-  itemName:  { fontSize: 14, lineHeight: 20 },
+  itemInfo: { flex: 1, gap: 3 },
+  itemName: { fontSize: 14, lineHeight: 20 },
   itemBrand: { fontSize: 12 },
-  itemQty:   { fontSize: 12 },
+  itemQty: { fontSize: 12 },
   itemPrice: { fontSize: 15, flexShrink: 0 },
   prescriptionList: { gap: 8 },
   prescriptionRow: {
-    flexDirection:     "row",
-    alignItems:        "center",
-    gap:               10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     paddingHorizontal: 12,
-    paddingVertical:   10,
-    borderRadius:      10,
-    borderWidth:       1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  prescriptionName:        { fontSize: 13 },
-  prescriptionActionHint:  { flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 0 },
-  prescriptionActionText:  { fontSize: 12 },
-  expiredLabel:            { fontSize: 11 },
+  prescriptionName: { fontSize: 13 },
+  prescriptionActionHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    flexShrink: 0,
+  },
+  prescriptionActionText: { fontSize: 12 },
+  expiredLabel: { fontSize: 11 },
   prescriptionExpiredNote: { fontSize: 11, lineHeight: 16, marginTop: 4 },
-  priceRows:    { gap: 2 },
+  priceRows: { gap: 2 },
   totalDivider: { borderTopWidth: 1, marginTop: 6 },
-  metaRow:   { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 6 },
-  metaText:  { flex: 1, gap: 2 },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 6,
+  },
+  metaText: { flex: 1, gap: 2 },
   metaLabel: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
   metaValue: { fontSize: 13, lineHeight: 18 },
-  timelineRow:            { flexDirection: "row", gap: 12 },
-  timelineIconCol:        { alignItems: "center", width: 32 },
+  timelineRow: { flexDirection: "row", gap: 12 },
+  timelineIconCol: { alignItems: "center", width: 32 },
   timelineIconWrap: {
-    width:          32,
-    height:         32,
-    borderRadius:   16,
-    alignItems:     "center",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
     justifyContent: "center",
   },
   timelineConnector: {
-    width:        2,
-    flex:         1,
-    minHeight:    16,
-    marginTop:    4,
+    width: 2,
+    flex: 1,
+    minHeight: 16,
+    marginTop: 4,
     marginBottom: 4,
     borderRadius: 1,
   },
-  timelineContent:       { flex: 1, gap: 3, paddingTop: 4 },
+  timelineContent: { flex: 1, gap: 3, paddingTop: 4 },
   timelineContentSpaced: { paddingBottom: 20 },
-  timelineTextRow:       { flexDirection: "row", alignItems: "center", gap: 8 },
-  timelineStatus:        { fontSize: 14 },
-  timelineLatestBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  timelineLatestText:    { fontSize: 10 },
-  timelineDate:          { fontSize: 12 },
-  timelineByRow:         { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  timelineBy:            { fontSize: 11, textTransform: "capitalize" },
-  timelineReason:        { fontSize: 12, lineHeight: 16, marginTop: 2 },
-  bottomPad:   { height: 80 },
+  timelineTextRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  timelineStatus: { fontSize: 14 },
+  timelineLatestBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  timelineLatestText: { fontSize: 10 },
+  timelineDate: { fontSize: 12 },
+  timelineByRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  timelineBy: { fontSize: 11, textTransform: "capitalize" },
+  timelineReason: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  bottomPad: { height: 80 },
   stickyBar: {
-    borderTopWidth:    1,
+    borderTopWidth: 1,
     paddingHorizontal: 16,
-    paddingTop:        12,
-    paddingBottom:     16,
-    gap:               6,
+    paddingTop: 12,
+    paddingBottom: 16,
+    gap: 6,
   },
   actionButton: {
-    flexDirection:   "row",
-    alignItems:      "center",
-    justifyContent:  "center",
-    gap:             8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     paddingVertical: 14,
-    borderRadius:    12,
+    borderRadius: 12,
   },
   actionButtonText: { fontSize: 15, color: "#ffffff" },
-  actionNote:       { fontSize: 11, textAlign: "center" },
+  actionNote: { fontSize: 11, textAlign: "center" },
   statusInfoBar: {
-    flexDirection:   "row",
-    alignItems:      "center",
-    justifyContent:  "center",
-    gap:             8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     paddingVertical: 14,
   },
   statusInfoText: { fontSize: 14 },

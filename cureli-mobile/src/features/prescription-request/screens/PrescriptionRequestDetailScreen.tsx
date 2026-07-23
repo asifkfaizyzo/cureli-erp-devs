@@ -15,7 +15,7 @@
 //
 // CartScreen + useCheckout handles Razorpay → confirm → success from there.
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -24,37 +24,40 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-}                            from 'react-native';
-import { SafeAreaView }      from 'react-native-safe-area-context';
-import { router }            from 'expo-router';
-import { Ionicons }          from '@expo/vector-icons';
-
-import { useTheme }                    from '../../../theme/ThemeContext';
-import { Spacing }                     from '../../../theme/spacing';
-import { Radius }                      from '../../../theme/radius';
-import { RequestStatusBadge }          from '../components/RequestStatusBadge';
-import { PrescriptionFilesSection }    from '../components/PrescriptionFilesSection';
-import type { PrescriptionFile }       from '../components/PrescriptionFilesSection';
-import { PharmacyResponsesSection }    from '../components/PharmacyResponsesSection';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useDialog } from "../../../components/Dialog/DialogProvider";
+import { useTheme } from "../../../theme/ThemeContext";
+import { Spacing } from "../../../theme/spacing";
+import { Radius } from "../../../theme/radius";
+import { RequestStatusBadge } from "../components/RequestStatusBadge";
+import { PrescriptionFilesSection } from "../components/PrescriptionFilesSection";
+import type { PrescriptionFile } from "../components/PrescriptionFilesSection";
+import { PharmacyResponsesSection } from "../components/PharmacyResponsesSection";
 import {
   usePrescriptionRequestDetail,
   useAcceptQuote,
   useCancelRequest,
-}                                      from '../hooks/usePrescriptionRequest';
-import { useCheckoutStore }            from '../../../store/checkoutStore';
-import { useCartStore }                from '../../../store/cartStore';
-import type { CartItem }               from '../../../store/cartStore';
-import { usePrescriptionStore }        from '../../../store/prescriptionStore';
-import type { RecipientSummary, QuoteItem } from '../api/prescriptionRequest.api';
+} from "../hooks/usePrescriptionRequest";
+import { useCheckoutStore } from "../../../store/checkoutStore";
+import { useCartStore } from "../../../store/cartStore";
+import type { CartItem } from "../../../store/cartStore";
+import { usePrescriptionStore } from "../../../store/prescriptionStore";
+import type {
+  RecipientSummary,
+  QuoteItem,
+} from "../api/prescriptionRequest.api";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const ACTIONABLE_RECIPIENT_STATUSES = new Set(['SENT', 'QUOTE_SENT']);
+const ACTIONABLE_RECIPIENT_STATUSES = new Set(["SENT", "QUOTE_SENT"]);
 
 const CANCELLABLE_REQUEST_STATUSES = new Set([
-  'PENDING',
-  'PARTIALLY_RESPONDED',
-  'FULLY_RESPONDED',
+  "PENDING",
+  "PARTIALLY_RESPONDED",
+  "FULLY_RESPONDED",
 ]);
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -67,9 +70,10 @@ interface Props {
 
 export function PrescriptionRequestDetailScreen({ requestId }: Props) {
   const { colors } = useTheme();
+  const { confirm: confirmDialog, alert: showAlert } = useDialog();
 
   const {
-    data:      request,
+    data: request,
     isLoading,
     isError,
     refetch,
@@ -78,13 +82,13 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
   const acceptMutation = useAcceptQuote(requestId);
   const cancelMutation = useCancelRequest();
 
-  const [acceptingId,   setAcceptingId]   = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // ── Stores written to on quote accept ──────────────────────────────────
-  const setCartItems  = useCartStore((s) => s.setItems);
-  const clearCart     = useCartStore((s) => s.clearCart);
-  const setTempFiles  = usePrescriptionStore((s) => s.setTempFiles);
+  const setCartItems = useCartStore((s) => s.setItems);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const setTempFiles = usePrescriptionStore((s) => s.setTempFiles);
   const clearTempFiles = usePrescriptionStore((s) => s.clearTempFiles);
   const setPrescriptionRequestContext = useCheckoutStore(
     (s) => s.setPrescriptionRequestContext,
@@ -108,21 +112,25 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
       setIsCheckingOut(true);
 
       try {
-        const acceptRes  = await acceptMutation.mutateAsync(recipientId);
-        const data       = acceptRes.data?.data;
-        const prefill    = data?.checkout_prefill;
-        const shopName   = data?.shop_name    ?? '';
-        const branchName = data?.branch_name  ?? '';
+        const acceptRes = await acceptMutation.mutateAsync(recipientId);
+        const data = acceptRes.data?.data;
+        const prefill = data?.checkout_prefill;
+        const shopName = data?.shop_name ?? "";
+        const branchName = data?.branch_name ?? "";
         // ── ADDED: branch coordinates from backend accept response ────────
         // Backend now fetches these from BranchMarketplaceSettings.
         // Used to populate CartItem.branchLatitude/branchLongitude so that
         // CartScreen can call useDeliveryETA and get a real distanceKm.
-        const branchLatitude  = data?.branch_latitude  ?? null;
+        const branchLatitude = data?.branch_latitude ?? null;
         const branchLongitude = data?.branch_longitude ?? null;
         // ─────────────────────────────────────────────────────────────────
 
         if (!prefill) {
-          Alert.alert('Error', 'Failed to get checkout data. Please try again.');
+          await showAlert({
+            title: "Error",
+            message: "Failed to get checkout data. Please try again.",
+            confirmLabel: "OK",
+          });
           return;
         }
 
@@ -134,7 +142,11 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
         );
 
         if (!recipient) {
-          Alert.alert('Error', 'Could not find quote details. Please try again.');
+          await showAlert({
+            title: "Error",
+            message: "Could not find quote details. Please try again.",
+            confirmLabel: "OK",
+          });
           return;
         }
 
@@ -152,19 +164,19 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
         // as the available quote items.
         const cartItems: CartItem[] = availableQuoteItems.map(
           (qi: QuoteItem, idx: number) => ({
-            variantId:            prefillItems[idx]?.variantId ?? qi.quote_item_id,
-            skuId:                qi.variant_sku    ?? '',
-            name:                 qi.medicine_name,
-            quantity:             prefillItems[idx]?.quantity  ?? qi.quantity,
-            pricePerUnit:         qi.unit_price,
-            image:                qi.image_url      ?? null,
-            manufacturer:         qi.brand          ?? null,
-            shopId:               recipient.shop_id,
+            variantId: prefillItems[idx]?.variantId ?? qi.quote_item_id,
+            skuId: qi.variant_sku ?? "",
+            name: qi.medicine_name,
+            quantity: prefillItems[idx]?.quantity ?? qi.quantity,
+            pricePerUnit: qi.unit_price,
+            image: qi.image_url ?? null,
+            manufacturer: qi.brand ?? null,
+            shopId: recipient.shop_id,
             shopName,
-            branchId:             recipient.branch_id,
+            branchId: recipient.branch_id,
             branchName,
             requiresPrescription: true,
-            category:             null,
+            category: null,
             // ── ADDED: pass branch coordinates through to CartItem ─────────
             branchLatitude,
             branchLongitude,
@@ -173,10 +185,11 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
         );
 
         if (cartItems.length === 0) {
-          Alert.alert(
-            'No Items Available',
-            'All items in this quote are unavailable.',
-          );
+          await showAlert({
+            title: "No Items Available",
+            message: "All items in this quote are unavailable.",
+            confirmLabel: "OK",
+          });
           return;
         }
 
@@ -189,31 +202,38 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
         setTempFiles(
           (prefill.prescription_files ?? []).map((f: any) => ({
             prescription_key: f.prescription_key,
-            original_name:    f.original_name,
-            mime_type:        f.mime_type,
-            file_size:        f.file_size,
+            original_name: f.original_name,
+            mime_type: f.mime_type,
+            file_size: f.file_size,
           })),
         );
 
         // Store request/recipient IDs so useCheckout passes them to createSession
         setPrescriptionRequestContext({
-          prescription_request_id:   prefill.prescription_request_id,
+          prescription_request_id: prefill.prescription_request_id,
           prescription_recipient_id: prefill.prescription_recipient_id,
         });
 
         // Navigate — CartScreen takes over from here
-        router.push('/cart' as any);
-
+        router.push("/cart" as any);
       } catch (err: any) {
         if (err?.code === 0) return;
         const message =
           err?.response?.data?.message ??
           err?.description ??
-          'Something went wrong. Please try again.';
+          "Something went wrong. Please try again.";
         if (err?.response?.status === 410) {
-          Alert.alert('Quote Expired', 'This quote has expired. Please wait for a new one.');
+          await showAlert({
+            title: "Quote Expired",
+            message: "This quote has expired. Please wait for a new one.",
+            confirmLabel: "OK",
+          });
         } else {
-          Alert.alert('Error', message);
+          await showAlert({
+            title: "Error",
+            message,
+            confirmLabel: "OK",
+          });
         }
       } finally {
         setAcceptingId(null);
@@ -228,32 +248,34 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
       clearTempFiles,
       setTempFiles,
       setPrescriptionRequestContext,
+      showAlert,
     ],
   );
 
   // ── Cancel request ──────────────────────────────────────────────────────
 
-  const handleCancel = useCallback(() => {
-    Alert.alert(
-      'Cancel Request',
-      'Are you sure you want to cancel this prescription request?',
-      [
-        { text: 'Keep it', style: 'cancel' },
-        {
-          text:    'Cancel Request',
-          style:   'destructive',
-          onPress: async () => {
-            try {
-              await cancelMutation.mutateAsync(requestId);
-              router.back();
-            } catch {
-              Alert.alert('Error', 'Failed to cancel request. Please try again.');
-            }
-          },
-        },
-      ],
-    );
-  }, [requestId, cancelMutation]);
+  const handleCancel = useCallback(async () => {
+    const confirmed = await confirmDialog({
+      title: "Cancel Request",
+      message: "Are you sure you want to cancel this prescription request?",
+      confirmLabel: "Cancel Request",
+      cancelLabel: "Keep it",
+      destructive: true,
+    });
+
+    if (!confirmed) return;
+
+    try {
+      await cancelMutation.mutateAsync(requestId);
+      router.back();
+    } catch {
+      await showAlert({
+        title: "Error",
+        message: "Failed to cancel request. Please try again.",
+        confirmLabel: "OK",
+      });
+    }
+  }, [requestId, cancelMutation, confirmDialog, showAlert]);
 
   // ── Loading ─────────────────────────────────────────────────────────────
 
@@ -261,7 +283,7 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={['top']}
+        edges={["top"]}
       >
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
@@ -276,7 +298,7 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
     return (
       <SafeAreaView
         style={[styles.safe, { backgroundColor: colors.background.page }]}
-        edges={['top']}
+        edges={["top"]}
       >
         <View style={styles.centerState}>
           <Ionicons
@@ -306,7 +328,7 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
   const allTerminalNoQuote =
     request.recipients.length > 0 &&
     actionableRecipients.length === 0 &&
-    !['ACCEPTED', 'COMPLETED', 'CANCELLED', 'EXPIRED'].includes(request.status);
+    !["ACCEPTED", "COMPLETED", "CANCELLED", "EXPIRED"].includes(request.status);
 
   const canCancel =
     CANCELLABLE_REQUEST_STATUSES.has(request.status) &&
@@ -321,14 +343,14 @@ export function PrescriptionRequestDetailScreen({ requestId }: Props) {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={['top']}
+      edges={["top"]}
     >
       {/* Header */}
       <View
         style={[
           styles.header,
           {
-            backgroundColor:   colors.background.card,
+            backgroundColor: colors.background.card,
             borderBottomColor: colors.border.default,
           },
         ]}
@@ -396,54 +418,54 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
 
   header: {
-    height:            56,
-    flexDirection:     'row',
-    alignItems:        'center',
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.base,
     borderBottomWidth: 1,
-    gap:               Spacing.sm,
+    gap: Spacing.sm,
   },
   backBtn: {
-    width:          36,
-    height:         36,
-    alignItems:     'center',
-    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerCenter: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    flex:          1,
-    gap:           Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: Spacing.sm,
   },
-  headerTitle: { fontSize: 17, fontFamily: 'Inter_600SemiBold' },
+  headerTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
 
   content: {
-    padding:       Spacing.base,
+    padding: Spacing.base,
     paddingBottom: 40,
-    gap:           Spacing.md,
+    gap: Spacing.md,
   },
 
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems:      'center',
-    justifyContent:  'center',
-    zIndex:          100,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
   },
   overlayCard: {
     borderRadius: Radius.lg,
-    padding:      28,
-    alignItems:   'center',
-    gap:          Spacing.md,
+    padding: 28,
+    alignItems: "center",
+    gap: Spacing.md,
   },
-  overlayText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  overlayText: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
 
   centerState: {
-    flex:           1,
-    alignItems:     'center',
-    justifyContent: 'center',
-    gap:            Spacing.md,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
   },
-  errorText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
-  retryText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  errorText: { fontSize: 14, fontFamily: "Inter_400Regular" },
+  retryText: { fontSize: 14, fontFamily: "Inter_500Medium" },
 });

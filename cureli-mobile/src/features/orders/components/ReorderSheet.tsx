@@ -24,7 +24,7 @@ import BottomSheet, {
   BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-
+import { useDialog } from '../../../components/Dialog/DialogProvider';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useCartStore } from '../../../store/cartStore';
 import type { ReorderItemsResponse, ReorderAvailableItem } from '../../../types/order';
@@ -44,6 +44,7 @@ interface ReorderSheetProps {
 
 export function ReorderSheet({ visible, data, onClose, onConfirm }: ReorderSheetProps) {
   const { colors } = useTheme();
+  const { confirm: confirmDialog } = useDialog();
   const addItem    = useCartStore((s) => s.addItem);
   const clearCart  = useCartStore((s) => s.clearCart);
 
@@ -66,10 +67,9 @@ export function ReorderSheet({ visible, data, onClose, onConfirm }: ReorderSheet
     [onClose],
   );
 
-  const handleConfirm = useCallback(() => {
+    const handleConfirm = useCallback(async () => {
     if (data.available.length === 0) return;
 
-    // Try adding the first item to detect cart conflict
     const firstItem = data.available[0];
     const firstResult = addItem({
       variantId:            firstItem.variantId,
@@ -89,31 +89,26 @@ export function ReorderSheet({ visible, data, onClose, onConfirm }: ReorderSheet
     });
 
     if (firstResult.status === 'conflict') {
-      // Cart has items from a different branch
-      Alert.alert(
-        'Cart Has Items',
-        `Your cart contains items from ${firstResult.existingPharmacy.shopName}. Clear cart and add these items?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text:  'Clear & Add',
-            style: 'destructive',
-            onPress: () => {
-              clearCart();
-              addAllItems(data.available);
-              onConfirm();
-            },
-          },
-        ],
-      );
+      const confirmed = await confirmDialog({
+        title: 'Cart Has Items',
+        message: `Your cart contains items from ${firstResult.existingPharmacy.shopName}. Clear cart and add these items?`,
+        confirmLabel: 'Clear & Add',
+        cancelLabel: 'Cancel',
+        destructive: true,
+      });
+
+      if (confirmed) {
+        clearCart();
+        addAllItems(data.available);
+        onConfirm();
+      }
       return;
     }
 
-    // First item added — add the rest (start from index 1)
     const remaining = data.available.slice(1);
     addAllItems(remaining);
     onConfirm();
-  }, [data.available, addItem, clearCart, onConfirm]);
+  }, [data.available, addItem, clearCart, onConfirm, confirmDialog]);
 
   const addAllItems = useCallback(
     (items: ReorderAvailableItem[]) => {
