@@ -13,7 +13,7 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       bundleIdentifier: "com.cureli.mobile",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false, // ← ADD THIS
