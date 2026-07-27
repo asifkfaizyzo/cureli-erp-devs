@@ -14,7 +14,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'; // ← ADD
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { useAuthStore } from '../src/store/authStore';
 import { api, authEventEmitter } from '../src/services/api';
@@ -124,10 +124,11 @@ export default function RootLayout() {
                 <Stack.Screen name="profile/members"        options={{ headerShown: false }} />
                 <Stack.Screen name="profile/notifications"  options={{ headerShown: false }} />
                 <Stack.Screen name="prescription/upload"    options={{ headerShown: false }} />
-                <Stack.Screen name="prescription-request" options={{ headerShown: false }} />
+                <Stack.Screen name="prescription-request"   options={{ headerShown: false }} />
                 <Stack.Screen name="marketplace/categories" options={{ headerShown: false }} />
                 <Stack.Screen name="marketplace/category"   options={{ headerShown: false }} />
                 <Stack.Screen name="orders"                 options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found"             options={{ headerShown: false }} />
               </Stack>
 
               <GlobalCartBar />

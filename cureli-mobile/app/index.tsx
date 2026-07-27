@@ -14,6 +14,7 @@ export default function Index() {
   // that means the user logged out — skip the splash animation
   // and go straight to login.
   const wasAuthenticated = useRef(false);
+  const hasNavigated = useRef(false); // ← prevent double navigation on cold start
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -26,16 +27,30 @@ export default function Index() {
     if (!navigationState?.key) return;
     // Auth state still being determined — wait
     if (status === 'unknown' || status === 'checking') return;
+    // Already navigated this session — prevent collision with Expo Router
+    // initial route resolution on cold start
+    if (hasNavigated.current) return;
 
-    if (status === 'unauthenticated' && wasAuthenticated.current) {
-      // User just logged out mid-session — go directly to login,
-      // no splash animation needed
-      router.replace('/(auth)/login');
-    } else {
-      // Fresh app open — go through animated splash
-      // Splash handles the intro/login/home decision
-      router.replace('/splash');
-    }
+    hasNavigated.current = true; // ← mark immediately before the timer
+
+    // Small delay to let Expo Router fully settle its initial route
+    // before we push the first navigation. Without this, curelimobile:///
+    // can collide with router.replace() on cold start and produce
+    // "Unmatched Route" even though the route exists.
+    const timer = setTimeout(() => {
+      if (status === 'unauthenticated' && wasAuthenticated.current) {
+        // User just logged out mid-session — go directly to login,
+        // no splash animation needed
+        router.replace('/(auth)/login');
+      } else {
+        // Fresh app open — go through animated splash
+        // Splash handles the intro/login/home decision
+        router.replace('/splash');
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+
   }, [status, navigationState?.key]);
 
   return (
