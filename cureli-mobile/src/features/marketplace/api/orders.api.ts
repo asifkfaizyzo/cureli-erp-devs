@@ -1,17 +1,15 @@
 // src/features/marketplace/api/orders.api.ts
-// Full file — adds getReorderItems endpoint. Everything else unchanged.
+// Updated: Added getInvoiceUrl for mobile invoice download
 
 import { api } from '../../../services/api';
 
 export const ordersApi = {
-  // ── Orders ────────────────────────────────────────────────────────────────
-
   placeOrder: (data: {
-    branch_id:            string;
-    delivery_address_id:  string;
-    items:                { variantId: string; quantity: number }[];
-    notes?:               string;
-    prescription_files?:  {
+    branch_id:           string;
+    delivery_address_id: string;
+    items:               { variantId: string; quantity: number }[];
+    notes?:              string;
+    prescription_files?: {
       prescription_key: string;
       original_name:    string;
       mime_type:        string;
@@ -28,8 +26,6 @@ export const ordersApi = {
   cancelOrder: (orderId: string) =>
     api.post(`/mobile/orders/${orderId}/cancel`),
 
-  // ── Prescriptions ─────────────────────────────────────────────────────────
-
   uploadPrescriptions: (formData: FormData) =>
     api.post('/mobile/prescriptions/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -38,11 +34,14 @@ export const ordersApi = {
   getPrescriptionUrl: (orderId: string, prescriptionId: string) =>
     api.get(`/mobile/orders/${orderId}/prescriptions/${prescriptionId}/url`),
 
-  // ── Reorder ───────────────────────────────────────────────────────────────
-  // Returns { available: [...], unavailable: [...], branch_id, shop_id, ... }
-  // Available items include current pricing and all fields needed for addItem.
-  // Unavailable items include reason: 'not_listed' | 'out_of_stock' | 'no_price'
-
   getReorderItems: (orderId: string) =>
     api.get(`/mobile/orders/${orderId}/reorder-items`),
+
+  /**
+   * GET /mobile/orders/:orderId/invoice
+   * Returns a 15-minute signed S3 URL for the 2-page PDF invoice.
+   * Available once status is READY_FOR_PICKUP or COMPLETED.
+   */
+  getInvoiceUrl: (orderId: string) =>
+    api.get(`/mobile/orders/${orderId}/invoice`),
 };

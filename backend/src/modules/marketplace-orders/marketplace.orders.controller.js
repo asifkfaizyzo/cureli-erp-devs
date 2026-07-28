@@ -6,6 +6,7 @@ import {
   getErpOrderDetail,
   transitionOrderStatus,
   getPrescriptionSignedUrl,
+  getMarketplaceBillingData,
 } from './marketplace.orders.service.js';
 import {
   rejectOrderSchema,
@@ -127,5 +128,19 @@ export async function getPrescriptionUrl(req, res) {
     if (err.message === 'Prescription not found') return fail(res, 'Prescription not found', 404);
     if (err.message === 'Prescription expired')   return fail(res, 'Prescription has expired', 410);
     return fail(res, 'Failed to generate URL', 500);
+  }
+}
+
+export async function getBillingData(req, res) {
+  try {
+    const data = await getMarketplaceBillingData(
+      req.params.orderId,
+      req.user.shop_id,
+    );
+    return success(res, data, 'Billing data fetched');
+  } catch (err) {
+    console.error('[ERP Orders] getBillingData error:', err.message);
+    if (err.message.includes('not found')) return fail(res, err.message, 404);
+    return fail(res, 'Failed to fetch billing data', 500);
   }
 }

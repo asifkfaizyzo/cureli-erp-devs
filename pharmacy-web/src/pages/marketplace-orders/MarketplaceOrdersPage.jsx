@@ -1,4 +1,8 @@
-//pharmacy-web\src\pages\marketplace-orders\MarketplaceOrdersPage.jsx
+// pharmacy-web/src/pages/marketplace-orders/MarketplaceOrdersPage.jsx
+// Updated:
+//   - onBillAndAccept passed to OrderDetailPanel (renamed from onAccept)
+//   - onGetInvoiceUrl passed to OrderDetailPanel (new)
+
 import { useState }    from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -8,8 +12,8 @@ import OrderListPanel    from './components/OrderListPanel';
 import OrderDetailPanel  from './components/OrderDetailPanel';
 import RejectModal       from './components/RejectModal';
 import PrescriptionRequestsTab from '../prescription-requests/PrescriptionRequestsTab';
-import usePrescriptionRequestAlertStore
-  from '../../store/usePrescriptionRequestAlertStore';
+import usePrescriptionRequestAlertStore from '../../store/usePrescriptionRequestAlertStore';
+import { getInvoiceUrl } from '../../api/marketplaceOrders';
 
 const MarketplaceOrdersPage = () => {
   const page = useOrdersPage();
@@ -17,7 +21,9 @@ const MarketplaceOrdersPage = () => {
 
   const initialTab = searchParams.get('tab') === 'prescriptions'
     ? PRESCRIPTION_TAB_ID
-    : page.activeTab;
+    : searchParams.get('tab') === 'active'
+      ? 'active'
+      : page.activeTab;
 
   const [activeTab, setActiveTab] = useState(initialTab);
 
@@ -35,17 +41,24 @@ const MarketplaceOrdersPage = () => {
     }
   };
 
-  // ── NEW: pass counts for both alert tabs ──────────────────────────────────
-  // new orders count = API total when on 'new' tab, otherwise 0
-  // (clearNewOrderCount fires on mount so SSE count is unreliable here)
   const newOrdersCount = page.activeTab === 'new' ? page.total : 0;
-
   const tabCounts = {
-    new:                   newOrdersCount,    // ← API total, not SSE count
+    new:                   newOrdersCount,
     [PRESCRIPTION_TAB_ID]: prescriptionCount,
   };
 
   const isPrescriptionTab = activeTab === PRESCRIPTION_TAB_ID;
+
+  // ── NEW: get invoice signed URL ──────────────────────────────────────────
+  const handleGetInvoiceUrl = async (orderId) => {
+    try {
+      const res = await getInvoiceUrl(orderId);
+      return res.data?.url || null;
+    } catch (err) {
+      console.error('[MarketplaceOrdersPage] getInvoiceUrl error:', err);
+      return null;
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-[#010015] overflow-hidden">
@@ -56,9 +69,7 @@ const MarketplaceOrdersPage = () => {
             <ShoppingBag size={18} className="text-white/60" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              Marketplace Orders
-            </h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Marketplace Orders</h1>
             <p className="text-[12px] text-white/35 mt-0.5">
               Review and manage customer orders and prescription requests
             </p>
@@ -67,11 +78,7 @@ const MarketplaceOrdersPage = () => {
       </div>
 
       <div className="flex-shrink-0">
-        <OrdersTabBar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          counts={tabCounts}   
-        />
+        <OrdersTabBar activeTab={activeTab} onTabChange={handleTabChange} counts={tabCounts} />
       </div>
 
       {isPrescriptionTab ? (
@@ -99,11 +106,12 @@ const MarketplaceOrdersPage = () => {
             actionLoading={page.actionLoading}
             actionError={page.actionError}
             onClose={page.onCloseDetail}
-            onAccept={page.onAccept}
+            onBillAndAccept={page.onAccept}       // ← renamed prop
             onOpenReject={page.onOpenReject}
             onMarkReady={page.onMarkReady}
             onComplete={page.onComplete}
             onGetPrescriptionUrl={page.onGetPrescriptionUrl}
+            onGetInvoiceUrl={handleGetInvoiceUrl} // ← new prop
           />
         </div>
       )}

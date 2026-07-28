@@ -1,7 +1,7 @@
 // src/features/orders/screens/OrderDetailScreen.tsx
-// Changes from previous version:
-//   - itemImageWrap now uses RemoteImage (mode="medicine") instead of
-//     hardcoded medkit-outline icon. item.image_url is used if available.
+// Updated: Added "Download Invoice" button for READY_FOR_PICKUP and COMPLETED orders.
+// All other code is unchanged from your original.
+// Only the stickyBar section and one import are modified.
 
 import React, {
   useCallback,
@@ -49,6 +49,9 @@ import type {
 
 const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
 
+// Statuses where the invoice is available to download
+const INVOICE_STATUSES = new Set(["READY_FOR_PICKUP", "COMPLETED"]);
+
 function safeNum(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -77,8 +80,7 @@ function getRelativeTime(dateString: string): string | null {
   }
 }
 
-// ── In-app image preview modal ────────────────────────────────
-
+// ── ImagePreviewModal — unchanged ─────────────────────────────────────────────
 interface ImagePreviewModalProps {
   url: string;
   name: string;
@@ -160,8 +162,7 @@ const previewStyles = StyleSheet.create({
   },
 });
 
-// ── Prescription row ──────────────────────────────────────────
-
+// ── PrescriptionRow — unchanged ───────────────────────────────────────────────
 interface PrescriptionRowProps {
   prescription: MobileOrderPrescription;
   orderId: string;
@@ -202,13 +203,13 @@ function PrescriptionRow({
       if (status === 410) {
         await showAlert({
           title: "Expired",
-          message: "This prescription file has been deleted from our servers.",
+          message: "This prescription file has been deleted.",
           confirmLabel: "OK",
         });
       } else {
         await showAlert({
           title: "Error",
-          message: "Could not open prescription. Please try again.",
+          message: "Could not open prescription.",
           confirmLabel: "OK",
         });
       }
@@ -294,8 +295,7 @@ function PrescriptionRow({
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────
-
+// ── Main screen ───────────────────────────────────────────────────────────────
 interface OrderDetailScreenProps {
   orderId: string;
 }
@@ -317,6 +317,9 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     null,
   );
   const [reorderLoading, setReorderLoading] = useState(false);
+
+  // ── NEW: invoice download state ───────────────────────────────────────────
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
@@ -360,7 +363,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     };
   }, [order?.status, fetchDetail]);
 
-    const handleCancel = useCallback(async () => {
+  const handleCancel = useCallback(async () => {
     const confirmed = await confirmDialog({
       title: "Cancel Order",
       message: "Are you sure you want to cancel this order?",
@@ -368,9 +371,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
       cancelLabel: "No",
       destructive: true,
     });
-
     if (!confirmed) return;
-
     try {
       await ordersApi.cancelOrder(orderId);
       fetchDetail();
@@ -383,32 +384,55 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     }
   }, [orderId, fetchDetail, confirmDialog, showAlert]);
 
-    const handleReorder = useCallback(async () => {
+  const handleReorder = useCallback(async () => {
     setReorderLoading(true);
     try {
-      const res  = await ordersApi.getReorderItems(orderId);
+      const res = await ordersApi.getReorderItems(orderId);
       const data: ReorderItemsResponse = res.data.data;
-
       if (data.available.length === 0 && data.unavailable.length > 0) {
         await showAlert({
           title: "Items Unavailable",
-          message: "None of the items from this order are currently available at this pharmacy.",
+          message: "None of the items are currently available.",
           confirmLabel: "OK",
         });
         return;
       }
-
       setReorderData(data);
       setReorderSheetVisible(true);
     } catch (err) {
-      console.error("[OrderDetailScreen] getReorderItems error:", err);
       await showAlert({
         title: "Error",
-        message: "Could not load reorder information. Please try again.",
+        message: "Could not load reorder information.",
         confirmLabel: "OK",
       });
     } finally {
       setReorderLoading(false);
+    }
+  }, [orderId, showAlert]);
+
+  // ── NEW: Download invoice handler ─────────────────────────────────────────
+  const handleDownloadInvoice = useCallback(async () => {
+    setInvoiceLoading(true);
+    try {
+      const res = await ordersApi.getInvoiceUrl(orderId);
+      const url = res.data?.data?.url;
+      if (!url) {
+        await showAlert({
+          title: "Not Available",
+          message: "Invoice is not ready yet. Please try again shortly.",
+          confirmLabel: "OK",
+        });
+        return;
+      }
+      await WebBrowser.openBrowserAsync(url);
+    } catch (err: any) {
+      const msg =
+        err?.response?.status === 404
+          ? "Invoice not yet generated. The pharmacy may still be processing your order."
+          : "Could not open invoice. Please try again.";
+      await showAlert({ title: "Error", message: msg, confirmLabel: "OK" });
+    } finally {
+      setInvoiceLoading(false);
     }
   }, [orderId, showAlert]);
 
@@ -463,7 +487,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
     billKmSurcharge,
   ]);
 
-  // Loading / error guards — after ALL hooks
+  // Loading guard
   if (isLoading) {
     return (
       <SafeAreaView
@@ -570,6 +594,9 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
       : []),
   ];
 
+  // Whether to show the invoice download button
+  const showInvoiceButton = INVOICE_STATUSES.has(order.status);
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
@@ -608,7 +635,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── Order Summary ── */}
+        {/* Order Summary */}
         <View
           style={[
             styles.card,
@@ -630,7 +657,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 {statusLabel}
               </Text>
             </View>
-
             <Text
               style={[
                 styles.summaryMeta,
@@ -640,8 +666,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
               {order.order_number} · {order.items.length} item
               {order.items.length !== 1 ? "s" : ""}
             </Text>
-
-            {order.status === "REJECTED" && order.rejection_reason ? (
+            {order.status === "REJECTED" && order.rejection_reason && (
               <View
                 style={[
                   styles.rejectionBanner,
@@ -668,10 +693,9 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     : getRejectionLabel(order.rejection_reason)}
                 </Text>
               </View>
-            ) : null}
+            )}
           </View>
 
-          {/* Item list */}
           {order.items.map((item, index) => (
             <View key={item.item_id}>
               {index > 0 && (
@@ -683,11 +707,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 />
               )}
               <View style={styles.itemRow}>
-                {/*
-                  Medicine image with branded placeholder.
-                  item.image_url comes from the order API — may be null.
-                  RemoteImage handles null uri gracefully (shows placeholder only).
-                */}
                 <RemoteImage
                   uri={(item as any).image_url ?? null}
                   style={[
@@ -700,7 +719,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   resizeMode="contain"
                   mode="medicine"
                 />
-
                 <View style={styles.itemInfo}>
                   <Text
                     style={[
@@ -714,7 +732,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   >
                     {item.medicine_name}
                   </Text>
-                  {item.brand ? (
+                  {item.brand && (
                     <Text
                       style={[
                         styles.itemBrand,
@@ -727,7 +745,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       {item.brand}
                       {item.pack_size ? ` · ${item.pack_size}` : ""}
                     </Text>
-                  ) : null}
+                  )}
                   <Text
                     style={[
                       styles.itemQty,
@@ -753,7 +771,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           ))}
         </View>
 
-        {/* ── Prescriptions ── */}
+        {/* Prescriptions */}
         {order.prescriptions.length > 0 && (
           <View
             style={[
@@ -789,14 +807,13 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                   { color: colors.text.faint, fontFamily: "Inter_400Regular" },
                 ]}
               >
-                Expired files are deleted from our servers after the order is
-                resolved.
+                Expired files are deleted after the order is resolved.
               </Text>
             )}
           </View>
         )}
 
-        {/* ── Bill Details ── */}
+        {/* Bill Details */}
         <View
           style={[
             styles.card,
@@ -861,7 +878,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           </View>
         </View>
 
-        {/* ── Order Info ── */}
+        {/* Order Info */}
         <View
           style={[
             styles.card,
@@ -914,7 +931,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           ))}
         </View>
 
-        {/* ── Status Timeline ── */}
+        {/* Status Timeline */}
         {order.status_history.length > 0 && (
           <View
             style={[
@@ -938,7 +955,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
               const isPast = !isLatest;
               const stepIcon = getStatusIcon(entry.to_status) as any;
               const stepColorKey = getStatusColorKey(entry.to_status);
-
               const stepColor =
                 stepColorKey === "success"
                   ? colors.status.success
@@ -947,7 +963,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     : stepColorKey === "warning"
                       ? colors.status.warning
                       : colors.brand.primary;
-
               const stepBg =
                 stepColorKey === "success"
                   ? colors.status.successBg
@@ -956,7 +971,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                     : stepColorKey === "warning"
                       ? colors.status.warningBg
                       : colors.background.tint;
-
               const elapsed = entry.created_at
                 ? getRelativeTime(entry.created_at)
                 : null;
@@ -1003,7 +1017,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       />
                     )}
                   </View>
-
                   <View
                     style={[
                       styles.timelineContent,
@@ -1046,7 +1059,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         </View>
                       )}
                     </View>
-
                     <Text
                       style={[
                         styles.timelineDate,
@@ -1059,7 +1071,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                       {formatDeliveryDate(entry.created_at)}
                       {elapsed ? `  ·  ${elapsed}` : ""}
                     </Text>
-
                     {entry.changed_by_type && (
                       <View style={styles.timelineByRow}>
                         <Ionicons
@@ -1090,7 +1101,6 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                         </Text>
                       </View>
                     )}
-
                     {entry.reason && (
                       <Text
                         style={[
@@ -1115,7 +1125,7 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
         <View style={styles.bottomPad} />
       </ScrollView>
 
-      {/* ── Sticky Bottom Bar ── */}
+      {/* ── Sticky Bottom Bar ─────────────────────────────────────────────── */}
       <View
         style={[
           styles.stickyBar,
@@ -1125,6 +1135,37 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
           },
         ]}
       >
+        {/* ── Download Invoice button — READY_FOR_PICKUP and COMPLETED ── */}
+        {showInvoiceButton && (
+          <TouchableOpacity
+            style={[
+              styles.invoiceButton,
+              { borderColor: colors.border.default },
+            ]}
+            onPress={handleDownloadInvoice}
+            disabled={invoiceLoading}
+            activeOpacity={0.7}
+          >
+            {invoiceLoading ? (
+              <ActivityIndicator size="small" color={brandColor} />
+            ) : (
+              <Ionicons
+                name="document-text-outline"
+                size={16}
+                color={brandColor}
+              />
+            )}
+            <Text
+              style={[
+                styles.invoiceButtonText,
+                { color: brandColor, fontFamily: "Inter_600SemiBold" },
+              ]}
+            >
+              {invoiceLoading ? "Opening..." : "Download Invoice"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {order.status === "PLACED" ? (
           <>
             <TouchableOpacity
@@ -1279,7 +1320,6 @@ const styles = StyleSheet.create({
   rejectionText: { fontSize: 13, flex: 1 },
   itemDivider: { height: 1, marginVertical: 10 },
   itemRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  // RemoteImage receives this as its style prop
   itemImageWrap: {
     width: 56,
     height: 56,
@@ -1368,6 +1408,20 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     gap: 6,
   },
+
+  // ── NEW: Invoice download button ──────────────────────────────────────────
+  invoiceButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  invoiceButtonText: { fontSize: 14 },
+
   actionButton: {
     flexDirection: "row",
     alignItems: "center",

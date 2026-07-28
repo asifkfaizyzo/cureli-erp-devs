@@ -8,6 +8,7 @@ import {
   getPrescriptionSignedUrl,
   getReorderItems,
 } from '../../marketplace-orders/marketplace.orders.service.js';
+import { getInvoiceDownloadUrl } from '../invoice/invoice.service.js';
 import { placeOrderSchema, listMobileOrdersSchema } from './mobile.orders.schema.js';
 import { success, fail } from '../../../utils/response.js';
 
@@ -17,12 +18,12 @@ export async function placeOrderHandler(req, res) {
     if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
     const result = await placeOrder({
-      customer_id:        req.mobileUser.id,
-      branch_id:          parsed.data.branch_id,
-      items:              parsed.data.items,
-      delivery_address_id:parsed.data.delivery_address_id,
-      notes:              parsed.data.notes ?? null,
-      prescription_files: parsed.data.prescription_files ?? [],
+      customer_id:         req.mobileUser.id,
+      branch_id:           parsed.data.branch_id,
+      items:               parsed.data.items,
+      delivery_address_id: parsed.data.delivery_address_id,
+      notes:               parsed.data.notes ?? null,
+      prescription_files:  parsed.data.prescription_files ?? [],
     });
 
     return success(res, result, 'Order placed successfully', 201);
@@ -107,5 +108,21 @@ export async function getReorderItemsHandler(req, res) {
     console.error('[Mobile Orders] getReorderItems error:', err.message);
     if (err.message === 'Order not found') return fail(res, 'Order not found', 404);
     return fail(res, 'Failed to fetch reorder items', 500);
+  }
+}
+
+export async function getInvoiceDownloadHandler(req, res) {
+  try {
+    const data = await getInvoiceDownloadUrl(
+      req.params.orderId,
+      'customer',
+      req.mobileUser.id,
+    );
+    return success(res, data, 'Invoice URL generated');
+  } catch (err) {
+    console.error('[Mobile Orders] getInvoiceDownload error:', err.message);
+    if (err.message.includes('not found'))  return fail(res, err.message, 404);
+    if (err.message.includes('not yet'))    return fail(res, err.message, 404);
+    return fail(res, 'Failed to get invoice URL', 400);
   }
 }

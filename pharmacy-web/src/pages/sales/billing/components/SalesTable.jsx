@@ -1,8 +1,8 @@
-// src/pages/sales/billing/components/SalesTable.jsx
+// pharmacy-web/src/pages/sales/billing/components/SalesTable.jsx
 
 import React, { useRef, useCallback, useEffect, useState } from "react";
 import SalesRowFixed from "./SalesRowFixed";
-import { Plus, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, ChevronUp, ChevronDown, Lock } from "lucide-react";
 
 const SkeletonRow = ({ rowHeight, isEven, index }) => (
   <tr
@@ -45,6 +45,7 @@ const SalesTable = ({
   onBatchSelect,
   isLoading = false,
   getAvailableBatches,
+  marketplaceLocked = false, // ← NEW
 }) => {
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
@@ -77,61 +78,40 @@ const SalesTable = ({
     amount: "7%",
   };
 
-  // ============================================
-  //  FIX: Define scrollToRow BEFORE it's used
-  // ============================================
   const scrollToRow = useCallback(
     (rowIndex) => {
       const container = tableBodyRef.current;
       if (!container) return;
-
       const rowTop = rowIndex * rowHeight;
       const rowBottom = rowTop + rowHeight;
       const viewportTop = container.scrollTop;
       const viewportBottom = viewportTop + viewportHeight;
-
       if (rowBottom > viewportBottom) {
         container.scrollTo({
           top: rowBottom - viewportHeight,
           behavior: "smooth",
         });
       } else if (rowTop < viewportTop) {
-        container.scrollTo({
-          top: rowTop,
-          behavior: "smooth",
-        });
+        container.scrollTo({ top: rowTop, behavior: "smooth" });
       }
     },
     [rowHeight, viewportHeight],
   );
 
-  // ============================================
-  // Update row refs when rows change
-  // ============================================
   useEffect(() => {
     rowRefs.current = rowRefs.current.slice(0, rows.length);
-    while (rowRefs.current.length < rows.length) {
-      rowRefs.current.push(null);
-    }
+    while (rowRefs.current.length < rows.length) rowRefs.current.push(null);
   }, [rows.length]);
 
-  // ============================================
-  // Calculate scrollbar width
-  // ============================================
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
-    const width = container.offsetWidth - container.clientWidth;
-    setScrollbarWidth(width);
+    setScrollbarWidth(container.offsetWidth - container.clientWidth);
   }, [rows.length, visibleRows]);
 
-  // ============================================
-  // Update scroll info
-  // ============================================
   const updateScrollInfo = useCallback(() => {
     const container = tableBodyRef.current;
     if (!container) return;
-
     const { scrollTop, scrollHeight, clientHeight } = container;
     const canScrollUp = scrollTop > 0;
     const canScrollDown = scrollTop + clientHeight < scrollHeight - 5;
@@ -140,7 +120,6 @@ const SalesTable = ({
       topRowIndex + visibleRows - 1,
       rows.length - 1,
     );
-
     setScrollInfo({
       canScrollUp,
       canScrollDown,
@@ -149,22 +128,14 @@ const SalesTable = ({
     });
   }, [rowHeight, visibleRows, rows.length]);
 
-  // ============================================
-  // Attach scroll listener
-  // ============================================
   useEffect(() => {
     const container = tableBodyRef.current;
     if (!container) return;
-
     container.addEventListener("scroll", updateScrollInfo);
     updateScrollInfo();
-
     return () => container.removeEventListener("scroll", updateScrollInfo);
   }, [updateScrollInfo]);
 
-  // ============================================
-  //  Now focusQueue can use scrollToRow safely
-  // ============================================
   useEffect(() => {
     if (focusQueue !== null) {
       const timer = setTimeout(() => {
@@ -172,16 +143,10 @@ const SalesTable = ({
         if (targetRow) {
           scrollToRow(focusQueue.rowIndex);
           setTimeout(() => {
-            if (focusQueue.fieldKey) {
-              targetRow.focusField(focusQueue.fieldKey);
-            } else {
-              targetRow.focusFirstField();
-            }
+            focusQueue.fieldKey
+              ? targetRow.focusField(focusQueue.fieldKey)
+              : targetRow.focusFirstField();
           }, 100);
-        } else {
-          console.warn(
-            `[SalesTable] Row ${focusQueue.rowIndex} not found, skipping focus`,
-          );
         }
         setFocusQueue(null);
       }, 50);
@@ -189,9 +154,6 @@ const SalesTable = ({
     }
   }, [focusQueue, scrollToRow]);
 
-  // ============================================
-  // Navigation handlers
-  // ============================================
   const handleNavigateToNextRow = useCallback(
     (currentIndex, fieldKey = null) => {
       const nextIndex = currentIndex + 1;
@@ -199,9 +161,8 @@ const SalesTable = ({
         scrollToRow(nextIndex);
         setTimeout(() => {
           const nextRow = rowRefs.current[nextIndex];
-          if (nextRow) {
+          if (nextRow)
             fieldKey ? nextRow.focusField(fieldKey) : nextRow.focusFirstField();
-          }
         }, 100);
       }
     },
@@ -215,9 +176,8 @@ const SalesTable = ({
         scrollToRow(prevIndex);
         setTimeout(() => {
           const prevRow = rowRefs.current[prevIndex];
-          if (prevRow) {
+          if (prevRow)
             fieldKey ? prevRow.focusField(fieldKey) : prevRow.focusLastField();
-          }
         }, 100);
       }
     },
@@ -225,6 +185,7 @@ const SalesTable = ({
   );
 
   const handleCreateNewRow = useCallback(() => {
+    if (marketplaceLocked) return; // prevent adding rows in marketplace mode
     const newRow = {
       medicine_id: null,
       inventory_id: null,
@@ -245,25 +206,24 @@ const SalesTable = ({
     };
     setRows((prev) => [...prev, newRow]);
     setFocusQueue({ rowIndex: rows.length, fieldKey: null });
-  }, [rows.length, setRows]);
+  }, [rows.length, setRows, marketplaceLocked]);
 
   const handleRemoveRow = useCallback(
     (index) => {
+      if (marketplaceLocked) return; // prevent removing rows in marketplace mode
       if (rows.length <= 1) return;
-
       setRows((prev) => {
         const newRows = [...prev];
         newRows.splice(index, 1);
         return newRows;
       });
-
       const focusIndex = Math.max(0, index - 1);
       setTimeout(() => {
         const targetRow = rowRefs.current[focusIndex];
         if (targetRow) targetRow.focusFirstField();
       }, 50);
     },
-    [rows.length, setRows],
+    [rows.length, setRows, marketplaceLocked],
   );
 
   const handleRowChange = useCallback(
@@ -282,6 +242,11 @@ const SalesTable = ({
   const totalRows = rows.length;
   const hasOverflow = totalRows > visibleRows;
 
+  // In marketplace mode: count how many rows still need a batch
+  const needsBatchCount = marketplaceLocked
+    ? rows.filter((r) => r.medicine_id && !r.inventory_id).length
+    : 0;
+
   return (
     <div className="h-full w-full flex flex-col bg-white">
       {/* Header Stats */}
@@ -296,6 +261,20 @@ const SalesTable = ({
             </span>
             <span className="text-[8px] text-slate-400">/ {totalRows}</span>
           </div>
+
+          {/* Marketplace: show pending batch selection count */}
+          {marketplaceLocked && needsBatchCount > 0 && (
+            <>
+              <div className="h-3 w-px bg-slate-300" />
+              <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 rounded border border-amber-300 text-[8px]">
+                <span className="text-amber-700 font-semibold">
+                  {needsBatchCount} batch{needsBatchCount > 1 ? "es" : ""}{" "}
+                  needed
+                </span>
+              </div>
+            </>
+          )}
+
           {hasOverflow && (
             <>
               <div className="h-3 w-px bg-slate-300" />
@@ -335,13 +314,22 @@ const SalesTable = ({
               </button>
             </div>
           )}
-          <button
-            onClick={handleCreateNewRow}
-            className="px-1.5 py-0.5 text-[8px] bg-indigo-500 text-white hover:bg-indigo-600 rounded flex items-center gap-0.5 font-medium shadow-sm"
-          >
-            <Plus size={8} />
-            Add Row
-          </button>
+
+          {/* Add Row button — hidden in marketplace mode */}
+          {!marketplaceLocked ? (
+            <button
+              onClick={handleCreateNewRow}
+              className="px-1.5 py-0.5 text-[8px] bg-indigo-500 text-white hover:bg-indigo-600 rounded flex items-center gap-0.5 font-medium shadow-sm"
+            >
+              <Plus size={8} />
+              Add Row
+            </button>
+          ) : (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 text-[8px] text-indigo-600 bg-indigo-50 border border-indigo-200 rounded">
+              <Lock size={8} />
+              <span>Items locked</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -385,13 +373,19 @@ const SalesTable = ({
                   Mfac
                 </th>
                 <th className="px-1 py-1 text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Batch
+                  Batch{" "}
+                  {marketplaceLocked && (
+                    <Lock size={7} className="inline ml-0.5 opacity-70" />
+                  )}
                 </th>
                 <th className="px-1 py-1 text-[8px] font-bold text-center border-r border-slate-600/30">
                   Exp
                 </th>
                 <th className="px-1 py-1 text-[8px] font-bold text-center border-r border-slate-600/30">
-                  Qty
+                  Qty{" "}
+                  {marketplaceLocked && (
+                    <Lock size={7} className="inline ml-0.5 opacity-70" />
+                  )}
                 </th>
                 <th className="px-1 py-1 text-[8px] font-bold text-right border-r border-slate-600/30">
                   MRP
@@ -481,6 +475,7 @@ const SalesTable = ({
                       rowHeight={rowHeight}
                       getAvailableBatches={getAvailableBatches}
                       allRows={rows}
+                      marketplaceLocked={marketplaceLocked}
                     />
                   ))}
             </tbody>
@@ -513,16 +508,33 @@ const SalesTable = ({
               </span>
             </>
           )}
+          {marketplaceLocked && (
+            <>
+              <span className="text-slate-300">•</span>
+              <span className="text-indigo-600 font-medium flex items-center gap-0.5">
+                <Lock size={7} />
+                Marketplace order
+              </span>
+            </>
+          )}
         </div>
         <div className="hidden sm:flex items-center gap-1 text-slate-400 text-[7px]">
-          <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">
-            Enter
-          </kbd>
-          <span>Next</span>
-          <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">
-            Tab
-          </kbd>
-          <span>Navigate</span>
+          {marketplaceLocked ? (
+            <span className="text-indigo-500">
+              Click the Batch cell to select a batch for each item
+            </span>
+          ) : (
+            <>
+              <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">
+                Enter
+              </kbd>
+              <span>Next</span>
+              <kbd className="px-0.5 py-0.5 bg-white border border-slate-200 rounded font-mono">
+                Tab
+              </kbd>
+              <span>Navigate</span>
+            </>
+          )}
         </div>
       </div>
     </div>

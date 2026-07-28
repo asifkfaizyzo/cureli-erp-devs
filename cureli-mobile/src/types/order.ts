@@ -1,4 +1,5 @@
 // src/types/order.ts
+// Updated: Added invoice_generated_at to MobileOrderDetail
 
 export type MarketplaceOrderStatus =
   | 'PLACED'
@@ -26,8 +27,6 @@ export interface MobileOrderPrescription {
   original_name:   string;
   mime_type:       string;
   sequence:        number;
-  // true when the S3 file has been purged (10 days after resolution,
-  // 1 day for cancelled orders). Row is kept for audit but file is gone.
   is_expired:      boolean;
 }
 
@@ -39,7 +38,6 @@ export interface MobileOrderStatusHistory {
   created_at:      string;
 }
 
-// ── List endpoint shape ───────────────────────────────────────────────────────
 export interface MobileOrderSummary {
   order_id:              string;
   order_number:          string;
@@ -59,7 +57,6 @@ export interface MobileOrderSummary {
   cancelled_at:          string | null;
 }
 
-// ── Detail endpoint shape ─────────────────────────────────────────────────────
 export interface MobileOrderDeliveryAddress {
   label:           string;
   address_line_1:  string;
@@ -82,11 +79,6 @@ export interface MobileOrderDetail {
   branch_name:            string | null;
   delivery_address:       MobileOrderDeliveryAddress;
 
-  // ── Billing ──────────────────────────────────────────────
-  // subtotal was already present. The remaining fields mirror
-  // PriceBreakdown from checkoutStore and are now returned by
-  // the detail endpoint. All optional so old API responses
-  // without them still type-check safely.
   total_amount:           number;
   subtotal:               number;
   service_charge?:        number | null;
@@ -109,9 +101,13 @@ export interface MobileOrderDetail {
   items:                  MobileOrderItem[];
   prescriptions:          MobileOrderPrescription[];
   status_history:         MobileOrderStatusHistory[];
+
+  // ── Invoice ───────────────────────────────────────────────
+  // Set once the pharmacy confirms billing.
+  // null means invoice not yet generated.
+  invoice_generated_at?:  string | null;
 }
 
-// ── Reorder endpoint shape ────────────────────────────────────────────────────
 export interface ReorderAvailableItem {
   variantId:            string;
   skuId:                string;
@@ -144,7 +140,6 @@ export interface ReorderItemsResponse {
   unavailable: ReorderUnavailableItem[];
 }
 
-// ── API response pagination meta ──────────────────────────────────────────────
 export interface OrdersListMeta {
   total:       number;
   page:        number;

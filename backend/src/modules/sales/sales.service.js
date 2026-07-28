@@ -227,9 +227,10 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
     const invoiceNumber = await generateSalesInvoiceNumber(shopId, branchId);
 
     const result = await prisma.$transaction(async (tx) => {
-      const invoice = await tx.salesInvoice.create({
+       const invoice = await tx.salesInvoice.create({
         data: {
           invoice_number: invoiceNumber,
+          sale_channel: data.marketplace_order_id ? 'MARKETPLACE' : 'COUNTER',
           shop_id: shopId,
           branch_id: branchId,
           customer_id: data.customer_id || null,
@@ -956,6 +957,88 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
 
       return confirmedInvoice;
     });
+
+    // ── Marketplace order handling (post-transaction) ─────────────────
+    const marketplace_order_id = data.marketplace_order_id;
+
+    if (marketplace_order_id) {
+      try {
+        const mktOrder = await prisma.marketplaceOrder.findUnique({
+          where: { order_id: marketplace_order_id },
+          select: {
+            order_id: true,
+            status: true,
+            shop_id: true,
+            customer_id: true,
+            order_number: true,
+            customer_name_snapshot: true,
+            sales_invoice_id: true,
+          },
+        });
+
+        if (!mktOrder) throw new Error('Marketplace order not found');
+        if (mktOrder.shop_id !== shopId) throw new Error('Marketplace order does not belong to this shop');
+        if (mktOrder.sales_invoice_id) throw new Error('Marketplace order already billed');
+
+        const now = new Date();
+
+        await prisma.$transaction(async (tx2) => {
+          await tx2.marketplaceOrder.update({
+            where: { order_id: marketplace_order_id },
+            data: {
+              sales_invoice_id: result.invoice_id,
+              status: 'READY_FOR_PICKUP',
+              accepted_at: now,
+              ready_at: now,
+            },
+          });
+
+          await tx2.marketplaceOrderStatusHistory.create({
+            data: {
+              order_id: marketplace_order_id,
+              from_status: 'PLACED',
+              to_status: 'ACCEPTED',
+              changed_by_type: 'pharmacy',
+              changed_by_id: userId,
+              reason: `Billed via ${result.invoice_number}`,
+            },
+          });
+
+          await tx2.marketplaceOrderStatusHistory.create({
+            data: {
+              order_id: marketplace_order_id,
+              from_status: 'ACCEPTED',
+              to_status: 'READY_FOR_PICKUP',
+              changed_by_type: 'pharmacy',
+              changed_by_id: userId,
+              reason: `Invoice ${result.invoice_number} confirmed`,
+            },
+          });
+        });
+
+        const { fireOrderStatusChangedEvents } = await import(
+          '../marketplace-orders/marketplace.orders.events.js'
+        );
+
+        await fireOrderStatusChangedEvents({
+          order_id: marketplace_order_id,
+          order_number: mktOrder.order_number,
+          shop_id: shopId,
+          customer_id: mktOrder.customer_id,
+          new_status: 'READY_FOR_PICKUP',
+          customer_name: mktOrder.customer_name_snapshot,
+        });
+
+        import('../mobile/invoice/invoice.service.js').then(({ generateMarketplaceInvoice }) => {
+          generateMarketplaceInvoice(marketplace_order_id, result.invoice_id)
+            .catch((err) => console.error('[Invoice] PDF generation failed:', err.message));
+        });
+
+        console.log(`[Sales] Marketplace order ${mktOrder.order_number} linked to ${result.invoice_number}`);
+      } catch (mktErr) {
+        console.error('[Sales] Marketplace linking failed:', mktErr.message);
+      }
+    }
 
     await audit.log({
       action: audit.AuditAction.SALES_INVOICE_CONFIRMED,

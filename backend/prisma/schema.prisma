@@ -949,15 +949,20 @@ model MarketplaceOrder {
 
   requires_prescription     Boolean   @default(false)
   notes                     String?   @db.VarChar(500)
-  patient_is_self         Boolean  @default(true)
-  patient_name_snapshot   String?  @db.VarChar(200)
-  patient_age_snapshot    Int?
-  patient_sex_snapshot    String?  @db.VarChar(10)
+  patient_is_self           Boolean   @default(true)
+  patient_name_snapshot     String?   @db.VarChar(200)
+  patient_age_snapshot      Int?
+  patient_sex_snapshot      String?   @db.VarChar(10)
 
   rejection_reason          String?   @db.VarChar(50)
   rejection_reason_other    String?   @db.VarChar(300)
   cancelled_by              String?   @db.VarChar(20)
   auto_completed            Boolean   @default(false)
+
+  // ── Sales Invoice Link ────────────────────────────────
+  sales_invoice_id          String?   @unique @db.Uuid
+  invoice_pdf_key           String?   @db.VarChar(500)
+  invoice_generated_at      DateTime? @db.Timestamptz(6)
 
   placed_at                 DateTime  @db.Timestamptz(6)
   accepted_at               DateTime? @db.Timestamptz(6)
@@ -968,15 +973,15 @@ model MarketplaceOrder {
   created_at                DateTime  @default(now()) @db.Timestamptz(6)
   updated_at                DateTime  @updatedAt @db.Timestamptz(6)
 
-  shop                      Shop                           @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
-  branch                    Branch                         @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
-  customer                  CureliMobileUser               @relation("CustomerMarketplaceOrders", fields: [customer_id], references: [id], onDelete: Restrict)
-  deliveryAddress           CureliMobileAddress?           @relation("OrderDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
-  items                     MarketplaceOrderItem[]         @relation("OrderItems")
-  prescriptions             MarketplaceOrderPrescription[] @relation("OrderPrescriptions")
+  shop                      Shop                            @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
+  branch                    Branch                          @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  customer                  CureliMobileUser                @relation("CustomerMarketplaceOrders", fields: [customer_id], references: [id], onDelete: Restrict)
+  deliveryAddress           CureliMobileAddress?            @relation("OrderDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
+  items                     MarketplaceOrderItem[]          @relation("OrderItems")
+  prescriptions             MarketplaceOrderPrescription[]  @relation("OrderPrescriptions")
   statusHistory             MarketplaceOrderStatusHistory[] @relation("OrderStatusHistory")
-
-  checkoutSession           CheckoutSession?               @relation("SessionOrder")
+  checkoutSession           CheckoutSession?                @relation("SessionOrder")
+  salesInvoice              SalesInvoice?                   @relation("MarketplaceSalesInvoice", fields: [sales_invoice_id], references: [invoice_id])
 
   @@index([shop_id, status])
   @@index([customer_id, placed_at(sort: Desc)])
@@ -2073,6 +2078,10 @@ model SalesInvoice {
   rejected_by               String?                     @db.Uuid
   rejection_reason          String?
   return_approval_status    SalesReturnApprovalStatus?
+
+  // ── Sale Channel ──────────────────────────────────────
+  sale_channel              String                      @default("COUNTER") @db.VarChar(20)
+
   creditApplications        CustomerCreditApplication[] @relation("CustomerCreditApplicationsToInvoice")
   customerCredits           CustomerCredit[]            @relation("ReturnCustomerCredits")
   lineItems                 SalesInvoiceItem[]          @relation("SalesInvoiceLineItems")
@@ -2087,6 +2096,7 @@ model SalesInvoice {
   rejecter                  User?                       @relation("SalesReturnRejecter", fields: [rejected_by], references: [user_id])
   shop                      Shop                        @relation("ShopSalesInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
   payments                  SalesPayment[]              @relation("SalesInvoicePayments")
+  marketplaceOrder          MarketplaceOrder?           @relation("MarketplaceSalesInvoice")
 
   @@unique([shop_id, branch_id, invoice_number])
   @@index([shop_id, invoice_date(sort: Desc)])
@@ -2097,6 +2107,7 @@ model SalesInvoice {
   @@index([is_return])
   @@index([return_approval_status])
   @@index([created_at(sort: Desc)])
+  @@index([sale_channel])
   @@map("sales_invoices")
 }
 

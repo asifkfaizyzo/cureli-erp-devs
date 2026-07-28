@@ -903,6 +903,117 @@ export async function getReorderItems(order_id, customer_id) {
   };
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET BILLING DATA (ERP — for SalesBillingPage auto-population)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getMarketplaceBillingData(order_id, shop_id) {
+  const order = await prisma.marketplaceOrder.findUnique({
+    where: { order_id },
+    include: {
+      items: {
+        include: {
+          medicine: {
+            select: {
+              medicine_id: true,
+              name: true,
+              manufacturer: true,
+              pack_size: true,
+              hsn_code: true,
+              gst_percentage: true,
+              cgst_percentage: true,
+              sgst_percentage: true,
+              rack_no: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order || order.shop_id !== shop_id) throw new Error('Order not found');
+  if (order.sales_invoice_id) throw new Error('Order has already been billed');
+  if (order.status !== 'PLACED') throw new Error('Only PLACED orders can be billed');
+
+  // Fetch available batches for each medicine
+  const itemsWithBatches = await Promise.all(
+    order.items.map(async (item) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const batches = await prisma.inventory.findMany({
+        where: {
+          medicine_id: item.medicine_id,
+          branch_id: order.branch_id,
+          is_active: true,
+          is_expired: false,
+          available_stock: { gt: 0 },
+          expiry_date: { gte: today },
+        },
+        orderBy: { expiry_date: 'asc' },
+        select: {
+          inventory_id: true,
+          batch_number: true,
+          expiry_date: true,
+          available_stock: true,
+          mrp: true,
+          selling_rate: true,
+          rack_no: true,
+        },
+      });
+
+      return {
+        item_id: item.item_id,
+        medicine_id: item.medicine_id,
+        medicine_name: item.medicine_name_snapshot,
+        brand: item.brand_snapshot,
+        pack_size: item.pack_size_snapshot,
+        ordered_quantity: item.quantity,
+        marketplace_price: Number(item.unit_price_snapshot),
+        medicine: item.medicine
+          ? {
+              name: item.medicine.name,
+              manufacturer: item.medicine.manufacturer,
+              hsn_code: item.medicine.hsn_code,
+              cgst_percentage: item.medicine.cgst_percentage ? Number(item.medicine.cgst_percentage) : 6,
+              sgst_percentage: item.medicine.sgst_percentage ? Number(item.medicine.sgst_percentage) : 6,
+              rack_no: item.medicine.rack_no,
+            }
+          : null,
+        available_batches: batches.map((b) => ({
+          inventory_id: b.inventory_id,
+          batch_number: b.batch_number,
+          expiry_date: b.expiry_date,
+          available_stock: Number(b.available_stock),
+          mrp: Number(b.mrp),
+          selling_rate: b.selling_rate ? Number(b.selling_rate) : Number(b.mrp),
+          rack_no: b.rack_no,
+        })),
+      };
+    }),
+  );
+
+  return {
+    order_id: order.order_id,
+    order_number: order.order_number,
+    branch_id: order.branch_id,
+    customer_name: order.customer_name_snapshot,
+    customer_phone: order.customer_phone_snapshot,
+    delivery_address: order.delivery_address_snapshot,
+    patient: {
+      is_self: order.patient_is_self,
+      name: order.patient_name_snapshot,
+      age: order.patient_age_snapshot,
+      sex: order.patient_sex_snapshot,
+    },
+    subtotal: Number(order.subtotal),
+    total_amount: Number(order.total_amount),
+    payment_method: order.payment_method,
+    items: itemsWithBatches,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMATTERS
 // ─────────────────────────────────────────────────────────────────────────────
