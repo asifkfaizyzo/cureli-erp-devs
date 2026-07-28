@@ -39,17 +39,23 @@ const typeParam = z
 const categoryParam = z.string().trim().min(1).max(100).optional();
 const searchParam = z.string().trim().min(1).max(100).optional();
 
+const hasImageParam = z.preprocess((value) => {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on"].includes(normalized)) return true;
+    if (["false", "0", "no", "off"].includes(normalized)) return false;
+  }
+  return value;
+}, z.boolean().optional());
+
 // ── categories param ──────────────────────────────────────────
 // Comma-separated string. Controller splits it into string[].
 // Each segment must be non-empty after trimming.
 // Max 50 categories — a sanity guard against abuse.
 
-const categoriesParam = z
-  .string()
-  .trim()
-  .min(1)
-  .max(2000)
-  .optional();
+const categoriesParam = z.string().trim().min(1).max(2000).optional();
 
 // ── Feed (list) query ─────────────────────────────────────────
 
@@ -61,14 +67,12 @@ export const listMedicinesQuerySchema = z
     category: categoryParam,
     categories: categoriesParam,
     search: searchParam,
+    hasImage: hasImageParam,
   })
-  .refine(
-    (data) => !(data.category && data.categories),
-    {
-      message: "category and categories cannot both be provided",
-      path: ["category"],
-    }
-  );
+  .refine((data) => !(data.category && data.categories), {
+    message: "category and categories cannot both be provided",
+    path: ["category"],
+  });
 
 // ── Single variant params ─────────────────────────────────────
 
@@ -105,5 +109,5 @@ export const medicineShopsQuerySchema = z
     },
     {
       message: "lat and lng must both be provided or both omitted",
-    }
+    },
   );

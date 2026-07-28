@@ -51,10 +51,11 @@ export function useHomeFeed() {
   const sections: EnrichedFeedSection[] = useMemo(() => {
     const raw = query.data?.sections ?? [];
 
-    return raw.map((section) => ({
+        return raw.map((section) => ({
       key: section.key,
       title: section.title,
       icon: section.icon,
+      type: section.type,
       medicines: section.medicines.map((variant) => ({
         ...variant,
         marketplace: generateMarketplaceData(variant.variantId),

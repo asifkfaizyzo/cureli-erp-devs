@@ -61,6 +61,9 @@ function buildFeedQuery(params: MedicineFeedParams): string {
   if (params.page !== undefined) sp.set("page", String(params.page));
   if (params.limit !== undefined) sp.set("limit", String(params.limit));
   if (params.type) sp.set("type", params.type);
+  if (params.hasImage !== undefined) {
+    sp.set("hasImage", String(params.hasImage));
+  }
   if (params.category) sp.set("category", params.category);
   if (params.categories && params.categories.length > 0) {
     sp.set("categories", params.categories.join(","));

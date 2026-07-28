@@ -9,7 +9,11 @@
 // medicines have been run through generateMarketplaceData() so every
 // item has its marketplace decoration attached.
 
-import type { MedicineVariant, EnrichedMedicine } from "./medicine";
+import type {
+  MedicineVariant,
+  EnrichedMedicine,
+  MedicineType,
+} from "./medicine";
 
 // ── REAL: what the backend returns ───────────────────────────
 
@@ -20,6 +24,8 @@ export interface FeedSection {
   title: string;
   /** Ionicons name, e.g. "bandage-outline". */
   icon: string;
+  /** DRUG / OTC so the rail can tune lazy-loading behaviour. */
+  type: MedicineType;
   medicines: MedicineVariant[];
 }
 
@@ -33,6 +39,7 @@ export interface EnrichedFeedSection {
   key: string;
   title: string;
   icon: string;
+  type: MedicineType;
   /** Each medicine has marketplace decoration attached. */
   medicines: EnrichedMedicine[];
 }

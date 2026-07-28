@@ -966,7 +966,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               value={form.contact_override}
                               onChange={(e) => patch("contact_override", e.target.value)}
                               placeholder="e.g. +91 98765 43210"
-                              maxLength={15}
+                              maxLength={10}
                               className={`
                                 w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-white/[0.04]
                                 border text-white placeholder-white/20

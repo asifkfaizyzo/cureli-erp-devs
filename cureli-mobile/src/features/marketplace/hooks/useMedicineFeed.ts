@@ -41,6 +41,7 @@ export interface MedicineFeedFilters {
   category?: string;
   categories?: string[];
   search?: string;
+  hasImage?: boolean;
   limit?: number;
 }
 
@@ -56,6 +57,7 @@ export function medicineFeedKey(filters: MedicineFeedFilters) {
     // can do referential equality on the primitive key segments.
     filters.categories ? filters.categories.join(",") : null,
     filters.search ?? null,
+    filters.hasImage ?? null,
     filters.limit ?? DEFAULT_LIMIT,
   ] as const;
 }
@@ -80,6 +82,7 @@ export function useMedicineFeed(filters: MedicineFeedFilters = {}) {
         ...(hasCategories
           ? { categories: filters.categories }
           : { category: filters.category }),
+          hasImage: filters.hasImage,
         search: filters.search,
       }),
     getNextPageParam: (lastPage) =>

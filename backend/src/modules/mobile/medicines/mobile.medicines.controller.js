@@ -71,6 +71,7 @@ export async function handleListMedicines(req, res) {
       category: parsed.data.category,
       categories: categoriesArray,
       search: parsed.data.search,
+      hasImage: parsed.data.hasImage,
     });
     return success(res, result, "Medicines fetched");
   } catch (err) {

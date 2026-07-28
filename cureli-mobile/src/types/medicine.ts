@@ -125,6 +125,7 @@ export interface MedicineFeedParams {
   category?: string;
   categories?: string[];
   search?: string;
+  hasImage?: boolean;
 }
 
 // ── REAL: per-branch shop listing for medicine detail screen ──

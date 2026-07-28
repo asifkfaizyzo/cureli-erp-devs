@@ -151,24 +151,17 @@ export async function generateMarketplaceInvoice(
     });
 
     if (customer?.email) {
-      const { sendEmail } = await import("../../../utils/email.js");
-      await sendEmail({
-        to: customer.email,
-        subject: `Your Invoice for Order ${order.order_number}`,
-        html: `
-          <p>Hi ${customer.full_name || "there"},</p>
-          <p>Your order <strong>${order.order_number}</strong> has been billed and is ready for dispatch.</p>
-          <p>Please find your invoice attached to this email.</p>
-          <p>Thank you for using Cureli!</p>
-        `,
-        attachments: [
-          {
-            filename: `${order.order_number}-invoice.pdf`,
-            content: pdfBuffer,
-            contentType: "application/pdf",
-          },
-        ],
-      });
+      const { sendMail } = await import("../../../utils/email.js");
+      await sendMail(
+        customer.email,
+        `Your Invoice for Order ${order.order_number}`,
+        `
+        <p>Hi ${customer.full_name || "there"},</p>
+        <p>Your order <strong>${order.order_number}</strong> has been billed and is ready for dispatch.</p>
+        <p>Please find your invoice attached to this email.</p>
+        <p>Thank you for using Cureli!</p>
+      `,
+      );
       console.log(`[Invoice] Email sent to ${customer.email}`);
     }
   } catch (emailErr) {

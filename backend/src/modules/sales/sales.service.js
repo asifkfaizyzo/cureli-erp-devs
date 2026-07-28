@@ -42,96 +42,91 @@ class SalesService {
   // ============================================
 
   // backend/src/modules/sales/sales.service.js
-// ONLY change getAvailableBatches method - everything else stays identical
+  // ONLY change getAvailableBatches method - everything else stays identical
 
-async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
-  const { includeExpiring = true } = options;
-  // ✅ Removed includeLowStock - no longer needed
+  async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
+    const { includeExpiring = true } = options;
+    // ✅ Removed includeLowStock - no longer needed
 
- 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-  const where = {
-    shop_id: shopId,
-    branch_id: branchId,
-    medicine_id: medicineId,
-    is_active: true,
-    is_expired: false,
-    // ✅ FIX: Always gt: 0 — show any batch with at least 1 unit
-    // Old code used gt: 5 when includeLowStock=false, hiding valid stock
-    available_stock: { gt: 0 },
-    expiry_date: { gte: today },
-  };
+    const where = {
+      shop_id: shopId,
+      branch_id: branchId,
+      medicine_id: medicineId,
+      is_active: true,
+      is_expired: false,
+      // ✅ FIX: Always gt: 0 — show any batch with at least 1 unit
+      // Old code used gt: 5 when includeLowStock=false, hiding valid stock
+      available_stock: { gt: 0 },
+      expiry_date: { gte: today },
+    };
 
-
-
-  const batches = await prisma.inventory.findMany({
-    where,
-    select: {
-      inventory_id: true,
-      batch_number: true,
-      expiry_date: true,
-      current_stock: true,
-      reserved_stock: true,
-      available_stock: true,
-      mrp: true,
-      selling_rate: true,
-      rack_no: true,
-      medicine: {
-        select: {
-          medicine_id: true,
-          name: true,
-          manufacturer: true,
-          pack_size: true,
-          gst_percentage: true,
-          cgst_percentage: true,
-          sgst_percentage: true,
+    const batches = await prisma.inventory.findMany({
+      where,
+      select: {
+        inventory_id: true,
+        batch_number: true,
+        expiry_date: true,
+        current_stock: true,
+        reserved_stock: true,
+        available_stock: true,
+        mrp: true,
+        selling_rate: true,
+        rack_no: true,
+        medicine: {
+          select: {
+            medicine_id: true,
+            name: true,
+            manufacturer: true,
+            pack_size: true,
+            gst_percentage: true,
+            cgst_percentage: true,
+            sgst_percentage: true,
+          },
         },
       },
-    },
-    orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
-  });
+      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+    });
 
+    const enrichedBatches = batches.map((batch) => {
+      const expiryDate = new Date(batch.expiry_date);
+      const daysUntilExpiry = Math.ceil(
+        (expiryDate - today) / (1000 * 60 * 60 * 24),
+      );
 
+      // ✅ Status for UI display - low_stock warning but doesn't block
+      let status = "available";
+      if (daysUntilExpiry <= 30) status = "expiring_soon";
+      if (parseFloat(batch.available_stock) <= 5) status = "low_stock";
 
-  const enrichedBatches = batches.map((batch) => {
-    const expiryDate = new Date(batch.expiry_date);
-    const daysUntilExpiry = Math.ceil(
-      (expiryDate - today) / (1000 * 60 * 60 * 24),
-    );
+      return {
+        ...batch,
+        days_until_expiry: daysUntilExpiry,
+        status,
+        display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString(
+          "en-IN",
+          {
+            month: "short",
+            year: "numeric",
+          },
+        )} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
+      };
+    });
 
-    // ✅ Status for UI display - low_stock warning but doesn't block
-    let status = "available";
-    if (daysUntilExpiry <= 30) status = "expiring_soon";
-    if (parseFloat(batch.available_stock) <= 5) status = "low_stock";
+    // ✅ REMOVED: The old post-query filter that was hiding low-stock batches
+    // if (!includeLowStock) {
+    //   filteredBatches = filteredBatches.filter((b) => b.days_until_expiry > 30);
+    // }
 
-    return {
-      ...batch,
-      days_until_expiry: daysUntilExpiry,
-      status,
-      display_label: `${batch.batch_number} | Exp: ${expiryDate.toLocaleDateString(
-        "en-IN",
-        {
-          month: "short",
-          year: "numeric",
-        },
-      )} | Stock: ${batch.available_stock} | MRP: ₹${batch.mrp}`,
-    };
-  });
+    // Only filter by expiry preference
+    if (!includeExpiring) {
+      return enrichedBatches.filter((b) => b.days_until_expiry > 30);
+    }
 
-  // ✅ REMOVED: The old post-query filter that was hiding low-stock batches
-  // if (!includeLowStock) {
-  //   filteredBatches = filteredBatches.filter((b) => b.days_until_expiry > 30);
-  // }
-
-  // Only filter by expiry preference
-  if (!includeExpiring) {
-    return enrichedBatches.filter((b) => b.days_until_expiry > 30);
+    return enrichedBatches;
   }
-
-  return enrichedBatches;
-}
 
   // ============================================
   // CREATE DRAFT SALE
@@ -227,10 +222,10 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
     const invoiceNumber = await generateSalesInvoiceNumber(shopId, branchId);
 
     const result = await prisma.$transaction(async (tx) => {
-       const invoice = await tx.salesInvoice.create({
+      const invoice = await tx.salesInvoice.create({
         data: {
           invoice_number: invoiceNumber,
-          sale_channel: data.marketplace_order_id ? 'MARKETPLACE' : 'COUNTER',
+          sale_channel: data.marketplace_order_id ? "MARKETPLACE" : "COUNTER",
           shop_id: shopId,
           branch_id: branchId,
           customer_id: data.customer_id || null,
@@ -976,9 +971,13 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
           },
         });
 
-        if (!mktOrder) throw new Error('Marketplace order not found');
-        if (mktOrder.shop_id !== shopId) throw new Error('Marketplace order does not belong to this shop');
-        if (mktOrder.sales_invoice_id) throw new Error('Marketplace order already billed');
+        if (!mktOrder) throw new Error("Marketplace order not found");
+        if (mktOrder.shop_id !== shopId)
+          throw new Error("Marketplace order does not belong to this shop");
+        if (mktOrder.sales_invoice_id)
+          throw new Error("Marketplace order already billed");
+        if (mktOrder.status !== "ACCEPTED")
+          throw new Error("Marketplace order must be ACCEPTED before billing");
 
         const now = new Date();
 
@@ -987,8 +986,7 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
             where: { order_id: marketplace_order_id },
             data: {
               sales_invoice_id: result.invoice_id,
-              status: 'READY_FOR_PICKUP',
-              accepted_at: now,
+              status: "READY_FOR_PICKUP",
               ready_at: now,
             },
           });
@@ -996,47 +994,43 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
           await tx2.marketplaceOrderStatusHistory.create({
             data: {
               order_id: marketplace_order_id,
-              from_status: 'PLACED',
-              to_status: 'ACCEPTED',
-              changed_by_type: 'pharmacy',
-              changed_by_id: userId,
-              reason: `Billed via ${result.invoice_number}`,
-            },
-          });
-
-          await tx2.marketplaceOrderStatusHistory.create({
-            data: {
-              order_id: marketplace_order_id,
-              from_status: 'ACCEPTED',
-              to_status: 'READY_FOR_PICKUP',
-              changed_by_type: 'pharmacy',
+              from_status: "ACCEPTED",
+              to_status: "READY_FOR_PICKUP",
+              changed_by_type: "pharmacy",
               changed_by_id: userId,
               reason: `Invoice ${result.invoice_number} confirmed`,
             },
           });
         });
 
-        const { fireOrderStatusChangedEvents } = await import(
-          '../marketplace-orders/marketplace.orders.events.js'
-        );
+        const { fireOrderStatusChangedEvents } =
+          await import("../marketplace-orders/marketplace.orders.events.js");
 
         await fireOrderStatusChangedEvents({
           order_id: marketplace_order_id,
           order_number: mktOrder.order_number,
           shop_id: shopId,
           customer_id: mktOrder.customer_id,
-          new_status: 'READY_FOR_PICKUP',
+          new_status: "READY_FOR_PICKUP",
           customer_name: mktOrder.customer_name_snapshot,
         });
 
-        import('../mobile/invoice/invoice.service.js').then(({ generateMarketplaceInvoice }) => {
-          generateMarketplaceInvoice(marketplace_order_id, result.invoice_id)
-            .catch((err) => console.error('[Invoice] PDF generation failed:', err.message));
-        });
+        import("../mobile/invoice/invoice.service.js").then(
+          ({ generateMarketplaceInvoice }) => {
+            generateMarketplaceInvoice(
+              marketplace_order_id,
+              result.invoice_id,
+            ).catch((err) =>
+              console.error("[Invoice] PDF generation failed:", err.message),
+            );
+          },
+        );
 
-        console.log(`[Sales] Marketplace order ${mktOrder.order_number} linked to ${result.invoice_number}`);
+        console.log(
+          `[Sales] Marketplace order ${mktOrder.order_number} linked to ${result.invoice_number}`,
+        );
       } catch (mktErr) {
-        console.error('[Sales] Marketplace linking failed:', mktErr.message);
+        console.error("[Sales] Marketplace linking failed:", mktErr.message);
       }
     }
 
@@ -1794,7 +1788,6 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
       // ═══════════════════════════════════════════════════════════════════
 
       if (isConfirmed && existingInvoice.lineItems.length > 0) {
-        
         for (const item of existingInvoice.lineItems) {
           const inventory = await tx.inventory.findUnique({
             where: { inventory_id: item.inventory_id },
@@ -1838,8 +1831,6 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
                 remarks: `Stock restored for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
               },
             });
-
-           
           }
         }
       }
@@ -1925,7 +1916,6 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
 
         if (isConfirmed) {
           // For CONFIRMED: Deduct stock immediately (like confirmStockDeduction)
-         
 
           for (const item of newLineItems) {
             const inventory = await tx.inventory.findUnique({
@@ -1970,8 +1960,6 @@ async getAvailableBatches(shopId, branchId, medicineId, options = {}) {
                   remarks: `Stock deducted for invoice edit (Super Admin): ${existingInvoice.invoice_number}`,
                 },
               });
-
-              
             }
           }
         } else {

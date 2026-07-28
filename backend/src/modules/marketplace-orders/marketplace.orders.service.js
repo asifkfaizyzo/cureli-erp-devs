@@ -903,7 +903,6 @@ export async function getReorderItems(order_id, customer_id) {
   };
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // GET BILLING DATA (ERP — for SalesBillingPage auto-population)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -932,9 +931,10 @@ export async function getMarketplaceBillingData(order_id, shop_id) {
     },
   });
 
-  if (!order || order.shop_id !== shop_id) throw new Error('Order not found');
-  if (order.sales_invoice_id) throw new Error('Order has already been billed');
-  if (order.status !== 'PLACED') throw new Error('Only PLACED orders can be billed');
+  if (!order || order.shop_id !== shop_id) throw new Error("Order not found");
+  if (order.sales_invoice_id) throw new Error("Order has already been billed");
+  if (order.status !== "ACCEPTED")
+    throw new Error("Only ACCEPTED orders can be billed");
 
   // Fetch available batches for each medicine
   const itemsWithBatches = await Promise.all(
@@ -951,7 +951,7 @@ export async function getMarketplaceBillingData(order_id, shop_id) {
           available_stock: { gt: 0 },
           expiry_date: { gte: today },
         },
-        orderBy: { expiry_date: 'asc' },
+        orderBy: { expiry_date: "asc" },
         select: {
           inventory_id: true,
           batch_number: true,
@@ -976,8 +976,12 @@ export async function getMarketplaceBillingData(order_id, shop_id) {
               name: item.medicine.name,
               manufacturer: item.medicine.manufacturer,
               hsn_code: item.medicine.hsn_code,
-              cgst_percentage: item.medicine.cgst_percentage ? Number(item.medicine.cgst_percentage) : 6,
-              sgst_percentage: item.medicine.sgst_percentage ? Number(item.medicine.sgst_percentage) : 6,
+              cgst_percentage: item.medicine.cgst_percentage
+                ? Number(item.medicine.cgst_percentage)
+                : 6,
+              sgst_percentage: item.medicine.sgst_percentage
+                ? Number(item.medicine.sgst_percentage)
+                : 6,
               rack_no: item.medicine.rack_no,
             }
           : null,

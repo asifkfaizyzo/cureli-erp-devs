@@ -53,13 +53,16 @@ import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
 // ── Feed mode ─────────────────────────────────────────────────
 
 const SHOW_UNLISTED = process.env.MOBILE_SHOW_UNLISTED_MEDICINES === "true";
+const HOME_FEED_IMAGE_OVERSAMPLE_FACTOR = 5;
+
+function filterItemsWithRealImages(items) {
+  return items.filter((item) => Boolean(item.image));
+}
 
 console.log(
   `[mobile.feed] mode: ${
-    SHOW_UNLISTED
-      ? "UNLISTED VISIBLE (demo)"
-      : "LISTINGS ONLY (production)"
-  }`
+    SHOW_UNLISTED ? "UNLISTED VISIBLE (demo)" : "LISTINGS ONLY (production)"
+  }`,
 );
 
 // ── Marketplace asset resolver ────────────────────────────────
@@ -72,7 +75,7 @@ const PUBLIC_API_ORIGIN = process.env.PUBLIC_API_ORIGIN || null;
 if (!PUBLIC_API_ORIGIN) {
   console.warn(
     "[mobile.medicines] WARNING: PUBLIC_API_ORIGIN is not set. " +
-      "Shop logo URLs in getMedicineShops will be returned as relative paths."
+      "Shop logo URLs in getMedicineShops will be returned as relative paths.",
   );
 }
 
@@ -223,7 +226,12 @@ const VARIANT_SELECT = {
 
 // ── Demo path ─────────────────────────────────────────────────
 
-async function listVariantsFromCatalog(category, limit) {
+async function listVariantsFromCatalog(category, limit, options = {}) {
+  const { hasImage = false } = options;
+  const rawLimit = hasImage
+    ? Math.max(limit, limit * HOME_FEED_IMAGE_OVERSAMPLE_FACTOR)
+    : limit;
+
   const variants = await prisma.masterMedicineVariant.findMany({
     where: {
       master: {
@@ -234,15 +242,22 @@ async function listVariantsFromCatalog(category, limit) {
       },
     },
     orderBy: { name: "asc" },
-    take: limit,
+    take: rawLimit,
     select: VARIANT_SELECT,
   });
-  return variants.map((v) => toFeedItem(v));
+
+  const items = variants.map((v) => toFeedItem(v));
+  return hasImage ? filterItemsWithRealImages(items).slice(0, limit) : items;
 }
 
 // ── Production path ───────────────────────────────────────────
 
-async function listVariantsFromListings(category, limit) {
+async function listVariantsFromListings(category, limit, options = {}) {
+  const { hasImage = false } = options;
+  const rawLimit = hasImage
+    ? Math.max(limit, limit * HOME_FEED_IMAGE_OVERSAMPLE_FACTOR)
+    : limit;
+
   const listings = await prisma.marketplaceListing.findMany({
     where: {
       is_visible: true,
@@ -261,7 +276,7 @@ async function listVariantsFromListings(category, limit) {
       },
     },
     orderBy: { linkedVariant: { name: "asc" } },
-    take: limit,
+    take: rawLimit,
     select: {
       requires_prescription: true,
       linkedVariant: { select: VARIANT_SELECT },
@@ -283,7 +298,9 @@ async function listVariantsFromListings(category, limit) {
     seen.add(v.variant_id);
     items.push(toFeedItem(v, rxRequiredVariants.has(v.variant_id)));
   }
-  return items;
+
+  const filtered = hasImage ? filterItemsWithRealImages(items) : items;
+  return filtered.slice(0, limit);
 }
 
 // ── Feed ──────────────────────────────────────────────────────
@@ -295,9 +312,11 @@ export async function listMobileFeed(itemsPerSection = 8) {
 
   const results = await Promise.all(
     CURATED_CATEGORIES.map(async (cat) => {
-      const medicines = await queryFn(cat.key, itemsPerSection);
+      const medicines = await queryFn(cat.key, itemsPerSection, {
+        hasImage: true,
+      });
       return { cat, medicines };
-    })
+    }),
   );
 
   const sections = results
@@ -306,6 +325,7 @@ export async function listMobileFeed(itemsPerSection = 8) {
       key: cat.key,
       title: cat.label,
       icon: cat.icon,
+      type: cat.type,
       medicines,
     }));
 
@@ -327,8 +347,14 @@ export async function listMobileMedicines({
   category,
   categories,
   search,
+  hasImage = false,
 }) {
-  const skip = (page - 1) * limit;
+  const IMAGE_OVERSAMPLE_FACTOR = 5;
+  const rawLimit = hasImage
+    ? Math.max(limit, limit * IMAGE_OVERSAMPLE_FACTOR)
+    : limit;
+
+  const rawSkip = hasImage ? (page - 1) * rawLimit : (page - 1) * limit;
 
   // ── Build master where clause ────────────────────────────────
   const masterWhere = { is_active: true };
@@ -338,15 +364,8 @@ export async function listMobileMedicines({
   }
 
   if (categories && categories.length > 0) {
-    // Multi-category IN filter — used by the English Medicine top-level card.
-    // mode: "insensitive" on an IN filter requires a different Prisma approach:
-    // we normalise by running the query with exact values as stored in the DB.
-    // The frontend sends the exact DB keys (seeded from CCSP), so
-    // case-insensitive matching is not needed here — but we keep it safe
-    // by using the raw values as passed (already trimmed by the controller).
     masterWhere.primary_category = { in: categories };
   } else if (category) {
-    // Single-category equals filter — existing behaviour, unchanged.
     masterWhere.primary_category = { equals: category, mode: "insensitive" };
   }
 
@@ -372,22 +391,27 @@ export async function listMobileMedicines({
     prisma.masterMedicineVariant.findMany({
       where,
       orderBy: { name: "asc" },
-      skip,
-      take: limit,
+      skip: rawSkip,
+      take: rawLimit,
       select: VARIANT_SELECT,
     }),
     prisma.masterMedicineVariant.count({ where }),
   ]);
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.ceil(total / rawLimit);
+  const medicinesRaw = variants.map((v) => toFeedItem(v));
+  const medicines = hasImage
+    ? medicinesRaw.filter((item) => Boolean(item.image)).slice(0, limit)
+    : medicinesRaw;
+
   return {
-    medicines: variants.map((v) => toFeedItem(v)),
+    medicines,
     meta: {
       total,
       page,
       limit,
       totalPages,
-      hasNext: page < totalPages,
+      hasNext: rawSkip + rawLimit < total,
       hasPrev: page > 1,
     },
   };
@@ -431,7 +455,7 @@ export async function getMobileMedicine(idOrSku) {
   if (!variant) {
     const looksLikeUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        idOrSku
+        idOrSku,
       );
     if (looksLikeUuid) {
       variant = await prisma.masterMedicineVariant.findUnique({
@@ -607,7 +631,7 @@ export async function getMedicineShops(variantId, lat, lng) {
       shopId: l.shop?.shop_id ?? null,
       shopName,
       logoUrl: resolveMarketplaceAsset(
-        l.shop?.marketplaceProfile?.logo_url ?? null
+        l.shop?.marketplaceProfile?.logo_url ?? null,
       ),
       branchId: l.branch?.branch_id ?? null,
       branchName: l.branch?.branch_name ?? null,
@@ -618,12 +642,12 @@ export async function getMedicineShops(variantId, lat, lng) {
         hasLocation ? lat : null,
         hasLocation ? lng : null,
         branchLat,
-        branchLng
+        branchLng,
       ),
       isOpen: computeIsOpen(
         bs?.is_24_hours ?? false,
         bs?.opening_time ?? null,
-        bs?.closing_time ?? null
+        bs?.closing_time ?? null,
       ),
       is24Hours: bs?.is_24_hours ?? false,
       openingTime: bs?.opening_time ?? null,

@@ -147,15 +147,13 @@ export function HomeScreen() {
         {/* ───────────────────────────────────────────────────────────────── */}
 
         {isFeedLoading ? (
-          [
-            { key: "s1", label: "" },
-            { key: "s2", label: "" },
-            { key: "s3", label: "" },
-          ].map((cat) => (
+          [{ key: "s1" }, { key: "s2" }, { key: "s3" }].map((cat) => (
             <ProductSection
               key={cat.key}
-              title={cat.label}
-              medicines={[]}
+              title=""
+              categoryKey={cat.key}
+              sectionType="DRUG"
+              initialMedicines={[]}
               isLoading={true}
             />
           ))
@@ -163,7 +161,9 @@ export function HomeScreen() {
           <ProductSection
             key="feed-error"
             title="Medicines"
-            medicines={[]}
+            categoryKey="feed-error"
+            sectionType="DRUG"
+            initialMedicines={[]}
             isLoading={false}
             isError={true}
             onRetry={refetchFeed}
@@ -173,7 +173,9 @@ export function HomeScreen() {
             <ProductSection
               key={section.key}
               title={section.title}
-              medicines={section.medicines}
+              categoryKey={section.key}
+              sectionType={section.type}
+              initialMedicines={section.medicines}
               isLoading={false}
             />
           ))

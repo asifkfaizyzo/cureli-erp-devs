@@ -12,17 +12,17 @@
 // - New function: getFileStream() — for Phase 3 file serving
 // ============================================
 
-import path from 'path';
-import crypto from 'crypto';
-import s3Client, { S3_BUCKET } from '../config/s3.js';
+import path from "path";
+import crypto from "crypto";
+import s3Client, { S3_BUCKET } from "../config/s3.js";
 import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl as generatePresignedUrl } from '@aws-sdk/s3-request-presigner';
+} from "@aws-sdk/client-s3";
+import { getSignedUrl as generatePresignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ============================================
 // CONSTANTS (UNCHANGED)
@@ -30,115 +30,108 @@ import { getSignedUrl as generatePresignedUrl } from '@aws-sdk/s3-request-presig
 
 // Whitelisted folders (prevent directory traversal)
 const ALLOWED_FOLDERS = [
-  'shop_files',
-  'broadcast_attachments',
-  'email_attachments',
-  'tickets',
-  'marketplace_assets',
-  'order_prescriptions',
-   'prescription_requests',
+  "shop_files",
+  "broadcast_attachments",
+  "email_attachments",
+  "tickets",
+  "marketplace_assets",
+  "order_prescriptions",
+  "prescription_requests",
+  "order_invoices",
 ];
 
 // File size limits (bytes)
 const MAX_FILE_SIZES = {
-  shop_files: 5 * 1024 * 1024,              // 5MB
-  broadcast_attachments: 50 * 1024 * 1024,  // 50MB
-  email_attachments: 10 * 1024 * 1024,      // 10MB
-  tickets: 5 * 1024 * 1024,                 // 5MB
+  shop_files: 5 * 1024 * 1024, // 5MB
+  broadcast_attachments: 50 * 1024 * 1024, // 50MB
+  email_attachments: 10 * 1024 * 1024, // 10MB
+  tickets: 5 * 1024 * 1024, // 5MB
   marketplace_assets: 5 * 1024 * 1024,
-  order_prescriptions: 10 * 1024 * 1024, 
-  prescription_requests:  10 * 1024 * 1024,   
+  order_prescriptions: 10 * 1024 * 1024,
+  prescription_requests: 10 * 1024 * 1024,
+  order_invoices: 10 * 1024 * 1024,
 };
 
 // Allowed MIME types per folder
 const ALLOWED_MIME_TYPES = {
-  shop_files: [
-    'application/pdf',
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-  ],
+  shop_files: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
   broadcast_attachments: [
     // Images
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml',
-    'image/bmp',
-    'image/tiff',
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "image/bmp",
+    "image/tiff",
     // Videos
-    'video/mp4',
-    'video/webm',
-    'video/ogg',
-    'video/mpeg',
-    'video/quicktime',
-    'video/x-msvideo',
-    'video/x-matroska',
-    'video/3gpp',
-    'video/3gpp2',
+    "video/mp4",
+    "video/webm",
+    "video/ogg",
+    "video/mpeg",
+    "video/quicktime",
+    "video/x-msvideo",
+    "video/x-matroska",
+    "video/3gpp",
+    "video/3gpp2",
   ],
   email_attachments: [
     // Images
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
     // Documents
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain',
-    'text/csv',
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain",
+    "text/csv",
   ],
   tickets: [
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'application/pdf',
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
   ],
-  marketplace_assets: [          
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/webp',
+  marketplace_assets: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
+  order_prescriptions: [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/pdf",
   ],
-  order_prescriptions: [          
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'application/pdf',
-],
-prescription_requests: [    // ← ADD THIS BLOCK
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'application/pdf',
+  prescription_requests: [
+    // ← ADD THIS BLOCK
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/pdf",
   ],
-
+  order_invoices: ["application/pdf"],
 };
 
 // Blocked extensions (security)
 const BLOCKED_EXTENSIONS = [
-  '.exe',
-  '.sh',
-  '.bat',
-  '.cmd',
-  '.msi',
-  '.dll',
-  '.scr',
-  '.js',
-  '.vbs',
-  '.ps1',
-  '.app',
-  '.deb',
-  '.rpm',
+  ".exe",
+  ".sh",
+  ".bat",
+  ".cmd",
+  ".msi",
+  ".dll",
+  ".scr",
+  ".js",
+  ".vbs",
+  ".ps1",
+  ".app",
+  ".deb",
+  ".rpm",
 ];
 
 // ============================================
@@ -149,18 +142,23 @@ const BLOCKED_EXTENSIONS = [
  * Validate folder name against whitelist
  */
 export function validateFolder(folder) {
-  if (!folder || typeof folder !== 'string') {
-    const err = new Error('Folder name is required');
-    err.code = 'INVALID_FOLDER';
+  if (!folder || typeof folder !== "string") {
+    const err = new Error("Folder name is required");
+    err.code = "INVALID_FOLDER";
     throw err;
   }
 
   // Remove any path traversal attempts
-  const sanitized = folder.replace(/\.\./g, '').replace(/\//g, '').replace(/\\/g, '');
+  const sanitized = folder
+    .replace(/\.\./g, "")
+    .replace(/\//g, "")
+    .replace(/\\/g, "");
 
   if (!ALLOWED_FOLDERS.includes(sanitized)) {
-    const err = new Error(`Invalid folder: ${folder}. Allowed: ${ALLOWED_FOLDERS.join(', ')}`);
-    err.code = 'FOLDER_NOT_ALLOWED';
+    const err = new Error(
+      `Invalid folder: ${folder}. Allowed: ${ALLOWED_FOLDERS.join(", ")}`,
+    );
+    err.code = "FOLDER_NOT_ALLOWED";
     throw err;
   }
 
@@ -175,7 +173,7 @@ export function validateExtension(filename) {
 
   if (BLOCKED_EXTENSIONS.includes(ext)) {
     const err = new Error(`Blocked file extension: ${ext}`);
-    err.code = 'BLOCKED_EXTENSION';
+    err.code = "BLOCKED_EXTENSION";
     throw err;
   }
 
@@ -195,9 +193,9 @@ export function validateMimeType(folder, mimetype) {
 
   if (!allowed.includes(mimetype)) {
     const err = new Error(
-      `Invalid file type for ${folder}. Allowed: ${allowed.join(', ')}`
+      `Invalid file type for ${folder}. Allowed: ${allowed.join(", ")}`,
     );
-    err.code = 'INVALID_MIME_TYPE';
+    err.code = "INVALID_MIME_TYPE";
     throw err;
   }
 
@@ -217,9 +215,9 @@ export function validateFileSize(folder, size) {
 
   if (size > maxSize) {
     const err = new Error(
-      `File too large for ${folder}. Max: ${formatFileSize(maxSize)}, Got: ${formatFileSize(size)}`
+      `File too large for ${folder}. Max: ${formatFileSize(maxSize)}, Got: ${formatFileSize(size)}`,
     );
-    err.code = 'FILE_TOO_LARGE';
+    err.code = "FILE_TOO_LARGE";
     throw err;
   }
 
@@ -230,11 +228,11 @@ export function validateFileSize(folder, size) {
  * Format file size for human readability
  */
 export function formatFileSize(bytes) {
-  if (!bytes || bytes === 0) return '0 Bytes';
+  if (!bytes || bytes === 0) return "0 Bytes";
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 // ============================================
@@ -247,12 +245,12 @@ export function formatFileSize(bytes) {
 function generateUniqueFilename(originalName, folder) {
   const ext = path.extname(originalName).toLowerCase();
   const timestamp = Date.now();
-  const randomHash = crypto.randomBytes(8).toString('hex');
+  const randomHash = crypto.randomBytes(8).toString("hex");
 
   // Different naming patterns for different folders
-  if (folder === 'email_attachments') {
+  if (folder === "email_attachments") {
     return `email-${timestamp}-${randomHash}${ext}`;
-  } else if (folder === 'broadcast_attachments') {
+  } else if (folder === "broadcast_attachments") {
     return `broadcast-${timestamp}-${randomHash}${ext}`;
   } else {
     return `${timestamp}-${randomHash}${ext}`;
@@ -277,8 +275,8 @@ function buildS3Key(folder, filename) {
  */
 function isNotFoundError(error) {
   return (
-    error.name === 'NotFound' ||
-    error.name === 'NoSuchKey' ||
+    error.name === "NotFound" ||
+    error.name === "NoSuchKey" ||
     error.$metadata?.httpStatusCode === 404
   );
 }
@@ -304,11 +302,11 @@ export async function uploadFile({
   try {
     // 1. Validate inputs
     if (!buffer || !Buffer.isBuffer(buffer)) {
-      throw new Error('File buffer is required');
+      throw new Error("File buffer is required");
     }
 
     if (!originalName) {
-      throw new Error('Original filename is required');
+      throw new Error("Original filename is required");
     }
 
     const validatedFolder = validateFolder(folder);
@@ -317,7 +315,8 @@ export async function uploadFile({
     validateFileSize(validatedFolder, size);
 
     // 2. Generate filename
-    const filename = customFilename || generateUniqueFilename(originalName, validatedFolder);
+    const filename =
+      customFilename || generateUniqueFilename(originalName, validatedFolder);
 
     // Validate custom filename extension if provided
     if (customFilename) {
@@ -337,8 +336,6 @@ export async function uploadFile({
 
     await s3Client.send(command);
 
-  
-
     // 5. Return metadata (storage_key = filename only, NOT the full S3 key)
     return {
       filename,
@@ -349,7 +346,7 @@ export async function uploadFile({
       uploaded_at: new Date(),
     };
   } catch (error) {
-    console.error('[FileStorage] Upload failed:', error.message);
+    console.error("[FileStorage] Upload failed:", error.message);
     throw error;
   }
 }
@@ -379,11 +376,10 @@ export async function deleteFile({ folder, filename }) {
     });
 
     await s3Client.send(command);
-  
 
     return true;
   } catch (error) {
-    console.error('[FileStorage] Delete failed:', error.message);
+    console.error("[FileStorage] Delete failed:", error.message);
     throw error;
   }
 }
@@ -407,7 +403,7 @@ export async function fileExists({ folder, filename }) {
     if (isNotFoundError(error)) {
       return false;
     }
-    console.error('[FileStorage] Existence check failed:', error.message);
+    console.error("[FileStorage] Existence check failed:", error.message);
     return false;
   }
 }
@@ -440,11 +436,11 @@ export async function getFileMetadata({ folder, filename }) {
     };
   } catch (error) {
     if (isNotFoundError(error)) {
-      const err = new Error('File not found');
-      err.code = 'FILE_NOT_FOUND';
+      const err = new Error("File not found");
+      err.code = "FILE_NOT_FOUND";
       throw err;
     }
-    console.error('[FileStorage] Get metadata failed:', error.message);
+    console.error("[FileStorage] Get metadata failed:", error.message);
     throw error;
   }
 }
@@ -472,17 +468,17 @@ export async function getFileStream({ folder, filename }) {
 
     return {
       stream: response.Body,
-      contentType: response.ContentType || 'application/octet-stream',
+      contentType: response.ContentType || "application/octet-stream",
       contentLength: response.ContentLength,
       lastModified: response.LastModified,
     };
   } catch (error) {
     if (isNotFoundError(error)) {
-      const err = new Error('File not found');
-      err.code = 'FILE_NOT_FOUND';
+      const err = new Error("File not found");
+      err.code = "FILE_NOT_FOUND";
       throw err;
     }
-    console.error('[FileStorage] Get file stream failed:', error.message);
+    console.error("[FileStorage] Get file stream failed:", error.message);
     throw error;
   }
 }
@@ -522,7 +518,7 @@ export async function getSignedUrl({ folder, filename, expiresIn = 3600 }) {
     const url = await generatePresignedUrl(s3Client, command, { expiresIn });
     return url;
   } catch (error) {
-    console.error('[FileStorage] Get signed URL failed:', error.message);
+    console.error("[FileStorage] Get signed URL failed:", error.message);
     throw error;
   }
 }
@@ -551,7 +547,7 @@ export async function deleteFiles(files) {
         results.errors.push({
           folder: file.folder,
           filename: file.filename,
-          error: 'File not found',
+          error: "File not found",
         });
       }
     } catch (error) {
@@ -613,7 +609,7 @@ export async function getFolderStats(folder) {
       total_size_formatted: formatFileSize(totalSize),
     };
   } catch (error) {
-    console.error('[FileStorage] Get folder stats failed:', error.message);
+    console.error("[FileStorage] Get folder stats failed:", error.message);
     throw error;
   }
 }
@@ -631,8 +627,8 @@ export async function getFolderStats(folder) {
  */
 export function getAbsolutePath() {
   throw new Error(
-    '[FileStorage] getAbsolutePath() is removed — storage is S3. ' +
-    'Use getFileStream() to stream files or getSignedUrl() for direct access.'
+    "[FileStorage] getAbsolutePath() is removed — storage is S3. " +
+      "Use getFileStream() to stream files or getSignedUrl() for direct access.",
   );
 }
 
