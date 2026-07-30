@@ -30,6 +30,7 @@ import MobileBroadcastPage from "./pages/Communications/pages/Broadcast/Mobile/M
 import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
+import CategoryDisplayPage from "./pages/AppConfig/categories/CategoryDisplayPage";
 
 // ── Marketplace ──────────────────────────────────────────────────────────────
 import MarketplaceDashboard from "./pages/marketplace/Dashboard/MarketplaceDashboard";
@@ -319,6 +320,15 @@ function App() {
           />
 
           <Route path="/marketplace/shops" element={<MarketplaceShopsPage />} />
+
+          <Route
+            path="/app-config/categories"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
+                <CategoryDisplayPage />
+              </PermissionGuard>
+            }
+          />
         </Route>
 
         {/* ── Catch-all ───────────────────────────────────────────────── */}

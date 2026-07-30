@@ -1,3 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CADMIN
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model CAdmin {
   cadmin_id           String              @id @default(uuid()) @db.Uuid
@@ -80,6 +94,13 @@ model CAdminActivityLog {
   @@index([created_at])
   @@map("cadmin_activity_logs")
 }
+
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// ERP AUTH
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model PendingUser {
   pending_id          String    @id @default(uuid()) @db.Uuid
@@ -214,6 +235,16 @@ model UserSession {
   @@map("user_sessions")
 }
 
+
+
+
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// SHOP
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 model Shop {
   shop_id                 String               @id @default(uuid()) @db.Uuid
   owner_user_id           String               @db.Uuid
@@ -264,6 +295,7 @@ model Shop {
   @@map("shops")
 }
 
+
 model Branch {
   branch_id        String            @id @default(uuid()) @db.Uuid
   shop_id          String            @db.Uuid
@@ -304,6 +336,7 @@ model Branch {
 
   @@map("branches")
 }
+
 
 model ShopFile {
   file_id             String    @id @default(uuid()) @db.Uuid
@@ -354,6 +387,16 @@ model ShopSubscription {
   @@map("shop_subscriptions")
 }
 
+
+
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// MEDICINE CATALOG (Global Medicine Database)
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+//cureli master catalog
 model MasterMedicine {
   master_medicine_id String   @id @default(uuid()) @db.Uuid
   
@@ -429,6 +472,7 @@ model MasterMedicineVariant {
   @@map("master_medicine_variants")
 }
 
+
 model MasterMedicineImage {
   image_id           String   @id @default(uuid()) @db.Uuid
   master_medicine_id String   @db.Uuid
@@ -452,6 +496,7 @@ model MasterMedicineImage {
   @@map("master_medicine_images")
 }
 
+//erp shop medicine list
 model Medicine {
   medicine_id            String    @id @default(uuid()) @db.Uuid
   name                   String    @db.VarChar(200)
@@ -517,6 +562,8 @@ model Medicine {
   @@map("medicines")
 }
 
+
+//erp shop inventory
 model Inventory {
   inventory_id       String                @id @default(uuid()) @db.Uuid
   shop_id            String                @db.Uuid
@@ -606,6 +653,12 @@ model InventoryImportJob {
   @@index([created_at(sort: Desc)])
   @@map("inventory_import_jobs")
 }
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PHARMACY MARKETPLACE
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model MarketplaceProfile {
   marketplace_profile_id String            @id @default(uuid()) @db.Uuid
@@ -722,6 +775,7 @@ model BranchHoliday {
   @@map("branch_holidays")
 }
 
+
 model MarketplaceListing {
   listing_id            String                 @id @default(uuid()) @db.Uuid
   shop_id               String                 @db.Uuid
@@ -753,6 +807,7 @@ model MarketplaceListing {
   @@index([shop_id, branch_id, is_visible, stock_status])
   @@map("marketplace_listings")
 }
+
 
 model BranchCategoryVisibility {
   id            String   @id @default(uuid()) @db.Uuid
@@ -823,6 +878,7 @@ model CheckoutSession {
   @@map("checkout_sessions")
 }
 
+
 model DeliveryPricingConfig {
   config_id   String   @id @default(uuid()) @db.Uuid
   version     Int      @default(1)
@@ -854,6 +910,10 @@ model DeliveryPricingConfig {
 
   @@map("delivery_pricing_config")
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// MARKETPLACE ORDERS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model MarketplaceOrder {
   order_id                  String    @id @default(uuid()) @db.Uuid
@@ -889,15 +949,20 @@ model MarketplaceOrder {
 
   requires_prescription     Boolean   @default(false)
   notes                     String?   @db.VarChar(500)
-  patient_is_self         Boolean  @default(true)
-  patient_name_snapshot   String?  @db.VarChar(200)
-  patient_age_snapshot    Int?
-  patient_sex_snapshot    String?  @db.VarChar(10)
+  patient_is_self           Boolean   @default(true)
+  patient_name_snapshot     String?   @db.VarChar(200)
+  patient_age_snapshot      Int?
+  patient_sex_snapshot      String?   @db.VarChar(10)
 
   rejection_reason          String?   @db.VarChar(50)
   rejection_reason_other    String?   @db.VarChar(300)
   cancelled_by              String?   @db.VarChar(20)
   auto_completed            Boolean   @default(false)
+
+  // ── Sales Invoice Link ────────────────────────────────
+  sales_invoice_id          String?   @unique @db.Uuid
+  invoice_pdf_key           String?   @db.VarChar(500)
+  invoice_generated_at      DateTime? @db.Timestamptz(6)
 
   placed_at                 DateTime  @db.Timestamptz(6)
   accepted_at               DateTime? @db.Timestamptz(6)
@@ -908,15 +973,15 @@ model MarketplaceOrder {
   created_at                DateTime  @default(now()) @db.Timestamptz(6)
   updated_at                DateTime  @updatedAt @db.Timestamptz(6)
 
-  shop                      Shop                           @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
-  branch                    Branch                         @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
-  customer                  CureliMobileUser               @relation("CustomerMarketplaceOrders", fields: [customer_id], references: [id], onDelete: Restrict)
-  deliveryAddress           CureliMobileAddress?           @relation("OrderDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
-  items                     MarketplaceOrderItem[]         @relation("OrderItems")
-  prescriptions             MarketplaceOrderPrescription[] @relation("OrderPrescriptions")
+  shop                      Shop                            @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
+  branch                    Branch                          @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  customer                  CureliMobileUser                @relation("CustomerMarketplaceOrders", fields: [customer_id], references: [id], onDelete: Restrict)
+  deliveryAddress           CureliMobileAddress?            @relation("OrderDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
+  items                     MarketplaceOrderItem[]          @relation("OrderItems")
+  prescriptions             MarketplaceOrderPrescription[]  @relation("OrderPrescriptions")
   statusHistory             MarketplaceOrderStatusHistory[] @relation("OrderStatusHistory")
-
-  checkoutSession           CheckoutSession?               @relation("SessionOrder")
+  checkoutSession           CheckoutSession?                @relation("SessionOrder")
+  salesInvoice              SalesInvoice?                   @relation("MarketplaceSalesInvoice", fields: [sales_invoice_id], references: [invoice_id])
 
   @@index([shop_id, status])
   @@index([customer_id, placed_at(sort: Desc)])
@@ -1040,6 +1105,10 @@ model MarketplaceOrderStatusHistory {
   @@map("marketplace_order_status_history")
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PRESCRIPTION REQUEST MARKETPLACE
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 model PrescriptionRequest {
   request_id                String                         @id @default(uuid()) @db.Uuid
   request_number            String                         @unique @db.VarChar(20)
@@ -1149,6 +1218,12 @@ model PrescriptionQuoteItem {
 }
 
 
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI MOBILE — CUSTOMER AUTH FOUNDATION
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 model CureliMobileUser {
   id                     String    @id @default(uuid()) @db.Uuid
 
@@ -1210,6 +1285,7 @@ model CureliMobileUser {
   @@index([created_at(sort: Desc)])
   @@map("cureli_mobile_users")
 }
+
 
 model CureliMobileFamilyMember {
   id             String    @id @default(uuid()) @db.Uuid
@@ -1293,6 +1369,7 @@ model CureliMobileAddress {
   @@map("cureli_mobile_addresses")
 }
 
+
 model CureliMobileDeletedAccount {
   id                   String    @id @default(uuid()) @db.Uuid
 
@@ -1325,6 +1402,14 @@ model CureliMobileDeletedAccount {
   @@map("cureli_mobile_deleted_accounts")
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI MOBILE — PUSH NOTIFICATIONS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// Per-user notification preferences.
+// One row per user — upserted on first login or when user changes preferences.
+// category values must match PUSH_CATEGORIES constant in push service.
 model CureliMobilePushPreference {
   id          String   @id @default(uuid()) @db.Uuid
   user_id     String   @unique @db.Uuid
@@ -1349,6 +1434,9 @@ model CureliMobilePushPreference {
   @@map("cureli_mobile_push_preferences")
 }
 
+// Mobile notification inbox — persisted push notifications for the mobile app.
+// Separate from the ERP Notification model which serves ERP users and cadmins.
+// This table is the source of truth for the mobile notification center.
 model CureliMobileNotification {
   id              String    @id @default(uuid()) @db.Uuid
   user_id         String    @db.Uuid
@@ -1393,6 +1481,8 @@ model CureliMobileNotification {
   @@map("cureli_mobile_notifications")
 }
 
+// Mobile push broadcast campaigns — cadmin → mobile customers.
+// Separate from BroadcastCampaign which targets ERP users.
 model CureliMobileBroadcastCampaign {
   id                String    @id @default(uuid()) @db.Uuid
 
@@ -1439,6 +1529,12 @@ model CureliMobileBroadcastCampaign {
   @@index([created_at(sort: Desc)])
   @@map("cureli_mobile_broadcast_campaigns")
 }
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PLANS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model Plan {
   plan_id              String             @id @default(uuid()) @db.Uuid
@@ -1502,6 +1598,14 @@ model PaymentTransaction {
 
   @@map("payment_transactions")
 }
+
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PHARMACY ERP - others
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 
 model Supplier {
   supplier_id      String            @id @default(uuid()) @db.Uuid
@@ -1974,6 +2078,10 @@ model SalesInvoice {
   rejected_by               String?                     @db.Uuid
   rejection_reason          String?
   return_approval_status    SalesReturnApprovalStatus?
+
+  // ── Sale Channel ──────────────────────────────────────
+  sale_channel              String                      @default("COUNTER") @db.VarChar(20)
+
   creditApplications        CustomerCreditApplication[] @relation("CustomerCreditApplicationsToInvoice")
   customerCredits           CustomerCredit[]            @relation("ReturnCustomerCredits")
   lineItems                 SalesInvoiceItem[]          @relation("SalesInvoiceLineItems")
@@ -1988,6 +2096,7 @@ model SalesInvoice {
   rejecter                  User?                       @relation("SalesReturnRejecter", fields: [rejected_by], references: [user_id])
   shop                      Shop                        @relation("ShopSalesInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
   payments                  SalesPayment[]              @relation("SalesInvoicePayments")
+  marketplaceOrder          MarketplaceOrder?           @relation("MarketplaceSalesInvoice")
 
   @@unique([shop_id, branch_id, invoice_number])
   @@index([shop_id, invoice_date(sort: Desc)])
@@ -1998,6 +2107,7 @@ model SalesInvoice {
   @@index([is_return])
   @@index([return_approval_status])
   @@index([created_at(sort: Desc)])
+  @@index([sale_channel])
   @@map("sales_invoices")
 }
 
@@ -2061,474 +2171,334 @@ model SalesPayment {
   @@map("sales_payments")
 }
 
-model Notification {
-  notification_id String    @id @default(uuid()) @db.Uuid
-  user_id         String?   @db.Uuid
-  event_type      String    @db.VarChar(100)
-  title           String    @db.VarChar(200)
-  message         String
-  context         Json?
-  shop_id         String?   @db.Uuid
-  branch_id       String?   @db.Uuid
-  dedup_key       String?   @db.VarChar(255)
-  priority        String    @default("normal") @db.VarChar(20)
-  is_read         Boolean   @default(false)
-  read_at         DateTime? @db.Timestamptz(6)
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
-  cadmin_id       String?   @db.Uuid
-  cadmin          CAdmin?   @relation("CAdminNotifications", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
-  user            User?     @relation("UserNotifications", fields: [user_id], references: [user_id], onDelete: Cascade)
 
-  @@index([user_id, is_read, created_at(sort: Desc)])
-  @@index([user_id, created_at(sort: Desc)])
-  @@index([cadmin_id, is_read, created_at(sort: Desc)])
-  @@index([cadmin_id, created_at(sort: Desc)])
-  @@index([shop_id, event_type])
-  @@index([dedup_key])
-  @@index([created_at(sort: Desc)])
-  @@map("notifications")
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// BROADCAST / COMMS / OTP
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+model Notification {
 }
 
 model BroadcastCampaign {
-  campaign_id       String    @id @default(uuid()) @db.Uuid
-  title             String    @db.VarChar(200)
-  message           String
-  priority          String    @default("normal") @db.VarChar(20)
-  target_filters    Json
-  recipient_count   Int?
-  status            String    @default("draft") @db.VarChar(20)
-  scheduled_for     DateTime? @db.Timestamptz(6)
-  sent_at           DateTime? @db.Timestamptz(6)
-  delivered_count   Int?
-  read_count        Int?
-  attachmentFiles   BroadcastAttachment[] @relation("CampaignAttachments")
-  created_by_cadmin String    @db.Uuid
-  cadmin_name       String    @db.VarChar(100)
-  created_at        DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime  @updatedAt @db.Timestamptz(6)
-  action_label      String?   @db.VarChar(100)
-  action_url        String?   @db.VarChar(500)
-  attachments       Json?
-  expires_at        DateTime? @db.Timestamptz(6)
-  target_cadmins    Boolean   @default(false)
-  target_users      Boolean   @default(true)
-  cadmin            CAdmin    @relation("BroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
-
-  @@index([status, scheduled_for])
-  @@index([created_by_cadmin])
-  @@index([created_at(sort: Desc)])
-  @@map("broadcast_campaigns")
 }
 
 model EmailBroadcastAttachment {
-  attachment_id String   @id @default(uuid()) @db.Uuid
-  campaign_id   String   @db.Uuid
-  
-  // File info
-  file_type     EmailAttachmentType  // "INLINE" or "ATTACHMENT"
-  storage_key   String               // Just filename (e.g., "email-123.jpg")
-  original_name String   @db.VarChar(255)
-  mime_type     String   @db.VarChar(100)
-  file_size     Int
-  
-  // Optional metadata
-  content_id    String?  @db.VarChar(100)  // For inline images (cid:xxx)
-  
-  uploaded_at   DateTime @default(now()) @db.Timestamptz(6)
-  
-  // Relations
-  campaign      EmailBroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
-  
-  @@index([campaign_id])
-  @@index([file_type])
-  @@map("email_broadcast_attachments")
 }
 
 model BroadcastAttachment {
-  attachment_id String   @id @default(uuid()) @db.Uuid
-  campaign_id   String   @db.Uuid
-  
-  // File info
-  attachment_type BroadcastAttachmentType  // "IMAGE", "VIDEO", "LINK"
-  storage_key     String?              // Filename (null for links)
-  original_name   String?  @db.VarChar(255)
-  mime_type       String?  @db.VarChar(100)
-  file_size       Int?
-  
-  // Link metadata (for type=LINK)
-  link_url        String?  @db.VarChar(500)
-  link_label      String?  @db.VarChar(100)
-  
-  uploaded_at     DateTime @default(now()) @db.Timestamptz(6)
-  
-  // Relations
-  campaign        BroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
-  
-  @@index([campaign_id])
-  @@index([attachment_type])
-  @@map("broadcast_attachments")
 }
 
 model BroadcastSegment {
-  segment_id        String   @id @default(uuid()) @db.Uuid
-  name              String   @db.VarChar(100)
-  description       String?
-  filters           Json
-  created_by_cadmin String   @db.Uuid
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime @updatedAt @db.Timestamptz(6)
-  cadmin            CAdmin   @relation("BroadcastSegments", fields: [created_by_cadmin], references: [cadmin_id])
-
-  @@index([created_by_cadmin])
-  @@map("broadcast_segments")
 }
 
 model BroadcastTemplate {
-  template_id       String   @id @default(uuid()) @db.Uuid
-  name              String   @db.VarChar(100)
-  title             String   @db.VarChar(200)
-  message           String
-  priority          String   @default("normal") @db.VarChar(20)
-  attachments       Json?
-  usage_count       Int      @default(0)
-  created_by_cadmin String   @db.Uuid
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime @updatedAt @db.Timestamptz(6)
-  cadmin            CAdmin   @relation("BroadcastTemplates", fields: [created_by_cadmin], references: [cadmin_id])
-
-  @@index([created_by_cadmin])
-  @@index([usage_count(sort: Desc)])
-  @@map("broadcast_templates")
 }
 
 model EmailBroadcastCampaign {
-  campaign_id         String    @id @default(uuid()) @db.Uuid
-  subject             String    @db.VarChar(300)
-  body_html           String
-  body_text           String?
-  from_name           String    @db.VarChar(100)
-  from_email          String    @db.VarChar(100)
-  reply_to            String?   @db.VarChar(100)
-  
-  // Targeting
-  target_filters      Json
-  target_users        Boolean   @default(true)    //  ADD THIS
-  target_cadmins      Boolean   @default(false)   //  ADD THIS
-  recipient_count     Int       @default(0)
-  
-  // Content
-  inline_image        Json?
-  attachments         Json?
-  action_url          String?   @db.VarChar(500)  //  ADD THIS
-  action_label        String?   @db.VarChar(100)  //  ADD THIS
-
-  attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
-  
-  // Scheduling & Status
-  status              EmailCampaignStatus @default(DRAFT)
-  scheduled_for       DateTime?           @db.Timestamptz(6)
-  
-  // Processing
-  processing          Boolean   @default(false)
-  processing_started_at DateTime? @db.Timestamptz(6)
-  last_processed_index Int      @default(0)
-  
-  // Results
-  delivered_count     Int       @default(0)
-  failed_count        Int       @default(0)
-  bounced_count       Int       @default(0)
-  opened_count        Int       @default(0)
-  clicked_count       Int       @default(0)
-  unsubscribed_count  Int       @default(0)
-  
-  // Metadata
-  sent_at             DateTime? @db.Timestamptz(6)
-  completed_at        DateTime? @db.Timestamptz(6)
-  last_error          String?
-  
-  // Audit
-  created_by_cadmin   String    @db.Uuid
-  cadmin_name         String    @db.VarChar(100)
-  created_at          DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime  @updatedAt @db.Timestamptz(6)
-  
-  // Relations
-  cadmin              CAdmin    @relation("EmailBroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
-  recipients          EmailBroadcastRecipient[] @relation("CampaignRecipients")
-  
-  @@index([status, scheduled_for])
-  @@index([created_by_cadmin])
-  @@index([created_at(sort: Desc)])
-  @@index([processing, status])
-  @@map("email_broadcast_campaigns")
 }
 
 model EmailBroadcastRecipient {
-  recipient_id  String   @id @default(uuid()) @db.Uuid
-  campaign_id   String   @db.Uuid
-  
-  // Recipient info
-  email         String   @db.VarChar(255)
-  name          String?  @db.VarChar(200)
-  user_id       String?  @db.Uuid
-  shop_id       String?  @db.Uuid
-  
-  // Delivery status
-  status        EmailRecipientStatus @default(PENDING)
-  sent_at       DateTime?            @db.Timestamptz(6)
-  delivered_at  DateTime?            @db.Timestamptz(6)
-  opened_at     DateTime?            @db.Timestamptz(6)
-  clicked_at    DateTime?            @db.Timestamptz(6)
-  bounced_at    DateTime?            @db.Timestamptz(6)
-  failed_at     DateTime?            @db.Timestamptz(6)
-  
-  // Provider details
-  provider_message_id String? @db.VarChar(255)
-  error_message       String?
-  bounce_reason       String?
-  
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  
-  campaign      EmailBroadcastCampaign @relation("CampaignRecipients", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
-  
-  @@index([campaign_id, status])
-  @@index([email])
-  @@index([status])
-  @@map("email_broadcast_recipients")
 }
 
 model DailySendQuota {
-  date       String   @id @db.VarChar(10) // YYYY-MM-DD format
-  sent_count Int      @default(0)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
-  
-  @@index([date])
-  @@map("daily_send_quota")
 }
 
 model EmailUnsubscribe {
-  unsubscribe_id  String   @id @default(uuid()) @db.Uuid
-  email           String   @unique @db.VarChar(255)
-  token           String?  @db.VarChar(255)  // ← ADD THIS
-  user_id         String?  @db.Uuid
-  cadmin_id       String?  @db.Uuid          // ← RENAME from shop_id
-  reason          String?  @db.VarChar(500)  // ← increase length for longer reasons
-  unsubscribed_at DateTime @default(now()) @db.Timestamptz(6)
-
-  @@index([email])
-  @@map("email_unsubscribes")
 }
 
 model CronLock {
-  job_name    String    @id @db.VarChar(100)
-  locked_by   String?   @db.VarChar(255)
-  locked_at   DateTime? @db.Timestamptz(6)
-  expires_at  DateTime? @db.Timestamptz(6)
-  last_result String?   @db.VarChar(20)
-  last_run_at DateTime? @db.Timestamptz(6)
-
-  @@index([expires_at])
-  @@map("cron_locks")
 }
 
 model OtpDailyLimit {
-  id         String   @id @default(uuid())
-  identifier String   // "sms:9961045596" or "email:user@example.com"
-  date       DateTime @db.Date
-  count      Int      @default(0)
-  created_at DateTime @default(now())
-
-  @@unique([identifier, date], name: "identifier_date")
-  @@index([date])
-  @@map("otp_daily_limits")
 }
 
 model Ticket {
-  ticket_id          String           @id @default(uuid()) @db.Uuid
-  ticket_number      String           @unique @db.VarChar(30)
-
-  // Ownership
-  shop_id            String           @db.Uuid
-  branch_id          String?          @db.Uuid
-  created_by_user_id String           @db.Uuid
-
-  // Cancellation actor (nullable — only set when cancelled)
-  cancelled_by_user_id String?        @db.Uuid
-
-  // Reopen actor (nullable — only set when last reopened)
-  reopened_by_user_id  String?        @db.Uuid
-
-  // Content
-  contact_number     String           @db.VarChar(15)
-  category           TicketCategory
-  other_category_text String?         @db.VarChar(100)
-  subject            String           @db.VarChar(200)
-  description        String?
-  preferred_slot     String           @db.VarChar(20)
-
-  // State (managed ONLY by state machine)
-  status             TicketStatus     @default(PENDING)
-  reopen_count       Int              @default(0)
-
-  // Counters (denormalised for query speed)
-  attachment_count   Int              @default(0)
-  activity_count     Int              @default(0)
-
-  // Timestamps
-  created_at         DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime         @updatedAt @db.Timestamptz(6)
-  resolved_at        DateTime?        @db.Timestamptz(6)
-  closed_at          DateTime?        @db.Timestamptz(6)
-  cancelled_at       DateTime?        @db.Timestamptz(6)
-
-  // Relations
-  shop               Shop             @relation("ShopTickets", fields: [shop_id], references: [shop_id])
-  branch             Branch?          @relation("BranchTickets", fields: [branch_id], references: [branch_id])
-  created_by         User             @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
-  cancelled_by       User?            @relation("TicketCanceller", fields: [cancelled_by_user_id], references: [user_id])
-  reopened_by        User?            @relation("TicketReopener", fields: [reopened_by_user_id], references: [user_id])
-  attachments        TicketAttachment[]
-  activities         TicketActivity[]
-
-  @@index([shop_id, status, created_at(sort: Desc)])
-  @@index([branch_id, status])
-  @@index([created_by_user_id])
-  @@index([status, created_at(sort: Desc)])
-  @@index([ticket_number])
-  @@index([cancelled_by_user_id])
-  @@index([reopened_by_user_id])
-  @@map("tickets")
 }
 
 model TicketActivity {
-  activity_id    String              @id @default(uuid()) @db.Uuid
-  ticket_id      String              @db.Uuid
-
-  // What happened
-  type           TicketActivityType
-  from_status    TicketStatus?       // null for COMMENT / CREATED
-  to_status      TicketStatus?       // null for COMMENT
-
-  // Who did it
-  actor_type     String              @db.VarChar(20)  // "ERP_USER" | "CADMIN" | "SYSTEM"
-  actor_id       String              @db.Uuid
-  actor_name     String              @db.VarChar(150)
-  actor_role     String?             @db.VarChar(50)
-
-  // The message/reason for this action (optional for pure status changes)
-  note           String?
-
-  // Visibility
-  is_internal    Boolean             @default(false)  // true = cadmin-only note
-
-  created_at     DateTime            @default(now()) @db.Timestamptz(6)
-
-  ticket         Ticket              @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
-
-  @@index([ticket_id, created_at(sort: Asc)])
-  @@index([type])
-  @@index([actor_id])
-  @@map("ticket_activities")
 }
 
 model TicketAttachment {
-  attachment_id  String   @id @default(uuid()) @db.Uuid
-  ticket_id      String   @db.Uuid
-  storage_key    String
-  original_name  String   @db.VarChar(255)
-  mime_type      String   @db.VarChar(100)
-  file_size      Int
-  uploaded_at    DateTime @default(now()) @db.Timestamptz(6)
-
-  ticket         Ticket   @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
-
-  @@index([ticket_id])
-  @@map("ticket_attachments")
 }
 
 model Enquiry {
-  enquiry_id     String         @id @default(uuid()) @db.Uuid
-  enquiry_number String         @unique @db.VarChar(30)
-  name           String         @db.VarChar(100)
-  email          String         @db.VarChar(255)
-  phone          String?        @db.VarChar(20)
-  message        String
-  status         EnquiryStatus  @default(PENDING)
-  created_at     DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime       @updatedAt @db.Timestamptz(6)
-  replies        EnquiryReply[]
-
-  @@index([status])
-  @@index([created_at])
-  @@index([email])
-  @@map("enquiries")
 }
 
 model EnquiryReply {
-  reply_id      String    @id @default(uuid()) @db.Uuid
-  enquiry_id    String    @db.Uuid
-  replied_by_id String    @db.Uuid
-  subject       String    @db.VarChar(200)
-  message       String
-  email_sent    Boolean   @default(false)
-  email_sent_at DateTime? @db.Timestamptz(6)
-  email_error   String?
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  enquiry       Enquiry   @relation(fields: [enquiry_id], references: [enquiry_id], onDelete: Cascade)
-  replied_by    CAdmin    @relation("EnquiryRepliedBy", fields: [replied_by_id], references: [cadmin_id])
+  
+}
 
-  @@index([enquiry_id])
-  @@index([replied_by_id])
-  @@map("enquiry_replies")
+
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// OTHER MODELS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+
+model AuditLog {
+  
+}
+
+model ActivityLog {
+ 
+}
+
+model DeletionLog {
+ 
+}
+
+model FileVerificationLog {
+ 
 }
 
 model PlanActivityLog {
-  id          String   @id @default(uuid()) @db.Uuid
-  plan_id     String   @db.Uuid
-  cadmin_id   String?  @db.Uuid
-  action      String   @db.VarChar(50)
-  from_status String?  @db.VarChar(20)
-  to_status   String?  @db.VarChar(20)
-  changes     Json?
-  meta        Json?
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  cadmin      CAdmin?  @relation("PlanActivityByCAdmin", fields: [cadmin_id], references: [cadmin_id])
-  plan        Plan     @relation(fields: [plan_id], references: [plan_id])
-
-  @@index([plan_id])
-  @@index([cadmin_id])
-  @@index([action])
-  @@index([created_at])
-  @@map("plan_activity_logs")
+  
 }
 
 
-Products and Suppliers
-Graphical Analysis
-Sales Profit Report
 
-Rate Analysis
 
-Doctor
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+enum LinkStatus {
+  PENDING       // Not yet matched
+  AUTO_LINKED   // Auto-matched with high confidence
+  SUGGESTED     // Needs manual confirmation
+  MANUAL_LINKED // Manually confirmed by user
+  UNLINKED      // Intentionally kept separate
+}
+enum MarketplaceStatus {
+  NOT_STARTED
+  DRAFT
+  LIVE
+  SUSPENDED
+}
 
-Supplier
+enum EmailAttachmentType {
+  INLINE
+  ATTACHMENT
+}
 
-Customer
+enum MedicineType {
+  DRUG
+  OTC
+}
 
-Product
+enum ImageType {
+  PRIMARY
+  GALLERY
+}
 
-Expiry
-Product Details
+enum ImageSource {
+  SCRAPED
+  UPLOADED
+}
 
-Min-Max-Dead Stock
 
-Stock Reports
-Sales Reports
-Purchase Reports
-GST Reports
-Liability
-Accounts
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  SUSPENDED
+}
 
-Login Report
-Login Report (Service)
+enum PlanType {
+  PRE_MADE
+  CUSTOM
+}
+
+enum EnquiryStatus {
+  PENDING
+  IN_PROGRESS
+  REPLIED
+  CLOSED
+}
+
+enum StockMovementType {
+  PURCHASE
+  PURCHASE_RETURN
+  SALE
+  SALE_RETURN
+  OPENING_STOCK
+  STOCK_ADJUSTMENT
+  DAMAGED
+  EXPIRED
+  TRANSFER_IN
+  TRANSFER_OUT
+  INVENTORY_IMPORT    
+}
+enum ImportJobStatus {
+  PENDING
+  PARSING
+  AWAITING_REVIEW
+  CONFIRMING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum InventorySource {
+  MANUAL
+  PURCHASE
+  IMPORT
+}
+enum AdjustmentReason {
+  PHYSICAL_COUNT_VARIANCE
+  DAMAGED_GOODS
+  EXPIRED_GOODS
+  SYSTEM_CORRECTION
+  THEFT_LOSS
+  OTHER
+}
+
+enum ReturnReason {
+  DAMAGED_GOODS
+  EXPIRED_GOODS
+  WRONG_ITEM_RECEIVED
+  QUALITY_ISSUE
+  EXCESS_STOCK
+  PRICE_DIFFERENCE
+  OTHER
+}
+
+
+enum BroadcastAttachmentType {
+  IMAGE
+  VIDEO
+  LINK
+}
+
+enum PaymentAdjustmentType {
+  CASH_REFUND
+  CREDIT_NOTE
+  OFFSET_NEXT_PURCHASE
+}
+
+enum ReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalesReturnReason {
+  EXPIRED_PRODUCT
+  DAMAGED_PRODUCT
+  WRONG_PRODUCT
+  CUSTOMER_REQUEST
+  QUALITY_ISSUE
+  PRICE_DISPUTE
+  OTHER
+}
+
+enum SalesReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalesRefundMode {
+  CASH
+  CREDIT
+  ADJUST_NEXT
+}
+
+// Enums
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  PAUSED
+  SENT
+  PARTIAL_FAILURE
+  FAILED
+  CANCELLED
+}
+
+enum EmailRecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+}
+
+// ── ENUMS ─────────────────────────────────────────────────────────────────────
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketCategory {
+  TECHNICAL_ISSUE
+  BILLING_ISSUE
+  FEATURE_REQUEST
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketActivityType {
+  CREATED          // ticket first created
+  STATUS_CHANGED   // any status transition
+  COMMENT          // note without status change (admin internal or user-visible)
+  REOPENED         // convenience alias (also sets status back to PENDING)
+  CANCELLED        // user or admin cancelled
+  ATTACHMENT_ADDED // file uploaded post-creation
+}
+
+enum MarketplaceStockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+}
+
+enum MarketplaceOrderStatus {
+  PLACED
+  ACCEPTED
+  READY_FOR_PICKUP
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum UserSex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum BranchHolidayScope {
+  BRANCH
+  SHOP
+}
+
+enum PrescriptionRequestStatus {
+  PENDING
+  PARTIALLY_RESPONDED
+  FULLY_RESPONDED
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum PrescriptionRecipientStatus {
+  SENT
+  QUOTE_SENT
+  DECLINED
+  ACCEPTED
+  CONVERTED
+  EXPIRED
+}

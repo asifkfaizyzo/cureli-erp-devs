@@ -64,7 +64,7 @@ export default {
           image: "./assets/images/cureliwhitenew.png",
           imageWidth: 160,
           resizeMode: "contain",
-          backgroundColor: "#05015A",
+          backgroundColor: "#020023",
         },
       ],
       "expo-font",
@@ -81,7 +81,7 @@ export default {
         "expo-notifications",
         {
           icon: "./assets/images/android-icon-monochrome.png",
-          color: "#05015A",
+          color: "#020023",
           defaultChannel: "default",
           sounds: [],
         },

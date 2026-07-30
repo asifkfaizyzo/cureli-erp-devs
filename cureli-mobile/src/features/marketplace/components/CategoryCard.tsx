@@ -1,7 +1,11 @@
 // src/features/marketplace/components/CategoryCard.tsx
 //
 // Bigger category tile with image-first rendering.
-// If no image exists, falls back to the backend-provided Ionicon.
+//
+// Image priority order:
+//   1. category.imageUrl  — remote CDN URL from CAdmin display override
+//   2. getCategoryImage() — local bundled image (currently all null, kept as future fallback)
+//   3. Ionicons           — always-available fallback, uses category.icon
 //
 // Grid item can be:
 //   - category
@@ -58,9 +62,6 @@ function CategoryCardBase({
 }: CategoryCardProps) {
   const { colors } = useTheme();
 
-  // Important:
-  // We want the box to be ~100 on larger phones,
-  // but it must shrink on smaller devices so 3 columns still fit.
   const imageBoxSize = Math.min(100, cardWidth - 6);
 
   if (item.type === "empty") {
@@ -70,7 +71,7 @@ function CategoryCardBase({
   if (item.type === "next" || item.type === "back") {
     const isNext = item.type === "next";
     const label = isNext ? "More" : "Back";
-    const icon = isNext ? "arrow-forward" : "arrow-back";
+    const icon  = isNext ? "arrow-forward" : "arrow-back";
 
     return (
       <TouchableOpacity
@@ -103,9 +104,17 @@ function CategoryCardBase({
   }
 
   const category = item.data;
-  const accent = getCategoryAccent(category.key);
-  const imageSource = getCategoryImage(category.key);
-  const tintBg = `${accent}18`;
+  const accent   = getCategoryAccent(category.key);
+  const tintBg   = `${accent}18`;
+
+  // Image priority:
+  //   1. Remote URL from backend override (CAdmin-uploaded via App Config)
+  //   2. Local bundled image from getCategoryImage() (all null currently,
+  //      kept as a future fallback if images are ever bundled locally)
+  //   3. Ionicons icon — rendered when imageSource is null
+  const imageSource = category.imageUrl
+    ? { uri: category.imageUrl }
+    : getCategoryImage(category.key);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withTiming(selected ? 1.02 : 1, { duration: 120 }) }],
@@ -129,11 +138,11 @@ function CategoryCardBase({
           style={[
             styles.imageBox,
             {
-              width: imageBoxSize,
-              height: imageBoxSize,
+              width:           imageBoxSize,
+              height:          imageBoxSize,
               backgroundColor: tintBg,
-              borderColor: selected ? colors.brand.primary : `${accent}40`,
-              borderWidth: selected ? 2 : 1,
+              borderColor:     selected ? colors.brand.primary : `${accent}40`,
+              borderWidth:     selected ? 2 : 1,
             },
           ]}
         >
@@ -141,7 +150,7 @@ function CategoryCardBase({
             <Image
               source={imageSource}
               style={styles.image}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           ) : (
             <Ionicons name={category.icon as any} size={34} color={accent} />
@@ -153,7 +162,7 @@ function CategoryCardBase({
         style={[
           styles.label,
           {
-            color: selected ? colors.text.brand : colors.text.secondary,
+            color:      selected ? colors.text.brand : colors.text.secondary,
             fontFamily: selected ? "Inter_600SemiBold" : "Inter_500Medium",
           },
         ]}
@@ -181,12 +190,12 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   image: {
-    width: "78%",
-    height: "78%",
+    width:  "100%",
+    height: "100%",
   },
   label: {
     ...Typography.smallMedium,
-    textAlign: "center",
+    textAlign:     "center",
     paddingHorizontal: 2,
     minHeight: 32,
   },

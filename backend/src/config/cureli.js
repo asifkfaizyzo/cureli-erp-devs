@@ -3,10 +3,11 @@
 // Update these when real company details are available.
 
 export const CURELI_COMPANY = {
-  name: 'Cureli Health Technologies Pvt. Ltd.',
-  address: '123 Health Street, Kochi, Kerala 682001',
-  phone: '+91 90000 00000',
-  email: 'support@cureli.in',
+  name: 'Cureli Orbit Pvt. Ltd.',
+  address: 'Indiranagar, Bangalore North, 560038, Karnataka',
+  phone: '+91 73560 20940',
+  email: 'support@curelihealth.com',
   gstin: '32XXXXX1234X1ZX', // Update with real GSTIN
-  website: 'www.cureli.in',
+  website: 'www.curelihealth.com',
 };
+

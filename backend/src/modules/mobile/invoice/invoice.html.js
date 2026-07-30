@@ -304,7 +304,7 @@ function renderPage2({ order, invoice }) {
         <div class="cureli-name">${CURELI_COMPANY.name}</div>
         <div class="cureli-meta">${CURELI_COMPANY.address}</div>
         <div class="cureli-meta">Phone: ${CURELI_COMPANY.phone} | Email: ${CURELI_COMPANY.email}</div>
-        ${CURELI_COMPANY.gstin ? `<div class="cureli-meta" style="margin-top:4px">GSTIN: ${CURELI_COMPANY.gstin}</div>` : ''}
+        
       </div>
 
       <!-- Reference -->

@@ -207,6 +207,13 @@ export const CADMIN_PERMISSIONS = {
   SETTINGS_EDIT_IDENTITY: "settings.edit_identity", // Update name and username
   SETTINGS_EDIT_CONTACT: "settings.edit_contact", // Update email and phone
   SETTINGS_EDIT_PASSWORD: "settings.edit_password", // Update account password
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MODULE: APP CONFIG
+  // Covers: Mobile app display configuration — category images, visibility
+  // ─────────────────────────────────────────────────────────────────────────
+  APP_CONFIG_VIEW: "app_config.view",
+  APP_CONFIG_MANAGE_CATEGORY_IMAGES: "app_config.manage_category_images",
 };
 
 // =============================================================================
@@ -688,6 +695,24 @@ export const CADMIN_PERMISSION_GROUPS = [
         label: "Send Mobile Broadcast",
         description:
           "Preview recipient count, check sending limits, and dispatch mobile/SMS broadcasts immediately",
+      },
+    ],
+  },
+  {
+    module: "App Config",
+    key: "app_config",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.APP_CONFIG_VIEW,
+        label: "View App Config",
+        description:
+          "Access the App Config section and view category display settings",
+      },
+      {
+        key: CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES,
+        label: "Manage Category Images",
+        description:
+          "Upload, replace, and remove category images shown in the mobile app. Control category visibility.",
       },
     ],
   },

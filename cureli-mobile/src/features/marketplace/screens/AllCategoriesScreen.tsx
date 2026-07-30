@@ -3,16 +3,18 @@
 // Full categories screen — reached from "View all" on the home screen.
 //
 // Layout:
-//   1. Top section — the 3 top-level hero categories (English Medicine,
+//   1. Top section — the top-level hero categories (English Medicine,
 //      Ayurvedic, Veterinary). Same cards as the home screen but displayed
 //      in a 3-column row at the top.
+//      Hidden categories (CAdmin override) are excluded from this row.
 //   2. Section divider with label "All Categories".
 //   3. Bottom section — all backend-driven curated categories from
 //      useCategories, displayed in a 3-column scrollable grid.
+//      Hidden categories are already excluded from the API response.
 //
 // Both sections use CategoryCard for visual consistency.
-// The top section is static — no backend dependency, no loading state.
-// The bottom section shows a skeleton while useCategories loads.
+// The top section uses useMarketplaceDisplay for remote image + visibility.
+// The bottom section uses useCategories (already merges imageUrl + filters hidden).
 
 import React, { useCallback, useMemo } from "react";
 import {
@@ -32,12 +34,14 @@ import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 
 import { useCategories } from "../hooks/useCategories";
+import { useMarketplaceDisplay } from "../hooks/useMarketplaceDisplay";
 import { CategoryCard } from "../components/CategoryCard";
 import { CategoryGridSkeleton } from "../components/CategoryGridSkeleton";
 import { TOP_LEVEL_CATEGORIES } from "../constants/topLevelCategories";
+import type { MedicineCategory } from "../types/marketplace.types";
 
-const COLUMNS = 3;
-const GAP = Spacing.sm;
+const COLUMNS            = 3;
+const GAP                = Spacing.sm;
 const HORIZONTAL_PADDING = Spacing.base * 2;
 
 function chunkIntoRows<T>(items: T[], size: number): T[][] {
@@ -49,26 +53,40 @@ function chunkIntoRows<T>(items: T[], size: number): T[][] {
 }
 
 export function AllCategoriesScreen() {
-  const { colors } = useTheme();
+  const { colors }       = useTheme();
   const { width: screenWidth } = useWindowDimensions();
 
   const { categories, isLoading } = useCategories();
+  const { overrides }             = useMarketplaceDisplay();
 
   const cardWidth =
     (screenWidth - HORIZONTAL_PADDING - GAP * (COLUMNS - 1)) / COLUMNS;
 
-  // ── Top-level row (3 cards, always static) ─────────────────
-  // Pad with empty spacers if TOP_LEVEL_CATEGORIES has fewer than 3.
-  // Currently exactly 3 — but this guards against future changes.
+  // ── Top-level hero row ─────────────────────────────────────────────────────
+  // Filter hidden cards and attach remote imageUrl from overrides.
+  // Pads remaining visible cards to COLUMNS with spacers so layout stays
+  // consistent regardless of how many are hidden.
+
+  const visibleTopLevel = useMemo((): MedicineCategory[] => {
+    return TOP_LEVEL_CATEGORIES
+      .filter((cat) => !overrides[cat.key]?.isHidden)
+      .map((cat) => ({
+        ...cat,
+        imageUrl: overrides[cat.key]?.imageUrl ?? null,
+      }));
+  }, [overrides]);
+
+  // Pad to COLUMNS with undefined spacers for the row layout
   const topLevelRow = useMemo(() => {
-    const row = [...TOP_LEVEL_CATEGORIES];
+    const row: (MedicineCategory | undefined)[] = [...visibleTopLevel];
     while (row.length < COLUMNS) {
-      row.push(undefined as any);
+      row.push(undefined);
     }
     return row;
-  }, []);
+  }, [visibleTopLevel]);
 
-  // ── Backend categories in 3-column rows ────────────────────
+  // ── Backend curated categories in 3-column rows ────────────────────────────
+  // useCategories already filters hidden categories and attaches imageUrl.
   const rows = useMemo(() => chunkIntoRows(categories, COLUMNS), [categories]);
 
   const handleBack = useCallback(() => {
@@ -82,6 +100,9 @@ export function AllCategoriesScreen() {
     } as any);
   }, []);
 
+  // If all top-level cards are hidden, skip the top section entirely
+  const showTopSection = visibleTopLevel.length > 0;
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
@@ -92,7 +113,7 @@ export function AllCategoriesScreen() {
         style={[
           styles.header,
           {
-            backgroundColor: colors.background.page,
+            backgroundColor:  colors.background.page,
             borderBottomColor: colors.border.subtle,
           },
         ]}
@@ -104,18 +125,13 @@ export function AllCategoriesScreen() {
           accessibilityLabel="Go back"
           style={styles.backButton}
         >
-          <Ionicons
-            name="arrow-back"
-            size={22}
-            color={colors.text.primary}
-          />
+          <Ionicons name="arrow-back" size={22} color={colors.text.primary} />
         </TouchableOpacity>
 
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
           All Categories
         </Text>
 
-        {/* spacer to keep title centered */}
         <View style={styles.headerSpacer} />
       </View>
 
@@ -126,42 +142,44 @@ export function AllCategoriesScreen() {
           { paddingBottom: Spacing["3xl"] },
         ]}
       >
-        {/* ── Top-level hero categories ─────────────────────────── */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.topRow}>
-            {topLevelRow.map((category, index) => {
-              if (!category) {
+        {/* ── Top-level hero categories ──────────────────────────────────── */}
+        {showTopSection && (
+          <View style={styles.sectionContainer}>
+            <View style={styles.topRow}>
+              {topLevelRow.map((category, index) => {
+                if (!category) {
+                  return (
+                    <View
+                      key={`top-spacer-${index}`}
+                      style={{ width: cardWidth }}
+                    />
+                  );
+                }
                 return (
                   <View
-                    key={`top-spacer-${index}`}
-                    style={{ width: cardWidth }}
-                  />
+                    key={category.key}
+                    style={[
+                      styles.topCardWrapper,
+                      { width: cardWidth },
+                      index < topLevelRow.length - 1 && { marginRight: GAP },
+                    ]}
+                  >
+                    <CategoryCard
+                      item={{ type: "category", data: category }}
+                      cardWidth={cardWidth}
+                      selected={false}
+                      onPressCategory={handleSelectCategory}
+                      onPressNext={() => {}}
+                      onPressBack={() => {}}
+                    />
+                  </View>
                 );
-              }
-              return (
-                <View
-                  key={category.key}
-                  style={[
-                    styles.topCardWrapper,
-                    { width: cardWidth },
-                    index < topLevelRow.length - 1 && { marginRight: GAP },
-                  ]}
-                >
-                  <CategoryCard
-                    item={{ type: "category", data: category }}
-                    cardWidth={cardWidth}
-                    selected={false}
-                    onPressCategory={handleSelectCategory}
-                    onPressNext={() => {}}
-                    onPressBack={() => {}}
-                  />
-                </View>
-              );
-            })}
+              })}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* ── Section divider ───────────────────────────────────── */}
+        {/* ── Section divider ────────────────────────────────────────────── */}
         <View style={styles.dividerContainer}>
           <View
             style={[styles.dividerLine, { backgroundColor: colors.border.subtle }]}
@@ -174,7 +192,7 @@ export function AllCategoriesScreen() {
           />
         </View>
 
-        {/* ── Backend curated categories ─────────────────────────── */}
+        {/* ── Backend curated categories ──────────────────────────────────── */}
         {isLoading ? (
           <View style={styles.sectionContainer}>
             <CategoryGridSkeleton columns={3} count={12} />
@@ -196,14 +214,12 @@ export function AllCategoriesScreen() {
                 ))}
 
                 {row.length < COLUMNS
-                  ? Array.from({ length: COLUMNS - row.length }).map(
-                      (_, i) => (
-                        <View
-                          key={`spacer-${rowIndex}-${i}`}
-                          style={{ width: cardWidth }}
-                        />
-                      ),
-                    )
+                  ? Array.from({ length: COLUMNS - row.length }).map((_, i) => (
+                      <View
+                        key={`spacer-${rowIndex}-${i}`}
+                        style={{ width: cardWidth }}
+                      />
+                    ))
                   : null}
               </View>
             ))}
@@ -219,17 +235,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    height:           56,
+    flexDirection:    "row",
+    alignItems:       "center",
+    justifyContent:   "space-between",
     paddingHorizontal: Spacing.base,
     borderBottomWidth: 1,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
+    width:          36,
+    height:         36,
+    alignItems:     "center",
     justifyContent: "center",
   },
   headerTitle: {
@@ -245,20 +261,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
   topRow: {
-    flexDirection: "row",
+    flexDirection:  "row",
     justifyContent: "center",
   },
   topCardWrapper: {},
   dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection:    "row",
+    alignItems:       "center",
     paddingHorizontal: Spacing.base,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
+    marginTop:        Spacing.lg,
+    marginBottom:     Spacing.md,
+    gap:              Spacing.sm,
   },
   dividerLine: {
-    flex: 1,
+    flex:   1,
     height: 1,
   },
   dividerLabel: {
@@ -267,10 +283,10 @@ const styles = StyleSheet.create({
   },
   grid: {
     paddingHorizontal: Spacing.base,
-    gap: GAP,
+    gap:               GAP,
   },
   row: {
-    flexDirection: "row",
+    flexDirection:  "row",
     justifyContent: "space-between",
   },
 });

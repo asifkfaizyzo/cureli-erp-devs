@@ -75,6 +75,7 @@ export interface MedicineCategory {
   type: MedicineType;
   icon: string;
   count?: number;
+  imageUrl?: string | null; // ← Remote image URL from CAdmin display override
 }
 
 export interface CategoriesResponse {
@@ -163,4 +164,19 @@ export interface MedicineShopListing {
 
 export interface MedicineShopsResponse {
   shops: MedicineShopListing[];
+}
+
+// ── Display config ────────────────────────────────────────────
+//
+// Returned by GET /mobile/app-config/marketplace-display.
+// One entry per top-level category key.
+// Always contains all top-level keys — never sparse.
+
+export interface CategoryDisplayOverride {
+  imageUrl: string | null;
+  isHidden: boolean;
+}
+
+export interface MarketplaceDisplayResponse {
+  overrides: Record<string, CategoryDisplayOverride>;
 }

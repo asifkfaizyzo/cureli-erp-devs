@@ -15,12 +15,10 @@ export const CONFIG = {
   API_TIMEOUT: 15000,
 };
 
-
 // export const CONFIG = {
 //   BASE_URL: __DEV__ ? DEV_BASE_URL : PROD_BASE_URL,
 //   API_TIMEOUT: 15000,
 // };
-
 
 export const CART_CONFIG = {
   HANDLING_CHARGE: 10,
@@ -31,9 +29,6 @@ export const CART_CONFIG = {
 export const RECOMMENDATIONS_LIMIT = 6;
 export const DELIVERY_BUFFER_MINS = 8;
 
-export const REVIEW_MODE  = true;
-export const REVIEW_PHONE = '1234567890';
-export const REVIEW_OTP   = '123456';
-
-
-
+export const REVIEW_MODE = true;
+export const REVIEW_PHONE = "1234567890";
+export const REVIEW_OTP = "123456";

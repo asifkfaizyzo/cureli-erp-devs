@@ -911,6 +911,31 @@ model DeliveryPricingConfig {
   @@map("delivery_pricing_config")
 }
 
+
+model MarketplaceCategoryDisplayOverride {
+  id                   String   @id @default(uuid()) @db.Uuid
+  category_key         String   @unique @db.VarChar(150)
+
+  // Image override — all null when no image uploaded
+  image_storage_key    String?  @db.VarChar(500)
+  image_original_name  String?  @db.VarChar(255)
+  image_mime_type      String?  @db.VarChar(100)
+  image_file_size      Int?
+
+  // Visibility — false = visible (default), true = hidden from mobile
+  is_hidden            Boolean  @default(false)
+
+  // Audit snapshot — no FK, same pattern as broadcast campaigns
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category_key])
+  @@map("marketplace_category_display_overrides")
+}
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MARKETPLACE ORDERS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════

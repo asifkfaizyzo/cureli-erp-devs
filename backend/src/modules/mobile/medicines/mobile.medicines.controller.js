@@ -30,6 +30,7 @@ import {
 } from "./mobile.medicines.service.js";
 import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
 import prisma from "../../../config/prisma.js";
+import { getCategoryOverrideMap } from "../../cadmin/app-config/cadmin.appConfig.service.js";
 
 // ── GET /mobile/medicines/feed ────────────────────────────────
 
@@ -83,7 +84,28 @@ export async function handleListMedicines(req, res) {
 // ── GET /mobile/medicines/categories ──────────────────────────
 
 export async function handleListCategories(_req, res) {
-  return success(res, { categories: CURATED_CATEGORIES }, "Categories fetched");
+  try {
+    const overrideMap = await getCategoryOverrideMap();
+
+    const categories = CURATED_CATEGORIES
+      .filter((cat) => {
+        const override = overrideMap[cat.key];
+        // No row = visible (default). Row with is_hidden = true = filtered out.
+        return !override?.isHidden;
+      })
+      .map((cat) => {
+        const override = overrideMap[cat.key];
+        return {
+          ...cat,
+          imageUrl: override?.imageUrl ?? null,
+        };
+      });
+
+    return success(res, { categories }, "Categories fetched");
+  } catch (err) {
+    console.error("[mobile.medicines] categories error:", err);
+    return fail(res, "Failed to fetch categories", 500);
+  }
 }
 
 // ── GET /mobile/medicines/:variantId ──────────────────────────

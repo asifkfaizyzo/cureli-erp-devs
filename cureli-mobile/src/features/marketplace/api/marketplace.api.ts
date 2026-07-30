@@ -9,11 +9,16 @@
 //   when coordinates are provided. Used by the product detail screen's
 //   "Available at" bottom sheet.
 //
-// categories param (new):
+// categories param:
 //   When MedicineFeedParams.categories is provided, it is serialised
 //   as a comma-separated ?categories= query string.
-//   e.g. ["ANTI INFECTIVES", "PAIN ANALGESICS"] → ?categories=ANTI+INFECTIVES,PAIN+ANALGESICS
 //   Cannot be combined with category — mutually exclusive.
+//
+// getMarketplaceDisplay:
+//   GET /mobile/app-config/marketplace-display
+//   Returns display overrides (image URL + visibility) for the 3
+//   top-level hero category cards. Always returns all 3 keys.
+//   Used by TopLevelCategoryGrid and AllCategoriesScreen top row.
 
 import { api } from "../../../services/api";
 import type {
@@ -22,6 +27,7 @@ import type {
   MedicineDetailResponse,
   CategoriesResponse,
   MedicineShopsResponse,
+  MarketplaceDisplayResponse,
 } from "../types/marketplace.types";
 import type { HomeFeedResponse } from "../types/marketplace.types";
 import type {
@@ -50,11 +56,6 @@ export function extractErrorMessage(error: unknown): string {
 }
 
 // ── Query string builder ──────────────────────────────────────
-//
-// categories[] is serialised as a single comma-separated string.
-// URLSearchParams encodes spaces as + which the backend splits on ",".
-// category and categories are mutually exclusive — only one will be
-// present at a time, enforced by the hook before calling this.
 
 function buildFeedQuery(params: MedicineFeedParams): string {
   const sp = new URLSearchParams();
@@ -137,6 +138,23 @@ export const marketplaceApi = {
     const qs = buildLocationQuery(location);
     const response = await api.get<ApiResponse<MedicineShopsResponse>>(
       `/mobile/medicines/${encodeURIComponent(variantIdOrSku)}/shops${qs}`,
+    );
+    return response.data.data;
+  },
+
+  /**
+   * GET /mobile/app-config/marketplace-display
+   *
+   * Returns display overrides for the 3 top-level hero category cards.
+   * Response always contains all 3 top-level keys — never sparse.
+   * Used by useMarketplaceDisplay hook (staleTime: 30 minutes).
+   *
+   * On failure the hook returns an empty overrides map and the UI
+   * falls back to local icon/color defaults silently.
+   */
+  getMarketplaceDisplay: async (): Promise<MarketplaceDisplayResponse> => {
+    const response = await api.get<ApiResponse<MarketplaceDisplayResponse>>(
+      "/mobile/app-config/marketplace-display",
     );
     return response.data.data;
   },

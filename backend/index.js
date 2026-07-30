@@ -73,6 +73,7 @@ import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orde
 import cadminMobileBroadcastRoutes from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
 import cadminPricingRoutes from "./src/modules/cadmin/pricing/cadminPricing.routes.js";
 import cadminEnquiriesRoutes from "./src/modules/cadmin/enquiries/cadminEnquiries.routes.js";
+import cadminAppConfigRoutes from "./src/modules/cadmin/app-config/cadmin.appConfig.routes.js";
 
 // ============================================
 // MOBILE ROUTES
@@ -87,6 +88,7 @@ import mobilePrescriptionsRoutes from "./src/modules/mobile/prescriptions/mobile
 import mobileNotificationsRoutes from "./src/modules/mobile/notifications/mobile.notifications.routes.js";
 import mobilePushRoutes from "./src/modules/mobile/push/mobile.push.routes.js";
 import mobileCheckoutRoutes from "./src/modules/mobile/checkout/mobile.checkout.routes.js";
+import mobileAppConfigRoutes from "./src/modules/mobile/app-config/mobile.appConfig.routes.js";
 
 // ============================================
 // APP SETUP
@@ -260,6 +262,7 @@ app.use("/cadmin", cadminMobileUsersRoutes);
 app.use("/cadmin", cadminMarketplaceOrdersRoutes);
 app.use("/cadmin", cadminMobileBroadcastRoutes);
 app.use("/cadmin", cadminPricingRoutes);
+app.use("/cadmin", cadminAppConfigRoutes);
 
 // ============================================
 // MOBILE ROUTES
@@ -275,6 +278,7 @@ app.use("/mobile/notifications", mobileNotificationsRoutes);
 app.use("/mobile/push", mobilePushRoutes);
 app.use("/mobile/checkout", mobileCheckoutRoutes);
 app.use('/mobile/prescription-requests', prescriptionRequestsMobileRouter);
+app.use("/mobile/app-config", mobileAppConfigRoutes);
 
 // ============================================
 // HEALTH CHECK

@@ -25,3 +25,10 @@ export type {
   HomeFeedResponse,
   EnrichedFeedSection,
 } from "../../../types/feed";
+
+// ── Display config ─────────────────────────────────────────────────────────
+// Re-exported from src/types/medicine.ts for convenience.
+export type {
+  CategoryDisplayOverride,
+  MarketplaceDisplayResponse,
+} from "../../../types/medicine";

@@ -17,6 +17,7 @@ import {
   Pill,
   ShoppingBag,
   SlidersHorizontal,
+  BadgeIndianRupee,
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
@@ -25,13 +26,8 @@ import {
   useCAdminPermission,
 } from "../../hooks/useCAdminPermission";
 import { useAdminMode } from "../../store/useAdminModeStore";
-// ── NEW ───────────────────────────────────────────────────────
 import { useCommunicationBadgeStore } from "../../store/useCommunicationBadgeStore";
-// ─────────────────────────────────────────────────────────────
 
-// ============================================
-// SIDEBAR WIDTH CONFIG
-// ============================================
 const COLLAPSED_WIDTH = 72;
 
 const EXPANDED_WIDTH_CONFIG = {
@@ -49,7 +45,7 @@ const getExpandedWidth = () => {
   if (width >= 1536) return EXPANDED_WIDTH_CONFIG["2xl"];
   if (width >= 1280) return EXPANDED_WIDTH_CONFIG["xl"];
   if (width >= 1024) return EXPANDED_WIDTH_CONFIG["lg"];
-  if (width >= 768)  return EXPANDED_WIDTH_CONFIG["md"];
+  if (width >= 768) return EXPANDED_WIDTH_CONFIG["md"];
   return EXPANDED_WIDTH_CONFIG["sm"];
 };
 
@@ -60,9 +56,6 @@ const SIDEBAR_TRANSITION = {
   mass: 0.8,
 };
 
-// ============================================
-// MENU ITEMS
-// ============================================
 const ADMIN_MENU_ITEMS = [
   {
     id: "dashboard",
@@ -142,6 +135,7 @@ const ADMIN_MENU_ITEMS = [
     breadcrumbs: ["Audits"],
     permissionKey: "audit",
   },
+
   {
     id: "settings",
     label: "Settings",
@@ -184,15 +178,20 @@ const MARKETPLACE_MENU_ITEMS = [
   {
     id: "mp-pricing",
     label: "Pricing",
-    icon: SlidersHorizontal,
+    icon: BadgeIndianRupee,
     path: "/marketplace/pricing",
     breadcrumbs: ["Marketplace", "Pricing"],
   },
+  {
+    id: "app-config",
+    label: "App Config",
+    icon: SlidersHorizontal,
+    path: "/app-config/categories",
+    breadcrumbs: ["App Config", "Categories"],
+    permissionKey: "appConfig",
+  },
 ];
 
-// ============================================
-// CHILD ROUTES
-// ============================================
 const ADMIN_CHILD_ROUTES = {
   "/communications/tickets": {
     parentId: "communications",
@@ -234,18 +233,16 @@ const ADMIN_CHILD_ROUTES = {
     parentId: "orders",
     breadcrumbs: ["Orders", "Details"],
   },
+  "/app-config/categories": {
+    parentId: "app-config",
+    breadcrumbs: ["App Config", "Categories"],
+  },
 };
 
 const MARKETPLACE_CHILD_ROUTES = {};
 
 const NON_SIDEBAR_ROUTES = ["/notifications"];
 
-// ============================================
-// RED DOT COMPONENT
-// ============================================
-// Shown on Communications when there are pending tickets or enquiries.
-// position: absolute top-right of the button, ring-white creates the
-// white gap between dot and icon that makes it visually distinct.
 const RedDot = () => (
   <span
     className="
@@ -256,11 +253,8 @@ const RedDot = () => (
   />
 );
 
-// ============================================
-// MENU ITEM COMPONENT
-// ============================================
 const MenuItem = ({ item, activeMenu, isExpanded, onNavigate, showBadge }) => {
-  const Icon     = item.icon;
+  const Icon = item.icon;
   const isActive = activeMenu === item.id;
 
   return (
@@ -296,34 +290,28 @@ const MenuItem = ({ item, activeMenu, isExpanded, onNavigate, showBadge }) => {
         {item.label}
       </motion.span>
 
-      {/* Red dot — only rendered when showBadge is true */}
       {showBadge && <RedDot />}
     </motion.button>
   );
 };
 
-// ============================================
-// MAIN SIDEBAR COMPONENT
-// ============================================
 const AdminSidebar = ({ expanded, onExpandChange }) => {
-  const activeMenu     = useMenuStore((s) => s.activeMenu);
-  const setActiveMenu  = useMenuStore((s) => s.setActiveMenu);
+  const activeMenu = useMenuStore((s) => s.activeMenu);
+  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const permissions       = useCAdminMenuPermissions();
+  const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
   const { isMarketplace, isAdmin } = useAdminMode();
 
-  // ── Badge counts ──────────────────────────────────────────
-  // Read from the store that AppLayout started polling.
-  // hasPendingComms drives the red dot on the Communications item.
-  const pendingTickets   = useCommunicationBadgeStore((s) => s.pendingTickets);
-  const pendingEnquiries = useCommunicationBadgeStore((s) => s.pendingEnquiries);
-  const hasPendingComms  = pendingTickets > 0 || pendingEnquiries > 0;
-  // ─────────────────────────────────────────────────────────
+  const pendingTickets = useCommunicationBadgeStore((s) => s.pendingTickets);
+  const pendingEnquiries = useCommunicationBadgeStore(
+    (s) => s.pendingEnquiries,
+  );
+  const hasPendingComms = pendingTickets > 0 || pendingEnquiries > 0;
 
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
 
@@ -333,11 +321,17 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const currentMenuItems   = isMarketplace ? MARKETPLACE_MENU_ITEMS : ADMIN_MENU_ITEMS;
-  const currentChildRoutes = isMarketplace ? MARKETPLACE_CHILD_ROUTES : ADMIN_CHILD_ROUTES;
-  const defaultMenuId      = isMarketplace ? "mp-users"           : "dashboard";
-  const defaultPath        = isMarketplace ? "/marketplace/users" : "/dashboard";
-  const defaultBreadcrumbs = isMarketplace ? ["Marketplace", "Users"] : ["Dashboard"];
+  const currentMenuItems = isMarketplace
+    ? MARKETPLACE_MENU_ITEMS
+    : ADMIN_MENU_ITEMS;
+  const currentChildRoutes = isMarketplace
+    ? MARKETPLACE_CHILD_ROUTES
+    : ADMIN_CHILD_ROUTES;
+  const defaultMenuId = isMarketplace ? "mp-users" : "dashboard";
+  const defaultPath = isMarketplace ? "/marketplace/users" : "/dashboard";
+  const defaultBreadcrumbs = isMarketplace
+    ? ["Marketplace", "Users"]
+    : ["Dashboard"];
 
   const visibleMenuItems = useMemo(() => {
     return currentMenuItems.filter((item) => {
@@ -357,10 +351,15 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     [navigate, setActiveMenu, setBreadcrumbs],
   );
 
-  const handleMouseEnter = useCallback(() => onExpandChange(true),  [onExpandChange]);
-  const handleMouseLeave = useCallback(() => onExpandChange(false), [onExpandChange]);
+  const handleMouseEnter = useCallback(
+    () => onExpandChange(true),
+    [onExpandChange],
+  );
+  const handleMouseLeave = useCallback(
+    () => onExpandChange(false),
+    [onExpandChange],
+  );
 
-  // Route → sidebar sync
   useEffect(() => {
     const currentPath = location.pathname;
     if (NON_SIDEBAR_ROUTES.includes(currentPath)) return;
@@ -393,15 +392,14 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     defaultBreadcrumbs,
   ]);
 
-  // Fallback redirect for unmatched routes
   useEffect(() => {
     const currentPath = location.pathname;
     if (currentPath === defaultPath) return;
     if (isMarketplace && !currentPath.startsWith("/marketplace")) return;
     if (isAdmin && currentPath.startsWith("/marketplace")) return;
 
-    const isValidMain      = visibleMenuItems.some((m) => m.path === currentPath);
-    const isValidChild     = Object.keys(currentChildRoutes).includes(currentPath);
+    const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
+    const isValidChild = Object.keys(currentChildRoutes).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
     if (isValidMain || isValidChild || isNonSidebarRoute) return;
@@ -432,9 +430,6 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     isAdmin,
   ]);
 
-  // ============================================
-  // RENDER
-  // ============================================
   return (
     <motion.aside
       onMouseEnter={handleMouseEnter}
@@ -476,7 +471,6 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
               activeMenu={activeMenu}
               isExpanded={expanded}
               onNavigate={handleNavigation}
-              // Only the Communications item gets the red dot
               showBadge={item.id === "communications" && hasPendingComms}
             />
           ))}
