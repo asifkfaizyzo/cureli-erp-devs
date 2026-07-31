@@ -11,3 +11,4 @@ dist/
 web-build/
 android/
 ios/'
+node_modules/
