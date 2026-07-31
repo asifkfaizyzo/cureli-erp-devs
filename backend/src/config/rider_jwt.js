@@ -1,0 +1,62 @@
+// backend/src/config/rider_jwt.js
+//
+// JWT configuration for Cureli Delivery rider auth.
+// Completely isolated from mobile_jwt.js, jwt.js, and cadmin_jwt.js.
+// Rider tokens carry { sub, sessionId, type: "rider" } — nothing else.
+
+import jwt from "jsonwebtoken";
+
+const ACCESS_TOKEN_SECRET = process.env.RIDER_JWT_SECRET;
+const ACCESS_TOKEN_EXPIRY = "15m";
+const REFRESH_TOKEN_EXPIRY_DAYS = 90;
+
+if (!ACCESS_TOKEN_SECRET) {
+  throw new Error("RIDER_JWT_SECRET is not set in environment variables");
+}
+
+/**
+ * Sign a rider access token.
+ * Payload is minimal — no PII, no role.
+ * Middleware fetches fresh rider data from DB on each request.
+ *
+ * @param {Object} params
+ * @param {string} params.riderId
+ * @param {string} params.sessionId
+ * @returns {string} Signed JWT
+ */
+export function signRiderAccessToken({ riderId, sessionId }) {
+  return jwt.sign(
+    {
+      sub: riderId,
+      sessionId,
+      type: "rider",
+    },
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRY }
+  );
+}
+
+/**
+ * Verify a rider access token.
+ * Throws JsonWebTokenError or TokenExpiredError on failure.
+ * Guards against non-rider tokens being used on rider endpoints.
+ *
+ * @param {string} token
+ * @returns {{ sub: string, sessionId: string, type: string }}
+ */
+export function verifyRiderAccessToken(token) {
+  const payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
+
+  if (payload.type !== "rider") {
+    const err = new Error("Invalid token type");
+    err.code = "INVALID_TOKEN_TYPE";
+    throw err;
+  }
+
+  return payload;
+}
+
+export const RIDER_REFRESH_TOKEN_EXPIRY_MS =
+  REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+export const RIDER_ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60; // 900

@@ -39,6 +39,7 @@ const ALLOWED_FOLDERS = [
   "prescription_requests",
   "order_invoices",
   "category_images",
+  "rider_documents",
 ];
 
 // File size limits (bytes)
@@ -52,6 +53,7 @@ const MAX_FILE_SIZES = {
   prescription_requests: 10 * 1024 * 1024,
   order_invoices: 10 * 1024 * 1024,
   category_images: 5 * 1024 * 1024,
+  rider_documents: 5 * 1024 * 1024,
 };
 
 // Allowed MIME types per folder
@@ -94,6 +96,13 @@ const ALLOWED_MIME_TYPES = {
     "text/plain",
     "text/csv",
   ],
+  rider_documents: [
+    // ← ADD THIS
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/pdf",
+  ],
   tickets: [
     "image/jpeg",
     "image/jpg",
@@ -116,12 +125,7 @@ const ALLOWED_MIME_TYPES = {
     "application/pdf",
   ],
   order_invoices: ["application/pdf"],
-  category_images: [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-  ],
+  category_images: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
 };
 
 // Blocked extensions (security)

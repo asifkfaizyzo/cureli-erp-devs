@@ -2,13 +2,18 @@
 
 /**
  * SSE Service Manager (Singleton)
- * Maintains active connections for CAdmin, ERP Users, and Mobile Customers.
+ * Maintains active SSE connections for:
+ *  - CAdmin        (Map<cadminId,    Set<Response>>)
+ *  - ERP Users     (Map<userId,      Set<Response>>)
+ *  - Mobile Customers (Map<customerId, Set<Response>>)
+ *  - Riders        (Map<riderId,     Set<Response>>)
  */
 class SSEService {
   constructor() {
-    this.cadminClients = new Map(); // Map<cadminId, Set<Response>>
-    this.userClients   = new Map(); // Map<userId,   Set<Response>>
-    this.mobileClients = new Map(); // Map<customerId, Set<Response>>
+    this.cadminClients = new Map(); // Map<cadminId,    Set<Response>>
+    this.userClients   = new Map(); // Map<userId,      Set<Response>>
+    this.mobileClients = new Map(); // Map<customerId,  Set<Response>>
+    this.riderClients  = new Map(); // Map<riderId,     Set<Response>>
   }
 
   // ── CAdmin ────────────────────────────────────────────────────────────────
@@ -101,11 +106,67 @@ class SSEService {
     });
   }
 
+  // ── Riders ────────────────────────────────────────────────────────────────
+
+  addRiderClient(riderId, res) {
+    if (!this.riderClients.has(riderId)) {
+      this.riderClients.set(riderId, new Set());
+    }
+    this.riderClients.get(riderId).add(res);
+  }
+
+  removeRiderClient(riderId, res) {
+    const clients = this.riderClients.get(riderId);
+    if (clients) {
+      clients.delete(res);
+      if (clients.size === 0) this.riderClients.delete(riderId);
+    }
+  }
+
+  notifyRider(riderId, eventName, data) {
+    const clients = this.riderClients.get(riderId);
+    if (!clients) return;
+    const message = this.formatSSEMessage(eventName, data);
+    clients.forEach((res) => {
+      try {
+        res.write(message);
+      } catch {
+        this.removeRiderClient(riderId, res);
+      }
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  /**
+   * Formats a message into the SSE wire format.
+   * @param {string} eventName - The SSE event name.
+   * @param {object} data      - The payload to serialize as JSON.
+   * @returns {string}         - Formatted SSE string.
+   */
   formatSSEMessage(eventName, data) {
     return `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
   }
+
+  /**
+   * Debug helper — returns a snapshot of active connection counts.
+   * Useful for health-check endpoints.
+   */
+  getConnectionStats() {
+    const countClients = (map) => {
+      let total = 0;
+      map.forEach((set) => (total += set.size));
+      return total;
+    };
+
+    return {
+      cadmin:   { sessions: this.cadminClients.size,  connections: countClients(this.cadminClients)  },
+      users:    { sessions: this.userClients.size,    connections: countClients(this.userClients)    },
+      mobile:   { sessions: this.mobileClients.size,  connections: countClients(this.mobileClients)  },
+      riders:   { sessions: this.riderClients.size,   connections: countClients(this.riderClients)   },
+    };
+  }
 }
 
+// Export singleton instance — one shared instance across the entire process
 export const sseService = new SSEService();

@@ -12,96 +12,110 @@ import { ensureIndexes } from "./src/config/ensureIndexes.js";
 // MIDDLEWARE IMPORTS
 // ============================================
 import maintenanceMiddleware from "./src/middleware/maintenance.js";
-import { globalLimiter, cadminLimiter, relaxedLimiter, mobileLimiter } from "./src/middleware/rateLimiter.js";
+import {
+  globalLimiter,
+  cadminLimiter,
+  relaxedLimiter,
+  mobileLimiter,
+} from "./src/middleware/rateLimiter.js";
 import publicUnsubscribeRoutes from "./src/modules/public/unsubscribe/unsubscribe.routes.js";
 
 // ============================================
 // ERP ROUTES
 // ============================================
-import authRoutes from "./src/modules/auth/auth.routes.js";
-import shopRoutes from "./src/modules/shop/shop.routes.js";
-import pendingRoutes from "./src/modules/pending/pending.routes.js";
-import shopFilesRoutes from "./src/modules/shopFiles/shopFiles.routes.js";
-import subscriptionRoutes from "./src/modules/subscription/subscription.routes.js";
-import plansRoutes from "./src/modules/plans/plans.routes.js";
-import setupRoutes from "./src/modules/setup/setup.routes.js";
-import branchesRoutes from "./src/modules/branches/branches.routes.js";
-import usersRoutes from "./src/modules/users/users.routes.js";
-import profileRoutes from "./src/modules/profile/profile.routes.js";
-import ticketRoutes from "./src/modules/tickets/tickets.routes.js";
-import enquiriesRoutes from "./src/modules/enquiries/enquiries.routes.js";
-import maintenanceRoutes from "./src/modules/maintenance/maintenance.routes.js";
-import userNotificationRoutes from "./src/modules/notifications/user/userNotifications.routes.js";
-import filesRoutes from "./src/modules/files/files.routes.js";
-import linkingRoutes from "./src/modules/medicines/linking.routes.js";
-import medicineRoutes from "./src/modules/medicines/medicine.routes.js";
-import supplierRoutes from "./src/modules/suppliers/supplier.routes.js";
-import purchaseRoutes from "./src/modules/purchase/purchase.routes.js";
-import inventoryRoutes from "./src/modules/inventory/inventory.routes.js";
-import salesRoutes from "./src/modules/sales/sales.routes.js";
-import customerRoutes from "./src/modules/customers/customer.routes.js";
-import excelRoutes from "./src/modules/excel/excel.routes.js";
-import marketplaceRoutes from "./src/modules/marketplace/marketplace.routes.js";
-import listingsRoutes from "./src/modules/marketplace-listings/listings.routes.js";
-import marketplaceOrdersRoutes from "./src/modules/marketplace-orders/marketplace.orders.routes.js";
-import marketplaceDashboardRoutes from "./src/modules/marketplace-dashboard/marketplaceDashboard.routes.js";
-import inventoryImportRoutes from "./src/modules/inventory-import/inventoryImport.routes.js";
-import prescriptionRequestsMobileRouter from './src/modules/prescription-requests/prescription.requests.routes.js';
-import prescriptionRequestsErpRouter    from './src/modules/prescription-requests/prescription.requests.erp.routes.js';
+import authRoutes                   from "./src/modules/auth/auth.routes.js";
+import shopRoutes                   from "./src/modules/shop/shop.routes.js";
+import pendingRoutes                from "./src/modules/pending/pending.routes.js";
+import shopFilesRoutes              from "./src/modules/shopFiles/shopFiles.routes.js";
+import subscriptionRoutes           from "./src/modules/subscription/subscription.routes.js";
+import plansRoutes                  from "./src/modules/plans/plans.routes.js";
+import setupRoutes                  from "./src/modules/setup/setup.routes.js";
+import branchesRoutes               from "./src/modules/branches/branches.routes.js";
+import usersRoutes                  from "./src/modules/users/users.routes.js";
+import profileRoutes                from "./src/modules/profile/profile.routes.js";
+import ticketRoutes                 from "./src/modules/tickets/tickets.routes.js";
+import enquiriesRoutes              from "./src/modules/enquiries/enquiries.routes.js";
+import maintenanceRoutes            from "./src/modules/maintenance/maintenance.routes.js";
+import userNotificationRoutes       from "./src/modules/notifications/user/userNotifications.routes.js";
+import filesRoutes                  from "./src/modules/files/files.routes.js";
+import linkingRoutes                from "./src/modules/medicines/linking.routes.js";
+import medicineRoutes               from "./src/modules/medicines/medicine.routes.js";
+import supplierRoutes               from "./src/modules/suppliers/supplier.routes.js";
+import purchaseRoutes               from "./src/modules/purchase/purchase.routes.js";
+import inventoryRoutes              from "./src/modules/inventory/inventory.routes.js";
+import salesRoutes                  from "./src/modules/sales/sales.routes.js";
+import customerRoutes               from "./src/modules/customers/customer.routes.js";
+import excelRoutes                  from "./src/modules/excel/excel.routes.js";
+import marketplaceRoutes            from "./src/modules/marketplace/marketplace.routes.js";
+import listingsRoutes               from "./src/modules/marketplace-listings/listings.routes.js";
+import marketplaceOrdersRoutes      from "./src/modules/marketplace-orders/marketplace.orders.routes.js";
+import marketplaceDashboardRoutes   from "./src/modules/marketplace-dashboard/marketplaceDashboard.routes.js";
+import inventoryImportRoutes        from "./src/modules/inventory-import/inventoryImport.routes.js";
+import prescriptionRequestsMobileRouter from "./src/modules/prescription-requests/prescription.requests.routes.js";
+import prescriptionRequestsErpRouter    from "./src/modules/prescription-requests/prescription.requests.erp.routes.js";
+
 // ============================================
 // CADMIN ROUTES
 // ============================================
-import cadminAuthRoutes from "./src/modules/cadmin/auth/cadminAuth.routes.js";
-import cadminDocsRoutes from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
-import cadminUserRoutes from "./src/modules/cadmin/users/cadminUser.routes.js";
-import cadminShopsRoutes from "./src/modules/cadmin/shops/cadminShops.routes.js";
-import cadminPlansRoutes from "./src/modules/cadmin/plans/cadminPlans.routes.js";
-import cadminAdminRoutes from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
-import cadminProfileRoutes from "./src/modules/cadmin/profile/cadminProfile.routes.js";
-import cadminTicketsRoutes from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
-import cadminSubscriptionsRoutes from "./src/modules/cadmin/subscriptions/cadminSubscriptions.routes.js";
-import cadminAuditRoutes from "./src/modules/cadmin/audit/cadminAudit.routes.js";
-import cadminBroadcastInAppRoutes from "./src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.routes.js";
-import cadminNotificationRoutes from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
-import cadminEmailBroadcastRoutes from "./src/modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js";
-import cadminDashboardRoutes from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
-import cadminMasterMedicinesRoutes from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
-import cadminRolesRoutes from "./src/modules/cadmin/roles/cadminRoles.routes.js";
-import cadminMarketplaceRoutes from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
-import cadminMobileUsersRoutes from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
+import cadminAuthRoutes              from "./src/modules/cadmin/auth/cadminAuth.routes.js";
+import cadminDocsRoutes              from "./src/modules/cadmin/cadminDocs/cadminDocs.routes.js";
+import cadminUserRoutes              from "./src/modules/cadmin/users/cadminUser.routes.js";
+import cadminShopsRoutes             from "./src/modules/cadmin/shops/cadminShops.routes.js";
+import cadminPlansRoutes             from "./src/modules/cadmin/plans/cadminPlans.routes.js";
+import cadminAdminRoutes             from "./src/modules/cadmin/admins/cadminAdmin.routes.js";
+import cadminProfileRoutes           from "./src/modules/cadmin/profile/cadminProfile.routes.js";
+import cadminTicketsRoutes           from "./src/modules/cadmin/tickets/cadminTickets.routes.js";
+import cadminSubscriptionsRoutes     from "./src/modules/cadmin/subscriptions/cadminSubscriptions.routes.js";
+import cadminAuditRoutes             from "./src/modules/cadmin/audit/cadminAudit.routes.js";
+import cadminBroadcastInAppRoutes    from "./src/modules/cadmin/broadcast/inapp/cadminInAppBroadcast.routes.js";
+import cadminNotificationRoutes      from "./src/modules/notifications/cadmin/cadminNotifications.routes.js";
+import cadminEmailBroadcastRoutes    from "./src/modules/cadmin/broadcast/email/cadminEmailBroadcast.routes.js";
+import cadminDashboardRoutes         from "./src/modules/cadmin/dashboard/cadminDashboard.routes.js";
+import cadminMasterMedicinesRoutes   from "./src/modules/cadmin/master-medicines/cadminMasterMedicines.routes.js";
+import cadminRolesRoutes             from "./src/modules/cadmin/roles/cadminRoles.routes.js";
+import cadminMarketplaceRoutes       from "./src/modules/cadmin/marketplace/cadmin.marketplace.routes.js";
+import cadminMobileUsersRoutes       from "./src/modules/cadmin/mobile-users/cadminMobileUsers.routes.js";
 import cadminMarketplaceOrdersRoutes from "./src/modules/cadmin/marketplace-orders/cadminMarketplaceOrders.routes.js";
-import cadminMobileBroadcastRoutes from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
-import cadminPricingRoutes from "./src/modules/cadmin/pricing/cadminPricing.routes.js";
-import cadminEnquiriesRoutes from "./src/modules/cadmin/enquiries/cadminEnquiries.routes.js";
-import cadminAppConfigRoutes from "./src/modules/cadmin/app-config/cadmin.appConfig.routes.js";
+import cadminMobileBroadcastRoutes   from "./src/modules/cadmin/broadcast/mobile/cadminMobileBroadcast.routes.js";
+import cadminPricingRoutes           from "./src/modules/cadmin/pricing/cadminPricing.routes.js";
+import cadminEnquiriesRoutes         from "./src/modules/cadmin/enquiries/cadminEnquiries.routes.js";
+import cadminAppConfigRoutes         from "./src/modules/cadmin/app-config/cadmin.appConfig.routes.js";
+import cadminRiderRoutes             from "./src/modules/cadmin/delivery/cadminRiders.routes.js";
 
 // ============================================
 // MOBILE ROUTES
 // ============================================
-import mobileAuthRoutes from "./src/modules/mobile/auth/mobile.auth.routes.js";
-import mobileUsersRoutes from "./src/modules/mobile/users/mobile.users.routes.js";
-import mobileMedicinesRoutes from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
-import mobilePlacesRoutes from "./src/modules/mobile/places/mobile.places.routes.js";
-import mobileShopsRoutes from "./src/modules/mobile/shops/mobile.shops.routes.js";
-import mobileOrdersRoutes from "./src/modules/mobile/orders/mobile.orders.routes.js";
+import mobileAuthRoutes          from "./src/modules/mobile/auth/mobile.auth.routes.js";
+import mobileUsersRoutes         from "./src/modules/mobile/users/mobile.users.routes.js";
+import mobileMedicinesRoutes     from "./src/modules/mobile/medicines/mobile.medicines.routes.js";
+import mobilePlacesRoutes        from "./src/modules/mobile/places/mobile.places.routes.js";
+import mobileShopsRoutes         from "./src/modules/mobile/shops/mobile.shops.routes.js";
+import mobileOrdersRoutes        from "./src/modules/mobile/orders/mobile.orders.routes.js";
 import mobilePrescriptionsRoutes from "./src/modules/mobile/prescriptions/mobile.prescriptions.routes.js";
 import mobileNotificationsRoutes from "./src/modules/mobile/notifications/mobile.notifications.routes.js";
-import mobilePushRoutes from "./src/modules/mobile/push/mobile.push.routes.js";
-import mobileCheckoutRoutes from "./src/modules/mobile/checkout/mobile.checkout.routes.js";
-import mobileAppConfigRoutes from "./src/modules/mobile/app-config/mobile.appConfig.routes.js";
+import mobilePushRoutes          from "./src/modules/mobile/push/mobile.push.routes.js";
+import mobileCheckoutRoutes      from "./src/modules/mobile/checkout/mobile.checkout.routes.js";
+import mobileAppConfigRoutes     from "./src/modules/mobile/app-config/mobile.appConfig.routes.js";
+
+// ============================================
+// RIDER ROUTES
+// ============================================
+import riderAuthRoutes       from "./src/modules/rider/auth/rider.auth.routes.js";
+import riderOnboardingRoutes from "./src/modules/rider/onboarding/rider.onboarding.routes.js";
+import riderSseRoutes        from "./src/modules/rider/sse/rider.sse.routes.js";
 
 // ============================================
 // APP SETUP
 // ============================================
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 const app = express();
 app.set("trust proxy", 1);
 
 const allowedOrigins = [
-  process.env.USER_FRONTEND_ORIGIN || "http://localhost:5173",
-  process.env.ADMIN_FRONTEND_ORIGIN || "http://localhost:5174",
+  process.env.USER_FRONTEND_ORIGIN   || "http://localhost:5173",
+  process.env.ADMIN_FRONTEND_ORIGIN  || "http://localhost:5174",
   process.env.LANDING_FRONTEND_ORIGIN || "http://localhost:5175",
 ].filter(Boolean);
 
@@ -120,7 +134,7 @@ app.use(
   helmet({
     crossOriginResourcePolicy: false,
     crossOriginEmbedderPolicy: false,
-    contentSecurityPolicy: false,
+    contentSecurityPolicy:     false,
   })
 );
 
@@ -130,9 +144,9 @@ app.options("/{*path}", cors(corsOptions));
 // 3. CORS for all actual requests
 app.use(cors(corsOptions));
 
-// ── NEW: Razorpay webhook — needs raw body, MUST be before express.json() ──
-// Mounts at /mobile/checkout/webhook
-// Converts raw buffer → rawBody string + parsed body for downstream handlers
+// 4. Razorpay webhook — needs raw body, MUST be before express.json()
+//    Mounts at /mobile/checkout/webhook
+//    Converts raw buffer → rawBody string + parsed body for downstream handlers
 app.use(
   "/mobile/checkout/webhook",
   express.raw({ type: "application/json" }),
@@ -148,9 +162,8 @@ app.use(
     next();
   }
 );
-// ───────────────────────────────────────────────────────────────────────────
 
-// 4. Body parsing + cookies (after webhook raw handler)
+// 5. Body parsing + cookies (after webhook raw handler)
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
@@ -161,12 +174,17 @@ app.use(maintenanceMiddleware);
 
 app.use("/api/maintenance", maintenanceRoutes);
 
+// ── SSE stream bypass — must come BEFORE rate limiter registration ─────────
 app.use("/api/notifications/stream", (req, res, next) => next());
+app.use("/rider/sse/stream",         (req, res, next) => next());
+// ──────────────────────────────────────────────────────────────────────────
 
+// Relaxed limits for high-frequency polling endpoints
 app.use("/api/notifications/unread-count", relaxedLimiter);
-app.use("/api/notifications/recent", relaxedLimiter);
-app.use("/api/purchase/returns", relaxedLimiter);
+app.use("/api/notifications/recent",       relaxedLimiter);
+app.use("/api/purchase/returns",           relaxedLimiter);
 
+// Route-group rate limiters
 app.use("/api", (req, res, next) => {
   if (req.method === "OPTIONS") return next();
   return globalLimiter(req, res, next);
@@ -182,6 +200,12 @@ app.use("/mobile", (req, res, next) => {
   return mobileLimiter(req, res, next);
 });
 
+// Rider reuses mobile limiter
+app.use("/rider", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  return mobileLimiter(req, res, next);
+});
+
 // ============================================
 // FILE SERVING
 // ============================================
@@ -190,7 +214,7 @@ app.use(
   (req, res, next) => {
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Origin",      origin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -208,35 +232,36 @@ app.use(
 // ============================================
 // ERP ROUTES
 // ============================================
-app.use("/api/files", filesRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/shop", shopRoutes);
-app.use("/api/pending", pendingRoutes);
-app.use("/api/shop/files", shopFilesRoutes);
-app.use("/api/subscriptions", subscriptionRoutes);
-app.use("/api/plans", plansRoutes);
-app.use("/api/setup", setupRoutes);
-app.use("/api/branches", branchesRoutes);
-app.use("/api/users", usersRoutes);
-app.use("/api/tickets", ticketRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/enquiries", enquiriesRoutes);
-app.use("/api/notifications", userNotificationRoutes);
-app.use("/api/public", publicUnsubscribeRoutes);
-app.use("/api/medicine-linking", linkingRoutes);
-app.use("/api/medicines", medicineRoutes);
-app.use("/api/suppliers", supplierRoutes);
-app.use("/api/purchase", purchaseRoutes);
-app.use("/api/inventory", inventoryRoutes);
-app.use("/api/sales", salesRoutes);
-app.use("/api/customers", customerRoutes);
-app.use("/api/excel", excelRoutes);
-app.use("/api/marketplace", marketplaceRoutes);
-app.use("/api/marketplace-listing", listingsRoutes);
-app.use("/api/marketplace-orders", marketplaceOrdersRoutes);
-app.use("/api/marketplace/dashboard", marketplaceDashboardRoutes);
-app.use("/api/inventory/import", inventoryImportRoutes);
-app.use('/api/prescription-requests', prescriptionRequestsErpRouter);
+app.use("/api/files",                  filesRoutes);
+app.use("/api/auth",                   authRoutes);
+app.use("/api/shop",                   shopRoutes);
+app.use("/api/pending",                pendingRoutes);
+app.use("/api/shop/files",             shopFilesRoutes);
+app.use("/api/subscriptions",          subscriptionRoutes);
+app.use("/api/plans",                  plansRoutes);
+app.use("/api/setup",                  setupRoutes);
+app.use("/api/branches",               branchesRoutes);
+app.use("/api/users",                  usersRoutes);
+app.use("/api/tickets",                ticketRoutes);
+app.use("/api/profile",                profileRoutes);
+app.use("/api/enquiries",              enquiriesRoutes);
+app.use("/api/notifications",          userNotificationRoutes);
+app.use("/api/public",                 publicUnsubscribeRoutes);
+app.use("/api/medicine-linking",       linkingRoutes);
+app.use("/api/medicines",              medicineRoutes);
+app.use("/api/suppliers",              supplierRoutes);
+app.use("/api/purchase",               purchaseRoutes);
+app.use("/api/inventory",              inventoryRoutes);
+app.use("/api/sales",                  salesRoutes);
+app.use("/api/customers",              customerRoutes);
+app.use("/api/excel",                  excelRoutes);
+app.use("/api/marketplace",            marketplaceRoutes);
+app.use("/api/marketplace-listing",    listingsRoutes);
+app.use("/api/marketplace-orders",     marketplaceOrdersRoutes);
+app.use("/api/marketplace/dashboard",  marketplaceDashboardRoutes);
+app.use("/api/inventory/import",       inventoryImportRoutes);
+app.use("/api/prescription-requests",  prescriptionRequestsErpRouter);
+
 // ============================================
 // CADMIN ROUTES
 // ============================================
@@ -263,35 +288,43 @@ app.use("/cadmin", cadminMarketplaceOrdersRoutes);
 app.use("/cadmin", cadminMobileBroadcastRoutes);
 app.use("/cadmin", cadminPricingRoutes);
 app.use("/cadmin", cadminAppConfigRoutes);
+app.use("/cadmin", cadminRiderRoutes);          // ← Rider management by CAdmin
 
 // ============================================
 // MOBILE ROUTES
 // ============================================
-app.use("/mobile/auth", mobileAuthRoutes);
-app.use("/mobile/users", mobileUsersRoutes);
-app.use("/mobile/medicines", mobileMedicinesRoutes);
-app.use("/mobile/places", mobilePlacesRoutes);
-app.use("/mobile/shops", mobileShopsRoutes);
-app.use("/mobile/orders", mobileOrdersRoutes);
-app.use("/mobile/prescriptions", mobilePrescriptionsRoutes);
-app.use("/mobile/notifications", mobileNotificationsRoutes);
-app.use("/mobile/push", mobilePushRoutes);
-app.use("/mobile/checkout", mobileCheckoutRoutes);
-app.use('/mobile/prescription-requests', prescriptionRequestsMobileRouter);
-app.use("/mobile/app-config", mobileAppConfigRoutes);
+app.use("/mobile/auth",                  mobileAuthRoutes);
+app.use("/mobile/users",                 mobileUsersRoutes);
+app.use("/mobile/medicines",             mobileMedicinesRoutes);
+app.use("/mobile/places",                mobilePlacesRoutes);
+app.use("/mobile/shops",                 mobileShopsRoutes);
+app.use("/mobile/orders",                mobileOrdersRoutes);
+app.use("/mobile/prescriptions",         mobilePrescriptionsRoutes);
+app.use("/mobile/notifications",         mobileNotificationsRoutes);
+app.use("/mobile/push",                  mobilePushRoutes);
+app.use("/mobile/checkout",              mobileCheckoutRoutes);
+app.use("/mobile/prescription-requests", prescriptionRequestsMobileRouter);
+app.use("/mobile/app-config",            mobileAppConfigRoutes);
+
+// ============================================
+// RIDER ROUTES
+// ============================================
+app.use("/rider/auth",        riderAuthRoutes);       // login / refresh / logout
+app.use("/rider/onboarding",  riderOnboardingRoutes); // profile & document upload
+app.use("/rider/sse",         riderSseRoutes);        // real-time SSE stream
 
 // ============================================
 // HEALTH CHECK
 // ============================================
 app.get("/api/health", (_req, res) => {
   res.json({
-    ok: true,
+    ok:               true,
     maintenance_mode: process.env.MAINTENANCE_MODE?.toLowerCase() === "true",
   });
 });
 
 // ============================================
-// 404 + ERROR
+// 404 + ERROR HANDLERS
 // ============================================
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
@@ -308,7 +341,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 function printStartupBanner(port) {
-  const env = process.env.NODE_ENV || "development";
+  const env  = process.env.NODE_ENV || "development";
   const time = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
   const lines = [

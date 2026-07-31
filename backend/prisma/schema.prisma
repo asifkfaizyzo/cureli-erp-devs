@@ -1557,6 +1557,549 @@ model CureliMobileBroadcastCampaign {
 
 
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI DELIVERY — RIDER & DELIVERY MODULE
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+model DeliveryZone {
+  zone_id    String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(100)
+  city       String   @db.VarChar(100)
+  state      String   @db.VarChar(100)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  riders             Rider[]
+  zoneChangeRequests ZoneChangeRequest[]
+  trainingContent    RiderTrainingContent[]
+
+  @@index([city, is_active])
+  @@index([is_active])
+  @@map("delivery_zones")
+}
+
+model DeliveryConfig {
+  config_id                String   @id @default(uuid()) @db.Uuid
+  base_fee_per_delivery    Decimal  @default(30) @db.Decimal(10, 2)
+  per_km_rate              Decimal  @default(5)  @db.Decimal(10, 2)
+  accept_timeout_seconds   Int      @default(30)
+  max_cascade_attempts     Int      @default(5)
+  min_payout_amount        Decimal  @default(100) @db.Decimal(10, 2)
+  payout_day_of_week       Int      @default(1)
+  low_rating_threshold     Decimal  @default(3.5) @db.Decimal(3, 2)
+  updated_at               DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  updated_by               String?  @db.Uuid
+
+  @@map("delivery_config")
+}
+
+model DeliveryShift {
+  shift_id        String   @id @default(uuid()) @db.Uuid
+  name            String   @db.VarChar(100)
+  start_time      String   @db.VarChar(5)
+  end_time        String   @db.VarChar(5)
+  min_deliveries  Int
+  bonus_amount    Decimal  @db.Decimal(10, 2)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_shifts")
+}
+
+model DeliverySurgeRule {
+  rule_id       String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(100)
+  start_time    String   @db.VarChar(5)
+  end_time      String   @db.VarChar(5)
+  days_of_week  String[]
+  multiplier    Decimal  @db.Decimal(4, 2)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_surge_rules")
+}
+
+model DeliveryIncentive {
+  incentive_id  String          @id @default(uuid()) @db.Uuid
+  type          IncentiveType
+  target_count  Int
+  reward_amount Decimal         @db.Decimal(10, 2)
+  period        IncentivePeriod
+  is_active     Boolean         @default(true)
+  expires_at    DateTime?       @db.Timestamptz(6)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_incentives")
+}
+
+model Rider {
+  rider_id                 String       @id @default(uuid()) @db.Uuid
+  phone                    String       @unique @db.VarChar(15)
+  full_name                String?      @db.VarChar(200)
+  date_of_birth            DateTime?    @db.Date
+  sex                      UserSex?
+
+  // Profile
+  profile_photo_key        String?      @db.VarChar(500)
+
+  // Vehicle details
+  vehicle_type             String?      @db.VarChar(20)
+  vehicle_number           String?      @db.VarChar(20)
+  vehicle_make_model       String?      @db.VarChar(100)
+
+  // Status
+  status                   RiderStatus  @default(PENDING_REVIEW)
+
+  // Zone
+  zone_id                  String?      @db.Uuid
+
+  // Online state
+  is_online                Boolean      @default(false)
+  current_lat              Decimal?     @db.Decimal(10, 8)
+  current_lng              Decimal?     @db.Decimal(11, 8)
+  last_location_at         DateTime?    @db.Timestamptz(6)
+
+  // Bank details (flat fields — required for payout processing)
+  bank_account_number      String?      @db.VarChar(30)
+  bank_ifsc                String?      @db.VarChar(15)
+  bank_holder_name         String?      @db.VarChar(200)
+  bank_name                String?      @db.VarChar(100)
+  bank_verified            Boolean      @default(false)
+
+  // Emergency contact (flat fields — used in SOS critical path)
+  emergency_contact_name   String?      @db.VarChar(200)
+  emergency_contact_phone  String?      @db.VarChar(15)
+
+  // Ratings
+  rating                   Float        @default(0)
+  total_ratings            Int          @default(0)
+  total_deliveries         Int          @default(0)
+
+  // Referral
+  referral_code            String?      @unique @db.VarChar(20)
+  referred_by_code         String?      @db.VarChar(20)
+
+  // Suspension
+  suspension_reason        String?      @db.VarChar(500)
+  suspended_at             DateTime?    @db.Timestamptz(6)
+  suspended_by             String?      @db.Uuid
+
+  // Auth OTP fields — mirrors CureliMobileUser exactly
+  login_otp_hash           String?
+  login_otp_expires        DateTime?    @db.Timestamptz(6)
+  login_otp_attempts       Int          @default(0)
+  otp_cycle_failures       Int          @default(0)
+  otp_locked_until         DateTime?    @db.Timestamptz(6)
+
+  // Session control
+  logout_all_issued_at     DateTime?    @db.Timestamptz(6)
+
+  // Soft delete
+  deleted_at               DateTime?    @db.Timestamptz(6)
+  deletion_reason          String?      @db.VarChar(500)
+
+  created_at               DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime     @updatedAt @db.Timestamptz(6)
+  last_seen_at             DateTime?    @db.Timestamptz(6)
+
+  // Relations
+  zone                     DeliveryZone?          @relation(fields: [zone_id], references: [zone_id])
+  sessions                 RiderSession[]
+  documents                RiderDocument[]
+  zoneChangeRequests       ZoneChangeRequest[]
+  deliveries               Delivery[]
+  earningLedger            RiderEarningLedger[]
+  payouts                  RiderPayout[]
+  ratingsReceived          RiderRating[]
+  ratingsGiven             RiderGivesRating[]
+  incidents                RiderIncident[]
+  appeals                  RiderAppeal[]
+  tickets                  RiderTicket[]
+  notifications            RiderNotification[]
+  assignmentLogs           DeliveryAssignmentLog[]
+
+  @@index([phone])
+  @@index([status])
+  @@index([zone_id, is_online, status])
+  @@index([referral_code])
+  @@index([deleted_at])
+  @@index([created_at(sort: Desc)])
+  @@map("riders")
+}
+
+model RiderSession {
+  id                   String    @id @default(uuid()) @db.Uuid
+  rider_id             String    @db.Uuid
+  refresh_token_hash   String    @unique @db.VarChar(500)
+  device_id            String?   @db.VarChar(255)
+  device_name          String?   @db.VarChar(200)
+  device_platform      String?   @db.VarChar(20)
+  device_os_version    String?   @db.VarChar(50)
+  app_version          String?   @db.VarChar(20)
+  push_token           String?   @db.VarChar(500)
+  push_token_type      String?   @db.VarChar(20)
+  push_token_updated_at DateTime? @db.Timestamptz(6)
+  ip_address           String?   @db.VarChar(45)
+  user_agent           String?   @db.VarChar(500)
+  is_active            Boolean   @default(true)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  last_active_at       DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime  @db.Timestamptz(6)
+  revoked_at           DateTime? @db.Timestamptz(6)
+  revoked_reason       String?   @db.VarChar(50)
+
+  rider                Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@index([rider_id])
+  @@index([refresh_token_hash])
+  @@index([rider_id, is_active])
+  @@index([expires_at])
+  @@map("rider_sessions")
+}
+
+model RiderDocument {
+  document_id       String              @id @default(uuid()) @db.Uuid
+  rider_id          String              @db.Uuid
+  type              RiderDocumentType
+  storage_key       String?             @db.VarChar(500)
+  back_storage_key  String?             @db.VarChar(500)
+  status            RiderDocumentStatus @default(PENDING)
+  rejection_reason  String?             @db.VarChar(500)
+  reviewed_by       String?             @db.Uuid
+  reviewed_at       DateTime?           @db.Timestamptz(6)
+  resubmission_count Int                @default(0)
+  uploaded_at       DateTime?           @db.Timestamptz(6)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @updatedAt @db.Timestamptz(6)
+
+  rider             Rider               @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@unique([rider_id, type])
+  @@index([rider_id])
+  @@index([rider_id, type])
+  @@index([status])
+  @@map("rider_documents")
+}
+
+model ZoneChangeRequest {
+  request_id   String           @id @default(uuid()) @db.Uuid
+  rider_id     String           @db.Uuid
+  from_zone_id String?          @db.Uuid
+  to_zone_id   String           @db.Uuid
+  reason       String?          @db.VarChar(500)
+  status       ZoneChangeStatus @default(PENDING)
+  reviewed_by  String?          @db.Uuid
+  reviewed_at  DateTime?        @db.Timestamptz(6)
+  review_note  String?          @db.VarChar(500)
+  created_at   DateTime         @default(now()) @db.Timestamptz(6)
+
+  rider        Rider            @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+  toZone       DeliveryZone     @relation(fields: [to_zone_id], references: [zone_id])
+
+  @@index([rider_id])
+  @@index([status, created_at(sort: Desc)])
+  @@map("zone_change_requests")
+}
+
+model Delivery {
+  delivery_id                String              @id @default(uuid()) @db.Uuid
+  order_id                   String              @unique @db.Uuid
+  rider_id                   String?             @db.Uuid
+  zone_id                    String?             @db.Uuid
+  status                     DeliveryStatus      @default(PENDING_ASSIGNMENT)
+
+  // Assignment tracking
+  assigned_at                DateTime?           @db.Timestamptz(6)
+  accepted_at                DateTime?           @db.Timestamptz(6)
+  assignment_attempts        Int                 @default(0)
+
+  // Pharmacy step
+  arrived_at_pharmacy_at     DateTime?           @db.Timestamptz(6)
+  pharmacy_confirmed_at      DateTime?           @db.Timestamptz(6)
+  pharmacy_confirmed_by      String?             @db.Uuid
+  picked_up_at               DateTime?           @db.Timestamptz(6)
+
+  // Customer step
+  arrived_at_customer_at     DateTime?           @db.Timestamptz(6)
+  delivered_at               DateTime?           @db.Timestamptz(6)
+
+  // Failed delivery
+  failed_at                  DateTime?           @db.Timestamptz(6)
+  failure_reason             DeliveryFailureReason?
+  failure_note               String?             @db.VarChar(500)
+
+  // Masked call gate
+  masked_call_enabled        Boolean             @default(false)
+
+  // Location snapshots (captured at delivery creation)
+  pickup_lat                 Decimal?            @db.Decimal(10, 8)
+  pickup_lng                 Decimal?            @db.Decimal(11, 8)
+  drop_lat                   Decimal?            @db.Decimal(10, 8)
+  drop_lng                   Decimal?            @db.Decimal(11, 8)
+  total_distance_km          Decimal?            @db.Decimal(10, 2)
+
+  // Earnings snapshot (immutable after delivery completes)
+  base_fee                   Decimal?            @db.Decimal(10, 2)
+  distance_fee               Decimal?            @db.Decimal(10, 2)
+  surge_fee                  Decimal?            @db.Decimal(10, 2)
+  bonus_fee                  Decimal?            @db.Decimal(10, 2)
+  total_rider_earning        Decimal?            @db.Decimal(10, 2)
+
+  created_at                 DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime            @updatedAt @db.Timestamptz(6)
+
+  rider                      Rider?              @relation(fields: [rider_id], references: [rider_id])
+  assignmentLogs             DeliveryAssignmentLog[]
+  chatMessages               DeliveryChat[]
+  riderRating                RiderRating?
+  customerRating             RiderGivesRating?
+
+  @@index([order_id])
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@index([zone_id, status])
+  @@map("deliveries")
+}
+
+model DeliveryAssignmentLog {
+  log_id      String          @id @default(uuid()) @db.Uuid
+  delivery_id String          @db.Uuid
+  rider_id    String          @db.Uuid
+  action      AssignmentAction
+  reason      String?         @db.VarChar(200)
+  created_at  DateTime        @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery        @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider           @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([delivery_id])
+  @@index([rider_id])
+  @@map("delivery_assignment_logs")
+}
+
+model DeliveryChat {
+  message_id   String         @id @default(uuid()) @db.Uuid
+  delivery_id  String         @db.Uuid
+  sender_id    String         @db.Uuid
+  sender_type  ChatSenderType
+  message      String         @db.VarChar(1000)
+  is_preset    Boolean        @default(false)
+  read_at      DateTime?      @db.Timestamptz(6)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+
+  delivery     Delivery       @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+
+  @@index([delivery_id, created_at(sort: Asc)])
+  @@map("delivery_chats")
+}
+
+model RiderEarningLedger {
+  ledger_id   String      @id @default(uuid()) @db.Uuid
+  rider_id    String      @db.Uuid
+  delivery_id String?     @db.Uuid
+  payout_id   String?     @db.Uuid
+  type        EarningType
+  amount      Decimal     @db.Decimal(10, 2)
+  description String?     @db.VarChar(300)
+  week_start  DateTime    @db.Date
+  is_paid     Boolean     @default(false)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  rider       Rider       @relation(fields: [rider_id], references: [rider_id])
+  payout      RiderPayout? @relation(fields: [payout_id], references: [payout_id])
+
+  @@index([rider_id, is_paid])
+  @@index([rider_id, week_start])
+  @@index([payout_id])
+  @@map("rider_earning_ledger")
+}
+
+model RiderPayout {
+  payout_id          String        @id @default(uuid()) @db.Uuid
+  rider_id           String        @db.Uuid
+  week_start         DateTime      @db.Date
+  week_end           DateTime      @db.Date
+  gross_amount       Decimal       @db.Decimal(10, 2)
+  status             PayoutStatus  @default(PENDING)
+  payment_method     PayoutMethod  @default(MANUAL)
+
+  // Manual payout fields
+  manual_reference   String?       @db.VarChar(100)
+  manual_notes       String?       @db.VarChar(500)
+  manual_payment_date DateTime?    @db.Date
+  manual_bank_used   String?       @db.VarChar(100)
+
+  // Provider payload — null for MANUAL, populated for RAZORPAY_X in future
+  provider_payload   Json?
+
+  // Bank details snapshot at time of payout (immutable audit trail)
+  bank_snapshot      Json
+
+  processed_by       String?       @db.Uuid
+  processed_at       DateTime?     @db.Timestamptz(6)
+  failed_reason      String?       @db.VarChar(500)
+
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime      @updatedAt @db.Timestamptz(6)
+
+  rider              Rider         @relation(fields: [rider_id], references: [rider_id])
+  ledgerEntries      RiderEarningLedger[]
+
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@index([week_start])
+  @@map("rider_payouts")
+}
+
+model RiderRating {
+  rating_id   String   @id @default(uuid()) @db.Uuid
+  delivery_id String   @unique @db.Uuid
+  rider_id    String   @db.Uuid
+  customer_id String   @db.Uuid
+  stars       Int
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@map("rider_ratings")
+}
+
+model RiderGivesRating {
+  rating_id   String   @id @default(uuid()) @db.Uuid
+  delivery_id String   @unique @db.Uuid
+  rider_id    String   @db.Uuid
+  customer_id String   @db.Uuid
+  stars       Int
+  reason      String?  @db.VarChar(200)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@map("rider_gives_ratings")
+}
+
+model RiderIncident {
+  incident_id  String         @id @default(uuid()) @db.Uuid
+  rider_id     String         @db.Uuid
+  type         IncidentType
+  is_sos       Boolean        @default(false)
+  description  String?        @db.VarChar(1000)
+  lat          Decimal?       @db.Decimal(10, 8)
+  lng          Decimal?       @db.Decimal(11, 8)
+  delivery_id  String?        @db.Uuid
+  status       IncidentStatus @default(OPEN)
+  resolved_by  String?        @db.Uuid
+  resolved_at  DateTime?      @db.Timestamptz(6)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+
+  rider        Rider          @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@index([is_sos, status])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_incidents")
+}
+
+model RiderAppeal {
+  appeal_id   String       @id @default(uuid()) @db.Uuid
+  rider_id    String       @db.Uuid
+  reason      String       @db.VarChar(1000)
+  status      AppealStatus @default(PENDING)
+  review_note String?      @db.VarChar(500)
+  reviewed_by String?      @db.Uuid
+  reviewed_at DateTime?    @db.Timestamptz(6)
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+
+  rider       Rider        @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_appeals")
+}
+
+model RiderTicket {
+  ticket_id   String            @id @default(uuid()) @db.Uuid
+  rider_id    String            @db.Uuid
+  category    RiderTicketCategory
+  description String            @db.VarChar(2000)
+  status      RiderTicketStatus @default(OPEN)
+  created_at  DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime          @updatedAt @db.Timestamptz(6)
+
+  rider       Rider             @relation(fields: [rider_id], references: [rider_id])
+  replies     RiderTicketReply[]
+
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_tickets")
+}
+
+model RiderTicketReply {
+  reply_id    String      @id @default(uuid()) @db.Uuid
+  ticket_id   String      @db.Uuid
+  sender_id   String      @db.Uuid
+  sender_type String      @db.VarChar(10)
+  message     String      @db.VarChar(2000)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  ticket      RiderTicket @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id, created_at(sort: Asc)])
+  @@map("rider_ticket_replies")
+}
+
+model RiderNotification {
+  id             String    @id @default(uuid()) @db.Uuid
+  rider_id       String    @db.Uuid
+  title          String    @db.VarChar(200)
+  body           String    @db.VarChar(500)
+  category       String    @db.VarChar(50)
+  data           Json?
+  is_read        Boolean   @default(false)
+  read_at        DateTime? @db.Timestamptz(6)
+  push_sent      Boolean   @default(false)
+  push_ticket_id String?   @db.VarChar(200)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  rider          Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@index([rider_id, is_read, created_at(sort: Desc)])
+  @@index([rider_id, created_at(sort: Desc)])
+  @@map("rider_notifications")
+}
+
+model RiderTrainingContent {
+  content_id   String              @id @default(uuid()) @db.Uuid
+  type         TrainingContentType
+  title        String              @db.VarChar(200)
+  body         String              @db.Text
+  order        Int                 @default(0)
+  is_active    Boolean             @default(true)
+  target_zone_id String?           @db.Uuid
+  created_by   String              @db.Uuid
+  created_at   DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime            @updatedAt @db.Timestamptz(6)
+
+  targetZone   DeliveryZone?       @relation(fields: [target_zone_id], references: [zone_id])
+
+  @@index([type, is_active])
+  @@index([target_zone_id])
+  @@map("rider_training_content")
+}
+
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PLANS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -2965,4 +3508,145 @@ enum PrescriptionRecipientStatus {
   ACCEPTED
   CONVERTED
   EXPIRED
+}
+
+enum RiderStatus {
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  REJECTED
+}
+
+enum RiderDocumentType {
+  PROFILE_PHOTO
+  AADHAAR_FRONT
+  AADHAAR_BACK
+  PAN_FRONT
+  DRIVING_LICENSE_FRONT
+  DRIVING_LICENSE_BACK
+  VEHICLE_RC
+}
+
+enum RiderDocumentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DeliveryStatus {
+  PENDING_ASSIGNMENT
+  RIDER_NOTIFIED
+  ACCEPTED
+  ARRIVED_AT_PHARMACY
+  PHARMACY_CONFIRMED
+  PICKED_UP
+  EN_ROUTE
+  ARRIVED_AT_CUSTOMER
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum AssignmentAction {
+  NOTIFIED
+  ACCEPTED
+  REJECTED
+  TIMEOUT
+}
+
+enum DeliveryFailureReason {
+  CUSTOMER_UNAVAILABLE
+  CUSTOMER_REFUSED
+  WRONG_ADDRESS
+  SAFETY_CONCERN
+  OTHER
+}
+
+enum EarningType {
+  BASE_FEE
+  DISTANCE_FEE
+  SURGE_BONUS
+  SHIFT_BONUS
+  STREAK_BONUS
+  WEEKLY_CHALLENGE
+  REFERRAL_BONUS
+  MANUAL_ADJUSTMENT
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutMethod {
+  MANUAL
+  RAZORPAY_X
+}
+
+enum IncidentType {
+  ROAD_ACCIDENT
+  BIKE_BREAKDOWN
+  THEFT_ROBBERY
+  MEDICAL_EMERGENCY
+  SOS
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ZoneChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiderTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum RiderTicketCategory {
+  EARNINGS_PAYOUT
+  ORDER_ISSUE
+  APP_TECHNICAL
+  DOCUMENT_ACCOUNT
+  SAFETY_INCIDENT
+  OTHER
+}
+
+enum ChatSenderType {
+  RIDER
+  CUSTOMER
+}
+
+enum TrainingContentType {
+  ONBOARDING_SLIDE
+  FAQ
+  ANNOUNCEMENT
+}
+
+enum IncentivePeriod {
+  DAILY
+  WEEKLY
+}
+
+enum IncentiveType {
+  DAILY_STREAK
+  WEEKLY_CHALLENGE
 }
