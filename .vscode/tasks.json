@@ -15,7 +15,8 @@
         "ERP tree",
         "cAdmin tree",
         "Git",
-        "Mobile Tree"
+        "Mobile Tree",
+        "Delivery Mobile Tree"
       ],
       "dependsOrder": "parallel"
     },
@@ -162,6 +163,18 @@
       "command": "ls; cd assets; tree /f; cd ..; cd src; tree /f; cd ..; cd app; tree /f; powershell",
       "options": {
         "cwd": "${workspaceFolder}/cureli-mobile"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Delivery Mobile Tree",
+      "type": "shell",
+      "command": "ls; cd assets; tree /f; cd ..; cd src; tree /f; cd ..; cd app; tree /f; powershell",
+      "options": {
+        "cwd": "${workspaceFolder}/cureli-delivery"
       },
       "isBackground": true,
       "presentation": {
