@@ -54,6 +54,13 @@ const AdminHeader = () => {
     setBreadcrumbs(["Marketplace", "Users"]);
     setTimeout(() => navigate("/marketplace/dashboard"), 50);
   };
+  const handleSwitchToRiderApp = () => {
+    if (isMarketplace) return;
+    setActiveModule("marketplace");
+    setActiveMenu("mp-users");
+    setBreadcrumbs(["Delivery Partner", "Users"]);
+    setTimeout(() => navigate("/rider/dashboard"), 50);
+  };
 
   // ============================================
   // CLOCK
@@ -184,7 +191,7 @@ const AdminHeader = () => {
               `}
             >
               <ShieldCheck size={13} />
-              <span className="hidden sm:block">Admin</span>
+              <span className="hidden sm:block">Pharmacy</span>
             </button>
             <button
               onClick={handleSwitchToMarketplace}
@@ -201,6 +208,21 @@ const AdminHeader = () => {
               <Store size={13} />
               <span className="hidden sm:block">Marketplace</span>
             </button>
+            <button
+              onClick={handleSwitchToRiderApp}
+              className={`
+                flex items-center gap-1.5 px-3 py-1.5 rounded-md
+                text-xs font-semibold transition-all duration-150
+                ${
+                  isMarketplace
+                    ? "bg-white text-[#05015A] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }
+              `}
+            >
+              <Store size={13} />
+              <span className="hidden sm:block">Fleet</span>
+            </button>
           </div>
 
           {/* Divider */}
@@ -213,10 +235,7 @@ const AdminHeader = () => {
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all disabled:opacity-50"
             title="Refresh data"
           >
-            <RefreshCw
-              size={18}
-              className={refreshing ? "animate-spin" : ""}
-            />
+            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
           </button>
 
           {/* Notifications */}
