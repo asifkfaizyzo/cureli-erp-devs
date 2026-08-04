@@ -27,7 +27,7 @@ const AdminHeader = () => {
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
-  // ============================================
+  // ============================================F
   // STATE
   // ============================================
   const [dateTime, setDateTime] = useState({ time: "", date: "", day: "" });
@@ -208,7 +208,7 @@ const AdminHeader = () => {
               <Store size={13} />
               <span className="hidden sm:block">Marketplace</span>
             </button>
-            <button
+            {/* <button
               onClick={handleSwitchToRiderApp}
               className={`
                 flex items-center gap-1.5 px-3 py-1.5 rounded-md
@@ -222,7 +222,7 @@ const AdminHeader = () => {
             >
               <Store size={13} />
               <span className="hidden sm:block">Fleet</span>
-            </button>
+            </button> */}
           </div>
 
           {/* Divider */}
