@@ -1,3 +1,4 @@
+//cureli-rider-app\src\lib\mmkvStorage.ts
 import { MMKV } from 'react-native-mmkv';
 import { createJSONStorage } from 'zustand/middleware';
 

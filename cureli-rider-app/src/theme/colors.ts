@@ -1,3 +1,4 @@
+//cureli-rider-app\src\theme\colors.ts
 export interface ColorPalette {
   brand: {
     primary: string;

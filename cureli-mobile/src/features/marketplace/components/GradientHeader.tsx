@@ -21,6 +21,7 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { HEADER_HEIGHT } from '../constants/marketplace.constants';
 
 import { SearchBar } from './SearchBar';
+import { PrescriptionButton } from './PrescriptionButton';
 import { CartButton } from './CartButton';
 import { AddressDropdown } from './AddressDropdown';
 import { useDeliveryLocation } from '../../../hooks/useDeliveryLocation';
@@ -35,6 +36,7 @@ const LOGO = require('../../../../assets/images/cureliwhitenew.png');
 
 interface GradientHeaderProps {
   onPressSearch?: () => void;
+  onPressPrescription?: () => void;
   onPressCart?: () => void;
 }
 
@@ -48,7 +50,6 @@ interface LocationPillProps {
   source: string;
   dropdownVisible: boolean;
   onPress: () => void;
-  // Color tokens passed down from parent (which has useTheme access)
   onGradientText: string;
   onGradientTextMuted: string;
   onGradientTextSubtle: string;
@@ -156,7 +157,11 @@ const LocationPill = React.memo(function LocationPill({
 
 // ── Main component ────────────────────────────────────────────
 
-function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps) {
+function GradientHeaderBase({
+  onPressSearch,
+  onPressPrescription,
+  onPressCart,
+}: GradientHeaderProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { location, isResolving } = useDeliveryLocation();
@@ -174,15 +179,11 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
     setDropdownVisible(false);
   }, []);
 
-  // Pull header tokens once — keeps JSX readable
   const h = colors.header;
-
-  // LinearGradient requires a tuple — we derive it from tokens
   const gradientColors: [string, string] = [h.gradientFrom, h.gradientTo];
 
   return (
     <>
-      {/* ── Main gradient header ─────────────────────────── */}
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
@@ -197,7 +198,6 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
       >
         {/* ── Top row ── */}
         <View style={styles.topRow}>
-          {/* Brand */}
           <View style={styles.brand}>
             <Image
               source={LOGO}
@@ -210,7 +210,6 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
             </Text>
           </View>
 
-          {/* Location pill */}
           <LocationPill
             isResolving={isResolving}
             hasLocation={hasLocation}
@@ -235,13 +234,12 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
           <View style={styles.searchFlex}>
             <SearchBar onPress={onPressSearch} variant="header-tinted" />
           </View>
-          <CartButton onPress={onPressCart} />
+
+          <PrescriptionButton onPress={onPressPrescription} />
+          {/* <CartButton onPress={onPressCart} /> */}
         </View>
       </LinearGradient>
 
-      {/* ── Soft fade strip below the header ────────────────
-          Bridges the gradient bottom color into the page background.
-          Absolutely positioned so it tracks the fixed header. */}
       <View
         style={[
           styles.fadeStrip,
@@ -260,15 +258,12 @@ function GradientHeaderBase({ onPressSearch, onPressCart }: GradientHeaderProps)
         />
       </View>
 
-      {/* Dropdown renders outside gradient so it overlays page content */}
       <AddressDropdown visible={dropdownVisible} onClose={closeDropdown} />
     </>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────
-// Only geometry/layout lives here — all colors are applied inline
-// so they react to theme changes at render time.
 
 const styles = StyleSheet.create({
   gradient: {
@@ -282,7 +277,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
   },
 
-  // ── Fade strip ───────────────────────────────────────────────
   fadeStrip: {
     position: 'absolute',
     left: 0,
@@ -293,7 +287,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── Top row ──────────────────────────────────────────────────
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -301,7 +294,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 
-  // ── Brand ────────────────────────────────────────────────────
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,21 +303,24 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
   },
-wordmark: {
+  wordmark: {
     ...Typography.wordmark,
     fontSize: 40,
-    lineHeight: Platform.OS === 'ios' ? 58: 34,
+    lineHeight: Platform.OS === 'ios' ? 58 : 34,
     letterSpacing: -0.3,
-    fontFamily: Platform.OS === 'ios' ? FontFamily.amulyaBold : FontFamily.amulya,
-    ...(Platform.OS === 'android' ? { fontWeight: '800' as const } : {}),
+    fontFamily:
+      Platform.OS === 'ios'
+        ? FontFamily.amulyaBold
+        : FontFamily.amulya,
+    ...(Platform.OS === 'android'
+      ? { fontWeight: '800' as const }
+      : {}),
   },
 
-  // ── Location pill ────────────────────────────────────────────
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    // backgroundColor + borderColor applied inline
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
@@ -343,18 +338,15 @@ wordmark: {
     justifyContent: 'flex-end',
   },
   locationAreaText: {
-    // color applied inline
     ...Typography.smallMedium,
     flexShrink: 1,
     textAlign: 'right',
   },
   locationLineText: {
-    // color applied inline
     ...Typography.caption,
     textAlign: 'right',
   },
 
-  // ── Search row ───────────────────────────────────────────────
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -366,5 +358,4 @@ wordmark: {
 });
 
 export { HEADER_HEIGHT };
-
 export const GradientHeader = React.memo(GradientHeaderBase);

@@ -1,3 +1,4 @@
+//cureli-rider-app\src\services\storage.ts
 import { MMKV } from 'react-native-mmkv';
 
 const storage = new MMKV({ id: 'cureli-rider-storage' });

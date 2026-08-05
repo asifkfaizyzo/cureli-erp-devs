@@ -30,43 +30,14 @@ import { useLayoutStore } from "../../../store/layoutStore";
 // ── Prescription request entry banner ─────────────────────────────────────────
 
 function PrescriptionRequestBanner() {
-  const { colors } = useTheme();
-
   return (
     <TouchableOpacity
       onPress={() => router.push("/prescription-request" as any)}
       activeOpacity={0.85}
-      style={[
-        styles.prescriptionBanner,
-        {
-          backgroundColor: colors.background.card,
-          borderColor: colors.border.brand,
-        },
-      ]}
+      style={styles.prescriptionPill}
     >
-      <View
-        style={[
-          styles.prescriptionIcon,
-          { backgroundColor: colors.background.tint },
-        ]}
-      >
-        <Ionicons
-          name="document-text-outline"
-          size={22}
-          color={colors.text.brand}
-        />
-      </View>
-      <View style={styles.prescriptionText}>
-        <Text
-          style={[styles.prescriptionTitle, { color: colors.text.primary }]}
-        >
-          Have a prescription?
-        </Text>
-        <Text style={[styles.prescriptionSub, { color: colors.text.muted }]}>
-          Upload it and let pharmacies send you a quote
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.text.faint} />
+      <Text style={styles.prescriptionPillText}>Upload prescription</Text>
+      <Ionicons name="cloud-upload-outline" size={16} color="#ffffff" />
     </TouchableOpacity>
   );
 }
@@ -222,5 +193,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     lineHeight: 17,
+  },
+
+  prescriptionPill: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#16044d",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    marginVertical: Spacing.sm,
+  },
+
+  prescriptionPillText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

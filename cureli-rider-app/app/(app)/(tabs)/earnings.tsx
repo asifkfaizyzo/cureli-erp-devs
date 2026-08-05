@@ -1,3 +1,4 @@
+//cureli-rider-app\app\(app)\(tabs)\earnings.tsx
 import { View, Text, StyleSheet } from 'react-native';
 
 export default function EarningsScreen() {

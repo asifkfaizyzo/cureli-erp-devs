@@ -1,3 +1,4 @@
+//cureli-rider-app\app.config.js
 export default {
   expo: {
     owner: "your-zeros-and-ones",

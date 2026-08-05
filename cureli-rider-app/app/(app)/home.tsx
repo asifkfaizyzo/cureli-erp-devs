@@ -1,3 +1,4 @@
+//cureli-rider-app\app\(app)\home.tsx
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../../src/theme/ThemeContext";
 

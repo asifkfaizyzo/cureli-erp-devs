@@ -1,3 +1,4 @@
+//cureli-rider-app\app\(auth)\otp.tsx
 import { View, Text, StyleSheet } from 'react-native';
 
 export default function OtpScreen() {

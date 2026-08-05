@@ -1,32 +1,18 @@
 // src/features/marketplace/components/SearchBar.tsx
-//
-// Search entry point. Four visual variants:
-//   "default"        — original light card (non-header use)
-//   "header-solid"   — solid white card with shadow (pops on gradient)
-//   "header-frosted" — near-opaque frosted white with border + shadow
-//   "header-tinted"  — themed card background with brand border
-//
-// Tapping navigates to /search (handler via prop). 
-// Camera icon navigates to /prescription-request.
-// Presentational + memoised.
 
 import React from "react";
 import {
-  View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 
 import { useTheme } from "../../../theme/ThemeContext";
 import { Typography } from "../../../theme/typography";
 import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
-
-// ── Props ─────────────────────────────────────────────────────
 
 interface SearchBarProps {
   onPress?: () => void;
@@ -38,8 +24,6 @@ interface SearchBarProps {
     | "header-tinted";
 }
 
-// ── Component ─────────────────────────────────────────────────
-
 function SearchBarBase({
   onPress,
   placeholder = "Search medicines, brands…",
@@ -47,19 +31,12 @@ function SearchBarBase({
 }: SearchBarProps) {
   const { colors } = useTheme();
 
-  // ── Variant styling ───────────────────────────────────────
   const {
     containerStyle,
     iconColor,
     placeholderColor,
-    cameraColor,
-    dividerColor,
     shadowStyle,
   } = getVariantStyle(variant, colors);
-
-  const handleCameraPress = () => {
-    router.push("/prescription-request" as any);
-  };
 
   return (
     <TouchableOpacity
@@ -77,23 +54,9 @@ function SearchBarBase({
       >
         {placeholder}
       </Text>
-
-      <View style={[styles.divider, { backgroundColor: dividerColor }]} />
-
-      {/* Camera — navigates to prescription-request */}
-      <TouchableOpacity
-        onPress={handleCameraPress}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityRole="button"
-        accessibilityLabel="Upload prescription for quote"
-      >
-        <Ionicons name="camera-outline" size={18} color={cameraColor} />
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
-
-// ── Variant resolver ──────────────────────────────────────────
 
 function getVariantStyle(
   variant: SearchBarProps["variant"],
@@ -109,8 +72,6 @@ function getVariantStyle(
         },
         iconColor: colors.text.brand,
         placeholderColor: "#6B7280",
-        cameraColor: colors.text.brand,
-        dividerColor: "#E5E7EB", // light gray
         shadowStyle: styles.strongShadow,
       };
 
@@ -123,8 +84,6 @@ function getVariantStyle(
         },
         iconColor: colors.text.brand,
         placeholderColor: "#4B5563",
-        cameraColor: colors.text.brand,
-        dividerColor: "rgba(0,0,0,0.1)",
         shadowStyle: styles.mediumShadow,
       };
 
@@ -137,8 +96,6 @@ function getVariantStyle(
         },
         iconColor: colors.text.brand,
         placeholderColor: colors.text.secondary,
-        cameraColor: colors.text.brand,
-        dividerColor: colors.border.brand,
         shadowStyle: styles.mediumShadow,
       };
 
@@ -152,14 +109,10 @@ function getVariantStyle(
         },
         iconColor: colors.text.muted,
         placeholderColor: colors.text.muted,
-        cameraColor: colors.text.brand,
-        dividerColor: colors.border.default,
         shadowStyle: {},
       };
   }
 }
-
-// ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -174,10 +127,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     flex: 1,
   },
-  divider: {
-    width: 1,
-    height: 20,
-  },
   strongShadow: {
     ...Platform.select({
       ios: {
@@ -186,9 +135,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.22,
         shadowRadius: 10,
       },
-      android: {
-        elevation: 8,
-      },
+      android: { elevation: 8 },
     }),
   },
   mediumShadow: {
@@ -199,9 +146,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 6,
       },
-      android: {
-        elevation: 5,
-      },
+      android: { elevation: 5 },
     }),
   },
 });

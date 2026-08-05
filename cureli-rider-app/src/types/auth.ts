@@ -1,3 +1,4 @@
+//cureli-rider-app\src\types\auth.ts
 export type RiderStatus =
   | 'PENDING_REVIEW'
   | 'APPROVED'

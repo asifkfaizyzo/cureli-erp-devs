@@ -198,3 +198,45 @@ git push origin prod
 #   Only needed if nginx config changed.
 #   If only frontend files changed, reload is optional
 #   but harmless to always run.
+
+
+
+
+# ============================================================
+# RECOVERY — Accidentally coded on prod instead of dev
+# ============================================================
+#
+# Scenario:
+# You made changes while on the "prod" branch but have NOT
+# committed or pushed yet. Move the work safely to "dev".
+#
+# 1. Check your current branch:
+git branch --show-current
+
+# 2. Stash tracked changes:
+git stash
+
+# If you created NEW files (untracked), stash those too:
+git stash -u
+
+# 3. Switch to dev:
+git switch dev
+
+# 4. Restore your changes:
+git stash pop
+
+# 5. Verify everything moved correctly:
+git status
+
+# 6. Continue working on dev:
+git add .
+git commit -m "Your commit message"
+git push origin dev
+#
+# Notes:
+# - Use "git stash" if you only modified existing files.
+# - Use "git stash -u" if you also created new files.
+# - Do NOT commit on prod if the changes belong on dev.
+# - If "git stash pop" reports conflicts, resolve them before
+#   committing.
+# ============================================================

@@ -1,3 +1,4 @@
+//cureli-rider-app\app\(app)\(tabs)\home.tsx
 import { View, Text, StyleSheet } from 'react-native';
 
 export default function HomeScreen() {

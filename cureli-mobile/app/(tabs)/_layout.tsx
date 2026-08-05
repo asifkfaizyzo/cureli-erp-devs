@@ -1,10 +1,6 @@
 // app/(tabs)/_layout.tsx — True Floating Notch Dock
 //
-// Changes in this version:
-//   - TabItem accepts optional badgeColor prop
-//   - Orders tab reads from tabBadgeStore and passes badge color
-//   - Red dot = active orders, brand dot = active prescription requests
-//   - Red takes priority when both are true
+// Center FAB is now a Cart button with item-count badge.
 
 import { Tabs, router }          from 'expo-router';
 import {
@@ -30,6 +26,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useTheme }          from '../../src/theme/ThemeContext';
 import { useLayoutStore }    from '../../src/store/layoutStore';
 import { useTabBadgeStore }  from '../../src/store/tabBadgeStore';
+import { useCartStore }      from '../../src/store/cartStore';
+import { Typography }        from '../../src/theme/typography';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -103,11 +101,7 @@ interface TabItemProps {
   onPress:       () => void;
   activeColor:   string;
   inactiveColor: string;
-  // Optional badge dot. When provided renders a small filled circle
-  // at top-right of the icon. Undefined = no badge.
   badgeColor?:   string;
-  // Background color of the dock — used as badge border to make it
-  // appear to "float" above the icon (visual separation trick).
   dockBgColor:   string;
 }
 
@@ -199,13 +193,11 @@ function TabItem({
       accessibilityLabel={label}
       activeOpacity={0.7}
     >
-      {/* Icon wrapper — position: relative so badge can be absolute inside */}
       <View style={styles.iconWrap}>
         <Animated.View style={iconStyle}>
           {getIcon(routeName, isFocused)}
         </Animated.View>
 
-        {/* Badge dot — only rendered when badgeColor is provided */}
         {badgeColor !== undefined && (
           <View
             style={[
@@ -244,16 +236,20 @@ function TabItem({
   );
 }
 
-// ── Animated FAB ──────────────────────────────────────────────────────────────
+// ── Animated Cart FAB ─────────────────────────────────────────────────────────
 
-interface SearchFABProps {
+interface CartFABProps {
   onPress:         () => void;
   backgroundColor: string;
   labelColor:      string;
 }
 
-function SearchFAB({ onPress, backgroundColor, labelColor }: SearchFABProps) {
-  const scale = useSharedValue(1);
+function CartFAB({ onPress, backgroundColor, labelColor }: CartFABProps) {
+  const scale     = useSharedValue(1);
+  const cartCount = useCartStore((state) => state.cartCount);
+
+  const showBadge    = cartCount > 0;
+  const displayCount = cartCount > 99 ? '99+' : String(cartCount);
 
   const handlePressIn  = () => {
     scale.value = withSpring(0.9, { damping: 12, stiffness: 200 });
@@ -275,16 +271,22 @@ function SearchFAB({ onPress, backgroundColor, labelColor }: SearchFABProps) {
           onPress={onPress}
           style={[styles.fabButton, { backgroundColor }]}
           accessibilityRole="button"
-          accessibilityLabel="Search"
+          accessibilityLabel={`Cart, ${cartCount} items`}
           activeOpacity={1}
         >
           <View style={styles.fabInnerRing}>
-            <Ionicons name="search" size={24} color="#ffffff" />
+            <Ionicons name="bag-outline" size={24} color="#ffffff" />
           </View>
+
+          {showBadge && (
+            <View style={styles.fabBadge}>
+              <Text style={styles.fabBadgeText}>{displayCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </Animated.View>
 
-      <Text style={[styles.fabLabel, { color: labelColor }]}>Search</Text>
+      <Text style={[styles.fabLabel, { color: labelColor }]}>Cart</Text>
     </View>
   );
 }
@@ -300,7 +302,6 @@ function FloatingNotchTabBar({
   const { colors, isDark }    = useTheme();
   const setBottomTabBarHeight = useLayoutStore((s) => s.setBottomTabBarHeight);
 
-  // Badge store
   const hasActiveOrders        = useTabBadgeStore((s) => s.hasActiveOrders);
   const hasActivePrescriptions = useTabBadgeStore((s) => s.hasActivePrescriptions);
 
@@ -339,14 +340,11 @@ function FloatingNotchTabBar({
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const fabBg        = isDark ? colors.brand.accent   : colors.brand.primary;
+  const fabBg         = isDark ? colors.brand.accent   : colors.brand.primary;
   const fabLabelColor = isDark ? colors.brand.accent   : colors.brand.primary;
-  const dockBg       = colors.tab.background;
-  const dockBorder   = colors.tab.border;
+  const dockBg        = colors.tab.background;
+  const dockBorder    = colors.tab.border;
 
-  // ── Badge color logic for Orders tab ─────────────────────────────────
-  // Red (active orders) takes priority over brand (active prescriptions).
-  // Both off = no badge.
   const ordersBadgeColor: string | undefined = hasActiveOrders
     ? colors.status.error
     : hasActivePrescriptions
@@ -373,7 +371,7 @@ function FloatingNotchTabBar({
         />
 
         <View style={styles.tabRow}>
-          {/* Home — index 0, no badge */}
+          {/* Home — index 0 */}
           <TabItem
             routeName={state.routes[0].name}
             label={getLabel(0)}
@@ -384,7 +382,7 @@ function FloatingNotchTabBar({
             dockBgColor={dockBg}
           />
 
-          {/* Orders — index 1, badge when active orders or prescriptions */}
+          {/* Orders — index 1 */}
           <TabItem
             routeName={state.routes[1].name}
             label={getLabel(1)}
@@ -396,13 +394,14 @@ function FloatingNotchTabBar({
             dockBgColor={dockBg}
           />
 
-          <SearchFAB
-            onPress={() => router.push('/search')}
+          {/* Cart FAB — center */}
+          <CartFAB
+            onPress={() => router.push('/cart')}
             backgroundColor={fabBg}
             labelColor={fabLabelColor}
           />
 
-          {/* Categories — index 2, no badge */}
+          {/* Categories — index 2 */}
           <TabItem
             routeName={state.routes[2].name}
             label={getLabel(2)}
@@ -413,7 +412,7 @@ function FloatingNotchTabBar({
             dockBgColor={dockBg}
           />
 
-          {/* Profile — index 3, no badge */}
+          {/* Profile — index 3 */}
           <TabItem
             routeName={state.routes[3].name}
             label={getLabel(3)}
@@ -495,7 +494,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap:            3,
   },
-  // Wraps the icon so the badge can be absolutely positioned inside it
   iconWrap: {
     position: 'relative',
     width:    26,
@@ -503,7 +501,6 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  // Badge dot — floats at top-right of the icon
   badgeDot: {
     position:     'absolute',
     top:          -3,
@@ -511,7 +508,6 @@ const styles = StyleSheet.create({
     width:        8,
     height:       8,
     borderRadius: 4,
-    // borderColor comes from dockBgColor prop, giving the "floating" look
     borderWidth:  1.5,
   },
   tabLabel: {
@@ -537,6 +533,7 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
     marginTop:      -34,
+    overflow:       'visible',
     ...Platform.select({
       ios: {
         shadowColor:   '#090025',
@@ -555,6 +552,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth:    2,
     borderColor:    'rgba(255,255,255,0.2)',
+  },
+  fabBadge: {
+    position:          'absolute',
+    top:               -2,
+    right:             -2,
+    minWidth:          20,
+    height:            20,
+    borderRadius:      10,
+    backgroundColor:   '#FF3B30',
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: 4,
+    borderWidth:       2,
+    borderColor:       '#ffffff',
+  },
+  fabBadgeText: {
+    ...Typography.smallBold,
+    fontSize:   10,
+    lineHeight: 14,
+    color:      '#ffffff',
   },
   fabLabel: {
     fontSize:   10,

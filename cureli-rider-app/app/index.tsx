@@ -1,3 +1,4 @@
+//cureli-rider-app\app\index.tsx
 import { Redirect } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 
