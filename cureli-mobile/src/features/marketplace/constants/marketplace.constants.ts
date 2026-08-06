@@ -15,13 +15,6 @@ export const STOCK_LABELS = {
 } as const;
 
 // ── Hero Carousel ─────────────────────────────────────────────
-// Static slides for the home screen carousel.
-// Set imageUrl to a CDN URL to show a real banner image.
-// When imageUrl is null, the placeholderIcon is rendered instead.
-//
-// Gradients now use theme keys instead of hardcoded hex values.
-// The PromoCard component resolves them at render time from
-// the active color palette.
 
 export interface HeroBannerSlide {
   id: string;
@@ -29,15 +22,14 @@ export interface HeroBannerSlide {
   subtitle: string;
   ctaLabel: string;
   ctaRoute: string;
-  /** CDN image URL. null = show branded placeholder icon. */
   imageUrl: string | null;
-  /** Ionicons name shown when imageUrl is null. */
   placeholderIcon: string;
-  /**
-   * Index into the hero gradient palette defined in colors.ts.
-   * Each slide picks a different gradient pair from the theme.
-   */
   gradientIndex: number;
+  // Custom gradient from cadmin — when present, overrides gradientIndex
+  gradientColor1: string | null;
+  gradientColor2: string | null;
+  gradientAngle:  number | null;
+  layoutMode: "FULL_IMAGE" | "TEXT_WITH_IMAGE";
 }
 
 export const HERO_BANNERS: HeroBannerSlide[] = [
@@ -50,6 +42,10 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
     imageUrl: null,
     placeholderIcon: "medkit-outline",
     gradientIndex: 0,
+    gradientColor1: null,
+    gradientColor2: null,
+    gradientAngle:  null,
+    layoutMode: "TEXT_WITH_IMAGE",
   },
   {
     id: "fast-delivery",
@@ -60,6 +56,10 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
     imageUrl: null,
     placeholderIcon: "bicycle-outline",
     gradientIndex: 1,
+    gradientColor1: null,
+    gradientColor2: null,
+    gradientAngle:  null,
+    layoutMode: "TEXT_WITH_IMAGE",
   },
   {
     id: "savings",
@@ -70,10 +70,13 @@ export const HERO_BANNERS: HeroBannerSlide[] = [
     imageUrl: null,
     placeholderIcon: "pricetag-outline",
     gradientIndex: 2,
+    gradientColor1: null,
+    gradientColor2: null,
+    gradientAngle:  null,
+    layoutMode: "TEXT_WITH_IMAGE",
   },
 ];
 
-export const HERO_CAROUSEL_HEIGHT = 180;
+export const HERO_BANNER_ASPECT_RATIO = 2.04;
 export const HERO_AUTO_SLIDE_INTERVAL_MS = 3500;
-
 export const HEADER_HEIGHT = 172;

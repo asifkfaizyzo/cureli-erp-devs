@@ -1,4 +1,4 @@
-// pharmacy-web/src/config/cadminPermissions.js
+// cadmin-web\src\config\cadminPermissions.js
 
 /**
  * =============================================================================
@@ -143,11 +143,22 @@ export const CADMIN_PERMISSIONS = {
   BROADCAST_EMAIL_VIEW_HISTORY: "broadcast_email.view_history", // View sent campaign history and individual campaign detail
   BROADCAST_EMAIL_MANAGE_UNSUBSCRIBES: "broadcast_email.manage_unsubscribes", // View, export, add, bulk-add, and remove suppression list entries
 
+  BROADCAST_MOBILE_SEND: "broadcast_mobile.send",
+  BROADCAST_MOBILE_VIEW_HISTORY: "broadcast_mobile.view_history",
+  BROADCAST_MOBILE_MANAGE_DRAFTS: "broadcast_mobile.manage_drafts",
+  BROADCAST_MOBILE_SCHEDULE: "broadcast_mobile.schedule",
+
   // ── SETTINGS ─────────────────────────────────────────────────────────────────
   SETTINGS_VIEW: "settings.view", // List settigns
   SETTINGS_EDIT_IDENTITY: "settings.edit_identity", // edit settings
   SETTINGS_EDIT_CONTACT: "settings.edit_contact", // edit settings
   SETTINGS_EDIT_PASSWORD: "settings.edit_password", // edit settings
+
+  // ── APP CONFIG ────────────────────────────────────────────────────────────────
+  APP_CONFIG_VIEW: "app_config.view",
+  APP_CONFIG_MANAGE_CATEGORY_IMAGES: "app_config.manage_category_images",
+  
+  APP_CONFIG_MANAGE_LAYOUT: "app_config.manage_layout",
 };
 
 // =============================================================================
@@ -568,6 +579,24 @@ export const CADMIN_PERMISSION_GROUPS = [
     ],
   },
   {
+    module: "App Config",
+    key: "appConfig",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.APP_CONFIG_VIEW,
+        label: "View App Config",
+        description:
+          "Access the App Config section and view category display settings",
+      },
+      {
+        key: CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES,
+        label: "Manage Category Images",
+        description:
+          "Upload, replace, and remove category images shown in the mobile app. Control category visibility.",
+      },
+    ],
+  },
+  {
     module: "Broadcast — In-App",
     key: "broadcast_inapp",
     permissions: [
@@ -611,6 +640,35 @@ export const CADMIN_PERMISSION_GROUPS = [
         label: "Manage Broadcast Templates",
         description:
           "Create, view, and apply reusable in-app broadcast message templates",
+      },
+    ],
+  },
+  {
+    module: "Broadcast — Mobile",
+    key: "broadcast_mobile",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
+        label: "Send Mobile Broadcast",
+        description:
+          "Preview recipient count, check sending limits, and dispatch mobile/SMS broadcasts immediately",
+      },
+      {
+        key: CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
+        label: "View Mobile Broadcast History",
+        description:
+          "Browse sent mobile broadcast history and open individual broadcast details",
+      },
+      {
+        key: CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
+        label: "Manage Mobile Drafts",
+        description: "Create, view, update, and delete mobile broadcast drafts",
+      },
+      {
+        key: CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
+        label: "Schedule Mobile Broadcasts",
+        description:
+          "Schedule mobile broadcasts for future delivery and cancel pending ones",
       },
     ],
   },

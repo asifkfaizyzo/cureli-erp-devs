@@ -49,7 +49,7 @@
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
 import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
-
+import { getResolvedFeedSections } from "../../cadmin/app-config/cadmin.appConfig.service.js";
 // ── Feed mode ─────────────────────────────────────────────────
 
 const SHOW_UNLISTED = process.env.MOBILE_SHOW_UNLISTED_MEDICINES === "true";
@@ -310,22 +310,26 @@ export async function listMobileFeed(itemsPerSection = 8) {
     ? listVariantsFromCatalog
     : listVariantsFromListings;
 
+  // Fetch DB-resolved sections (visibility + order + label overrides applied)
+  // Falls back gracefully: if DB has no override rows, registry defaults are used.
+  const feedSections = await getResolvedFeedSections();
+
   const results = await Promise.all(
-    CURATED_CATEGORIES.map(async (cat) => {
-      const medicines = await queryFn(cat.key, itemsPerSection, {
+    feedSections.map(async (section) => {
+      const medicines = await queryFn(section.key, itemsPerSection, {
         hasImage: true,
       });
-      return { cat, medicines };
+      return { section, medicines };
     }),
   );
 
   const sections = results
     .filter(({ medicines }) => medicines.length > 0)
-    .map(({ cat, medicines }) => ({
-      key: cat.key,
-      title: cat.label,
-      icon: cat.icon,
-      type: cat.type,
+    .map(({ section, medicines }) => ({
+      key: section.key,
+      title: section.label,
+      icon: section.icon,
+      type: section.type,
       medicines,
     }));
 

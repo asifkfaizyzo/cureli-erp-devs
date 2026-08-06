@@ -70,7 +70,7 @@ function formatUserForResponse(user) {
 // ── sendMobileOtp ─────────────────────────────────────────────
 
 export async function sendMobileOtp(phone) {
-  console.log("[sendMobileOtp] incoming phone:", JSON.stringify(phone));
+  
 
   // ── 1. Daily SMS limit ──────────────────────────────────
   if (!isReviewPhone(phone)) {

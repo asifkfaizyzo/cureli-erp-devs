@@ -146,8 +146,10 @@ export function useCAdminMenuPermissions() {
 
       masterMedicines: show(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
 
-      appConfig: show(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
-
+      appConfig: showAny(
+        CADMIN_PERMISSIONS.APP_CONFIG_VIEW,
+        CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES,
+      ),
       notifications: { visible: true, disabled: false },
       settings: show(CADMIN_PERMISSIONS.SETTINGS_VIEW),
     };

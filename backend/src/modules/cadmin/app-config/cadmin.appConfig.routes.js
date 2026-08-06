@@ -1,54 +1,227 @@
-// backend/src/modules/cadmin/app-config/cadmin.appConfig.routes.js
+// src/modules/cadmin/app-config/cadmin.appConfig.routes.js
 
 import { Router } from "express";
 import { requireCAdmin } from "../../../middleware/requireCAdmin.js";
 import { requireCAdminPermission } from "../../../middleware/requireCAdminPermission.js";
 import { CADMIN_PERMISSIONS } from "../../../config/cadminPermissions.js";
+
+// ── Category handlers ─────────────────────────────────────────────────────────
 import { uploadCategoryImage } from "./cadmin.appConfig.upload.js";
 import {
   handleListCategories,
   handleUploadCategoryImage,
   handleDeleteCategoryImage,
   handleSetVisibility,
+  handleListFeedSections,
+  handleReorderFeedSections,
+  handleUpdateFeedSection,
+  handleGetHomeScreenConfig,
+  handleUpdateHomeScreenConfig,
 } from "./cadmin.appConfig.controller.js";
+
+// ── Banner handlers ───────────────────────────────────────────────────────────
+import { uploadBannerImage } from "./banners/cadmin.banners.upload.js";
+import {
+  handleListSlides,
+  handleCreateSlide,
+  handleUpdateSlide,
+  handleUploadSlideImage,
+  handleDeleteSlideImage,
+  handleDeleteSlide,
+  handleReorderSlides,
+  // strips
+  handleListStrips,
+  handleCreateStrip,
+  handleUpdateStrip,
+  handleUploadStripImage,
+  handleDeleteStripImage,
+  handleDeleteStrip,
+  handleReorderStrips,
+} from "./banners/cadmin.banners.controller.js";
 
 const router = Router();
 
-// All routes require a valid CAdmin session
 router.use(requireCAdmin);
 
-// ── GET /cadmin/app-config/categories ─────────────────────────────────────────
-// View permission — read-only list of all 12 categories with current overrides
+// ════════════════════════════════════════════════════════════════════════════
+// CATEGORY DISPLAY
+// ════════════════════════════════════════════════════════════════════════════
+
 router.get(
   "/app-config/categories",
   requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
-  handleListCategories
+  handleListCategories,
 );
 
-// ── POST /cadmin/app-config/categories/:key/image ─────────────────────────────
-// Upload or replace the image for a category
-// :key must be URI-encoded when it contains spaces (e.g. "PAIN%20ANALGESICS")
 router.post(
   "/app-config/categories/:key/image",
   requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
   uploadCategoryImage.single("file"),
-  handleUploadCategoryImage
+  handleUploadCategoryImage,
 );
 
-// ── DELETE /cadmin/app-config/categories/:key/image ───────────────────────────
-// Remove the image for a category (falls back to icon on mobile)
 router.delete(
   "/app-config/categories/:key/image",
   requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
-  handleDeleteCategoryImage
+  handleDeleteCategoryImage,
 );
 
-// ── PATCH /cadmin/app-config/categories/:key/visibility ───────────────────────
-// Body: { isHidden: boolean }
 router.patch(
   "/app-config/categories/:key/visibility",
   requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
-  handleSetVisibility
+  handleSetVisibility,
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// HOME BANNERS — SLIDES
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET    /cadmin/app-config/banners/slides
+router.get(
+  "/app-config/banners/slides",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
+  handleListSlides,
+);
+
+// POST   /cadmin/app-config/banners/slides
+router.post(
+  "/app-config/banners/slides",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleCreateSlide,
+);
+
+// PATCH  /cadmin/app-config/banners/slides/reorder
+// ⚠️  Must be registered BEFORE /:slideId to avoid Express matching
+//     "reorder" as a slideId param
+router.patch(
+  "/app-config/banners/slides/reorder",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleReorderSlides,
+);
+
+// PATCH  /cadmin/app-config/banners/slides/:slideId
+router.patch(
+  "/app-config/banners/slides/:slideId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleUpdateSlide,
+);
+
+// POST   /cadmin/app-config/banners/slides/:slideId/image
+router.post(
+  "/app-config/banners/slides/:slideId/image",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  uploadBannerImage.single("file"),
+  handleUploadSlideImage,
+);
+
+// DELETE /cadmin/app-config/banners/slides/:slideId/image
+router.delete(
+  "/app-config/banners/slides/:slideId/image",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleDeleteSlideImage,
+);
+
+// DELETE /cadmin/app-config/banners/slides/:slideId
+router.delete(
+  "/app-config/banners/slides/:slideId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleDeleteSlide,
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// HOME BANNERS — STRIPS
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET    /cadmin/app-config/banners/strips
+router.get(
+  "/app-config/banners/strips",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
+  handleListStrips,
+);
+
+// POST   /cadmin/app-config/banners/strips
+router.post(
+  "/app-config/banners/strips",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleCreateStrip,
+);
+
+// PATCH  /cadmin/app-config/banners/strips/reorder
+// ⚠️  Must be registered BEFORE /:stripId — same reason as slides
+router.patch(
+  "/app-config/banners/strips/reorder",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleReorderStrips,
+);
+
+// PATCH  /cadmin/app-config/banners/strips/:stripId
+router.patch(
+  "/app-config/banners/strips/:stripId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleUpdateStrip,
+);
+
+// POST   /cadmin/app-config/banners/strips/:stripId/image
+router.post(
+  "/app-config/banners/strips/:stripId/image",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  uploadBannerImage.single("file"),
+  handleUploadStripImage,
+);
+
+// DELETE /cadmin/app-config/banners/strips/:stripId/image
+router.delete(
+  "/app-config/banners/strips/:stripId/image",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleDeleteStripImage,
+);
+
+// DELETE /cadmin/app-config/banners/strips/:stripId
+router.delete(
+  "/app-config/banners/strips/:stripId",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_CATEGORY_IMAGES),
+  handleDeleteStrip,
+);
+
+// GET    /cadmin/app-config/feed-sections
+router.get(
+  "/app-config/feed-sections",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
+  handleListFeedSections,
+);
+
+// PATCH  /cadmin/app-config/feed-sections/reorder
+// ⚠️  Must be registered BEFORE /:key to avoid Express matching
+//     "reorder" as a key param
+router.patch(
+  "/app-config/feed-sections/reorder",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LAYOUT),
+  handleReorderFeedSections,
+);
+
+// PATCH  /cadmin/app-config/feed-sections/:key
+router.patch(
+  "/app-config/feed-sections/:key",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LAYOUT),
+  handleUpdateFeedSection,
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+// HOME SCREEN CONFIG
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET    /cadmin/app-config/home-screen
+router.get(
+  "/app-config/home-screen",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
+  handleGetHomeScreenConfig,
+);
+
+// PATCH  /cadmin/app-config/home-screen
+router.patch(
+  "/app-config/home-screen",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LAYOUT),
+  handleUpdateHomeScreenConfig,
 );
 
 export default router;

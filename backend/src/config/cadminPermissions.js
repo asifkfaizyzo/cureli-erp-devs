@@ -214,6 +214,8 @@ export const CADMIN_PERMISSIONS = {
   // ─────────────────────────────────────────────────────────────────────────
   APP_CONFIG_VIEW: "app_config.view",
   APP_CONFIG_MANAGE_CATEGORY_IMAGES: "app_config.manage_category_images",
+
+  APP_CONFIG_MANAGE_LAYOUT: "app_config.manage_layout",
 };
 
 // =============================================================================

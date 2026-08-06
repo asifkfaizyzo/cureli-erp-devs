@@ -30,11 +30,13 @@
 import { success, fail } from "../../../utils/response.js";
 import { getCategoryOverrideMap } from "../../cadmin/app-config/cadmin.appConfig.service.js";
 import { CATEGORY_KEY_REGISTRY } from "../../cadmin/app-config/categoryKeys.registry.js";
+import { getPublicHomeBanners } from "../../cadmin/app-config/banners/cadmin.banners.service.js";
+import { getHomeScreenConfigForMobile } from "../../cadmin/app-config/cadmin.appConfig.service.js";
 
 // Pre-compute the top-level keys once at module load
-const TOP_LEVEL_KEYS = CATEGORY_KEY_REGISTRY
-  .filter((entry) => entry.scope === "top_level")
-  .map((entry) => entry.key);
+const TOP_LEVEL_KEYS = CATEGORY_KEY_REGISTRY.filter(
+  (entry) => entry.scope === "top_level",
+).map((entry) => entry.key);
 
 // ── GET /mobile/app-config/marketplace-display ────────────────
 
@@ -53,12 +55,33 @@ export async function handleGetMarketplaceDisplay(_req, res) {
             isHidden: override?.isHidden ?? false,
           },
         ];
-      })
+      }),
     );
 
     return success(res, { overrides }, "Marketplace display config fetched");
   } catch (err) {
     console.error("[mobile.appConfig] marketplace display error:", err);
     return fail(res, "Failed to fetch marketplace display config", 500);
+  }
+}
+
+export async function handleGetHomeBanners(req, res) {
+  try {
+    const data = await getPublicHomeBanners();
+    return success(res, data, "Home banners fetched");
+  } catch (err) {
+    console.error("[mobile/app-config] home-banners error:", err);
+    return fail(res, "Failed to fetch home banners", 500);
+  }
+}
+
+
+export async function handleGetHomeScreenConfig(req, res) {
+  try {
+    const config = await getHomeScreenConfigForMobile();
+    return success(res, { config }, "Home screen config fetched");
+  } catch (err) {
+    console.error("[mobile/app-config] home-screen error:", err);
+    return fail(res, "Failed to fetch home screen config", 500);
   }
 }

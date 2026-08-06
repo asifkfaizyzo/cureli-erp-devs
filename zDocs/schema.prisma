@@ -911,6 +911,108 @@ model DeliveryPricingConfig {
   @@map("delivery_pricing_config")
 }
 
+
+model MarketplaceCategoryDisplayOverride {
+  id                   String   @id @default(uuid()) @db.Uuid
+  category_key         String   @unique @db.VarChar(150)
+
+  // Image override — all null when no image uploaded
+  image_storage_key    String?  @db.VarChar(500)
+  image_original_name  String?  @db.VarChar(255)
+  image_mime_type      String?  @db.VarChar(100)
+  image_file_size      Int?
+
+  // Visibility — false = visible (default), true = hidden from mobile
+  is_hidden            Boolean  @default(false)
+
+  // Audit snapshot — no FK, same pattern as broadcast campaigns
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category_key])
+  @@map("marketplace_category_display_overrides")
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// APP CONFIG — HOME BANNERS
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Hero carousel slides — ordered list, up to 8.
+// position determines display order (ascending).
+// imageUrl = null → mobile renders branded placeholder card (legacy fallback).
+// ctaAction = NONE → tap does nothing (decorative banner).
+
+model HomeBannerSlide {
+  slide_id             String            @id @default(uuid()) @db.Uuid
+  position             Int               @default(0)
+  title                String            @db.VarChar(200)
+  subtitle             String?           @db.VarChar(300)
+  image_storage_key    String?           @db.VarChar(500)
+  image_original_name  String?           @db.VarChar(255)
+  image_mime_type      String?           @db.VarChar(100)
+  image_file_size      Int?
+  cta_label            String?           @db.VarChar(80)
+  cta_action           BannerCtaAction   @default(NONE)
+  cta_action_value     String?           @db.VarChar(500)
+  is_active            Boolean           @default(true)
+  gradient_index       Int               @default(0)
+
+  // ── Custom gradient — when set, overrides gradient_index on mobile ──────────
+  gradient_color_1     String?           @db.VarChar(20)   // e.g. "#05015A"
+  gradient_color_2     String?           @db.VarChar(20)   // e.g. "#3b2fd4"
+  gradient_angle       Int?                                 // 0-360, CSS/mobile degrees
+
+  placeholder_icon     String            @default("medkit-outline") @db.VarChar(100)
+  updated_by_cadmin_id String?           @db.Uuid
+  updated_by_name      String?           @db.VarChar(200)
+  layout_mode          String            @default("TEXT_WITH_IMAGE") @db.VarChar(20)
+  created_at           DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime          @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active, position])
+  @@index([position])
+  @@map("home_banner_slides")
+}
+
+// Single strip banner below the hero carousel.
+// Only one row ever exists (singleton, keyed by type = "HOME_STRIP").
+// Upserted on every save — never inserted twice.
+
+model HomeStripBanner {
+  strip_id             String          @id @default(uuid()) @db.Uuid
+
+  // Ordering — drag to reorder in admin
+  position             Int             @default(0)
+
+  // Image
+  image_storage_key    String?         @db.VarChar(500)
+  image_original_name  String?         @db.VarChar(255)
+  image_mime_type      String?         @db.VarChar(100)
+  image_file_size      Int?
+
+  // CTA
+  cta_action           BannerCtaAction @default(NONE)
+  cta_action_value     String?         @db.VarChar(500)
+
+  // Visibility
+  is_active            Boolean         @default(true)
+
+  // Audit
+  updated_by_cadmin_id String?         @db.Uuid
+  updated_by_name      String?         @db.VarChar(200)
+
+  created_at           DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active, position])
+  @@index([position])
+  @@map("home_strip_banners")
+}
+
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MARKETPLACE ORDERS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1532,6 +1634,549 @@ model CureliMobileBroadcastCampaign {
 
 
 
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CURELI DELIVERY — RIDER & DELIVERY MODULE
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+model DeliveryZone {
+  zone_id    String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(100)
+  city       String   @db.VarChar(100)
+  state      String   @db.VarChar(100)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  riders             Rider[]
+  zoneChangeRequests ZoneChangeRequest[]
+  trainingContent    RiderTrainingContent[]
+
+  @@index([city, is_active])
+  @@index([is_active])
+  @@map("delivery_zones")
+}
+
+model DeliveryConfig {
+  config_id                String   @id @default(uuid()) @db.Uuid
+  base_fee_per_delivery    Decimal  @default(30) @db.Decimal(10, 2)
+  per_km_rate              Decimal  @default(5)  @db.Decimal(10, 2)
+  accept_timeout_seconds   Int      @default(30)
+  max_cascade_attempts     Int      @default(5)
+  min_payout_amount        Decimal  @default(100) @db.Decimal(10, 2)
+  payout_day_of_week       Int      @default(1)
+  low_rating_threshold     Decimal  @default(3.5) @db.Decimal(3, 2)
+  updated_at               DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  updated_by               String?  @db.Uuid
+
+  @@map("delivery_config")
+}
+
+model DeliveryShift {
+  shift_id        String   @id @default(uuid()) @db.Uuid
+  name            String   @db.VarChar(100)
+  start_time      String   @db.VarChar(5)
+  end_time        String   @db.VarChar(5)
+  min_deliveries  Int
+  bonus_amount    Decimal  @db.Decimal(10, 2)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_shifts")
+}
+
+model DeliverySurgeRule {
+  rule_id       String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(100)
+  start_time    String   @db.VarChar(5)
+  end_time      String   @db.VarChar(5)
+  days_of_week  String[]
+  multiplier    Decimal  @db.Decimal(4, 2)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_surge_rules")
+}
+
+model DeliveryIncentive {
+  incentive_id  String          @id @default(uuid()) @db.Uuid
+  type          IncentiveType
+  target_count  Int
+  reward_amount Decimal         @db.Decimal(10, 2)
+  period        IncentivePeriod
+  is_active     Boolean         @default(true)
+  expires_at    DateTime?       @db.Timestamptz(6)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active])
+  @@map("delivery_incentives")
+}
+
+model Rider {
+  rider_id                 String       @id @default(uuid()) @db.Uuid
+  phone                    String       @unique @db.VarChar(15)
+  full_name                String?      @db.VarChar(200)
+  date_of_birth            DateTime?    @db.Date
+  sex                      UserSex?
+
+  // Profile
+  profile_photo_key        String?      @db.VarChar(500)
+
+  // Vehicle details
+  vehicle_type             String?      @db.VarChar(20)
+  vehicle_number           String?      @db.VarChar(20)
+  vehicle_make_model       String?      @db.VarChar(100)
+
+  // Status
+  status                   RiderStatus  @default(PENDING_REVIEW)
+
+  // Zone
+  zone_id                  String?      @db.Uuid
+
+  // Online state
+  is_online                Boolean      @default(false)
+  current_lat              Decimal?     @db.Decimal(10, 8)
+  current_lng              Decimal?     @db.Decimal(11, 8)
+  last_location_at         DateTime?    @db.Timestamptz(6)
+
+  // Bank details (flat fields — required for payout processing)
+  bank_account_number      String?      @db.VarChar(30)
+  bank_ifsc                String?      @db.VarChar(15)
+  bank_holder_name         String?      @db.VarChar(200)
+  bank_name                String?      @db.VarChar(100)
+  bank_verified            Boolean      @default(false)
+
+  // Emergency contact (flat fields — used in SOS critical path)
+  emergency_contact_name   String?      @db.VarChar(200)
+  emergency_contact_phone  String?      @db.VarChar(15)
+
+  // Ratings
+  rating                   Float        @default(0)
+  total_ratings            Int          @default(0)
+  total_deliveries         Int          @default(0)
+
+  // Referral
+  referral_code            String?      @unique @db.VarChar(20)
+  referred_by_code         String?      @db.VarChar(20)
+
+  // Suspension
+  suspension_reason        String?      @db.VarChar(500)
+  suspended_at             DateTime?    @db.Timestamptz(6)
+  suspended_by             String?      @db.Uuid
+
+  // Auth OTP fields — mirrors CureliMobileUser exactly
+  login_otp_hash           String?
+  login_otp_expires        DateTime?    @db.Timestamptz(6)
+  login_otp_attempts       Int          @default(0)
+  otp_cycle_failures       Int          @default(0)
+  otp_locked_until         DateTime?    @db.Timestamptz(6)
+
+  // Session control
+  logout_all_issued_at     DateTime?    @db.Timestamptz(6)
+
+  // Soft delete
+  deleted_at               DateTime?    @db.Timestamptz(6)
+  deletion_reason          String?      @db.VarChar(500)
+
+  created_at               DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime     @updatedAt @db.Timestamptz(6)
+  last_seen_at             DateTime?    @db.Timestamptz(6)
+
+  // Relations
+  zone                     DeliveryZone?          @relation(fields: [zone_id], references: [zone_id])
+  sessions                 RiderSession[]
+  documents                RiderDocument[]
+  zoneChangeRequests       ZoneChangeRequest[]
+  deliveries               Delivery[]
+  earningLedger            RiderEarningLedger[]
+  payouts                  RiderPayout[]
+  ratingsReceived          RiderRating[]
+  ratingsGiven             RiderGivesRating[]
+  incidents                RiderIncident[]
+  appeals                  RiderAppeal[]
+  tickets                  RiderTicket[]
+  notifications            RiderNotification[]
+  assignmentLogs           DeliveryAssignmentLog[]
+
+  @@index([phone])
+  @@index([status])
+  @@index([zone_id, is_online, status])
+  @@index([referral_code])
+  @@index([deleted_at])
+  @@index([created_at(sort: Desc)])
+  @@map("riders")
+}
+
+model RiderSession {
+  id                   String    @id @default(uuid()) @db.Uuid
+  rider_id             String    @db.Uuid
+  refresh_token_hash   String    @unique @db.VarChar(500)
+  device_id            String?   @db.VarChar(255)
+  device_name          String?   @db.VarChar(200)
+  device_platform      String?   @db.VarChar(20)
+  device_os_version    String?   @db.VarChar(50)
+  app_version          String?   @db.VarChar(20)
+  push_token           String?   @db.VarChar(500)
+  push_token_type      String?   @db.VarChar(20)
+  push_token_updated_at DateTime? @db.Timestamptz(6)
+  ip_address           String?   @db.VarChar(45)
+  user_agent           String?   @db.VarChar(500)
+  is_active            Boolean   @default(true)
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  last_active_at       DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at           DateTime  @db.Timestamptz(6)
+  revoked_at           DateTime? @db.Timestamptz(6)
+  revoked_reason       String?   @db.VarChar(50)
+
+  rider                Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@index([rider_id])
+  @@index([refresh_token_hash])
+  @@index([rider_id, is_active])
+  @@index([expires_at])
+  @@map("rider_sessions")
+}
+
+model RiderDocument {
+  document_id       String              @id @default(uuid()) @db.Uuid
+  rider_id          String              @db.Uuid
+  type              RiderDocumentType
+  storage_key       String?             @db.VarChar(500)
+  back_storage_key  String?             @db.VarChar(500)
+  status            RiderDocumentStatus @default(PENDING)
+  rejection_reason  String?             @db.VarChar(500)
+  reviewed_by       String?             @db.Uuid
+  reviewed_at       DateTime?           @db.Timestamptz(6)
+  resubmission_count Int                @default(0)
+  uploaded_at       DateTime?           @db.Timestamptz(6)
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @updatedAt @db.Timestamptz(6)
+
+  rider             Rider               @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@unique([rider_id, type])
+  @@index([rider_id])
+  @@index([rider_id, type])
+  @@index([status])
+  @@map("rider_documents")
+}
+
+model ZoneChangeRequest {
+  request_id   String           @id @default(uuid()) @db.Uuid
+  rider_id     String           @db.Uuid
+  from_zone_id String?          @db.Uuid
+  to_zone_id   String           @db.Uuid
+  reason       String?          @db.VarChar(500)
+  status       ZoneChangeStatus @default(PENDING)
+  reviewed_by  String?          @db.Uuid
+  reviewed_at  DateTime?        @db.Timestamptz(6)
+  review_note  String?          @db.VarChar(500)
+  created_at   DateTime         @default(now()) @db.Timestamptz(6)
+
+  rider        Rider            @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+  toZone       DeliveryZone     @relation(fields: [to_zone_id], references: [zone_id])
+
+  @@index([rider_id])
+  @@index([status, created_at(sort: Desc)])
+  @@map("zone_change_requests")
+}
+
+model Delivery {
+  delivery_id                String              @id @default(uuid()) @db.Uuid
+  order_id                   String              @unique @db.Uuid
+  rider_id                   String?             @db.Uuid
+  zone_id                    String?             @db.Uuid
+  status                     DeliveryStatus      @default(PENDING_ASSIGNMENT)
+
+  // Assignment tracking
+  assigned_at                DateTime?           @db.Timestamptz(6)
+  accepted_at                DateTime?           @db.Timestamptz(6)
+  assignment_attempts        Int                 @default(0)
+
+  // Pharmacy step
+  arrived_at_pharmacy_at     DateTime?           @db.Timestamptz(6)
+  pharmacy_confirmed_at      DateTime?           @db.Timestamptz(6)
+  pharmacy_confirmed_by      String?             @db.Uuid
+  picked_up_at               DateTime?           @db.Timestamptz(6)
+
+  // Customer step
+  arrived_at_customer_at     DateTime?           @db.Timestamptz(6)
+  delivered_at               DateTime?           @db.Timestamptz(6)
+
+  // Failed delivery
+  failed_at                  DateTime?           @db.Timestamptz(6)
+  failure_reason             DeliveryFailureReason?
+  failure_note               String?             @db.VarChar(500)
+
+  // Masked call gate
+  masked_call_enabled        Boolean             @default(false)
+
+  // Location snapshots (captured at delivery creation)
+  pickup_lat                 Decimal?            @db.Decimal(10, 8)
+  pickup_lng                 Decimal?            @db.Decimal(11, 8)
+  drop_lat                   Decimal?            @db.Decimal(10, 8)
+  drop_lng                   Decimal?            @db.Decimal(11, 8)
+  total_distance_km          Decimal?            @db.Decimal(10, 2)
+
+  // Earnings snapshot (immutable after delivery completes)
+  base_fee                   Decimal?            @db.Decimal(10, 2)
+  distance_fee               Decimal?            @db.Decimal(10, 2)
+  surge_fee                  Decimal?            @db.Decimal(10, 2)
+  bonus_fee                  Decimal?            @db.Decimal(10, 2)
+  total_rider_earning        Decimal?            @db.Decimal(10, 2)
+
+  created_at                 DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime            @updatedAt @db.Timestamptz(6)
+
+  rider                      Rider?              @relation(fields: [rider_id], references: [rider_id])
+  assignmentLogs             DeliveryAssignmentLog[]
+  chatMessages               DeliveryChat[]
+  riderRating                RiderRating?
+  customerRating             RiderGivesRating?
+
+  @@index([order_id])
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@index([zone_id, status])
+  @@map("deliveries")
+}
+
+model DeliveryAssignmentLog {
+  log_id      String          @id @default(uuid()) @db.Uuid
+  delivery_id String          @db.Uuid
+  rider_id    String          @db.Uuid
+  action      AssignmentAction
+  reason      String?         @db.VarChar(200)
+  created_at  DateTime        @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery        @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider           @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([delivery_id])
+  @@index([rider_id])
+  @@map("delivery_assignment_logs")
+}
+
+model DeliveryChat {
+  message_id   String         @id @default(uuid()) @db.Uuid
+  delivery_id  String         @db.Uuid
+  sender_id    String         @db.Uuid
+  sender_type  ChatSenderType
+  message      String         @db.VarChar(1000)
+  is_preset    Boolean        @default(false)
+  read_at      DateTime?      @db.Timestamptz(6)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+
+  delivery     Delivery       @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+
+  @@index([delivery_id, created_at(sort: Asc)])
+  @@map("delivery_chats")
+}
+
+model RiderEarningLedger {
+  ledger_id   String      @id @default(uuid()) @db.Uuid
+  rider_id    String      @db.Uuid
+  delivery_id String?     @db.Uuid
+  payout_id   String?     @db.Uuid
+  type        EarningType
+  amount      Decimal     @db.Decimal(10, 2)
+  description String?     @db.VarChar(300)
+  week_start  DateTime    @db.Date
+  is_paid     Boolean     @default(false)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  rider       Rider       @relation(fields: [rider_id], references: [rider_id])
+  payout      RiderPayout? @relation(fields: [payout_id], references: [payout_id])
+
+  @@index([rider_id, is_paid])
+  @@index([rider_id, week_start])
+  @@index([payout_id])
+  @@map("rider_earning_ledger")
+}
+
+model RiderPayout {
+  payout_id          String        @id @default(uuid()) @db.Uuid
+  rider_id           String        @db.Uuid
+  week_start         DateTime      @db.Date
+  week_end           DateTime      @db.Date
+  gross_amount       Decimal       @db.Decimal(10, 2)
+  status             PayoutStatus  @default(PENDING)
+  payment_method     PayoutMethod  @default(MANUAL)
+
+  // Manual payout fields
+  manual_reference   String?       @db.VarChar(100)
+  manual_notes       String?       @db.VarChar(500)
+  manual_payment_date DateTime?    @db.Date
+  manual_bank_used   String?       @db.VarChar(100)
+
+  // Provider payload — null for MANUAL, populated for RAZORPAY_X in future
+  provider_payload   Json?
+
+  // Bank details snapshot at time of payout (immutable audit trail)
+  bank_snapshot      Json
+
+  processed_by       String?       @db.Uuid
+  processed_at       DateTime?     @db.Timestamptz(6)
+  failed_reason      String?       @db.VarChar(500)
+
+  created_at         DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime      @updatedAt @db.Timestamptz(6)
+
+  rider              Rider         @relation(fields: [rider_id], references: [rider_id])
+  ledgerEntries      RiderEarningLedger[]
+
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@index([week_start])
+  @@map("rider_payouts")
+}
+
+model RiderRating {
+  rating_id   String   @id @default(uuid()) @db.Uuid
+  delivery_id String   @unique @db.Uuid
+  rider_id    String   @db.Uuid
+  customer_id String   @db.Uuid
+  stars       Int
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@map("rider_ratings")
+}
+
+model RiderGivesRating {
+  rating_id   String   @id @default(uuid()) @db.Uuid
+  delivery_id String   @unique @db.Uuid
+  rider_id    String   @db.Uuid
+  customer_id String   @db.Uuid
+  stars       Int
+  reason      String?  @db.VarChar(200)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@map("rider_gives_ratings")
+}
+
+model RiderIncident {
+  incident_id  String         @id @default(uuid()) @db.Uuid
+  rider_id     String         @db.Uuid
+  type         IncidentType
+  is_sos       Boolean        @default(false)
+  description  String?        @db.VarChar(1000)
+  lat          Decimal?       @db.Decimal(10, 8)
+  lng          Decimal?       @db.Decimal(11, 8)
+  delivery_id  String?        @db.Uuid
+  status       IncidentStatus @default(OPEN)
+  resolved_by  String?        @db.Uuid
+  resolved_at  DateTime?      @db.Timestamptz(6)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+
+  rider        Rider          @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@index([is_sos, status])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_incidents")
+}
+
+model RiderAppeal {
+  appeal_id   String       @id @default(uuid()) @db.Uuid
+  rider_id    String       @db.Uuid
+  reason      String       @db.VarChar(1000)
+  status      AppealStatus @default(PENDING)
+  review_note String?      @db.VarChar(500)
+  reviewed_by String?      @db.Uuid
+  reviewed_at DateTime?    @db.Timestamptz(6)
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+
+  rider       Rider        @relation(fields: [rider_id], references: [rider_id])
+
+  @@index([rider_id])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_appeals")
+}
+
+model RiderTicket {
+  ticket_id   String            @id @default(uuid()) @db.Uuid
+  rider_id    String            @db.Uuid
+  category    RiderTicketCategory
+  description String            @db.VarChar(2000)
+  status      RiderTicketStatus @default(OPEN)
+  created_at  DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime          @updatedAt @db.Timestamptz(6)
+
+  rider       Rider             @relation(fields: [rider_id], references: [rider_id])
+  replies     RiderTicketReply[]
+
+  @@index([rider_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@map("rider_tickets")
+}
+
+model RiderTicketReply {
+  reply_id    String      @id @default(uuid()) @db.Uuid
+  ticket_id   String      @db.Uuid
+  sender_id   String      @db.Uuid
+  sender_type String      @db.VarChar(10)
+  message     String      @db.VarChar(2000)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  ticket      RiderTicket @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id, created_at(sort: Asc)])
+  @@map("rider_ticket_replies")
+}
+
+model RiderNotification {
+  id             String    @id @default(uuid()) @db.Uuid
+  rider_id       String    @db.Uuid
+  title          String    @db.VarChar(200)
+  body           String    @db.VarChar(500)
+  category       String    @db.VarChar(50)
+  data           Json?
+  is_read        Boolean   @default(false)
+  read_at        DateTime? @db.Timestamptz(6)
+  push_sent      Boolean   @default(false)
+  push_ticket_id String?   @db.VarChar(200)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  rider          Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
+
+  @@index([rider_id, is_read, created_at(sort: Desc)])
+  @@index([rider_id, created_at(sort: Desc)])
+  @@map("rider_notifications")
+}
+
+model RiderTrainingContent {
+  content_id   String              @id @default(uuid()) @db.Uuid
+  type         TrainingContentType
+  title        String              @db.VarChar(200)
+  body         String              @db.Text
+  order        Int                 @default(0)
+  is_active    Boolean             @default(true)
+  target_zone_id String?           @db.Uuid
+  created_by   String              @db.Uuid
+  created_at   DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime            @updatedAt @db.Timestamptz(6)
+
+  targetZone   DeliveryZone?       @relation(fields: [target_zone_id], references: [zone_id])
+
+  @@index([type, is_active])
+  @@index([target_zone_id])
+  @@map("rider_training_content")
+}
+
+
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PLANS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1608,567 +2253,67 @@ model PaymentTransaction {
 
 
 model Supplier {
-  supplier_id      String            @id @default(uuid()) @db.Uuid
-  name             String            @db.VarChar(200)
-  supplier_code    String?           @db.VarChar(50)
-  contact_person   String?           @db.VarChar(100)
-  office_phone     String?           @db.VarChar(20)
-  personal_phone   String?           @db.VarChar(20)
-  email            String?           @db.VarChar(100)
-  address_line_1   String?
-  address_line_2   String?
-  city             String?           @db.VarChar(100)
-  state            String?           @db.VarChar(100)
-  pincode          String?           @db.VarChar(10)
-  gst_number       String?           @db.VarChar(15)
-  pan_number       String?           @db.VarChar(10)
-  drug_license_no  String?           @db.VarChar(50)
-  credit_days      Int               @default(0)
-  credit_limit     Decimal?          @db.Decimal(12, 2)
-  bank_name        String?           @db.VarChar(100)
-  account_number   String?           @db.VarChar(50)
-  ifsc_code        String?           @db.VarChar(20)
-  is_active        Boolean           @default(true)
-  shop_id          String            @db.Uuid
-  created_by       String            @db.Uuid
-  created_at       DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
-  //  ADD THIS LINE
-  branches         SupplierBranch[]  @relation("SupplierBranches")
-  
-  purchaseInvoices PurchaseInvoice[] @relation("SupplierPurchaseInvoices")
-  payments         PurchasePayment[] @relation("SupplierPayments")
-  credits          SupplierCredit[]  @relation("SupplierCredits")
-  creator          User              @relation("SupplierCreator", fields: [created_by], references: [user_id])
-  shop             Shop              @relation("ShopSuppliers", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-
-  @@unique([shop_id, name])
-  @@unique([shop_id, gst_number])
-  @@index([shop_id, is_active])
-  @@index([shop_id, name])
-  @@index([gst_number])
-  @@map("suppliers")
 }
 
 model SupplierBranch {
-  id          String   @id @default(uuid()) @db.Uuid
-  supplier_id String   @db.Uuid
-  branch_id   String   @db.Uuid
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  created_by  String?  @db.Uuid
-
-  // Relations
-  supplier Supplier @relation("SupplierBranches", fields: [supplier_id], references: [supplier_id], onDelete: Cascade)
-  branch   Branch   @relation("BranchSuppliers", fields: [branch_id], references: [branch_id], onDelete: Cascade)
-
-  @@unique([supplier_id, branch_id])
-  @@index([branch_id])
-  @@index([supplier_id])
-  @@index([is_active])
-  @@map("supplier_branches")
+ 
 }
 
 model PurchaseInvoice {
-  invoice_id             String                 @id @default(uuid()) @db.Uuid
-  invoice_number         String                 @db.VarChar(50)
-  supplier_invoice_no    String?                @db.VarChar(50)
-  shop_id                String                 @db.Uuid
-  branch_id              String?                @db.Uuid
-  supplier_id            String                 @db.Uuid
-  created_by             String                 @db.Uuid
-  confirmed_by           String?                @db.Uuid
-  parent_invoice_id      String?                @db.Uuid
-  invoice_date           DateTime               @db.Date
-  due_date               DateTime?              @db.Date
-  received_date          DateTime?              @db.Date
-  confirmed_at           DateTime?              @db.Timestamptz(6)
-  subtotal               Decimal                @default(0) @db.Decimal(12, 2)
-  discount_amount        Decimal                @default(0) @db.Decimal(12, 2)
-  taxable_amount         Decimal                @default(0) @db.Decimal(12, 2)
-  cgst_amount            Decimal                @default(0) @db.Decimal(12, 2)
-  sgst_amount            Decimal                @default(0) @db.Decimal(12, 2)
-  igst_amount            Decimal                @default(0) @db.Decimal(12, 2)
-  total_tax              Decimal                @default(0) @db.Decimal(12, 2)
-  round_off              Decimal                @default(0) @db.Decimal(5, 2)
-  net_amount             Decimal                @default(0) @db.Decimal(12, 2)
-  payment_status         String                 @default("UNPAID")
-  paid_amount            Decimal                @default(0) @db.Decimal(12, 2)
-  balance_amount         Decimal                @default(0) @db.Decimal(12, 2)
-  payment_mode           String?                @db.VarChar(50)
-  status                 String                 @default("DRAFT")
-  is_return              Boolean                @default(false)
-  remarks                String?
-  transport_charges      Decimal?               @db.Decimal(10, 2)
-  other_charges          Decimal?               @db.Decimal(10, 2)
-  created_at             DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime               @updatedAt @db.Timestamptz(6)
-  adjustment_type        PaymentAdjustmentType?
-  approved_at            DateTime?              @db.Timestamptz(6)
-  approved_by            String?                @db.Uuid
-  credit_note_number     String?                @db.VarChar(50)
-  refund_amount          Decimal?               @db.Decimal(12, 2)
-  refund_notes           String?
-  rejected_at            DateTime?              @db.Timestamptz(6)
-  rejected_by            String?                @db.Uuid
-  rejection_reason       String?
-  return_approval_status ReturnApprovalStatus?
-  return_reason          ReturnReason?
-  return_reason_notes    String?
-  creditApplications     CreditApplication[]    @relation("CreditApplicationsToInvoice")
-  lineItems              PurchaseInvoiceItem[]  @relation("InvoiceLineItems")
-  approver               User?                  @relation("ReturnApprover", fields: [approved_by], references: [user_id])
-  branch                 Branch?                @relation("BranchPurchaseInvoices", fields: [branch_id], references: [branch_id])
-  confirmer              User?                  @relation("PurchaseInvoiceConfirmer", fields: [confirmed_by], references: [user_id])
-  creator                User                   @relation("PurchaseInvoiceCreator", fields: [created_by], references: [user_id])
-  parentInvoice          PurchaseInvoice?       @relation("PurchaseReturns", fields: [parent_invoice_id], references: [invoice_id])
-  returnInvoices         PurchaseInvoice[]      @relation("PurchaseReturns")
-  rejecter               User?                  @relation("ReturnRejecter", fields: [rejected_by], references: [user_id])
-  shop                   Shop                   @relation("ShopPurchaseInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  supplier               Supplier               @relation("SupplierPurchaseInvoices", fields: [supplier_id], references: [supplier_id])
-  payments               PurchasePayment[]      @relation("InvoicePayments")
-  supplierCredits        SupplierCredit[]       @relation("ReturnCredits")
-
-  @@unique([shop_id, invoice_number])
-  @@index([shop_id, invoice_date])
-  @@index([supplier_id, invoice_date])
-  @@index([shop_id, status])
-  @@index([shop_id, payment_status])
-  @@index([branch_id])
-  @@index([created_at])
-  @@map("purchase_invoices")
+  
 }
 
 model SupplierCredit {
-  credit_id          String              @id @default(uuid()) @db.Uuid
-  shop_id            String              @db.Uuid
-  supplier_id        String              @db.Uuid
-  return_invoice_id  String              @db.Uuid
-  credit_note_number String              @unique @db.VarChar(50)
-  credit_amount      Decimal             @db.Decimal(12, 2)
-  utilized_amount    Decimal             @default(0) @db.Decimal(12, 2)
-  balance_amount     Decimal             @db.Decimal(12, 2)
-  status             String              @default("ACTIVE") @db.VarChar(20)
-  issued_date        DateTime            @db.Date
-  expiry_date        DateTime            @db.Date
-  created_at         DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime            @updatedAt @db.Timestamptz(6)
-  applications       CreditApplication[] @relation("CreditApplications")
-  returnInvoice      PurchaseInvoice     @relation("ReturnCredits", fields: [return_invoice_id], references: [invoice_id], onDelete: Cascade)
-  shop               Shop                @relation("ShopSupplierCredits", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  supplier           Supplier            @relation("SupplierCredits", fields: [supplier_id], references: [supplier_id], onDelete: Cascade)
-
-  @@index([shop_id, supplier_id, status])
-  @@index([expiry_date])
-  @@map("supplier_credits")
+  
 }
 
 model CreditApplication {
-  application_id        String          @id @default(uuid()) @db.Uuid
-  credit_id             String          @db.Uuid
-  applied_to_invoice_id String          @db.Uuid
-  applied_amount        Decimal         @db.Decimal(12, 2)
-  applied_date          DateTime        @db.Date
-  applied_by            String          @db.Uuid
-  notes                 String?
-  created_at            DateTime        @default(now()) @db.Timestamptz(6)
-  appliedBy             User            @relation("CreditApplicationsBy", fields: [applied_by], references: [user_id], onDelete: SetNull)
-  appliedInvoice        PurchaseInvoice @relation("CreditApplicationsToInvoice", fields: [applied_to_invoice_id], references: [invoice_id], onDelete: Cascade)
-  credit                SupplierCredit  @relation("CreditApplications", fields: [credit_id], references: [credit_id], onDelete: Cascade)
-
-  @@index([credit_id])
-  @@index([applied_to_invoice_id])
-  @@map("credit_applications")
+ 
 }
 
 model PurchaseInvoiceItem {
-  item_id            String          @id @default(uuid()) @db.Uuid
-  invoice_id         String          @db.Uuid
-  medicine_id        String          @db.Uuid
-  batch_number       String          @db.VarChar(50)
-  expiry_date        DateTime        @db.Date
-  manufacturing_date DateTime?       @db.Date
-  quantity           Decimal         @db.Decimal(10, 2)
-  free_quantity      Decimal         @default(0) @db.Decimal(10, 2)
-  pack_size          String?         @db.VarChar(50)
-  unit_of_measure    String          @default("UNIT")
-  purchase_rate      Decimal         @db.Decimal(10, 2)
-  mrp                Decimal         @db.Decimal(10, 2)
-  scheme_discount    Decimal         @default(0) @db.Decimal(5, 2)
-  trade_discount     Decimal         @default(0) @db.Decimal(5, 2)
-  discount_amount    Decimal         @default(0) @db.Decimal(10, 2)
-  taxable_amount     Decimal         @default(0) @db.Decimal(12, 2)
-  cgst_percent       Decimal         @default(0) @db.Decimal(5, 2)
-  cgst_amount        Decimal         @default(0) @db.Decimal(10, 2)
-  sgst_percent       Decimal         @default(0) @db.Decimal(5, 2)
-  sgst_amount        Decimal         @default(0) @db.Decimal(10, 2)
-  igst_percent       Decimal         @default(0) @db.Decimal(5, 2)
-  igst_amount        Decimal         @default(0) @db.Decimal(10, 2)
-  line_total         Decimal         @default(0) @db.Decimal(12, 2)
-  selling_rate       Decimal?        @db.Decimal(10, 2)
-  margin_percent     Decimal?        @db.Decimal(5, 2)
-  rack_no            String?         @db.VarChar(20)
-  created_at         DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime        @updatedAt @db.Timestamptz(6)
-  inventory_id       String?         @db.Uuid
-  inventory          Inventory?      @relation("PurchaseItemInventory", fields: [inventory_id], references: [inventory_id])
-  invoice            PurchaseInvoice @relation("InvoiceLineItems", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
-  medicine           Medicine        @relation("PurchaseLineItems", fields: [medicine_id], references: [medicine_id])
-
-  @@index([invoice_id])
-  @@index([medicine_id])
-  @@index([batch_number])
-  @@index([expiry_date])
-  @@map("purchase_invoice_items")
+  
 }
 
 model PurchasePayment {
-  payment_id       String          @id @default(uuid()) @db.Uuid
-  invoice_id       String          @db.Uuid
-  shop_id          String          @db.Uuid
-  supplier_id      String          @db.Uuid
-  payment_date     DateTime        @db.Date
-  amount           Decimal         @db.Decimal(12, 2)
-  payment_mode     String          @db.VarChar(50)
-  reference_number String?         @db.VarChar(100)
-  bank_name        String?         @db.VarChar(100)
-  status           String          @default("COMPLETED")
-  remarks          String?
-  created_by       String          @db.Uuid
-  created_at       DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime        @updatedAt @db.Timestamptz(6)
-  creator          User            @relation("PaymentCreator", fields: [created_by], references: [user_id])
-  invoice          PurchaseInvoice @relation("InvoicePayments", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
-  shop             Shop            @relation("ShopPurchasePayments", fields: [shop_id], references: [shop_id])
-  supplier         Supplier        @relation("SupplierPayments", fields: [supplier_id], references: [supplier_id])
-
-  @@index([invoice_id])
-  @@index([shop_id, payment_date])
-  @@index([supplier_id])
-  @@map("purchase_payments")
+ 
 }
 
 model StockLedger {
-  ledger_id        String            @id @default(uuid()) @db.Uuid
-  shop_id          String            @db.Uuid
-  branch_id        String?           @db.Uuid
-  medicine_id      String            @db.Uuid
-  inventory_id     String            @db.Uuid
-  movement_type    StockMovementType
-  reference_type   String?           @db.VarChar(50)
-  reference_id     String?           @db.Uuid
-  reference_number String?           @db.VarChar(100)
-  batch_number     String            @db.VarChar(50)
-  expiry_date      DateTime          @db.Date
-  quantity_in      Decimal           @default(0) @db.Decimal(10, 2)
-  quantity_out     Decimal           @default(0) @db.Decimal(10, 2)
-  quantity_net     Decimal           @db.Decimal(10, 2)
-  balance_after    Decimal           @db.Decimal(10, 2)
-  rate             Decimal?          @db.Decimal(10, 2)
-  amount           Decimal?          @db.Decimal(12, 2)
-  remarks          String?
-  transaction_date DateTime          @db.Date
-  created_by       String            @db.Uuid
-  created_at       DateTime          @default(now()) @db.Timestamptz(6)
-  branch           Branch?           @relation("BranchStockLedger", fields: [branch_id], references: [branch_id])
-  creator          User              @relation("StockLedgerCreator", fields: [created_by], references: [user_id])
-  inventory        Inventory         @relation("InventoryStockMovements", fields: [inventory_id], references: [inventory_id])
-  medicine         Medicine          @relation("MedicineStockLedger", fields: [medicine_id], references: [medicine_id])
-  shop             Shop              @relation("ShopStockLedger", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-
-  @@index([shop_id, medicine_id, transaction_date])
-  @@index([inventory_id, transaction_date])
-  @@index([reference_type, reference_id])
-  @@index([movement_type])
-  @@index([batch_number])
-  @@index([transaction_date])
-  @@map("stock_ledger")
+  
 }
 
 model StockAdjustment {
-  adjustment_id   String           @id @default(uuid()) @db.Uuid
-  shop_id         String           @db.Uuid
-  branch_id       String?          @db.Uuid
-  medicine_id     String           @db.Uuid
-  inventory_id    String           @db.Uuid
-  batch_number    String           @db.VarChar(50)
-  reason          AdjustmentReason
-  reason_notes    String?
-  old_quantity    Decimal          @db.Decimal(10, 2)
-  new_quantity    Decimal          @db.Decimal(10, 2)
-  variance        Decimal          @db.Decimal(10, 2)
-  adjustment_date DateTime         @db.Date
-  approved_by     String?          @db.Uuid
-  approved_at     DateTime?        @db.Timestamptz(6)
-  created_by      String           @db.Uuid
-  created_at      DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime         @updatedAt @db.Timestamptz(6)
-  approver        User?            @relation("AdjustmentApprover", fields: [approved_by], references: [user_id])
-  branch          Branch?          @relation("BranchStockAdjustments", fields: [branch_id], references: [branch_id])
-  creator         User             @relation("AdjustmentCreator", fields: [created_by], references: [user_id])
-  inventory       Inventory        @relation("InventoryAdjustments", fields: [inventory_id], references: [inventory_id])
-  medicine        Medicine         @relation("MedicineStockAdjustments", fields: [medicine_id], references: [medicine_id])
-  shop            Shop             @relation("ShopStockAdjustments", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-
-  @@index([shop_id, adjustment_date])
-  @@index([medicine_id])
-  @@index([inventory_id])
-  @@index([reason])
-  @@map("stock_adjustments")
+  
 }
 
 model Customer {
-  customer_id         String           @id @default(uuid()) @db.Uuid
-  name                String           @db.VarChar(200)
-  phone               String           @db.VarChar(20)
-  email               String?          @db.VarChar(100)
-  address_line_1      String?
-  address_line_2      String?
-  city                String?          @db.VarChar(100)
-  state               String?          @db.VarChar(100)
-  pincode             String?          @db.VarChar(10)
-  gst_number          String?          @db.VarChar(15)
-  pan_number          String?          @db.VarChar(10)
-  credit_limit        Decimal          @default(0) @db.Decimal(12, 2)
-  credit_days         Int              @default(0)
-  outstanding_balance Decimal          @default(0) @db.Decimal(12, 2)
-  discount_percent    Decimal          @default(0) @db.Decimal(5, 2)
-  loyalty_points      Int              @default(0)
-  is_active           Boolean          @default(true)
-  shop_id             String           @db.Uuid
-  branch_id           String?          @db.Uuid
-  created_by          String           @db.Uuid
-  created_at          DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime         @updatedAt @db.Timestamptz(6)
-  credits             CustomerCredit[] @relation("CustomerCredits")
-  ledgerEntries       CustomerLedger[] @relation("CustomerLedgerEntries")
-  branch              Branch?          @relation("BranchCustomers", fields: [branch_id], references: [branch_id])
-  creator             User             @relation("CustomerCreator", fields: [created_by], references: [user_id])
-  shop                Shop             @relation("ShopCustomers", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  salesInvoices       SalesInvoice[]   @relation("CustomerSalesInvoices")
-  salesPayments       SalesPayment[]   @relation("CustomerPayments")
-
-  @@unique([shop_id, phone])
-  @@index([shop_id, is_active])
-  @@index([shop_id, name])
-  @@index([phone])
-  @@map("customers")
+  
 }
 
 model CustomerLedger {
-  ledger_id        String   @id @default(uuid()) @db.Uuid
-  customer_id      String   @db.Uuid
-  shop_id          String   @db.Uuid
-  branch_id        String?  @db.Uuid
-  transaction_type String   @db.VarChar(50)
-  reference_type   String   @db.VarChar(50)
-  reference_id     String?  @db.Uuid
-  reference_number String?  @db.VarChar(100)
-  debit_amount     Decimal  @default(0) @db.Decimal(12, 2)
-  credit_amount    Decimal  @default(0) @db.Decimal(12, 2)
-  balance_after    Decimal  @db.Decimal(12, 2)
-  transaction_date DateTime @db.Date
-  remarks          String?
-  created_by       String   @db.Uuid
-  created_at       DateTime @default(now()) @db.Timestamptz(6)
-  customer         Customer @relation("CustomerLedgerEntries", fields: [customer_id], references: [customer_id], onDelete: Cascade)
-
-  @@index([customer_id, transaction_date(sort: Desc)])
-  @@index([shop_id, transaction_date(sort: Desc)])
-  @@index([reference_type, reference_id])
-  @@map("customer_ledger")
+  
 }
 
 model CustomerCredit {
-  credit_id          String                      @id @default(uuid()) @db.Uuid
-  shop_id            String                      @db.Uuid
-  branch_id          String                      @db.Uuid
-  customer_id        String                      @db.Uuid
-  return_invoice_id  String                      @db.Uuid
-  credit_note_number String                      @unique @db.VarChar(50)
-  credit_amount      Decimal                     @db.Decimal(12, 2)
-  utilized_amount    Decimal                     @default(0) @db.Decimal(12, 2)
-  balance_amount     Decimal                     @db.Decimal(12, 2)
-  status             String                      @default("ACTIVE") @db.VarChar(20)
-  issued_date        DateTime                    @db.Date
-  expiry_date        DateTime                    @db.Date
-  created_at         DateTime                    @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime                    @updatedAt @db.Timestamptz(6)
-  applications       CustomerCreditApplication[] @relation("CustomerCreditApplications")
-  branch             Branch                      @relation("BranchCustomerCredits", fields: [branch_id], references: [branch_id])
-  customer           Customer                    @relation("CustomerCredits", fields: [customer_id], references: [customer_id], onDelete: Cascade)
-  returnInvoice      SalesInvoice                @relation("ReturnCustomerCredits", fields: [return_invoice_id], references: [invoice_id], onDelete: Cascade)
-  shop               Shop                        @relation("ShopCustomerCredits", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-
-  @@index([shop_id, customer_id, status])
-  @@index([expiry_date])
-  @@map("customer_credits")
+  
 }
 
 model CustomerCreditApplication {
-  application_id        String         @id @default(uuid()) @db.Uuid
-  credit_id             String         @db.Uuid
-  applied_to_invoice_id String         @db.Uuid
-  applied_amount        Decimal        @db.Decimal(12, 2)
-  applied_date          DateTime       @db.Date
-  applied_by            String         @db.Uuid
-  notes                 String?
-  created_at            DateTime       @default(now()) @db.Timestamptz(6)
-  appliedBy             User           @relation("CustomerCreditApplicationsBy", fields: [applied_by], references: [user_id], onDelete: SetNull)
-  appliedInvoice        SalesInvoice   @relation("CustomerCreditApplicationsToInvoice", fields: [applied_to_invoice_id], references: [invoice_id], onDelete: Cascade)
-  credit                CustomerCredit @relation("CustomerCreditApplications", fields: [credit_id], references: [credit_id], onDelete: Cascade)
-
-  @@index([credit_id])
-  @@index([applied_to_invoice_id])
-  @@map("customer_credit_applications")
+  
 }
 
 model SalesInvoice {
-  invoice_id                String                      @id @default(uuid()) @db.Uuid
-  invoice_number            String                      @db.VarChar(50)
-  customer_id               String?                     @db.Uuid
-  walkin_name               String?                     @db.VarChar(200)
-  walkin_phone              String?                     @db.VarChar(20)
-  shop_id                   String                      @db.Uuid
-  branch_id                 String                      @db.Uuid
-  created_by                String                      @db.Uuid
-  confirmed_by              String?                     @db.Uuid
-  invoice_date              DateTime                    @db.Date
-  due_date                  DateTime?                   @db.Date
-  confirmed_at              DateTime?                   @db.Timestamptz(6)
-  subtotal                  Decimal                     @default(0) @db.Decimal(12, 2)
-  item_discount_amount      Decimal                     @default(0) @db.Decimal(12, 2)
-  customer_discount_percent Decimal                     @default(0) @db.Decimal(5, 2)
-  customer_discount_amount  Decimal                     @default(0) @db.Decimal(12, 2)
-  bill_discount_percent     Decimal                     @default(0) @db.Decimal(5, 2)
-  bill_discount_amount      Decimal                     @default(0) @db.Decimal(12, 2)
-  total_discount            Decimal                     @default(0) @db.Decimal(12, 2)
-  taxable_amount            Decimal                     @default(0) @db.Decimal(12, 2)
-  cgst_amount               Decimal                     @default(0) @db.Decimal(12, 2)
-  sgst_amount               Decimal                     @default(0) @db.Decimal(12, 2)
-  total_tax                 Decimal                     @default(0) @db.Decimal(12, 2)
-  round_off                 Decimal                     @default(0) @db.Decimal(5, 2)
-  net_amount                Decimal                     @default(0) @db.Decimal(12, 2)
-  payment_status            String                      @default("UNPAID") @db.VarChar(20)
-  paid_amount               Decimal                     @default(0) @db.Decimal(12, 2)
-  balance_amount            Decimal                     @default(0) @db.Decimal(12, 2)
-  credit_amount             Decimal                     @default(0) @db.Decimal(12, 2)
-  is_credit_sale            Boolean                     @default(false)
-  status                    String                      @default("DRAFT") @db.VarChar(20)
-  is_return                 Boolean                     @default(false)
-  parent_invoice_id         String?                     @db.Uuid
-  return_reason             SalesReturnReason?
-  return_notes              String?
-  prescription_number       String?                     @db.VarChar(50)
-  doctor_name               String?                     @db.VarChar(200)
-  remarks                   String?
-  cancelled_at              DateTime?                   @db.Timestamptz(6)
-  cancelled_by              String?                     @db.Uuid
-  cancellation_reason       String?
-  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
-  updated_at                DateTime                    @updatedAt @db.Timestamptz(6)
-  approved_at               DateTime?                   @db.Timestamptz(6)
-  approved_by               String?                     @db.Uuid
-  credit_note_number        String?                     @db.VarChar(50)
-  refund_amount             Decimal?                    @db.Decimal(12, 2)
-  refund_mode               SalesRefundMode?
-  refund_notes              String?
-  rejected_at               DateTime?                   @db.Timestamptz(6)
-  rejected_by               String?                     @db.Uuid
-  rejection_reason          String?
-  return_approval_status    SalesReturnApprovalStatus?
-
-  // ── Sale Channel ──────────────────────────────────────
-  sale_channel              String                      @default("COUNTER") @db.VarChar(20)
-
-  creditApplications        CustomerCreditApplication[] @relation("CustomerCreditApplicationsToInvoice")
-  customerCredits           CustomerCredit[]            @relation("ReturnCustomerCredits")
-  lineItems                 SalesInvoiceItem[]          @relation("SalesInvoiceLineItems")
-  approver                  User?                       @relation("SalesReturnApprover", fields: [approved_by], references: [user_id])
-  branch                    Branch                      @relation("BranchSalesInvoices", fields: [branch_id], references: [branch_id])
-  canceller                 User?                       @relation("SalesInvoiceCanceller", fields: [cancelled_by], references: [user_id])
-  confirmer                 User?                       @relation("SalesInvoiceConfirmer", fields: [confirmed_by], references: [user_id])
-  creator                   User                        @relation("SalesInvoiceCreator", fields: [created_by], references: [user_id])
-  customer                  Customer?                   @relation("CustomerSalesInvoices", fields: [customer_id], references: [customer_id])
-  parentInvoice             SalesInvoice?               @relation("SalesReturns", fields: [parent_invoice_id], references: [invoice_id])
-  returnInvoices            SalesInvoice[]              @relation("SalesReturns")
-  rejecter                  User?                       @relation("SalesReturnRejecter", fields: [rejected_by], references: [user_id])
-  shop                      Shop                        @relation("ShopSalesInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
-  payments                  SalesPayment[]              @relation("SalesInvoicePayments")
-  marketplaceOrder          MarketplaceOrder?           @relation("MarketplaceSalesInvoice")
-
-  @@unique([shop_id, branch_id, invoice_number])
-  @@index([shop_id, invoice_date(sort: Desc)])
-  @@index([branch_id, invoice_date(sort: Desc)])
-  @@index([customer_id, invoice_date(sort: Desc)])
-  @@index([status])
-  @@index([payment_status])
-  @@index([is_return])
-  @@index([return_approval_status])
-  @@index([created_at(sort: Desc)])
-  @@index([sale_channel])
-  @@map("sales_invoices")
+ 
 }
 
 model SalesInvoiceItem {
-  item_id           String       @id @default(uuid()) @db.Uuid
-  invoice_id        String       @db.Uuid
-  medicine_id       String       @db.Uuid
-  inventory_id      String       @db.Uuid
-  batch_number      String       @db.VarChar(50)
-  expiry_date       DateTime     @db.Date
-  quantity          Decimal      @db.Decimal(10, 2)
-  unit_of_measure   String       @default("UNIT") @db.VarChar(20)
-  mrp               Decimal      @db.Decimal(10, 2)
-  purchase_rate     Decimal?     @db.Decimal(10, 2)
-  discount_percent  Decimal      @default(0) @db.Decimal(5, 2)
-  discount_amount   Decimal      @default(0) @db.Decimal(10, 2)
-  taxable_amount    Decimal      @default(0) @db.Decimal(12, 2)
-  cgst_percent      Decimal      @default(0) @db.Decimal(5, 2)
-  cgst_amount       Decimal      @default(0) @db.Decimal(10, 2)
-  sgst_percent      Decimal      @default(0) @db.Decimal(5, 2)
-  sgst_amount       Decimal      @default(0) @db.Decimal(10, 2)
-  line_total        Decimal      @default(0) @db.Decimal(12, 2)
-  returned_quantity Decimal      @default(0) @db.Decimal(10, 2)
-  created_at        DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime     @updatedAt @db.Timestamptz(6)
-  selling_rate      Decimal      @db.Decimal(10, 2)
-  inventory         Inventory    @relation("SalesInventoryItems", fields: [inventory_id], references: [inventory_id])
-  invoice           SalesInvoice @relation("SalesInvoiceLineItems", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
-  medicine          Medicine     @relation("SalesMedicineItems", fields: [medicine_id], references: [medicine_id])
-
-  @@index([invoice_id])
-  @@index([medicine_id])
-  @@index([inventory_id])
-  @@index([batch_number])
-  @@map("sales_invoice_items")
+  
 }
 
 model SalesPayment {
-  payment_id       String       @id @default(uuid()) @db.Uuid
-  invoice_id       String       @db.Uuid
-  shop_id          String       @db.Uuid
-  branch_id        String       @db.Uuid
-  customer_id      String?      @db.Uuid
-  payment_date     DateTime     @db.Date
-  amount           Decimal      @db.Decimal(12, 2)
-  payment_mode     String       @db.VarChar(20)
-  reference_number String?      @db.VarChar(100)
-  status           String       @default("COMPLETED") @db.VarChar(20)
-  remarks          String?
-  created_by       String       @db.Uuid
-  created_at       DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime     @updatedAt @db.Timestamptz(6)
-  creator          User         @relation("SalesPaymentCreator", fields: [created_by], references: [user_id])
-  customer         Customer?    @relation("CustomerPayments", fields: [customer_id], references: [customer_id])
-  invoice          SalesInvoice @relation("SalesInvoicePayments", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
-
-  @@index([invoice_id])
-  @@index([shop_id, payment_date(sort: Desc)])
-  @@index([branch_id, payment_date(sort: Desc)])
-  @@index([customer_id, payment_date(sort: Desc)])
-  @@map("sales_payments")
+ 
 }
 
 
@@ -2501,4 +2646,153 @@ enum PrescriptionRecipientStatus {
   ACCEPTED
   CONVERTED
   EXPIRED
+}
+
+enum RiderStatus {
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  REJECTED
+}
+
+enum RiderDocumentType {
+  PROFILE_PHOTO
+  AADHAAR_FRONT
+  AADHAAR_BACK
+  PAN_FRONT
+  DRIVING_LICENSE_FRONT
+  DRIVING_LICENSE_BACK
+  VEHICLE_RC
+}
+
+enum RiderDocumentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DeliveryStatus {
+  PENDING_ASSIGNMENT
+  RIDER_NOTIFIED
+  ACCEPTED
+  ARRIVED_AT_PHARMACY
+  PHARMACY_CONFIRMED
+  PICKED_UP
+  EN_ROUTE
+  ARRIVED_AT_CUSTOMER
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum AssignmentAction {
+  NOTIFIED
+  ACCEPTED
+  REJECTED
+  TIMEOUT
+}
+
+enum DeliveryFailureReason {
+  CUSTOMER_UNAVAILABLE
+  CUSTOMER_REFUSED
+  WRONG_ADDRESS
+  SAFETY_CONCERN
+  OTHER
+}
+
+enum EarningType {
+  BASE_FEE
+  DISTANCE_FEE
+  SURGE_BONUS
+  SHIFT_BONUS
+  STREAK_BONUS
+  WEEKLY_CHALLENGE
+  REFERRAL_BONUS
+  MANUAL_ADJUSTMENT
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutMethod {
+  MANUAL
+  RAZORPAY_X
+}
+
+enum IncidentType {
+  ROAD_ACCIDENT
+  BIKE_BREAKDOWN
+  THEFT_ROBBERY
+  MEDICAL_EMERGENCY
+  SOS
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ZoneChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiderTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum RiderTicketCategory {
+  EARNINGS_PAYOUT
+  ORDER_ISSUE
+  APP_TECHNICAL
+  DOCUMENT_ACCOUNT
+  SAFETY_INCIDENT
+  OTHER
+}
+
+enum ChatSenderType {
+  RIDER
+  CUSTOMER
+}
+
+enum TrainingContentType {
+  ONBOARDING_SLIDE
+  FAQ
+  ANNOUNCEMENT
+}
+
+enum IncentivePeriod {
+  DAILY
+  WEEKLY
+}
+
+enum IncentiveType {
+  DAILY_STREAK
+  WEEKLY_CHALLENGE
+}
+
+
+enum BannerCtaAction {
+  NONE
+  ROUTE
+  CATEGORY
+  EXTERNAL_URL
 }

@@ -1,17 +1,16 @@
-// backend/src/modules/mobile/app-config/mobile.appConfig.routes.js
-//
-// Public mobile routes for app display configuration.
-// No auth required — same as /mobile/medicines/categories.
-//
-// ROUTE:
-//   GET /mobile/app-config/marketplace-display
-//   Returns top-level category display overrides (images + visibility).
+// src/modules/mobile/app-config/mobile.appConfig.routes.js
 
 import { Router } from "express";
-import { handleGetMarketplaceDisplay } from "./mobile.appConfig.controller.js";
+import { mobileAuth } from "../../../middleware/mobile.auth.js";
+import {
+  handleGetMarketplaceDisplay,
+  handleGetHomeBanners,
+  handleGetHomeScreenConfig,
+} from "./mobile.appConfig.controller.js";
 
 const router = Router();
 
-router.get("/marketplace-display", handleGetMarketplaceDisplay);
-
+router.get("/marketplace-display", mobileAuth, handleGetMarketplaceDisplay);
+router.get("/home-banners", mobileAuth, handleGetHomeBanners);
+router.get("/home-screen", mobileAuth, handleGetHomeScreenConfig);
 export default router;

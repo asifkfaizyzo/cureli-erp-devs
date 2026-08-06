@@ -18,7 +18,7 @@ import {
  * Body: { phone }
  */
 export async function handleSendOtp(req, res) {
-  console.log("[handleSendOtp] reached, body:", req.body);
+  
   try {
     const { phone } = req.body;
     const result = await sendMobileOtp(phone);

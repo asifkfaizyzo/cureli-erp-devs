@@ -11,7 +11,7 @@ const PROD_BASE_URL = "https://api.curelihealth.com";
 // http://localhost:5000
 
 export const CONFIG = {
-  BASE_URL: "http://localhost:5000", // ← hardcoded for this build
+  BASE_URL: "http://192.168.29.47:5000", // ← hardcoded for this build
   API_TIMEOUT: 15000,
 };
 
@@ -29,6 +29,6 @@ export const CART_CONFIG = {
 export const RECOMMENDATIONS_LIMIT = 6;
 export const DELIVERY_BUFFER_MINS = 8;
 
-export const REVIEW_MODE = true;
+export const REVIEW_MODE = false;
 export const REVIEW_PHONE = "1234567890";
 export const REVIEW_OTP = "123456";

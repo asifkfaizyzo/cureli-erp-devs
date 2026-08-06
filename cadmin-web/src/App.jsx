@@ -38,6 +38,9 @@ import MarketplaceUsersPage from "./pages/marketplace/Users/MarketplaceUsersPage
 import MarketplaceOrdersPage from "./pages/marketplace/Orders/MarketplaceOrdersPage";
 import MarketplaceShopsPage from "./pages/marketplace/Shops/MarketplaceShopsPage";
 import MarketplacePricingPage from "./pages/marketplace/Pricing/MarketplacePricingPage";
+import AppConfigPage from "./pages/AppConfig/AppConfigPage";
+import BannersPage from "./pages/AppConfig/banners/BannersPage";
+import HomeScreenPage from "./pages/AppConfig/home-screen/HomeScreenPage";
 
 import AppLayout from "./components/layout/AppLayout";
 import { AuthProvider } from "./context/AuthContext";
@@ -169,9 +172,19 @@ function App() {
             }
           />
 
-          {/* Master Medicines */}
+          {/* Master Medicines — shared between admin and marketplace */}
           <Route
             path="/master-medicines"
+            element={
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW}
+              >
+                <MasterMedicinesPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/master-medicines"
             element={
               <PermissionGuard
                 permission={CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW}
@@ -275,8 +288,6 @@ function App() {
               </PermissionGuard>
             }
           />
-
-          {/*Mobile Push Broadcast */}
           <Route
             path="/communications/broadcast/mobile"
             element={
@@ -318,14 +329,38 @@ function App() {
             path="/marketplace/pricing"
             element={<MarketplacePricingPage />}
           />
-
           <Route path="/marketplace/shops" element={<MarketplaceShopsPage />} />
 
+          {/* ── App Config ──────────────────────────────────────────────── */}
           <Route
-            path="/app-config/categories"
+            path="/marketplace/app-config"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
+                <AppConfigPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/app-config/categories"
             element={
               <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
                 <CategoryDisplayPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/app-config/banners"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
+                <BannersPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/app-config/home-screen"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
+                <HomeScreenPage />
               </PermissionGuard>
             }
           />

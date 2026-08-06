@@ -1,21 +1,16 @@
 // src/features/marketplace/components/HeroCarousel.tsx
-//
-// Auto-sliding hero carousel using react-native-reanimated-carousel v4.
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, StyleSheet, useWindowDimensions } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
 import { Spacing } from "../../../theme/spacing";
 import { PromoCard } from "./PromoCard";
 import {
-  HERO_BANNERS,
-  HERO_CAROUSEL_HEIGHT,
+  HERO_BANNER_ASPECT_RATIO,
   HERO_AUTO_SLIDE_INTERVAL_MS,
   type HeroBannerSlide,
 } from "../constants/marketplace.constants";
 import { useTheme } from "../../../theme/ThemeContext";
-
-// ── Constants ─────────────────────────────────────────────────
 
 const SIDE_MARGIN = Spacing.base;
 const CARD_GAP = Spacing.md;
@@ -53,36 +48,58 @@ function Dots({ count, activeIndex }: DotsProps) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────────
 
-function HeroCarouselBase() {
+interface HeroCarouselProps {
+  slides: HeroBannerSlide[];
+}
+
+// ── Component ─────────────────────────────────────────────────
+
+function HeroCarouselBase({ slides }: HeroCarouselProps) {
   const { width: screenWidth } = useWindowDimensions();
 
   const slotWidth = screenWidth - SIDE_MARGIN * 2;
   const cardWidth = slotWidth - CARD_GAP;
 
+  const cardHeight = useMemo(
+    () => Math.round(cardWidth / HERO_BANNER_ASPECT_RATIO),
+    [cardWidth],
+  );
+
   const [activeIndex, setActiveIndex] = useState(0);
 
   const renderItem = useCallback(
-    ({ item }: { item: HeroBannerSlide; index: number }) => (
+    ({ item }: { item: HeroBannerSlide }) => (
       <View style={styles.slideContainer}>
-        <PromoCard slide={item} width={cardWidth} />
+        <PromoCard slide={item} width={cardWidth} height={cardHeight} />
       </View>
     ),
-    [cardWidth],
+    [cardWidth, cardHeight],
   );
 
   const onSnapToItem = useCallback((index: number) => {
     setActiveIndex(index);
   }, []);
 
+  if (slides.length === 0) return null;
+
+  // Single slide — no carousel chrome, no autoplay, no dots
+  if (slides.length === 1) {
+    return (
+      <View style={styles.wrapper}>
+        <PromoCard slide={slides[0]} width={cardWidth} height={cardHeight} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.wrapper}>
       <Carousel
-        data={HERO_BANNERS}
+        data={slides}
         renderItem={renderItem}
         width={slotWidth}
-        height={HERO_CAROUSEL_HEIGHT}
+        height={cardHeight}
         loop
         autoPlay
         autoPlayInterval={HERO_AUTO_SLIDE_INTERVAL_MS}
@@ -90,7 +107,7 @@ function HeroCarouselBase() {
         scrollAnimationDuration={500}
       />
 
-      <Dots count={HERO_BANNERS.length} activeIndex={activeIndex} />
+      <Dots count={slides.length} activeIndex={activeIndex} />
     </View>
   );
 }

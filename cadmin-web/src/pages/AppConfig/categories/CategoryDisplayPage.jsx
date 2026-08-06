@@ -28,7 +28,9 @@ function SectionLabel({ title, description, count }) {
         <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
         <p className="text-xs text-gray-500 mt-0.5">{description}</p>
       </div>
-      <span className="text-xs text-gray-400 font-medium">{count} categories</span>
+      <span className="text-xs text-gray-400 font-medium">
+        {count} categories
+      </span>
     </div>
   );
 }
@@ -61,8 +63,8 @@ function SkeletonCard() {
 
 export default function CategoryDisplayPage() {
   const [categories, setCategories] = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -72,7 +74,7 @@ export default function CategoryDisplayPage() {
     } catch (err) {
       console.error("[CategoryDisplayPage] fetch error:", err);
       setError(
-        err.response?.data?.message ?? "Failed to load category config."
+        err.response?.data?.message ?? "Failed to load category config.",
       );
     } finally {
       setLoading(false);
@@ -84,20 +86,20 @@ export default function CategoryDisplayPage() {
   }, [fetchCategories]);
 
   // Split into sections
-  const curated   = categories.filter((c) => c.scope === "curated");
-  const topLevel  = categories.filter((c) => c.scope === "top_level");
+  const curated = categories.filter((c) => c.scope === "curated");
+  const topLevel = categories.filter((c) => c.scope === "top_level");
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-gray-50">
-
       {/* Page header */}
       <div className="flex items-center justify-between px-8 py-6 bg-white border-b border-gray-100">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Category Display</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Manage images and visibility for marketplace category cards shown in the mobile app.
+            Manage images and visibility for marketplace category cards shown in
+            the mobile app.
           </p>
         </div>
 
@@ -113,7 +115,6 @@ export default function CategoryDisplayPage() {
 
       {/* Body */}
       <div className="flex-1 px-8 py-8 flex flex-col gap-10">
-
         {/* Error state */}
         {error && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-100">
@@ -135,20 +136,21 @@ export default function CategoryDisplayPage() {
         <section>
           <SectionLabel
             title="Top Level Categories"
-            description="Hero cards shown at the top of the home screen."
+            description="Hero cards shown at the top of the home screen. Ayurveda and Pet Care also appear as product feed rows — manage their feed visibility in Home Screen Layout."
             count={loading ? 3 : topLevel.length}
           />
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {loading
-              ? Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))
               : topLevel.map((cat) => (
                   <CategoryDisplayCard
                     key={cat.key}
                     category={cat}
                     onRefetch={fetchCategories}
                   />
-                ))
-            }
+                ))}
           </div>
         </section>
 
@@ -156,23 +158,23 @@ export default function CategoryDisplayPage() {
         <section>
           <SectionLabel
             title="Curated Categories"
-            description="Categories shown in the Quick Rail on the home screen and in All Categories."
+            description="Categories shown in the Quick Categories rail and in All Categories. Also appear as product feed rows on the home screen."
             count={loading ? 9 : curated.length}
           />
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             {loading
-              ? Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)
+              ? Array.from({ length: 9 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))
               : curated.map((cat) => (
                   <CategoryDisplayCard
                     key={cat.key}
                     category={cat}
                     onRefetch={fetchCategories}
                   />
-                ))
-            }
+                ))}
           </div>
         </section>
-
       </div>
     </div>
   );

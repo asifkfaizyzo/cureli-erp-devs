@@ -4,13 +4,18 @@
 //
 // Layout:
 //   1. Top section — the top-level hero categories (English Medicine,
-//      Ayurvedic, Veterinary). Same cards as the home screen but displayed
+//      Ayurvedic, Pet Care). Same cards as the home screen but displayed
 //      in a 3-column row at the top.
 //      Hidden categories (CAdmin override) are excluded from this row.
 //   2. Section divider with label "All Categories".
 //   3. Bottom section — all backend-driven curated categories from
 //      useCategories, displayed in a 3-column scrollable grid.
 //      Hidden categories are already excluded from the API response.
+//      Top-level keys (Ayurveda Products, Pet Care, ENGLISH_MEDICINE) are
+//      excluded from this grid — they are already shown above and repeating
+//      them would be redundant. This exclusion is intentional and hardcoded
+//      because these categories will never need to appear in both sections
+//      simultaneously.
 //
 // Both sections use CategoryCard for visual consistency.
 // The top section uses useMarketplaceDisplay for remote image + visibility.
@@ -44,6 +49,15 @@ const COLUMNS            = 3;
 const GAP                = Spacing.sm;
 const HORIZONTAL_PADDING = Spacing.base * 2;
 
+// Keys already shown in the top-level hero row.
+// Excluded from the curated grid below to prevent the same category
+// appearing twice on the same screen.
+// Derived from TOP_LEVEL_CATEGORIES so any future top-level additions
+// are automatically excluded without touching this file.
+const TOP_LEVEL_KEYS_SET = new Set(
+  TOP_LEVEL_CATEGORIES.map((c) => c.key)
+);
+
 function chunkIntoRows<T>(items: T[], size: number): T[][] {
   const rows: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -53,7 +67,7 @@ function chunkIntoRows<T>(items: T[], size: number): T[][] {
 }
 
 export function AllCategoriesScreen() {
-  const { colors }       = useTheme();
+  const { colors }             = useTheme();
   const { width: screenWidth } = useWindowDimensions();
 
   const { categories, isLoading } = useCategories();
@@ -64,8 +78,8 @@ export function AllCategoriesScreen() {
 
   // ── Top-level hero row ─────────────────────────────────────────────────────
   // Filter hidden cards and attach remote imageUrl from overrides.
-  // Pads remaining visible cards to COLUMNS with spacers so layout stays
-  // consistent regardless of how many are hidden.
+  // Pads to COLUMNS with undefined spacers so layout stays consistent
+  // regardless of how many cards are hidden.
 
   const visibleTopLevel = useMemo((): MedicineCategory[] => {
     return TOP_LEVEL_CATEGORIES
@@ -76,7 +90,6 @@ export function AllCategoriesScreen() {
       }));
   }, [overrides]);
 
-  // Pad to COLUMNS with undefined spacers for the row layout
   const topLevelRow = useMemo(() => {
     const row: (MedicineCategory | undefined)[] = [...visibleTopLevel];
     while (row.length < COLUMNS) {
@@ -85,9 +98,17 @@ export function AllCategoriesScreen() {
     return row;
   }, [visibleTopLevel]);
 
-  // ── Backend curated categories in 3-column rows ────────────────────────────
+  // ── Curated grid ───────────────────────────────────────────────────────────
   // useCategories already filters hidden categories and attaches imageUrl.
-  const rows = useMemo(() => chunkIntoRows(categories, COLUMNS), [categories]);
+  // Additionally exclude any key that appears in the top-level row above
+  // to avoid showing the same category twice on this screen.
+
+  const rows = useMemo(() => {
+    const filtered = categories.filter((c) => !TOP_LEVEL_KEYS_SET.has(c.key));
+    return chunkIntoRows(filtered, COLUMNS);
+  }, [categories]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
     router.back();
@@ -103,17 +124,19 @@ export function AllCategoriesScreen() {
   // If all top-level cards are hidden, skip the top section entirely
   const showTopSection = visibleTopLevel.length > 0;
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
       edges={["top"]}
     >
-      {/* Custom header */}
+      {/* Header */}
       <View
         style={[
           styles.header,
           {
-            backgroundColor:  colors.background.page,
+            backgroundColor:   colors.background.page,
             borderBottomColor: colors.border.subtle,
           },
         ]}
@@ -192,7 +215,7 @@ export function AllCategoriesScreen() {
           />
         </View>
 
-        {/* ── Backend curated categories ──────────────────────────────────── */}
+        {/* ── Curated categories grid ────────────────────────────────────── */}
         {isLoading ? (
           <View style={styles.sectionContainer}>
             <CategoryGridSkeleton columns={3} count={12} />
@@ -235,10 +258,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    height:           56,
-    flexDirection:    "row",
-    alignItems:       "center",
-    justifyContent:   "space-between",
+    height:            56,
+    flexDirection:     "row",
+    alignItems:        "center",
+    justifyContent:    "space-between",
     paddingHorizontal: Spacing.base,
     borderBottomWidth: 1,
   },
@@ -266,12 +289,12 @@ const styles = StyleSheet.create({
   },
   topCardWrapper: {},
   dividerContainer: {
-    flexDirection:    "row",
-    alignItems:       "center",
+    flexDirection:     "row",
+    alignItems:        "center",
     paddingHorizontal: Spacing.base,
-    marginTop:        Spacing.lg,
-    marginBottom:     Spacing.md,
-    gap:              Spacing.sm,
+    marginTop:         Spacing.lg,
+    marginBottom:      Spacing.md,
+    gap:               Spacing.sm,
   },
   dividerLine: {
     flex:   1,
