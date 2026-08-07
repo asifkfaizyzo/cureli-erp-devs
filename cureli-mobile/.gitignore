@@ -50,3 +50,6 @@ GoogleService-Info.plist
 .env
 .env.local
 .env.*
+
+
+credentials.json

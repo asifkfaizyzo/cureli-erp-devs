@@ -196,3 +196,11 @@ npx eas build --profile preview --platform ios
 
 # After prebuild --clean, app disappears from phone:
 #   Expected — run npx expo run:android to reinstall
+
+
+Sensitive Keystore information:
+    Keystore password: dde5c5d10cb177fc420bc47dcce170f0
+    Key alias:         1268d3e98218c83e732fcc5f3d705ead
+    Key password:      10735690b2623b0f2cebf84431c412ee
+
+    Path to Keystore:  @your-zeros-and-ones__cureli-mobile.jks
