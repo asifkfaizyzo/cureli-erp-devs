@@ -44,7 +44,6 @@ app-example
 
 # Local config overrides with secrets
 app.local.json
-google-services.json
 GoogleService-Info.plist
 
 .env
@@ -53,3 +52,4 @@ GoogleService-Info.plist
 
 
 credentials.json
+google-services.json

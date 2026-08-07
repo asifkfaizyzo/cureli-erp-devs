@@ -10,22 +10,24 @@ export default {
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "curelimobile",
-    userInterfaceStyle: "automatic",
+    userInterfaceStyle: "automatic", 
     newArchEnabled: true,
     ios: {
-      supportsTablet: false,
-      bundleIdentifier: "com.cureli.mobile",
-      infoPlist: {
-        ITSAppUsesNonExemptEncryption: false, // ← ADD THIS
-        NSLocationWhenInUseUsageDescription:
-          "Cureli needs your location to help fill your delivery address.",
-        NSLocationAlwaysAndWhenInUseUsageDescription:
-          "Cureli needs your location to help fill your delivery address.",
-      },
-      config: {
-        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
-      },
-    },
+  supportsTablet: false,
+  bundleIdentifier: "com.cureli.mobile",
+  buildNumber: "2",          
+  infoPlist: {
+    ITSAppUsesNonExemptEncryption: false,
+    NSLocationWhenInUseUsageDescription:
+      "Cureli needs your location to help fill your delivery address.",
+    NSLocationAlwaysAndWhenInUseUsageDescription:
+      "Cureli needs your location to help fill your delivery address.",
+  },
+  config: {
+    googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+  },
+},
+
     android: {
   adaptiveIcon: {
     backgroundColor: "#090025",

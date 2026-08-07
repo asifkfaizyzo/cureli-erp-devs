@@ -145,6 +145,102 @@ npx eas build --profile preview --platform ios
 
 
 # ============================================================
+# LOCAL MAC BUILD — Android AAB for Play Store
+# Use this instead of EAS cloud to save EAS build minutes
+# Prerequisites: macOS, Android Studio installed and set up
+# ============================================================
+
+# --- ONE-TIME MAC SETUP (already done, just for reference) ---
+
+# Install Java 17
+brew install --cask temurin@17
+
+# Set environment variables in ~/.zshrc
+echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> ~/.zshrc
+echo 'export PATH=$PATH:$ANDROID_HOME/emulator' >> ~/.zshrc
+echo 'export PATH=$PATH:$ANDROID_HOME/platform-tools' >> ~/.zshrc
+echo 'export PATH=$PATH:$ANDROID_HOME/tools' >> ~/.zshrc
+echo 'export PATH=$PATH:$ANDROID_HOME/tools/bin' >> ~/.zshrc
+echo 'export JAVA_HOME=$(/usr/libexec/java_home -v 17)' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify setup
+java --version        # should say openjdk 17.x
+adb --version         # should say 1.0.41+
+echo $ANDROID_HOME    # should say /Users/sibixavier/Library/Android/sdk
+echo $JAVA_HOME       # should say .../temurin-17.jdk/Contents/Home
+
+# Download keystore from EAS (one-time, keep it safe)
+# eas credentials --platform android → production → Download existing keystore
+# Keystore is stored at: ~/cureli-keys/cureli.jks
+# Keystore password and key password are in 1Password / team vault
+
+# credentials.json must exist at cureli-mobile/credentials.json
+# (already created, gitignored — recreate if lost)
+# {
+#   "android": {
+#     "keystore": {
+#       "keystorePath": "/Users/sibixavier/cureli-keys/cureli.jks",
+#       "keystorePassword": "<keystore_password>",
+#       "keyAlias": "1268d3e98218c83e732fcc5f3d705ead",
+#       "keyPassword": "<key_password>"
+#     }
+#   }
+# }
+
+# google-services.json must exist at cureli-mobile/google-services.json
+# It is gitignored — download from Firebase Console if missing:
+# console.firebase.google.com → cureli-mobile-da740 →
+# Project Settings → General → Android app → download google-services.json
+
+
+# --- BEFORE EVERY LOCAL BUILD ---
+
+# 1. Set config.ts BASE_URL to production
+#    src/constants/config.ts → BASE_URL: "https://api.curelihealth.com"
+
+# 2. Bump versionCode in app.config.js (must be higher than last Play Store upload)
+#    android: { versionCode: X }   ← increment by 1 each build
+#    Current production versionCode on Play Store: check Play Console →
+#    App Bundle Explorer → highest version code number
+
+# 3. Confirm google-services.json exists
+ls google-services.json
+
+# 4. Remove google-services.json from .gitignore temporarily
+#    (EAS local build archives the project and gitignored files are excluded)
+sed -i '' '/google-services.json/d' .gitignore
+
+
+# --- BUILD ---
+
+cd cureli-mobile
+eas build --profile production --platform android --local
+
+# Build takes ~15-20 minutes on first run, faster after (Gradle cache)
+# Output .aab file path is printed at the end, something like:
+# /Users/sibixavier/Projects/cureli-erp-devs/cureli-mobile/build-XXXXXXXXX.aab
+
+
+# --- AFTER BUILD ---
+
+# Add google-services.json back to .gitignore
+echo "google-services.json" >> .gitignore
+
+# Verify
+cat .gitignore | grep google
+
+
+# --- UPLOAD TO PLAY STORE ---
+
+# 1. Go to https://play.google.com/console
+# 2. Cureli → Production → Create new release
+# 3. Upload the .aab file from the path printed above
+# 4. Fill release notes (What's new in this version)
+# 5. Save → Review → Start rollout to Production
+
+
+# ============================================================
 # WHEN TO REBUILD vs WHEN TO JUST RELOAD
 # ============================================================
 
@@ -197,10 +293,25 @@ npx eas build --profile preview --platform ios
 # After prebuild --clean, app disappears from phone:
 #   Expected — run npx expo run:android to reinstall
 
+# Local build fails — google-services.json not found:
+#   The file is gitignored and gets excluded from the build archive
+#   Fix: sed -i '' '/google-services.json/d' .gitignore
+#   Then retry build, then add it back after:
+#   echo "google-services.json" >> .gitignore
 
-Sensitive Keystore information:
-    Keystore password: dde5c5d10cb177fc420bc47dcce170f0
-    Key alias:         1268d3e98218c83e732fcc5f3d705ead
-    Key password:      10735690b2623b0f2cebf84431c412ee
+# Local build fails — ANDROID_HOME not set:
+#   source ~/.zshrc
+#   echo $ANDROID_HOME   ← should not be empty
 
-    Path to Keystore:  @your-zeros-and-ones__cureli-mobile.jks
+# Local build fails — Java not found:
+#   java --version
+#   If missing: brew install --cask temurin@17
+#   Then: echo 'export JAVA_HOME=$(/usr/libexec/java_home -v 17)' >> ~/.zshrc
+#   source ~/.zshrc
+
+# Local build fails — credentials.json missing:
+#   Recreate it at cureli-mobile/credentials.json
+#   Get keystore passwords from 1Password / team vault
+#   Keystore file is at ~/cureli-keys/cureli.jks
+#   If keystore file missing: eas credentials --platform android →
+#   production → Download existing keystore → move to ~/cureli-keys/cureli.jks
