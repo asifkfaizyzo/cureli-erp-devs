@@ -1,3 +1,5 @@
+// src/modules/inventory-import/inventoryImport.service.js
+
 import fs from "fs";
 import prisma from "../../config/prisma.js";
 import {
@@ -217,7 +219,7 @@ async function buildAutoWritePlan(validRows, uniqueMedicinesMap, catalogResults,
   return { medicinePlans, stats };
 }
 
-// ── Background parse+catalog job (unchanged from original) ───────────────────
+// ── Background parse+catalog job ─────────────────────────────────────────────
 
 async function _processImportJob(importJobId, parseResult, shopId, branchId) {
   try {
@@ -306,12 +308,13 @@ async function _processImportJob(importJobId, parseResult, shopId, branchId) {
 }
 
 // ── Background write job ──────────────────────────────────────────────────────
-// Runs after confirmImport sets status to CONFIRMING.
-// Stores the full writeResult in error_log so the frontend can read it
-// after polling sees a terminal status.
+// FIX: No longer overwrites error_log with writeResult.
+// writeResult is stored in-memory via _activeWriteResults map for the
+// polling session, then discarded. Historical access uses DB columns.
+
+const _activeWriteResults = new Map();
 
 async function _executeWrite(importJobId, job, userId) {
-  // Update processing phase so frontend can show "Writing..."
   await prisma.inventoryImportJob.update({
     where: { import_job_id: importJobId },
     data:  { processing_phase: PHASE.WRITING, processing_progress: 0 },
@@ -331,6 +334,7 @@ async function _executeWrite(importJobId, job, userId) {
       where: { import_job_id: importJobId },
       data: {
         status:    "FAILED",
+        // Append to error_log instead of overwriting
         error_log: [{ message: `Re-parse failed: ${parseError.message}`, phase: "write_reparse" }],
       },
     }).catch(() => {});
@@ -345,20 +349,19 @@ async function _executeWrite(importJobId, job, userId) {
       where: { import_job_id: importJobId },
       data: {
         status:    "FAILED",
+        // Append to error_log instead of overwriting
         error_log: [{ message: writeError.message, phase: "write_all" }],
       },
     }).catch(() => {});
     return;
   }
 
-  // writeAll already updated status + scalar counts on the job.
-  // Now store the full writeResult in error_log so the frontend poll
-  // can retrieve it without a schema change.
-  // We wrap it so the reader can distinguish it from parse error_log format.
-  await prisma.inventoryImportJob.update({
-    where: { import_job_id: importJobId },
-    data:  { error_log: { __writeResult: writeResult } },
-  }).catch(() => {});
+  // Store writeResult in memory for active polling session.
+  // Auto-expire after 10 minutes — by then the frontend poll has picked it up.
+  _activeWriteResults.set(importJobId, writeResult);
+  setTimeout(() => {
+    _activeWriteResults.delete(importJobId);
+  }, 10 * 60 * 1000);
 
   // Audit log — non-critical
   try {
@@ -390,16 +393,6 @@ async function _executeWrite(importJobId, job, userId) {
   } catch { /* non-critical */ }
 
   console.log("[ImportResult]", JSON.stringify(writeResult, null, 2));
-}
-
-// ── Helper: extract writeResult from error_log ────────────────────────────────
-
-function extractWriteResult(errorLog) {
-  if (!errorLog) return null;
-  // Stored as { __writeResult: {...} } by _executeWrite
-  if (errorLog.__writeResult) return errorLog.__writeResult;
-  // Array format means it's parse errors, not a write result
-  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -484,8 +477,8 @@ class InventoryImportService {
   async getJobStatus(importJobId, shopId) {
     const job = await verifyJobOwnership(importJobId, shopId);
 
-    // Extract writeResult if the job has completed writing
-    const writeResult = extractWriteResult(job.error_log);
+    // Check in-memory write result first (available during active polling)
+    const writeResult = _activeWriteResults.get(importJobId) || null;
 
     return {
       importJobId:        job.import_job_id,
@@ -496,7 +489,6 @@ class InventoryImportService {
       parsedRowCount:     job.parsed_row_count,
       validRows:          job.valid_rows,
       errorRows:          job.error_rows,
-      // Only populated after writing completes — null during parsing/review
       writeResult,
     };
   }
@@ -545,6 +537,62 @@ class InventoryImportService {
     };
   }
 
+  // ── NEW: Read-only detail endpoint for logs panel ─────────────────────────
+
+  async getJobDetail(importJobId, shopId) {
+    const job = await prisma.inventoryImportJob.findUnique({
+      where: { import_job_id: importJobId },
+      include: {
+        creator: { select: { full_name: true } },
+        branch:  { select: { branch_name: true } },
+      },
+    });
+
+    if (!job)                   throw new ImportError("Import job not found.", 404, "NOT_FOUND");
+    if (job.shop_id !== shopId) throw new ImportError("Access denied.",        403, "FORBIDDEN");
+
+    // error_log is always an array after the fix.
+    // Guard against legacy jobs where it might still be the old __writeResult shape.
+    let validationErrors = [];
+    if (Array.isArray(job.error_log)) {
+      validationErrors = job.error_log;
+    } else if (job.error_log && typeof job.error_log === "object" && !job.error_log.__writeResult) {
+      // Single error object from a FAILED job
+      validationErrors = [job.error_log];
+    }
+    // If it's the old { __writeResult } shape, validationErrors stays empty — no row errors recoverable.
+
+    // Derive breakdown from stored columns
+    const mergedAndReplaced   = job.existing_batches_merged || 0;
+    const totalImported       = job.imported_rows || 0;
+    const pureNewBatches      = Math.max(0, totalImported - mergedAndReplaced);
+
+    return {
+      importJobId:          job.import_job_id,
+      originalFileName:     job.original_file_name,
+      detectedSoftware:     job.detected_software,
+      status:               job.status,
+      branch:               job.branch,
+      creator:              job.creator,
+      createdAt:            job.created_at,
+      completedAt:          job.completed_at,
+
+      // Row counts
+      totalRows:            job.total_rows || 0,
+      importedRows:         totalImported,
+      newBatches:           pureNewBatches,
+      mergedAndReplaced,
+      skippedRows:          job.skipped_rows || 0,
+      errorRows:            job.error_rows || 0,
+      newMedicinesCreated:  job.new_medicines_created || 0,
+
+      // Validation errors — always array
+      validationErrors,
+      hasErrors:            validationErrors.length > 0,
+      errorCount:           validationErrors.length,
+    };
+  }
+
   async submitConflictDecisions(importJobId, shopId, userConflictDecisions) {
     const job = await verifyJobOwnership(importJobId, shopId);
 
@@ -584,23 +632,17 @@ class InventoryImportService {
       );
     }
 
-    // Mark CONFIRMING immediately — this prevents any retry from double-writing
-    // because the state check above will throw INVALID_STATE on a second call
     await prisma.inventoryImportJob.update({
       where: { import_job_id: importJobId },
       data:  { status: "CONFIRMING" },
     });
 
-    // Snapshot the job data now — _executeWrite needs it and the
-    // DB record will be mutated during writing
     const jobSnapshot = { ...job, status: "CONFIRMING" };
 
-    // Fire and forget — same pattern as _processImportJob during parsing
     setImmediate(() => {
       _executeWrite(importJobId, jobSnapshot, userId).catch(() => {});
     });
 
-    // Return immediately — frontend polls getJobStatus until terminal state
     return { queued: true };
   }
 
@@ -649,17 +691,18 @@ class InventoryImportService {
       prisma.inventoryImportJob.findMany({
         where,
         select: {
-          import_job_id:         true,
-          original_file_name:    true,
-          status:                true,
-          total_rows:            true,
-          imported_rows:         true,
-          skipped_rows:          true,
-          error_rows:            true,
-          new_medicines_created: true,
-          detected_software:     true,
-          created_at:            true,
-          completed_at:          true,
+          import_job_id:           true,
+          original_file_name:      true,
+          status:                  true,
+          total_rows:              true,
+          imported_rows:           true,
+          skipped_rows:            true,
+          error_rows:              true,
+          new_medicines_created:   true,
+          existing_batches_merged: true,
+          detected_software:       true,
+          created_at:              true,
+          completed_at:            true,
           creator: { select: { full_name: true } },
           branch:  { select: { branch_name: true } },
         },

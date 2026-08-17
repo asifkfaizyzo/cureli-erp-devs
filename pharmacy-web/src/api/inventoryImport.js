@@ -39,7 +39,15 @@ const inventoryImportAPI = {
     return response.data;
   },
 
-  // Only conflict decisions — no medicine decisions
+
+  getJobDetail: async (importJobId) => {
+    const response = await api.get(
+      `/inventory/import/${importJobId}/detail`,
+      { headers: getBranchHeaders() }
+    );
+    return response.data;
+  },
+
   resolve: async (importJobId, conflictDecisions) => {
     const response = await api.post(
       `/inventory/import/${importJobId}/resolve`,

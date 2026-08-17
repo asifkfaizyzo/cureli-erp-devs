@@ -1,3 +1,5 @@
+// src/modules/inventory-import/inventoryImport.controller.js
+
 import inventoryImportService from "./inventoryImport.service.js";
 import { success, fail }      from "../../utils/response.js";
 import prisma                 from "../../config/prisma.js";
@@ -90,6 +92,21 @@ class InventoryImportController {
     }
   }
 
+  async getJobDetail(req, res) {
+    try {
+      const detail = await inventoryImportService.getJobDetail(
+        req.params.importJobId,
+        req.user.shop_id
+      );
+      return success(res, detail, "Job detail retrieved.");
+    } catch (error) {
+      console.error("[InventoryImport] getJobDetail error:", error);
+      if (error.statusCode === 404) return fail(res, error.message, 404);
+      if (error.statusCode === 403) return fail(res, error.message, 403);
+      return fail(res, error.message || "Failed to get job detail.", 500);
+    }
+  }
+
   async resolve(req, res) {
     try {
       const { importJobId }              = req.params;
@@ -121,15 +138,11 @@ class InventoryImportController {
 
   async confirm(req, res) {
     try {
-      // confirmImport now returns immediately with { queued: true }
-      // after setting status to CONFIRMING and firing the write in the background.
-      // Frontend must poll getStatus until COMPLETED / PARTIAL / FAILED.
       const result = await inventoryImportService.confirmImport(
         req.params.importJobId,
         req.user.shop_id,
         req.user.user_id
       );
-      // 202 Accepted — work is in progress
       return success(res, result, "Import started. Poll status for completion.", 202);
     } catch (error) {
       console.error("[InventoryImport] confirm error:", error);
@@ -185,14 +198,18 @@ class InventoryImportController {
 
       if (!job)                   return fail(res, "Job not found.", 404);
       if (job.shop_id !== shopId) return fail(res, "Access denied.", 403);
-      if (!job.error_log || job.error_log.length === 0) {
+
+      // Guard against non-array error_log (legacy jobs)
+      const errorLog = Array.isArray(job.error_log) ? job.error_log : [];
+
+      if (errorLog.length === 0) {
         return fail(res, "No errors to download.", 404);
       }
 
       const headers = ["Row Number", "Product Name", "Batch Number", "Error Code", "Field", "Message"];
       const lines   = [
         headers.join(","),
-        ...job.error_log.flatMap((r) => {
+        ...errorLog.flatMap((r) => {
           const errors = r.errors || [r];
           return errors.map((e) =>
             [
@@ -224,6 +241,7 @@ export default {
   upload:              controller.upload.bind(controller),
   getStatus:           controller.getStatus.bind(controller),
   getJob:              controller.getJob.bind(controller),
+  getJobDetail:        controller.getJobDetail.bind(controller),
   resolve:             controller.resolve.bind(controller),
   confirm:             controller.confirm.bind(controller),
   cancelJob:           controller.cancelJob.bind(controller),
