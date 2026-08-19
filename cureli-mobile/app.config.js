@@ -37,7 +37,7 @@ export default {
   edgeToEdgeEnabled: true,
   predictiveBackGestureEnabled: false,
   package: "com.cureli.mobile",
-  versionCode: 10,              // ← ADD THIS
+  versionCode: 11,              // ← ADD THIS
   googleServicesFile:
     process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
   permissions: [
