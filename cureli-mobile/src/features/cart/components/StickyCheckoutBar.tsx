@@ -1,8 +1,8 @@
 // src/features/cart/components/StickyCheckoutBar.tsx
-// CHANGED: reads grand_total from checkoutStore, removes CART_CONFIG
+// CHANGED: reads grand_total from checkoutStore, shows spinner while loading
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
@@ -25,6 +25,7 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
   const items     = useCartStore((s) => s.items);
   const tempFiles = usePrescriptionStore((s) => s.tempFiles);
   const breakdown = useCheckoutStore((s) => s.breakdown);
+  const isQuoteLoading = useCheckoutStore((s) => s.isQuoteLoading);
 
   const { addresses }   = useAddresses();
   const pickedAddressId = useDeliveryLocationStore((s) => s.location.addressId ?? null);
@@ -36,7 +37,7 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
   const prescriptionBlocked  = requiresPrescription && tempFiles.length === 0;
   const noAddress            = !resolvedAddress;
   const deliveryUnavailable  = breakdown ? !breakdown.delivery_available : false;
-  const isBlocked            = prescriptionBlocked || noAddress || deliveryUnavailable;
+  const isBlocked            = prescriptionBlocked || noAddress || deliveryUnavailable || isQuoteLoading;
 
   const grandTotal = breakdown?.grand_total ?? 0;
 
@@ -71,12 +72,23 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
 
       <View style={styles.actionRow}>
         <View style={styles.totalBlock}>
-          <Text style={[styles.totalAmount, { color: colors.text.primary }]}>
-            {grandTotal > 0 ? `₹${grandTotal.toFixed(2)}` : '—'}
-          </Text>
-          <Text style={[styles.totalLabel, { color: colors.text.muted }]}>
-            incl. all charges
-          </Text>
+          {isQuoteLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.brand.primary} />
+              <Text style={[styles.loadingText, { color: colors.text.muted }]}>
+                Calculating...
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.totalAmount, { color: colors.text.primary }]}>
+                {grandTotal > 0 ? `₹${grandTotal.toFixed(2)}` : '—'}
+              </Text>
+              <Text style={[styles.totalLabel, { color: colors.text.muted }]}>
+                incl. all charges
+              </Text>
+            </>
+          )}
         </View>
 
         <TouchableOpacity
@@ -89,8 +101,14 @@ export function StickyCheckoutBar({ onPlaceOrder }: StickyCheckoutBarProps) {
             isBlocked && styles.proceedBtnDisabled,
           ]}
         >
-          <Text style={styles.proceedBtnText}>Place Order</Text>
-          <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+          {isQuoteLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <>
+              <Text style={styles.proceedBtnText}>Place Order</Text>
+              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -126,7 +144,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  totalBlock: { gap: 2 },
+  totalBlock: { 
+    gap: 2,
+    minWidth: 100,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+  },
   totalAmount: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -138,10 +168,12 @@ const styles = StyleSheet.create({
   proceedBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 12,
+    minWidth: 140,
   },
   proceedBtnDisabled: { opacity: 0.4 },
   proceedBtnText: {

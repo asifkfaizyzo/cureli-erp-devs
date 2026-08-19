@@ -5,6 +5,7 @@ import {
   searchPlaces,
   getPlaceDetails,
   reverseGeocode,
+  getDrivingDistance,   
 } from "./mobile.places.service.js";
 
 /**
@@ -71,5 +72,27 @@ export async function handleReverseGeocode(req, res) {
   } catch (err) {
     console.error("[mobile/places/reverse]", err.message);
     return fail(res, "Reverse geocode failed", 502);
+  }
+}
+
+/**
+ * GET /mobile/places/distance?originLat=&originLng=&destLat=&destLng=
+ */
+export async function handleGetDrivingDistance(req, res) {
+  const originLat = parseFloat(req.query.originLat);
+  const originLng = parseFloat(req.query.originLng);
+  const destLat   = parseFloat(req.query.destLat);
+  const destLng   = parseFloat(req.query.destLng);
+
+  if (isNaN(originLat) || isNaN(originLng) || isNaN(destLat) || isNaN(destLng)) {
+    return fail(res, "Valid originLat, originLng, destLat, destLng are required", 400);
+  }
+
+  try {
+    const result = await getDrivingDistance(originLat, originLng, destLat, destLng);
+    return success(res, result, "Distance calculated");
+  } catch (err) {
+    console.error("[mobile/places/distance]", err.message);
+    return fail(res, "Failed to calculate distance", 502);
   }
 }

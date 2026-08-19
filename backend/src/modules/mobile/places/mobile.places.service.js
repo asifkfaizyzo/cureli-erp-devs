@@ -194,3 +194,52 @@ export async function reverseGeocode(lat, lng) {
     longitude         : location.lng ?? lng,
   };
 }
+
+/**
+ * Calculate driving distance between two coordinates.
+ * Uses Distance Matrix API.
+ *
+ * @param {number} originLat
+ * @param {number} originLng
+ * @param {number} destLat
+ * @param {number} destLng
+ * @returns {Promise<{ distanceKm: number, durationSecs: number, distanceText: string, durationText: string }>}
+ */
+export async function getDrivingDistance(originLat, originLng, destLat, destLng) {
+  const params = new URLSearchParams({
+    origins:      `${originLat},${originLng}`,
+    destinations: `${destLat},${destLng}`,
+    mode:         'driving',
+    units:        'metric',
+    key:          getApiKey(),
+  });
+
+  const url = `${PLACES_BASE}/distancematrix/json?${params}`;
+  const res  = await fetch(url);
+
+  if (!res.ok) {
+    throw new Error(`Distance Matrix request failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  if (data.status !== 'OK') {
+    throw new Error(`Distance Matrix API error: ${data.status}`);
+  }
+
+  const element = data?.rows?.[0]?.elements?.[0];
+
+  if (!element || element.status !== 'OK') {
+    throw new Error(`No route found: ${element?.status ?? 'UNKNOWN'}`);
+  }
+
+  const distanceKm  = parseFloat((element.distance.value / 1000).toFixed(2));
+  const durationSecs = element.duration.value;
+
+  return {
+    distanceKm,
+    durationSecs,
+    distanceText: element.distance.text,
+    durationText: element.duration.text,
+  };
+}
