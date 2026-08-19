@@ -15,7 +15,7 @@ export default {
     ios: {
   supportsTablet: false,
   bundleIdentifier: "com.cureli.mobile",
-  buildNumber: "2",          
+  buildNumber: "3",          
   infoPlist: {
     ITSAppUsesNonExemptEncryption: false,
     NSLocationWhenInUseUsageDescription:
