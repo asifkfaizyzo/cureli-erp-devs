@@ -50,7 +50,7 @@ const HEADER_MAP = {
   expirydate:         "expiryDate",
   expdate:            "expiryDate",
   expirydt:           "expiryDate",
-  expdt:              "expiryDate",   // MargERP "Exp.Dt" normalizes to this
+  expdt:              "expiryDate",
   expirymonth:        "expiryDate",
 
   // ── Quantity ──────────────────────────────────────────────────────────────
@@ -153,7 +153,6 @@ const HEADER_MAP = {
 const SOFTWARE_FINGERPRINTS = [
   {
     name:    "MargERP",
-    // MargERP headers include "P.Rate", "S.Rate", "Exp.Dt", "PR. Amt"
     markers: ["p.rate", "s.rate", "exp.dt", "pr. amt"],
   },
   {
@@ -176,8 +175,6 @@ const SOFTWARE_FINGERPRINTS = [
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SOFTWARE COLUMN PRESETS
-// Known-good mappings per detected software.
-// Applied before the generic HEADER_MAP when software is identified.
 // ══════════════════════════════════════════════════════════════════════════════
 
 const SOFTWARE_COLUMN_PRESETS = {
@@ -196,42 +193,42 @@ const SOFTWARE_COLUMN_PRESETS = {
     "GST":          "gst",
   },
   Busy: {
-    "Item Name":    "productName",
-    "Company":      "company",
-    "Batch No.":    "batchNumber",
-    "Expiry Date":  "expiryDate",
-    "Quantity":     "quantity",
-    "Purchase Rate":"purchaseRate",
-    "MRP":          "mrp",
-    "Sale Rate":    "sellingRate",
-    "HSN/SAC Code": "hsnCode",
-    "Pack Size":    "packSize",
-    "Location":     "rack",
-  },
-  PharmaSoft: {
-    "Product Name": "productName",
-    "Manufacturer": "company",
-    "Batch Number": "batchNumber",
-    "Expiry Date":  "expiryDate",
-    "Quantity":     "quantity",
-    "Purchase Rate":"purchaseRate",
-    "MRP":          "mrp",
-    "Selling Rate": "sellingRate",
-    "HSN Code":     "hsnCode",
-    "Pack Size":    "packSize",
-    "Rack No":      "rack",
-  },
-  Vyapar: {
-    "Item":          "productName",
-    "Brand":         "company",
+    "Item Name":     "productName",
+    "Company":       "company",
     "Batch No.":     "batchNumber",
     "Expiry Date":   "expiryDate",
-    "Qty":           "quantity",
-    "Purchase Price":"purchaseRate",
+    "Quantity":      "quantity",
+    "Purchase Rate": "purchaseRate",
     "MRP":           "mrp",
-    "Sale Price":    "sellingRate",
-    "HSN":           "hsnCode",
-    "Unit":          "packSize",
+    "Sale Rate":     "sellingRate",
+    "HSN/SAC Code":  "hsnCode",
+    "Pack Size":     "packSize",
+    "Location":      "rack",
+  },
+  PharmaSoft: {
+    "Product Name":  "productName",
+    "Manufacturer":  "company",
+    "Batch Number":  "batchNumber",
+    "Expiry Date":   "expiryDate",
+    "Quantity":      "quantity",
+    "Purchase Rate": "purchaseRate",
+    "MRP":           "mrp",
+    "Selling Rate":  "sellingRate",
+    "HSN Code":      "hsnCode",
+    "Pack Size":     "packSize",
+    "Rack No":       "rack",
+  },
+  Vyapar: {
+    "Item":           "productName",
+    "Brand":          "company",
+    "Batch No.":      "batchNumber",
+    "Expiry Date":    "expiryDate",
+    "Qty":            "quantity",
+    "Purchase Price": "purchaseRate",
+    "MRP":            "mrp",
+    "Sale Price":     "sellingRate",
+    "HSN":            "hsnCode",
+    "Unit":           "packSize",
   },
 };
 
@@ -288,8 +285,8 @@ function parseQuantity(value) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const MONTH_NAMES = {
-  jan: 1, feb: 2,  mar: 3,  apr: 4,  may: 5,  jun: 6,
-  jul: 7, aug: 8,  sep: 9,  oct: 10, nov: 11, dec: 12,
+  jan: 1,  feb: 2,  mar: 3,  apr: 4,  may: 5,  jun: 6,
+  jul: 7,  aug: 8,  sep: 9,  oct: 10, nov: 11, dec: 12,
 };
 
 function lastDayOfMonth(year, month) {
@@ -299,8 +296,8 @@ function lastDayOfMonth(year, month) {
 
 /**
  * Convert a 2-digit year to a full 4-digit year.
- * "27" → 2027, "99" → 2099, "00" → 2100
- * All pharmacy expiry dates are in the future, so always prefix with 20.
+ * Always prefixes with 20 — pharmacy expiry dates are always future.
+ * "27" → 2027, "34" → 2034, "00" → 2000
  */
 function inferYear(twoDigitStr) {
   const n = parseInt(twoDigitStr, 10);
@@ -311,30 +308,32 @@ function inferYear(twoDigitStr) {
 /**
  * Parse an expiry date from any format used by Indian pharmacy software.
  *
- * NEW formats added for MargERP and similar:
+ * Supported string formats (in evaluation order):
+ *
  *   DD-MMM        "27-Nov"    → infer year from current date
+ *   MM-YY         "02-35"     → last day of Feb 2035  ← NEW
  *   MMM-YY        "Feb-29"    → last day of Feb 2029
  *   MMM-YYYY      "Feb-2029"  → last day of Feb 2029
+ *   MM/YY         "06/27"     → last day of Jun 2027
+ *   MM/YYYY       "06/2027"   → last day of Jun 2027
+ *   DD/MM/YYYY    "30/06/2027"→ Jun 30 2027
+ *   YYYY-MM-DD    "2027-06-30"→ Jun 30 2027
+ *   MMM YYYY      "Jun 2027"  → last day of Jun 2027
+ *   YYYY-MM       "2027-06"   → last day of Jun 2027
  *
- * Existing formats retained:
- *   MM/YY         "06/27"
- *   MM/YYYY       "06/2027"
- *   DD/MM/YYYY    "30/06/2027"
- *   YYYY-MM-DD    "2027-06-30"
- *   YYYY-MM       "2027-06"
- *   MMM YYYY      "Jun 2027"
- *   Excel serial  44927
- *   JS Date
+ * Non-string inputs:
+ *   JS Date  → returned as-is (SheetJS cellDates: true path)
+ *   number   → Excel serial date → last day of that month
  */
 export function parseExpiryDate(value) {
   if (value === null || value === undefined || value === "") return null;
 
-  // Already a JS Date (from SheetJS cellDates: true)
+  // ── Already a JS Date (SheetJS cellDates: true) ───────────────────────────
   if (value instanceof Date) {
     return isNaN(value.getTime()) ? null : value;
   }
 
-  // Excel numeric serial date
+  // ── Excel numeric serial date ─────────────────────────────────────────────
   if (typeof value === "number") {
     try {
       const parsed = XLSX.SSF.parse_date_code(value);
@@ -347,8 +346,9 @@ export function parseExpiryDate(value) {
   if (!str || str === "-") return null;
 
   // ── DD-MMM  e.g. "27-Nov", "02-Feb", "1-Jan" ─────────────────────────────
-  // No year present. Infer from current date:
-  // If the month has already passed this year, the expiry must be next year.
+  // Second part must be 3 alpha chars — no collision with MM-YY below.
+  // No year present: infer from current date.
+  // If the month has already passed this year → use next year.
   const ddMmmMatch = str.match(/^(\d{1,2})-([A-Za-z]{3})$/);
   if (ddMmmMatch) {
     const day      = parseInt(ddMmmMatch[1], 10);
@@ -360,8 +360,6 @@ export function parseExpiryDate(value) {
     const currentMonth = today.getMonth() + 1; // 1-based
 
     let year = currentYear;
-
-    // If month already passed this calendar year, it must be next year
     if (monthNum < currentMonth) {
       year = currentYear + 1;
     } else if (monthNum === currentMonth && day < today.getDate()) {
@@ -370,6 +368,23 @@ export function parseExpiryDate(value) {
 
     const date = new Date(year, monthNum - 1, day);
     return isNaN(date.getTime()) ? null : date;
+  }
+
+  // ── MM-YY  e.g. "02-35", "03-34", "12-33", "09-32", "08-26" ─────────────
+  // 2-digit numeric month (01–12) + dash + 2-digit numeric year.
+  // This is the format MargERP uses for expiry on cells that Excel stored
+  // as text (typically far-future years like 2032–2040 that Excel didn't
+  // auto-detect as dates). Near-future dates like "08-26" come through as
+  // JS Date objects via SheetJS and never reach this code path.
+  // Must be checked BEFORE MMM-YY (which requires alpha month chars).
+  const mmYyDashMatch = str.match(/^(\d{1,2})-(\d{2})$/);
+  if (mmYyDashMatch) {
+    const month = parseInt(mmYyDashMatch[1], 10);
+    const year  = inferYear(mmYyDashMatch[2]);
+    if (month >= 1 && month <= 12 && year) {
+      return lastDayOfMonth(year, month);
+    }
+    // Month out of range (e.g. "13-25") — fall through to remaining checks
   }
 
   // ── MMM-YY  e.g. "Feb-29", "Nov-27", "Jan-28" ────────────────────────────
@@ -488,24 +503,16 @@ function mapHeaders(rawHeaders) {
   });
 }
 
-/**
- * Apply software-specific preset mappings before the generic HEADER_MAP.
- * Returns a mapped headers array if the preset produced good results,
- * or null if the preset did not help enough.
- */
 function applyPresetMapping(rawHeaders, detectedSoftware) {
   const preset = SOFTWARE_COLUMN_PRESETS[detectedSoftware];
   if (!preset) return null;
 
   const mapped = rawHeaders.map((h) => {
     const trimmed = String(h || "").trim();
-    // Exact match against preset first
     if (preset[trimmed]) return preset[trimmed];
-    // Fall back to generic HEADER_MAP
     return HEADER_MAP[normalizeHeader(trimmed)] || null;
   });
 
-  // Only use preset if it recognized all required fields
   const mappedFields  = new Set(mapped.filter(Boolean));
   const requiredFound = REQUIRED_FIELDS.filter((f) => mappedFields.has(f)).length;
   if (requiredFound >= 3) return mapped;
@@ -581,7 +588,6 @@ const SUMMARY_ROW_PATTERNS = [
   /^report/i,
 ];
 
-// Patterns that appear in summary/footer rows anywhere in the first 5 cells
 const FOOTER_CONTENT_PATTERNS = [
   /taxable/i,
   /p\.rate\s+total/i,
@@ -591,32 +597,22 @@ const FOOTER_CONTENT_PATTERNS = [
 ];
 
 function isDataRow(row, mappedHeaders) {
-  // Completely empty rows
   const nonEmpty = row.filter(
     (c) => c !== null && c !== undefined && String(c).trim() !== ""
   );
   if (nonEmpty.length < 2) return false;
 
-  // Check first 5 cells for summary/footer content
-  // MargERP puts "TAXABLE(PRT.) :" in columns after a blank row-number column
   const cellsToCheck = row.slice(0, 6);
   for (const cell of cellsToCheck) {
     const cellStr = String(cell || "").trim();
-
-    // Standard summary row patterns
     if (SUMMARY_ROW_PATTERNS.some((p) => p.test(cellStr))) return false;
-
-    // Footer content patterns (totals row, etc.)
     if (FOOTER_CONTENT_PATTERNS.some((p) => p.test(cellStr))) return false;
   }
 
-  // Product name column must have a non-empty, non-numeric value
   const nameIdx = mappedHeaders.indexOf("productName");
   if (nameIdx !== -1) {
     const nameCell = String(row[nameIdx] || "").trim();
     if (!nameCell) return false;
-
-    // Pure integer with ≤ 5 digits = serial number column misidentified
     if (/^\d{1,5}$/.test(nameCell)) return false;
   }
 
@@ -631,7 +627,6 @@ function parseRow(rawValues, mappedHeaders, rowIndex) {
   const raw = {};
   mappedHeaders.forEach((key, i) => {
     if (key && rawValues[i] !== undefined && rawValues[i] !== null) {
-      // Keep Date objects as-is for expiry parsing; stringify everything else
       if (rawValues[i] instanceof Date) {
         raw[key] = rawValues[i];
       } else {
@@ -669,7 +664,7 @@ function parseRow(rawValues, mappedHeaders, rowIndex) {
   const rack        = normalizeString(raw.rack        || "");
   const packSize    = normalizeString(raw.packSize    || "");
 
-  // Raw expiry string for display (handle Date objects gracefully)
+  // Raw expiry string for display
   let rawExpiryStr = "";
   if (raw.expiryDate instanceof Date) {
     rawExpiryStr = raw.expiryDate.toLocaleDateString("en-IN");
@@ -742,45 +737,37 @@ export async function parseInventoryFile(buffer, filename, columnMapping = null)
     throw new Error("File appears to be empty or contains only one row.");
   }
 
-  // ── Detect header row ─────────────────────────────────────────────────────
   const headerRowIndex = detectHeaderRow(data);
   const rawHeaders     = data[headerRowIndex].map((h) =>
     String(h || "").trim()
   );
 
-  // ── Detect software ───────────────────────────────────────────────────────
   const detectedSoftware = detectSoftware(rawHeaders);
 
-  // ── Map headers to canonical keys ─────────────────────────────────────────
   let mappedHeaders;
 
   if (columnMapping) {
-    // User-supplied mapping overrides everything
     const reverseMap = {};
     Object.entries(columnMapping).forEach(([canonicalKey, rawHeaderName]) => {
       reverseMap[rawHeaderName] = canonicalKey;
     });
     mappedHeaders = rawHeaders.map((h) => reverseMap[h] || null);
   } else {
-    // Try software-specific preset first, fall back to generic HEADER_MAP
     const presetMapped = applyPresetMapping(rawHeaders, detectedSoftware);
     mappedHeaders = presetMapped || mapHeaders(rawHeaders);
   }
 
-  // ── Assess mapping confidence ─────────────────────────────────────────────
   const autoMappingConfidence = columnMapping
     ? "HIGH"
     : assessMappingConfidence(mappedHeaders);
   const mappingNeeded = autoMappingConfidence === "LOW";
 
-  // ── Extract data rows ─────────────────────────────────────────────────────
   const rows     = [];
   let   rowIndex = 0;
 
   for (let i = headerRowIndex + 1; i < data.length; i++) {
     const rawRow = data[i];
 
-    // Pad short rows to match header length
     while (rawRow.length < rawHeaders.length) rawRow.push("");
 
     if (!isDataRow(rawRow, mappedHeaders)) continue;
@@ -799,7 +786,6 @@ export async function parseInventoryFile(buffer, filename, columnMapping = null)
     );
   }
 
-  // ── Identify unmapped headers ─────────────────────────────────────────────
   const unmappedHeaders = rawHeaders.filter((h, i) => h && !mappedHeaders[i]);
 
   return {
@@ -846,7 +832,7 @@ function parseExcel(buffer) {
   return data.map((row) =>
     (Array.isArray(row) ? row : []).map((cell) => {
       if (cell === null || cell === undefined) return "";
-      if (cell instanceof Date) return cell; // keep Date objects for parseExpiryDate
+      if (cell instanceof Date) return cell;
       return String(cell).trim();
     })
   );

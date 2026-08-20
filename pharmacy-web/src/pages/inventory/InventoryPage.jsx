@@ -1,3 +1,5 @@
+// src/pages/inventory/InventoryPage.jsx
+
 import React, {
   useState,
   useCallback,
@@ -12,6 +14,7 @@ import {
   selectIsSuperAdmin,
 } from "../../store/useAuthStore";
 import ImportHistoryDrawer   from "./components/import/ImportHistoryDrawer";
+import ImportLogsPanel       from "./components/import/ImportLogsPanel";
 import InventoryImportModal  from "./components/InventoryImportModal";
 import InventoryFilters      from "./components/InventoryFilters";
 import InventoryTable        from "./components/InventoryTable";
@@ -152,8 +155,6 @@ const InventoryPage = () => {
   const canAdjustStock =
     branchContext.mode === "BRANCH" && !!branchContext.branch_id;
 
-  // visibleRows drives both the page limit sent to the backend
-  // and the number of rows the table renders
   const visibleRows = useDynamicRowCount();
 
   const {
@@ -173,7 +174,6 @@ const InventoryPage = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const hasLoadedOnce = useRef(false);
 
-  // ── Pagination state — lives here, not in InventoryTable ─────────────────
   const [currentPage, setCurrentPage] = useState(1);
 
   const [filters, setFilters] = useState({
@@ -201,8 +201,9 @@ const InventoryPage = () => {
   const [addInventoryModalOpen, setAddInventoryModalOpen] = useState(false);
   const [importModalOpen,       setImportModalOpen]       = useState(false);
   const [historyDrawerOpen,     setHistoryDrawerOpen]     = useState(false);
+  const [logsPanelOpen,         setLogsPanelOpen]         = useState(false); // ← NEW
 
-  // ── Build API filters for current page ────────────────────────────────────
+  // ── Build API filters ─────────────────────────────────────────────────────
 
   const buildApiFilters = useCallback((page = 1) => {
     const apiFilters = {
@@ -238,7 +239,7 @@ const InventoryPage = () => {
     visibleRows,
   ]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleAddMedicine = useCallback(() => {
     if (isGlobalMode) {
@@ -275,7 +276,7 @@ const InventoryPage = () => {
 
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
-    setCurrentPage(1); // reset to page 1 on any filter change
+    setCurrentPage(1);
   }, []);
 
   const handleSortChange = useCallback((column) => {
@@ -369,7 +370,6 @@ const InventoryPage = () => {
         `${confirmDelete.name || confirmDelete.medicine_name} has been removed from inventory.`
       );
       setConfirmDelete(null);
-      // If we deleted the last item on this page, go back one page
       const newTotal = total - 1;
       const maxPage  = Math.max(1, Math.ceil(newTotal / visibleRows));
       const safePage = Math.min(currentPage, maxPage);
@@ -418,7 +418,7 @@ const InventoryPage = () => {
     }
   };
 
-  // ── Fetch effect — triggers on filter/sort/page change ────────────────────
+  // ── Fetch effect ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const delay   = filters.search ? 300 : 0;
@@ -452,13 +452,9 @@ const InventoryPage = () => {
     fetchInventory,
   ]);
 
-  // ── Fetch stats once on mount (and after branch context changes) ──────────
-
   useEffect(() => {
     fetchStats();
   }, [fetchStats, branchContext.branch_id, branchContext.mode]);
-
-  // ── Clear initial load once data arrives ──────────────────────────────────
 
   useEffect(() => {
     if (Array.isArray(medicines) && medicines.length > 0 && isInitialLoad) {
@@ -483,7 +479,7 @@ const InventoryPage = () => {
         />
       )}
 
-      {/* Summary cards — driven by fetchStats, always correct totals */}
+      {/* Summary cards */}
       <div className="shrink-0 p-4 pb-3">
         <div className="grid grid-cols-5 gap-3">
           {isSummaryLoading ? (
@@ -521,10 +517,11 @@ const InventoryPage = () => {
           totalItems={total}
           onImport={() => setImportModalOpen(true)}
           onImportHistory={() => setHistoryDrawerOpen(true)}
+          onImportLogs={() => setLogsPanelOpen(true)}
         />
       </div>
 
-      {/* Table — pagination is fully server-driven */}
+      {/* Table */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-4 pb-4">
         <InventoryTable
           items={medicines}
@@ -651,11 +648,18 @@ const InventoryPage = () => {
         onSuccess={handleImportSuccess}
       />
 
-      {/* History Drawer */}
+      {/* History Drawer — quick summary */}
       <ImportHistoryDrawer
         open={historyDrawerOpen}
         onClose={() => setHistoryDrawerOpen(false)}
       />
+
+      {/* Import Logs Panel — full detail with error inspection */}
+      <ImportLogsPanel
+        open={logsPanelOpen}
+        onClose={() => setLogsPanelOpen(false)}
+      />
+
     </div>
   );
 };

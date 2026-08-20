@@ -6,6 +6,7 @@ import {
   handleSearchPlaces,
   handleGetPlaceDetails,
   handleReverseGeocode,
+  handleGetDrivingDistance,
 } from "./mobile.places.controller.js";
 
 const router = Router();
@@ -31,5 +32,11 @@ router.get("/details", handleGetPlaceDetails);
  * Coordinates → nearest address
  */
 router.get("/reverse", handleReverseGeocode);
+
+/**
+ * GET /mobile/places/distance?originLat=&originLng=&destLat=&destLng=
+ * Driving distance + duration between two coordinate pairs
+ */
+router.get("/distance", handleGetDrivingDistance);
 
 export default router;

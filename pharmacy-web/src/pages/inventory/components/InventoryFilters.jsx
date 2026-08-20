@@ -26,6 +26,7 @@ import {
   Check,
   Upload,
   History,
+  ScrollText,
 } from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
 
@@ -315,6 +316,7 @@ const InventoryFilters = ({
   totalItems = 0,
   onImport,
   onImportHistory,
+  onImportLogs, // ← NEW
 }) => {
   const searchInputRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -448,7 +450,7 @@ const InventoryFilters = ({
       {/* PRIMARY HEADER BAR                                                */}
       {/* ══════════════════════════════════════════════════════════════════ */}
       <div className="px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
-        {/* Left Section - Search */}
+        {/* Left Section — Search */}
         <div className="flex-1 flex items-center gap-2 sm:gap-3">
           {/* Search Input */}
           <div className="relative flex-1 min-w-0">
@@ -514,7 +516,7 @@ const InventoryFilters = ({
           </button>
         </div>
 
-        {/* Right Section - Actions */}
+        {/* Right Section — Actions */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Results Badge */}
           {totalItems > 0 && (
@@ -550,9 +552,10 @@ const InventoryFilters = ({
             </button>
           )}
 
-          {/* ── Import + History Button Group ─────────────────────────── */}
-          {(onImport || onImportHistory) && (
+          {/* ── Import + History + Logs button group ──────────────────── */}
+          {(onImport || onImportHistory || onImportLogs) && (
             <div className="flex items-center border border-indigo-200 rounded-lg overflow-hidden">
+              {/* Import button */}
               {onImport && (
                 <button
                   onClick={onImport}
@@ -564,18 +567,22 @@ const InventoryFilters = ({
                   Import
                 </button>
               )}
-              {onImport && onImportHistory && (
-                <div className="w-px  h-7 bg-indigo-200" />
+
+              {/* Divider: History | Logs */}
+              {onImportLogs && (onImport || onImportHistory) && (
+                <div className="w-px h-7 bg-indigo-200" />
               )}
-              {onImportHistory && (
+
+              {/* Logs button — full logs panel */}
+              {onImportLogs && (
                 <button
-                  onClick={onImportHistory}
-                  title="View import history"
+                  onClick={onImportLogs}
+                  title="View import logs & error details"
                   className="flex items-center gap-1 px-3 py-2 text-sm
-                             text-indigo-600  hover:bg-indigo-50
+                             text-indigo-600 hover:bg-indigo-50
                              transition-colors"
                 >
-                  <History size={15} />
+                  <ScrollText size={15} />
                 </button>
               )}
             </div>

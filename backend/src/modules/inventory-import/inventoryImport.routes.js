@@ -1,3 +1,5 @@
+// src/modules/inventory-import/inventoryImport.routes.js
+
 import { Router }            from "express";
 import { requireAuth }       from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
@@ -31,6 +33,12 @@ router.get(
   "/:importJobId/error-report",
   requirePermission("inventory:view"),
   inventoryImportController.downloadErrorReport
+);
+
+router.get(
+  "/:importJobId/detail",
+  requirePermission("inventory:view"),
+  inventoryImportController.getJobDetail
 );
 
 router.get(
