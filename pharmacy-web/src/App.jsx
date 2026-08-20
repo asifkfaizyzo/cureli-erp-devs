@@ -62,6 +62,13 @@ import SalesReturnsPage from "./pages/sales/returns/SalesReturnsPage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
+import SalesSummaryPage from "./pages/report/sales/SalesSummaryPage.jsx";
+import SalesRegisterPage from "./pages/report/sales/SalesRegisterPage.jsx";
+import SalesProfitPage from "./pages/report/sales/SalesProfitPage.jsx";
+import SalesReturnsReportPage from "./pages/report/sales/SalesReturnsReportPage.jsx";
+import PaymentCollectionPage from "./pages/report/sales/PaymentCollectionPage.jsx";
+import OutstandingReceivablesPage from "./pages/report/sales/OutstandingReceivablesPage.jsx";
+import DayBookPage from "./pages/report/sales/DayBookPage.jsx";
 
 // ============================================
 // ERP — SETTINGS PAGES
@@ -385,6 +392,64 @@ const App = () => {
                             </PermissionGuard>
                           }
                         />
+
+                        {/* ── REPORTS — SALES ── */}
+<Route
+  path="/erp/reports/sales/summary"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <SalesSummaryPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/register"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <SalesRegisterPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/profit"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <SalesProfitPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/returns"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <SalesReturnsReportPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/payments"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <PaymentCollectionPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/outstanding"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <OutstandingReceivablesPage />
+    </PermissionGuard>
+  }
+/>
+<Route
+  path="/erp/reports/sales/daybook"
+  element={
+    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
+      <DayBookPage />
+    </PermissionGuard>
+  }
+/>
 
                         {/* ── SUPPLIERS ── */}
                         <Route

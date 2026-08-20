@@ -24,16 +24,21 @@ import {
   ShoppingCart,
   Box,
   Users,
-  BarChart2,
   Settings,
   ChevronDown,
   Building2,
   UserCircle,
   CreditCard,
   AlertTriangle,
-  RotateCcw,
   ShoppingBag,
   Store,
+  PieChart,     // Reports parent icon
+  BarChart2,    // Sales Summary
+  TrendingUp,   // Profit
+  RotateCcw,    // Returns (already imported)
+  Wallet,       // Payment Collection
+  AlertCircle,  // Outstanding
+  BookOpen,
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
@@ -553,6 +558,70 @@ const Sidebar = () => {
         breadcrumbs: ["Inventory"],
         permissionKey: "inventory",
       },
+      {
+  id: "reports",
+  label: "Reports",
+  icon: PieChart,
+  permissionKey: "salesReport",  // any report permission → show parent
+  submenu: [
+    {
+      id: "report-sales-summary",
+      label: "Sales Summary",
+      icon: BarChart2,
+      path: "/erp/reports/sales/summary",
+      breadcrumbs: ["Reports", "Sales Summary"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-sales-register",
+      label: "Sales Register",
+      icon: FileText,
+      path: "/erp/reports/sales/register",
+      breadcrumbs: ["Reports", "Sales Register"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-sales-profit",
+      label: "Profit Report",
+      icon: TrendingUp,
+      path: "/erp/reports/sales/profit",
+      breadcrumbs: ["Reports", "Profit Report"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-sales-returns",
+      label: "Sales Returns",
+      icon: RotateCcw,
+      path: "/erp/reports/sales/returns",
+      breadcrumbs: ["Reports", "Sales Returns"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-sales-payments",
+      label: "Payment Collection",
+      icon: Wallet,
+      path: "/erp/reports/sales/payments",
+      breadcrumbs: ["Reports", "Payment Collection"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-sales-outstanding",
+      label: "Outstanding",
+      icon: AlertCircle,
+      path: "/erp/reports/sales/outstanding",
+      breadcrumbs: ["Reports", "Outstanding & Receivables"],
+      permissionKey: "salesReport",
+    },
+    {
+      id: "report-daybook",
+      label: "Day Book",
+      icon: BookOpen,
+      path: "/erp/reports/sales/daybook",
+      breadcrumbs: ["Reports", "Day Book"],
+      permissionKey: "salesReport",
+    },
+  ],
+},
       {
         id: "suppliers",
         label: "Suppliers",

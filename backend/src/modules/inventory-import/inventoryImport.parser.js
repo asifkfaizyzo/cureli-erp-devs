@@ -55,6 +55,7 @@ const HEADER_MAP = {
 
   // ── Quantity ──────────────────────────────────────────────────────────────
   qty:                "quantity",
+  Qty:                "quantity",
   quantity:           "quantity",
   units:              "quantity",
   invqty:             "quantity",

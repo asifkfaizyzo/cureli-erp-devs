@@ -1,0 +1,224 @@
+// pharmacy-web/src/pages/report/sales/SalesReturnsReportPage.jsx
+
+import { useState, useEffect, useCallback } from "react";
+import { RotateCcw } from "lucide-react";
+import reportsAPI from "../../../api/reports";
+import { useToast } from "../../../components/common/Toast";
+import ReportPageWrapper from "../shared/ReportPageWrapper";
+import ReportFiltersBar from "../shared/ReportFiltersBar";
+import ReportTable from "../shared/ReportTable";
+import ReportPagination from "../shared/ReportPagination";
+import StatCard from "../shared/StatCard";
+
+const LIMIT = 50;
+
+const defaultFilters = () => {
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  return {
+    startDate: firstOfMonth.toISOString().split("T")[0],
+    endDate: today.toISOString().split("T")[0],
+    returnReason: "",
+    approvalStatus: "",
+    search: "",
+  };
+};
+
+const filterConfig = [
+  { key: "startDate", label: "From Date", type: "date" },
+  { key: "endDate", label: "To Date", type: "date" },
+  {
+    key: "returnReason",
+    label: "Return Reason",
+    type: "select",
+    options: [
+      { value: "EXPIRED_PRODUCT", label: "Expired" },
+      { value: "DAMAGED_PRODUCT", label: "Damaged" },
+      { value: "WRONG_PRODUCT", label: "Wrong Product" },
+      { value: "CUSTOMER_REQUEST", label: "Customer Request" },
+      { value: "QUALITY_ISSUE", label: "Quality Issue" },
+      { value: "PRICE_DISPUTE", label: "Price Dispute" },
+      { value: "OTHER", label: "Other" },
+    ],
+  },
+  {
+    key: "approvalStatus",
+    label: "Status",
+    type: "select",
+    options: [
+      { value: "PENDING_APPROVAL", label: "Pending" },
+      { value: "APPROVED", label: "Approved" },
+      { value: "REJECTED", label: "Rejected" },
+      { value: "CANCELLED", label: "Cancelled" },
+    ],
+  },
+  {
+    key: "search",
+    label: "",
+    type: "search",
+    placeholder: "Search return / invoice...",
+  },
+];
+
+const COLUMNS = [
+  { key: "invoice_number", label: "Return No", width: "w-36" },
+  {
+    key: "invoice_date",
+    label: "Date",
+    width: "w-28",
+    render: (v) =>
+      new Date(v).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+  },
+  { key: "parent_invoice_number", label: "Original Invoice" },
+  { key: "customer_name", label: "Customer" },
+  {
+    key: "return_reason",
+    label: "Reason",
+    render: (v) => v?.replace(/_/g, " ") || "-",
+  },
+  {
+    key: "return_approval_status",
+    label: "Status",
+    align: "center",
+    render: (v) => {
+      const colors = {
+        APPROVED: "bg-green-100 text-green-700",
+        PENDING_APPROVAL: "bg-amber-100 text-amber-700",
+        REJECTED: "bg-red-100 text-red-700",
+        CANCELLED: "bg-gray-100 text-gray-600",
+      };
+      return (
+        <span
+          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[v] || "bg-gray-100 text-gray-600"}`}
+        >
+          {v?.replace("_", " ") || "-"}
+        </span>
+      );
+    },
+  },
+  {
+    key: "refund_mode",
+    label: "Refund Mode",
+    align: "center",
+    render: (v) => v || "-",
+  },
+  {
+    key: "net_amount",
+    label: "Return Value",
+    align: "right",
+    render: (v) => (
+      <span className="font-semibold text-red-600">
+        ₹{Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+      </span>
+    ),
+  },
+  { key: "approved_by", label: "Approved By" },
+];
+
+const EXPORT_COLUMNS = [
+  { key: "invoice_number", label: "Return No" },
+  { key: "invoice_date", label: "Date" },
+  { key: "parent_invoice_number", label: "Original Invoice" },
+  { key: "customer_name", label: "Customer" },
+  { key: "return_reason", label: "Reason" },
+  { key: "return_approval_status", label: "Status" },
+  { key: "refund_mode", label: "Refund Mode" },
+  { key: "net_amount", label: "Return Value" },
+  { key: "approved_by", label: "Approved By" },
+];
+
+const SalesReturnsReportPage = () => {
+  const toast = useToast();
+  const [filters, setFilters] = useState(defaultFilters());
+  const [data, setData] = useState(null);
+  const [offset, setOffset] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await reportsAPI.getSalesReturnsReport({
+        ...filters,
+        limit: LIMIT,
+        offset,
+      });
+      setData(res.data);
+    } catch (err) {
+      toast.error("Error", err?.response?.data?.message || "Failed to load report");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters, offset]); // eslint-disable-line
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleFilterChange = (key, value) => {
+    setOffset(0);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleReset = () => {
+    setOffset(0);
+    setFilters(defaultFilters());
+  };
+
+  const sm = data?.summary;
+
+  return (
+    <ReportPageWrapper
+      title="Sales Returns"
+      subtitle="All return invoices — what was returned, why, and what was refunded"
+      icon={RotateCcw}
+      iconColor="text-red-600"
+      iconBg="bg-red-100"
+      isLoading={isLoading}
+      exportData={data?.returns || []}
+      exportFilename="sales_returns"
+      exportColumns={EXPORT_COLUMNS}
+    >
+      <div className="shrink-0 px-5 py-3 border-b border-gray-100 bg-gray-50/50 space-y-3">
+        <ReportFiltersBar
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onReset={handleReset}
+          config={filterConfig}
+        />
+        {sm && (
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard label="Total Returns" value={sm.total_returns} color="red" />
+            <StatCard
+              label="Total Return Value"
+              value={`₹${sm.total_return_value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+              color="amber"
+            />
+            <StatCard
+              label="Total Refunded"
+              value={`₹${sm.total_refunded.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+              color="gray"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ReportTable
+          columns={COLUMNS}
+          rows={data?.returns || []}
+          emptyMessage="No returns found"
+        />
+        <ReportPagination
+          total={data?.total || 0}
+          limit={LIMIT}
+          offset={offset}
+          onPageChange={setOffset}
+        />
+      </div>
+    </ReportPageWrapper>
+  );
+};
+
+export default SalesReturnsReportPage;
