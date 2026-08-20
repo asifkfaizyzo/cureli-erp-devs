@@ -105,7 +105,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
           </Text>
         ) : null}
 
-        {profile.supportPhone ? (
+        {/* {profile.supportPhone ? (
           <View
             style={[
               styles.phoneChip,
@@ -120,7 +120,7 @@ export function ShopIdentity({ profile, colors }: ShopIdentityProps) {
               {profile.supportPhone}
             </Text>
           </View>
-        ) : null}
+        ) : null} */}
       </View>
     </View>
   );
