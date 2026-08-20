@@ -6,7 +6,7 @@ export default {
     owner: "your-zeros-and-ones",
     name: "Cureli",
     slug: "cureli-mobile",
-    version: "2.1.1",
+    version: "2.1.2",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "curelimobile",
@@ -36,7 +36,7 @@ export default {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.cureli.mobile",
-      versionCode: 11,
+      versionCode: 12,
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       permissions: [
