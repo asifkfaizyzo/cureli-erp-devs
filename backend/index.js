@@ -53,6 +53,7 @@ import marketplaceDashboardRoutes   from "./src/modules/marketplace-dashboard/ma
 import inventoryImportRoutes        from "./src/modules/inventory-import/inventoryImport.routes.js";
 import prescriptionRequestsMobileRouter from "./src/modules/prescription-requests/prescription.requests.routes.js";
 import prescriptionRequestsErpRouter    from "./src/modules/prescription-requests/prescription.requests.erp.routes.js";
+import salesReportRoutes from "./src/modules/reports/sales/sales.report.routes.js";
 
 // ============================================
 // CADMIN ROUTES
@@ -261,6 +262,7 @@ app.use("/api/marketplace-orders",     marketplaceOrdersRoutes);
 app.use("/api/marketplace/dashboard",  marketplaceDashboardRoutes);
 app.use("/api/inventory/import",       inventoryImportRoutes);
 app.use("/api/prescription-requests",  prescriptionRequestsErpRouter);
+app.use("/api/reports/sales", salesReportRoutes);
 
 // ============================================
 // CADMIN ROUTES
