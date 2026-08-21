@@ -1,32 +1,31 @@
-// src/hooks/sales/useSalesCalculation.js
+// pharmacy-web/src/hooks/sales/useSalesCalculation.js
 
 import { useMemo } from "react";
 
 export function calculateSalesRow(item) {
   const qty = parseFloat(item.qty) || 0;
-
-  //  Use rate (selling price) - this is GST-inclusive
-  const inclusiveRate = parseFloat(item.rate) || parseFloat(item.mrp) || 0;
+  const mrp = parseFloat(item.mrp) || 0;
   const discountPercent = parseFloat(item.discountPercent) || 0;
+
+  // Selling rate (discounted price shown in Rate column)
+  const rate = mrp * (1 - discountPercent / 100);
+
+  // Line Total = qty * mrp * (1 - discountPercent / 100)
+  const amount = qty * mrp * (1 - discountPercent / 100);
+
   const cgstPercent = parseFloat(item.cgstPercent) || 6;
   const sgstPercent = parseFloat(item.sgstPercent) || 6;
-
-  const grossAmount = qty * inclusiveRate;
-  const discountAmount = (grossAmount * discountPercent) / 100;
-  const amountAfterDiscount = grossAmount - discountAmount;
-
-  //  Back-calculate tax (for display only)
   const totalGstPercent = cgstPercent + sgstPercent;
-  const taxableAmount = amountAfterDiscount / (1 + totalGstPercent / 100);
+
+  // Taxable and CGST/SGST back-calculated from final line total
+  const taxableAmount = amount / (1 + totalGstPercent / 100);
   const cgstAmount = (taxableAmount * cgstPercent) / 100;
   const sgstAmount = (taxableAmount * sgstPercent) / 100;
 
-  //  Amount = rate × qty - discount (NO tax added)
-  const amount = amountAfterDiscount;
-
   return {
     ...item,
-    discountAmount: discountAmount.toFixed(2),
+    rate: rate.toFixed(2),
+    discountAmount: (qty * mrp * discountPercent / 100).toFixed(2),
     taxableAmount: taxableAmount.toFixed(2),
     cgstAmount: cgstAmount.toFixed(2),
     sgstAmount: sgstAmount.toFixed(2),
@@ -36,8 +35,8 @@ export function calculateSalesRow(item) {
 
 export function useSalesCalculation(rows, customerDiscountPercent = 0) {
   const summary = useMemo(() => {
-    let subtotal = 0;
-    let itemDiscountAmount = 0;
+    let subtotal = 0; // Sum of qty * mrp (undiscounted)
+    let itemDiscountAmount = 0; // Sum of qty * mrp * discountPercent / 100
     let totalTaxableAmount = 0;
     let totalCgstAmount = 0;
     let totalSgstAmount = 0;
@@ -46,16 +45,13 @@ export function useSalesCalculation(rows, customerDiscountPercent = 0) {
       if (!row.name || !row.qty) return;
 
       const qty = parseFloat(row.qty) || 0;
-
-      //  Use rate (selling price)
-      const inclusiveRate = parseFloat(row.rate) || parseFloat(row.mrp) || 0;
+      const mrp = parseFloat(row.mrp) || 0;
       const discountPercent = parseFloat(row.discountPercent) || 0;
 
-      const gross = qty * inclusiveRate;
+      const gross = qty * mrp; // Raw subtotal before discount
       const itemDiscount = (gross * discountPercent) / 100;
       const amountAfterItemDiscount = gross - itemDiscount;
 
-      // Back-calculate tax
       const cgstPct = parseFloat(row.cgstPercent) || 6;
       const sgstPct = parseFloat(row.sgstPercent) || 6;
       const totalGstPct = cgstPct + sgstPct;
@@ -76,7 +72,7 @@ export function useSalesCalculation(rows, customerDiscountPercent = 0) {
     const customerDiscountAmount =
       (afterItemDiscount * customerDiscountPercent) / 100;
 
-    // Final net (already inclusive)
+    // Final net (inclusive)
     const netAmountBeforeRounding =
       subtotal - itemDiscountAmount - customerDiscountAmount;
 
@@ -89,9 +85,8 @@ export function useSalesCalculation(rows, customerDiscountPercent = 0) {
     const totalTax = finalCgst + finalSgst;
 
     const totalDiscount = itemDiscountAmount + customerDiscountAmount;
-    const roundOff =
-      Math.round(netAmountBeforeRounding) - netAmountBeforeRounding;
-    const netAmount = Math.round(netAmountBeforeRounding);
+    const roundOff = 0; // exact decimals
+    const netAmount = Number(netAmountBeforeRounding.toFixed(2));
 
     return {
       subtotal: Number(subtotal.toFixed(2)),
@@ -103,7 +98,7 @@ export function useSalesCalculation(rows, customerDiscountPercent = 0) {
       cgstAmount: Number(finalCgst.toFixed(2)),
       sgstAmount: Number(finalSgst.toFixed(2)),
       totalTax: Number(totalTax.toFixed(2)),
-      roundOff: Number(roundOff.toFixed(2)),
+      roundOff: roundOff,
       netAmount,
     };
   }, [rows, customerDiscountPercent]);

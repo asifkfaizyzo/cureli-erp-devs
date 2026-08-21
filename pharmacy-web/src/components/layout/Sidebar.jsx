@@ -35,7 +35,7 @@ import {
   PieChart,     // Reports parent icon
   BarChart2,    // Sales Summary
   TrendingUp,   // Profit
-  RotateCcw,    // Returns (already imported)
+  RotateCcw,    // Returns
   Wallet,       // Payment Collection
   AlertCircle,  // Outstanding
   BookOpen,
@@ -90,7 +90,7 @@ const RenewalBadge = ({ size = "sm", className = "" }) => {
   );
 };
 
-/* ─────────────── ERP MenuItem ─────────────── */
+/* ─────────────── ERP MenuItem (Supports Nesting Accordion) ─────────────── */
 const ERPMenuItem = ({
   item,
   activeMenu,
@@ -103,8 +103,20 @@ const ERPMenuItem = ({
   disabledReason = "",
 }) => {
   const Icon = item.icon;
-  const isParent = item.submenu?.length > 0;
-  const isChildActive = item.submenu?.some((sub) => sub.id === activeMenu);
+  
+  // Track open nested subcategories inside this parent menu item
+  const [openCategoryId, setOpenCategoryId] = useState("");
+
+  // Check if any standard submenu or nested child submenu item is active
+  const isChildActive = useMemo(() => {
+    return item.submenu?.some((sub) => {
+      if (sub.items?.length > 0) {
+        return sub.items.some((child) => child.id === activeMenu);
+      }
+      return sub.id === activeMenu;
+    });
+  }, [item.submenu, activeMenu]);
+
   const isActive = activeMenu === item.id || isChildActive;
   const isOpen = openMenuId === item.id;
 
@@ -115,9 +127,21 @@ const ERPMenuItem = ({
   const showBadgeOnIcon = showRenewalBadge && !isExpanded && !isActive;
   const showBadgeOnText = showRenewalBadge && isExpanded && !isActive;
 
+  // Auto-expand nested category if one of its items becomes active
+  useEffect(() => {
+    if (isOpen && item.submenu) {
+      const activeCategory = item.submenu.find((sub) =>
+        sub.items?.some((child) => child.id === activeMenu)
+      );
+      if (activeCategory) {
+        setOpenCategoryId(activeCategory.id);
+      }
+    }
+  }, [activeMenu, isOpen, item.submenu]);
+
   const handleClick = (e) => {
     e.preventDefault();
-    if (isParent) {
+    if (item.submenu?.length > 0) {
       onToggle(item.id);
     } else {
       onNavigate(item, isDisabled, disabledReason);
@@ -128,12 +152,12 @@ const ERPMenuItem = ({
     <div className="flex flex-col">
       <motion.button
         onClick={handleClick}
-        disabled={isDisabled && !isParent}
+        disabled={isDisabled && !item.submenu}
         className={`
           relative flex items-center w-full h-11 rounded-xl
           transition-colors duration-200
           ${
-            isDisabled && !isParent
+            isDisabled && !item.submenu
               ? "opacity-50 cursor-not-allowed bg-gray-50"
               : isActive
                 ? "bg-[#05015A] text-white shadow-lg shadow-blue-900/20"
@@ -151,7 +175,7 @@ const ERPMenuItem = ({
                 <RenewalBadge size="xs" />
               </span>
             )}
-            {isDisabled && !isParent && (
+            {isDisabled && !item.submenu && (
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full ring-2 ring-white flex items-center justify-center">
                 <AlertTriangle size={8} className="text-white" />
               </span>
@@ -168,7 +192,7 @@ const ERPMenuItem = ({
           {showBadgeOnText && <RenewalBadge size="sm" />}
         </motion.span>
 
-        {isParent && (
+        {item.submenu?.length > 0 && (
           <motion.div
             className="absolute right-3"
             animate={{ opacity: isExpanded ? 1 : 0, rotate: isOpen ? 180 : 0 }}
@@ -177,7 +201,7 @@ const ERPMenuItem = ({
           </motion.div>
         )}
 
-        {isDisabled && isExpanded && !isParent && (
+        {isDisabled && isExpanded && !item.submenu && (
           <motion.span
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -189,7 +213,7 @@ const ERPMenuItem = ({
       </motion.button>
 
       <AnimatePresence>
-        {isExpanded && isParent && isOpen && (
+        {isExpanded && item.submenu?.length > 0 && isOpen && (
           <motion.div
             variants={SUBMENU_VARIANTS}
             initial="hidden"
@@ -199,6 +223,82 @@ const ERPMenuItem = ({
           >
             {item.submenu.map((sub) => {
               const SubIcon = sub.icon;
+              const hasSubItems = sub.items?.length > 0;
+
+              // ── CATEGORY MODE RENDER (Accordion Accorded Categories) ──
+              if (hasSubItems) {
+                const isCategoryOpen = openCategoryId === sub.id;
+                const isCategoryActive = sub.items.some((child) => child.id === activeMenu);
+
+                return (
+                  <div key={sub.id} className="flex flex-col w-full">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCategoryId((prev) => (prev === sub.id ? "" : sub.id));
+                      }}
+                      className={`
+                        flex items-center w-full h-9 px-3 rounded-lg text-sm transition-all duration-150
+                        ${
+                          isCategoryActive
+                            ? "bg-indigo-50 text-[#05015A] font-semibold"
+                            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                        }
+                      `}
+                    >
+                      <SubIcon size={16} className="mr-2 opacity-70" />
+                      <span className="flex-1 text-left">{sub.label}</span>
+                      <motion.div
+                        animate={{ rotate: isCategoryOpen ? 180 : 0 }}
+                        className="text-gray-400"
+                      >
+                        <ChevronDown size={14} />
+                      </motion.div>
+                    </button>
+
+                    <AnimatePresence>
+                      {isCategoryOpen && (
+                        <motion.div
+                          variants={SUBMENU_VARIANTS}
+                          initial="hidden"
+                          animate="visible"
+                          exit="hidden"
+                          className="ml-4 pl-3 border-l border-gray-200 flex flex-col gap-1 mt-1"
+                        >
+                          {sub.items.map((subItem) => {
+                            const SubItemIcon = subItem.icon;
+                            const isSubItemActive = activeMenu === subItem.id;
+
+                            return (
+                              <motion.button
+                                key={subItem.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onNavigate(subItem, false, "");
+                                }}
+                                className={`
+                                  flex items-center h-8 px-3 rounded-lg text-xs transition-colors
+                                  ${
+                                    isSubItemActive
+                                      ? "bg-blue-50 text-[#05015A] font-medium"
+                                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                                  }
+                                `}
+                                whileHover={{ x: 4 }}
+                              >
+                                <SubItemIcon size={14} className="mr-2 opacity-70" />
+                                <span>{subItem.label}</span>
+                              </motion.button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              }
+
+              // ── STANDARD ITEM RENDER ──
               const isSubActive = activeMenu === sub.id;
               const subShowBadge =
                 isSuperAdmin && needsRenewal && sub.id === "settings-profile";
@@ -276,11 +376,9 @@ const MarketplaceMenuItem = ({
   const isActive = activeMenu === item.id || isChildActive;
   const isOpen = openMenuId === item.id;
 
-  // ── Order badge ───────────────────────────────────────────────────────────
   const newOrderCount = useNotificationStore(selectNewOrderCount);
   const showOrderBadge = item.showOrderBadge && newOrderCount > 0;
 
-  // ── Prescription request badge ────────────────────────────────────────────
   const pendingRequestIds = usePrescriptionRequestAlertStore(
     (s) => s.pendingRequestIds,
   );
@@ -294,8 +392,6 @@ const MarketplaceMenuItem = ({
   const showPrescriptionBadge =
     item.showPrescriptionBadge && prescriptionCount > 0;
 
-  // ── Combined total for the collapsed icon badge ───────────────────────────
-  // When sidebar is collapsed we show one number on the icon covering both
   const combinedCount = newOrderCount + prescriptionCount;
   const showAnyBadge = showOrderBadge || showPrescriptionBadge;
 
@@ -325,7 +421,6 @@ const MarketplaceMenuItem = ({
         whileTap={{ scale: 0.98 }}
       >
         <div className="absolute left-0 w-[56px] flex justify-center">
-          {/* Icon — collapsed badge shows combined count */}
           <div className="relative">
             <Icon size={20} />
             {showAnyBadge && !isExpanded && (
@@ -343,14 +438,12 @@ const MarketplaceMenuItem = ({
         >
           {item.label}
 
-          {/* Expanded — orders badge */}
           {showOrderBadge && isExpanded && (
             <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
               {newOrderCount > 99 ? "99+" : newOrderCount}
             </span>
           )}
 
-          {/* Expanded — prescription badge */}
           {showPrescriptionBadge && isExpanded && (
             <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] text-center animate-pulse">
               {prescriptionCount > 99 ? "99+" : prescriptionCount}
@@ -416,9 +509,7 @@ const Sidebar = () => {
   const [openMenuId, setOpenMenuId] = useState("");
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
 
-  // ── Refs ──
   const isManualToggle = useRef(false);
-  const isModeSwitch = useRef(false);
 
   const activeMenu = useMenuStore((s) => s.activeMenu);
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
@@ -471,7 +562,7 @@ const Sidebar = () => {
     if (isSuperAdmin) loadSubscriptionStatus();
   }, [isSuperAdmin, loadSubscriptionStatus]);
 
-  /* ─────────── ERP menu config ─────────── */
+  /* ─────────── ERP menu config (Supports nested category accordion) ─────────── */
   const erpMenuItems = useMemo(
     () => [
       {
@@ -559,69 +650,77 @@ const Sidebar = () => {
         permissionKey: "inventory",
       },
       {
-  id: "reports",
-  label: "Reports",
-  icon: PieChart,
-  permissionKey: "salesReport",  // any report permission → show parent
-  submenu: [
-    {
-      id: "report-sales-summary",
-      label: "Sales Summary",
-      icon: BarChart2,
-      path: "/erp/reports/sales/summary",
-      breadcrumbs: ["Reports", "Sales Summary"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-sales-register",
-      label: "Sales Register",
-      icon: FileText,
-      path: "/erp/reports/sales/register",
-      breadcrumbs: ["Reports", "Sales Register"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-sales-profit",
-      label: "Profit Report",
-      icon: TrendingUp,
-      path: "/erp/reports/sales/profit",
-      breadcrumbs: ["Reports", "Profit Report"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-sales-returns",
-      label: "Sales Returns",
-      icon: RotateCcw,
-      path: "/erp/reports/sales/returns",
-      breadcrumbs: ["Reports", "Sales Returns"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-sales-payments",
-      label: "Payment Collection",
-      icon: Wallet,
-      path: "/erp/reports/sales/payments",
-      breadcrumbs: ["Reports", "Payment Collection"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-sales-outstanding",
-      label: "Outstanding",
-      icon: AlertCircle,
-      path: "/erp/reports/sales/outstanding",
-      breadcrumbs: ["Reports", "Outstanding & Receivables"],
-      permissionKey: "salesReport",
-    },
-    {
-      id: "report-daybook",
-      label: "Day Book",
-      icon: BookOpen,
-      path: "/erp/reports/sales/daybook",
-      breadcrumbs: ["Reports", "Day Book"],
-      permissionKey: "salesReport",
-    },
-  ],
-},
+        id: "reports",
+        label: "Reports",
+        icon: PieChart,
+        permissionKey: "salesReport",
+        submenu: [
+          {
+            id: "reports-sales",
+            label: "Sales Reports",
+            icon: BarChart2,
+            permissionKey: "salesReport",
+            items: [
+              {
+                id: "report-sales-summary",
+                label: "Sales Summary",
+                icon: BarChart2,
+                path: "/erp/reports/sales/summary",
+                breadcrumbs: ["Reports", "Sales Summary"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-sales-register",
+                label: "Sales Register",
+                icon: FileText,
+                path: "/erp/reports/sales/register",
+                breadcrumbs: ["Reports", "Sales Register"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-sales-profit",
+                label: "Profit Report",
+                icon: TrendingUp,
+                path: "/erp/reports/sales/profit",
+                breadcrumbs: ["Reports", "Profit Report"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-sales-returns",
+                label: "Sales Returns",
+                icon: RotateCcw,
+                path: "/erp/reports/sales/returns",
+                breadcrumbs: ["Reports", "Sales Returns"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-sales-payments",
+                label: "Payment Collection",
+                icon: Wallet,
+                path: "/erp/reports/sales/payments",
+                breadcrumbs: ["Reports", "Payment Collection"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-sales-outstanding",
+                label: "Outstanding",
+                icon: AlertCircle,
+                path: "/erp/reports/sales/outstanding",
+                breadcrumbs: ["Reports", "Outstanding & Receivables"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-daybook",
+                label: "Day Book",
+                icon: BookOpen,
+                path: "/erp/reports/sales/daybook",
+                breadcrumbs: ["Reports", "Day Book"],
+                permissionKey: "salesReport",
+              },
+            ]
+          }
+        ],
+      },
       {
         id: "suppliers",
         label: "Suppliers",
@@ -694,7 +793,7 @@ const Sidebar = () => {
         breadcrumbs: ["Marketplace", "Orders"],
         permissionKey: "marketplaceOrders",
         showOrderBadge: true,
-        showPrescriptionBadge: true, // ← ADD THIS
+        showPrescriptionBadge: true,
       },
       {
         id: "marketplace-listings",
@@ -716,10 +815,9 @@ const Sidebar = () => {
     [],
   );
 
-  /* ─────────── Active menu set based on mode ─────────── */
   const allMenuItems = isMarketplace ? marketplaceMenuItems : erpMenuItems;
 
-  /* ─────────── Permission filtering ─────────── */
+  /* ─────────── Permission filtering (recursive for level-3 nested submenus) ─────────── */
   const visibleMenuItems = useMemo(() => {
     if (isMarketplace) {
       return marketplaceMenuItems.filter((item) => {
@@ -731,11 +829,24 @@ const Sidebar = () => {
     return erpMenuItems
       .map((item) => {
         if (item.submenu?.length > 0) {
-          const visibleSubmenu = item.submenu.filter((sub) => {
-            if (sub.hidden) return false;
-            const subPerm = permissions[sub.permissionKey];
-            return subPerm?.visible !== false && !subPerm?.disabled;
-          });
+          const visibleSubmenu = item.submenu
+            .map((sub) => {
+              if (sub.hidden) return null;
+              if (sub.items?.length > 0) {
+                const visibleItems = sub.items.filter((child) => {
+                  if (child.hidden) return false;
+                  const itemPerm = permissions[child.permissionKey];
+                  return itemPerm?.visible !== false && !itemPerm?.disabled;
+                });
+                if (visibleItems.length === 0) return null;
+                return { ...sub, items: visibleItems };
+              }
+              const subPerm = permissions[sub.permissionKey];
+              if (subPerm?.visible === false || subPerm?.disabled) return null;
+              return sub;
+            })
+            .filter(Boolean);
+
           if (visibleSubmenu.length === 0) return null;
           return { ...item, submenu: visibleSubmenu };
         }
@@ -747,17 +858,29 @@ const Sidebar = () => {
       .filter(Boolean);
   }, [isMarketplace, erpMenuItems, marketplaceMenuItems, permissions]);
 
-  /* ─────────── Accessible items ─────────── */
+  /* ─────────── Accessible items list ─────────── */
   const allAccessibleItems = useMemo(() => {
     if (isMarketplace) return marketplaceMenuItems;
 
     return erpMenuItems
       .map((item) => {
         if (item.submenu?.length > 0) {
-          const accessible = item.submenu.filter((sub) => {
-            const p = permissions[sub.permissionKey];
-            return p?.visible !== false && !p?.disabled;
-          });
+          const accessible = item.submenu
+            .map((sub) => {
+              if (sub.items?.length > 0) {
+                const accessibleChildren = sub.items.filter((child) => {
+                  const p = permissions[child.permissionKey];
+                  return p?.visible !== false && !p?.disabled;
+                });
+                if (accessibleChildren.length === 0) return null;
+                return { ...sub, items: accessibleChildren };
+              }
+              const p = permissions[sub.permissionKey];
+              if (p?.visible === false || p?.disabled) return null;
+              return sub;
+            })
+            .filter(Boolean);
+
           if (accessible.length === 0) return null;
           return { ...item, submenu: accessible };
         }
@@ -804,12 +927,22 @@ const Sidebar = () => {
         return;
       }
       if (item.submenu) {
-        const sub = item.submenu.find((s) => s.path === currentPath);
-        if (sub) {
-          setActiveMenu(sub.id);
-          setBreadcrumbs(sub.breadcrumbs);
-          setOpenMenuId(item.id);
-          return;
+        for (const sub of item.submenu) {
+          if (sub.path === currentPath) {
+            setActiveMenu(sub.id);
+            setBreadcrumbs(sub.breadcrumbs);
+            setOpenMenuId(item.id);
+            return;
+          }
+          if (sub.items) {
+            const subItem = sub.items.find((si) => si.path === currentPath);
+            if (subItem) {
+              setActiveMenu(subItem.id);
+              setBreadcrumbs(subItem.breadcrumbs);
+              setOpenMenuId(item.id);
+              return;
+            }
+          }
         }
       }
     }
@@ -819,7 +952,12 @@ const Sidebar = () => {
   useEffect(() => {
     if (isManualToggle.current) return;
     const parent = allAccessibleItems.find((m) =>
-      m.submenu?.some((s) => s.id === activeMenu),
+      m.submenu?.some((s) => {
+        if (s.items?.length > 0) {
+          return s.items.some((child) => child.id === activeMenu);
+        }
+        return s.id === activeMenu;
+      })
     );
     if (parent && openMenuId !== parent.id) {
       setOpenMenuId(parent.id);
@@ -831,7 +969,12 @@ const Sidebar = () => {
     const isValid =
       allAccessibleItems.some((m) => m.id === activeMenu) ||
       allAccessibleItems.some((m) =>
-        m.submenu?.some((s) => s.id === activeMenu),
+        m.submenu?.some((s) => {
+          if (s.items?.length > 0) {
+            return s.items.some((child) => child.id === activeMenu);
+          }
+          return s.id === activeMenu;
+        })
       );
 
     if (!isValid && allAccessibleItems.length > 0) {
@@ -843,7 +986,13 @@ const Sidebar = () => {
 
       const activeMenuIsFromERP = erpMenuItems.some(
         (m) =>
-          m.id === activeMenu || m.submenu?.some((s) => s.id === activeMenu),
+          m.id === activeMenu ||
+          m.submenu?.some((s) => {
+            if (s.items?.length > 0) {
+              return s.items.some((child) => child.id === activeMenu);
+            }
+            return s.id === activeMenu;
+          })
       );
       const activeMenuIsFromMarketplace = marketplaceMenuItems.some(
         (m) => m.id === activeMenu,
@@ -860,9 +1009,16 @@ const Sidebar = () => {
       if (fallbackItem) {
         if (fallbackItem.submenu?.length > 0) {
           const firstSub = fallbackItem.submenu[0];
-          setActiveMenu(firstSub.id);
-          setBreadcrumbs(firstSub.breadcrumbs);
-          navigate(firstSub.path);
+          if (firstSub.items?.length > 0) {
+            const firstChild = firstSub.items[0];
+            setActiveMenu(firstChild.id);
+            setBreadcrumbs(firstChild.breadcrumbs);
+            navigate(firstChild.path);
+          } else {
+            setActiveMenu(firstSub.id);
+            setBreadcrumbs(firstSub.breadcrumbs);
+            navigate(firstSub.path);
+          }
         } else {
           setActiveMenu(fallbackItem.id);
           setBreadcrumbs(fallbackItem.breadcrumbs);
@@ -899,7 +1055,6 @@ const Sidebar = () => {
       animate={{ width: isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH }}
       transition={SIDEBAR_TRANSITION}
     >
-      {/* Marketplace mode label */}
       {isMarketplace && (
         <div className="px-2 pt-4 pb-2">
           <motion.div

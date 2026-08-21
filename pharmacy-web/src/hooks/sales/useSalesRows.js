@@ -1,7 +1,4 @@
 // pharmacy-web/src/hooks/sales/useSalesRows.js
-// Updated: Added importRows export (was already present but making it explicit).
-// No logic changes — importRows is used by SalesBillingPage to inject
-// marketplace order items. Everything else is unchanged from your original.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 
@@ -22,8 +19,8 @@ const makeEmptyRow = () => ({
   rack:            '',
   stock:           '',
   discountPercent: '0',
-  cgstPercent:     '6',
-  sgstPercent:     '6',
+  cgstPercent:     '0', // ← Fixed: was '6'
+  sgstPercent:     '0', // ← Fixed: was '6'
   amount:          '',
   availableBatches: [],
 });
@@ -129,17 +126,12 @@ export function useSalesRows(initialRowCount = 8) {
     return rows.some((row) => row.name && row.name.trim() !== '');
   }, [rows]);
 
-  // ── importRows ─────────────────────────────────────────────────────────────
-  // Replaces all rows with new data. Used by SalesBillingPage to inject
-  // marketplace order items. Pads to minimum row count with empty rows.
   const importRows = useCallback((newRows) => {
     const paddedRows = [...newRows];
     if (paddedRows.length < initialRowCount) {
       const needed = initialRowCount - paddedRows.length;
       paddedRows.push(...Array.from({ length: needed }).map(makeEmptyRow));
     }
-    // Clear localStorage so marketplace data is not accidentally persisted
-    // across sessions after the bill is confirmed.
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_EXPIRY_KEY);
     setRows(paddedRows);
@@ -161,8 +153,6 @@ export function useSalesRows(initialRowCount = 8) {
     forceSave,
   };
 }
-
-// ── useSalesCustomer ───────────────────────────────────────────────────────────
 
 const CUSTOMER_STORAGE_KEY = 'sales_billing_customer';
 

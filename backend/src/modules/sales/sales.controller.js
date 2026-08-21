@@ -302,6 +302,10 @@ export async function getSalesInvoicesController(req, res) {
       status: req.query.status,
       paymentStatus: req.query.paymentStatus,
       search: req.query.search,
+      customerName: req.query.customerName,   // ← Added mapping for frontend filters
+      invoiceNumber: req.query.invoiceNumber, // ← Added mapping for frontend filters
+      phone: req.query.phone,                 // ← Added mapping for frontend filters
+      branchId: req.query.branchId,           // ← Allows overriding active branch in global queries
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -385,9 +389,6 @@ export async function createSalesReturnController(req, res) {
         code: "BRANCH_REQUIRED",
       });
     }
-
-    //  Log the validated data to see what's coming through
-    
 
     const result = await salesReturnService.createSalesReturn(
       userId,

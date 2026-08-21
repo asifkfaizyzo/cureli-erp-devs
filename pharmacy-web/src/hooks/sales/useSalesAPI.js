@@ -1,7 +1,4 @@
 // pharmacy-web/src/hooks/sales/useSalesAPI.js
-// Updated:
-//   - confirmSalesInvoice now accepts marketplace_order_id in data
-//   - Added getMarketplaceBillingData for SalesBillingPage auto-populate
 
 import { useState, useCallback } from 'react';
 import salesAPI from '../../api/sales';
@@ -35,17 +32,17 @@ export function useSalesAPI() {
         if (availableStock > 0 && inv.medicine_id) {
           if (!medicineMap.has(inv.medicine_id)) {
             medicineMap.set(inv.medicine_id, {
-              medicine_id:           inv.medicine_id,
-              name:                  inv.medicine_name || inv.medicine?.name || '',
-              generic_name:          inv.medicine?.generic_name || '',
-              manufacturer:          inv.medicine_manufacturer || inv.medicine?.manufacturer || '',
-              hsn_code:              inv.medicine_hsn_code || inv.medicine?.hsn_code || '',
-              pack_size:             inv.medicine_pack_size || inv.medicine?.pack_size || '',
-              cgst_percentage:       inv.medicine?.cgst_percentage || 6,
-              sgst_percentage:       inv.medicine?.sgst_percentage || 6,
-              rack_no:               inv.rack_no || inv.medicine?.rack_no || '',
-              total_available_stock: availableStock,
-            });
+  medicine_id:           inv.medicine_id,
+  name:                  inv.medicine_name || inv.medicine?.name || '',
+  generic_name:          inv.medicine?.generic_name || '',
+  manufacturer:          inv.medicine_manufacturer || inv.medicine?.manufacturer || '',
+  hsn_code:              inv.medicine_hsn_code || inv.medicine?.hsn_code || '',
+  pack_size:             inv.medicine_pack_size || inv.medicine?.pack_size || '',
+  cgst_percentage:       inv.medicine?.cgst_percentage !== undefined ? inv.medicine.cgst_percentage : (inv.cgst_percentage || 0),
+  sgst_percentage:       inv.medicine?.sgst_percentage !== undefined ? inv.medicine.sgst_percentage : (inv.sgst_percentage || 0),
+  rack_no:               inv.rack_no || inv.medicine?.rack_no || '',
+  total_available_stock: availableStock,
+});
           } else {
             const existing = medicineMap.get(inv.medicine_id);
             existing.total_available_stock += availableStock;
@@ -140,7 +137,7 @@ export function useSalesAPI() {
           expiry_date:     parseExpiryToDate(item.exp),
           quantity:        parseFloat(item.qty),
           unit_of_measure: 'UNIT',
-          selling_rate:    parseFloat(item.rate),
+          selling_rate:    parseFloat(item.mrp), // ← Send undiscounted MRP as selling_rate base
           mrp:             parseFloat(item.mrp),
           discount_percent: parseFloat(item.discountPercent) || 0,
           cgst_percent:    parseFloat(item.cgstPercent) || 6,
@@ -171,9 +168,6 @@ export function useSalesAPI() {
   }, [currentInvoice, toast]);
 
   // ── Confirm sales invoice ──────────────────────────────────────────────────
-  // marketplace_order_id is passed through data when confirming a marketplace
-  // order. The backend links the SalesInvoice to the MarketplaceOrder and
-  // fires the PDF generator.
   const confirmSalesInvoice = useCallback(async (invoiceId, data = {}) => {
     try {
       setIsLoading(true);
@@ -211,9 +205,7 @@ export function useSalesAPI() {
     }
   }, [toast]);
 
-  // ── NEW: Load marketplace billing data ─────────────────────────────────────
-  // Called by SalesBillingPage when ?marketplace_order= is in URL.
-  // Returns order items with available batches for auto-population.
+  // ── Load marketplace billing data ─────────────────────────────────────
   const loadMarketplaceBillingData = useCallback(async (marketplaceOrderId) => {
     try {
       setIsLoading(true);
@@ -261,7 +253,7 @@ export function useSalesAPI() {
     createCustomer,
     saveSalesInvoice,
     confirmSalesInvoice,
-    loadMarketplaceBillingData,  // ← NEW
+    loadMarketplaceBillingData,
     loadInvoiceForEdit,
     resetInvoice,
     recordPayment,

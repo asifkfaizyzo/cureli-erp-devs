@@ -45,7 +45,7 @@ const SalesTable = ({
   onBatchSelect,
   isLoading = false,
   getAvailableBatches,
-  marketplaceLocked = false, // ← NEW
+  marketplaceLocked = false,
 }) => {
   const tableBodyRef = useRef(null);
   const headerRef = useRef(null);
@@ -185,7 +185,7 @@ const SalesTable = ({
   );
 
   const handleCreateNewRow = useCallback(() => {
-    if (marketplaceLocked) return; // prevent adding rows in marketplace mode
+    if (marketplaceLocked) return;
     const newRow = {
       medicine_id: null,
       inventory_id: null,
@@ -210,7 +210,7 @@ const SalesTable = ({
 
   const handleRemoveRow = useCallback(
     (index) => {
-      if (marketplaceLocked) return; // prevent removing rows in marketplace mode
+      if (marketplaceLocked) return;
       if (rows.length <= 1) return;
       setRows((prev) => {
         const newRows = [...prev];
@@ -230,8 +230,30 @@ const SalesTable = ({
     (idx, key, value) => {
       setRows((prev) => {
         const newRows = [...prev];
-        newRows[idx] = { ...newRows[idx], [key]: value };
-        newRows[idx] = calculateRow(newRows[idx]);
+        let row = { ...newRows[idx], [key]: value };
+
+        const mrp = parseFloat(row.mrp) || 0;
+
+        //  DUAL BINDING LOGIC: Sync MRP, discountPercent, and Rate
+        if (key === "discountPercent") {
+          const disc = parseFloat(value) || 0;
+          const newRate = mrp * (1 - disc / 100);
+          row.rate = newRate.toFixed(2);
+        } else if (key === "rate") {
+          const rateVal = parseFloat(value) || 0;
+          if (mrp > 0) {
+            const disc = ((mrp - rateVal) / mrp) * 100;
+            row.discountPercent = Math.max(0, disc).toFixed(2);
+          } else {
+            row.discountPercent = "0";
+          }
+        } else if (key === "mrp") {
+          const disc = parseFloat(row.discountPercent) || 0;
+          const newRate = parseFloat(value || 0) * (1 - disc / 100);
+          row.rate = newRate.toFixed(2);
+        }
+
+        newRows[idx] = calculateRow(row);
         return newRows;
       });
     },
@@ -242,7 +264,6 @@ const SalesTable = ({
   const totalRows = rows.length;
   const hasOverflow = totalRows > visibleRows;
 
-  // In marketplace mode: count how many rows still need a batch
   const needsBatchCount = marketplaceLocked
     ? rows.filter((r) => r.medicine_id && !r.inventory_id).length
     : 0;
@@ -262,7 +283,6 @@ const SalesTable = ({
             <span className="text-[8px] text-slate-400">/ {totalRows}</span>
           </div>
 
-          {/* Marketplace: show pending batch selection count */}
           {marketplaceLocked && needsBatchCount > 0 && (
             <>
               <div className="h-3 w-px bg-slate-300" />
@@ -315,7 +335,6 @@ const SalesTable = ({
             </div>
           )}
 
-          {/* Add Row button — hidden in marketplace mode */}
           {!marketplaceLocked ? (
             <button
               onClick={handleCreateNewRow}

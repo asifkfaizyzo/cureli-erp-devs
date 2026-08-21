@@ -686,14 +686,22 @@ const SalesRowFixed = memo(
           </td>
 
           {/* CGST */}
-          <td className={`${cellBase} bg-orange-50/40`}>
-            <input className={`${inputBase} px-1 py-1 text-center text-orange-600`} value={item.cgstPercent || '6'} readOnly />
-          </td>
+<td className={`${cellBase} bg-orange-50/40`}>
+  <input
+    className={`${inputBase} px-1 py-1 text-center text-orange-600`}
+    value={item.cgstPercent !== undefined ? item.cgstPercent : '0'}
+    readOnly
+  />
+</td>
 
-          {/* SGST */}
-          <td className={`${cellBase} bg-orange-50/40`}>
-            <input className={`${inputBase} px-1 py-1 text-center text-orange-600`} value={item.sgstPercent || '6'} readOnly />
-          </td>
+{/* SGST */}
+<td className={`${cellBase} bg-orange-50/40`}>
+  <input
+    className={`${inputBase} px-1 py-1 text-center text-orange-600`}
+    value={item.sgstPercent !== undefined ? item.sgstPercent : '0'}
+    readOnly
+  />
+</td>
 
           {/* RACK */}
           <td className={`${cellBase} bg-slate-50`}>

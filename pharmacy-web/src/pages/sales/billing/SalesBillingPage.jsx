@@ -357,8 +357,8 @@ const SalesBillingPage = () => {
             rack: firstBatch?.rack_no || item.medicine?.rack_no || "",
             stock: String(firstBatch?.available_stock || ""),
             discountPercent: "0",
-            cgstPercent: String(item.medicine?.cgst_percentage || 6),
-            sgstPercent: String(item.medicine?.sgst_percentage || 6),
+            cgstPercent: String(item.medicine?.cgst_percentage || 0),
+            sgstPercent: String(item.medicine?.sgst_percentage || 0),
             amount: "",
             availableBatches: item.available_batches || [],
             _marketplace_locked: true,
@@ -420,11 +420,12 @@ const SalesBillingPage = () => {
           sameAsCustomer: invoice.walkin_name === invoice.customer.name,
         });
       } else {
+        const walkinName = invoice.walkin_name || "";
         setCustomer((prev) => ({
           ...prev,
           customer_id: null,
-          name: "",
-          patientName: invoice.walkin_name || "",
+          name: walkinName,
+          patientName: walkinName,
           phone: invoice.walkin_phone || "",
           doctorName: invoice.doctor_name || "",
           paymentType: "CASH",
@@ -459,8 +460,8 @@ const SalesBillingPage = () => {
           rate: item.selling_rate?.toString() || item.mrp?.toString() || "",
           rack: item.inventory?.rack_no || "",
           discountPercent: item.discount_percent?.toString() || "0",
-          cgstPercent: item.cgst_percent?.toString() || "6",
-          sgstPercent: item.sgst_percent?.toString() || "6",
+          cgstPercent: item.cgst_percent?.toString() || "0",
+          sgstPercent: item.sgst_percent?.toString() || "0",
           stock: item.inventory?.available_stock?.toString() || "",
           amount: item.line_total?.toString() || "",
           availableBatches: [],
@@ -513,6 +514,18 @@ const SalesBillingPage = () => {
             const expDate = new Date(selectedBatch.expiry_date);
             expiry = `${String(expDate.getMonth() + 1).padStart(2, "0")}/${String(expDate.getFullYear()).slice(-2)}`;
           }
+
+          // Extract CGST & SGST directly from selectedBatch medicine master, fallback to product, then to 0
+          const cgst = selectedBatch?.medicine?.cgst_percentage 
+            ?? product.cgst_percentage 
+            ?? product.cgstPercent 
+            ?? 0;
+
+          const sgst = selectedBatch?.medicine?.sgst_percentage 
+            ?? product.sgst_percentage 
+            ?? product.sgstPercent 
+            ?? 0;
+
           newRows[rowIndex] = {
             ...newRows[rowIndex],
             medicine_id: product.medicine_id,
@@ -522,14 +535,11 @@ const SalesBillingPage = () => {
             batch: selectedBatch?.batch_number || "",
             exp: expiry,
             mrp: selectedBatch?.mrp?.toString() || "",
-            rate:
-              selectedBatch?.selling_rate?.toString() ||
-              selectedBatch?.mrp?.toString() ||
-              "",
+            rate: selectedBatch?.selling_rate?.toString() || selectedBatch?.mrp?.toString() || "",
             rack: selectedBatch?.rack_no || product.rack_no || "",
             stock: selectedBatch?.available_stock?.toString() || "",
-            cgstPercent: product.cgst_percentage?.toString() || "6",
-            sgstPercent: product.sgst_percentage?.toString() || "6",
+            cgstPercent: cgst.toString(),
+            sgstPercent: sgst.toString(),
             availableBatches: batches,
           };
           newRows[rowIndex] = calculateSalesRow(newRows[rowIndex]);
@@ -553,6 +563,11 @@ const SalesBillingPage = () => {
           const expDate = new Date(batch.expiry_date);
           expiry = `${String(expDate.getMonth() + 1).padStart(2, "0")}/${String(expDate.getFullYear()).slice(-2)}`;
         }
+
+        // Extract precise GST rates directly from selected batch medicine reference
+        const cgst = batch.medicine?.cgst_percentage ?? 0;
+        const sgst = batch.medicine?.sgst_percentage ?? 0;
+
         newRows[rowIndex] = {
           ...newRows[rowIndex],
           inventory_id: batch.inventory_id,
@@ -562,6 +577,8 @@ const SalesBillingPage = () => {
           rate: batch.selling_rate?.toString() || batch.mrp?.toString() || "",
           rack: batch.rack_no || "",
           stock: batch.available_stock?.toString() || "",
+          cgstPercent: cgst.toString(),
+          sgstPercent: sgst.toString(),
         };
         newRows[rowIndex] = calculateSalesRow(newRows[rowIndex]);
         return newRows;
@@ -1165,6 +1182,7 @@ const SalesBillingPage = () => {
               currentInvoice?.invoice_date || invoiceData.invoice_date
             }
             billedBy={billedByName}
+            showDiscount={customer.showDiscountOnPrint !== false} // ← Dynamically toggle printing of the discount column
           />
         </div>
       </div>

@@ -108,7 +108,7 @@ const ToggleCheckbox = ({ checked, onChange, label, disabled = false }) => (
       {checked && <Check size={10} className="text-white" strokeWidth={3} />}
     </div>
     <span
-      className={`text-[10px] font-medium transition-colors ${checked ? "text-indigo-700" : "text-gray-600"}`}
+      className={`text-[10px] font-medium transition-colors whitespace-nowrap ${checked ? "text-indigo-700" : "text-gray-600"}`}
     >
       {label}
     </span>
@@ -125,7 +125,7 @@ const CustomerDetailsCard = ({
   netAmount = 0,
   isLoading = false,
   billNo = "AUTO-000001",
-  readOnly = false, // ← NEW: locks all fields (marketplace mode)
+  readOnly = false, // ← locks all fields (marketplace mode)
 }) => {
   const cashReceived = parseFloat(customer?.cashReceived) || 0;
   const balance =
@@ -133,7 +133,7 @@ const CustomerDetailsCard = ({
 
   const updateField = useCallback(
     (field, value) => {
-      if (readOnly) return; // ← guard: ignore updates in read-only mode
+      if (readOnly) return; // ignore updates in read-only mode
       setCustomer((prev) => {
         const updated = { ...prev, [field]: value };
         if (field === "name" && prev.sameAsCustomer)
@@ -264,10 +264,8 @@ const CustomerDetailsCard = ({
 
       {/* Body */}
       <div className="p-4 flex flex-col gap-3 flex-1 overflow-visible">
-        {/* ROW 1: Bill No, Doctor, Customer Name, Mobile */}
+        {/* ROW 1: Doctor, Customer Name, Mobile, Printing Preferences */}
         <div className="grid grid-cols-12 gap-3">
-          {/* Bill No */}
-
           {/* Doctor Name */}
           <div className="col-span-3">
             <AnimatedInput
@@ -302,6 +300,16 @@ const CustomerDetailsCard = ({
               icon={Smartphone}
               type="tel"
               readOnly={readOnly}
+            />
+          </div>
+
+          {/* Toggle Checklist Checkbox — Positioned explicitly to the right of Mobile field */}
+          <div className="col-span-2 flex items-center justify-start h-9 self-end mb-0.5 pl-1">
+            <ToggleCheckbox
+              checked={customer.showDiscountOnPrint !== false} // Defaults to true if missing
+              onChange={(checked) => updateField("showDiscountOnPrint", checked)}
+              label="Print Discount"
+              disabled={readOnly}
             />
           </div>
         </div>

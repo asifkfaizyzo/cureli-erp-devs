@@ -6,7 +6,7 @@ import prisma from "../../config/prisma.js";
 // CONSTANTS
 // ============================================
 
-export const PAYMENT_BALANCE_THRESHOLD = 1; // ₹1 tolerance for rounding
+export const PAYMENT_BALANCE_THRESHOLD = 1;
 
 export const PAYMENT_MODES = {
   CASH: "CASH",
@@ -47,43 +47,36 @@ export function buildBranchFilter(shopId, branchId, role, branchMode) {
 }
 
 // ============================================
-// HELPER: Calculate Line Item
-// ============================================
-
-// ============================================
 // HELPER: Calculate Line Item (GST-INCLUSIVE)
 // ============================================
 
 export function calculateLineItem(item) {
   const qty = parseFloat(item.quantity || 0);
-
-  //  CRITICAL: Use selling_rate instead of mrp
-  const inclusiveRate = parseFloat(item.selling_rate || item.mrp || 0);
+  const mrp = parseFloat(item.mrp || 0);
   const discountPercent = parseFloat(item.discount_percent || 0);
 
-  // Gross amount (GST-inclusive)
-  const grossAmount = qty * inclusiveRate;
+  // Selling rate is always MRP * (1 - Disc%)
+  const sellingRate = parseFloat(item.selling_rate) !== undefined && !isNaN(parseFloat(item.selling_rate))
+    ? parseFloat(item.selling_rate)
+    : mrp * (1 - discountPercent / 100);
 
-  // Item discount
+  // Gross amount based on full MRP
+  const grossAmount = qty * mrp;
+
+  // Total discount amount based on MRP
   const discountAmount = (grossAmount * discountPercent) / 100;
 
-  // Amount after discount (still GST-inclusive)
-  const amountAfterDiscount = grossAmount - discountAmount;
+  // Amount after discount uses selling rate directly
+  const amountAfterDiscount = qty * sellingRate;
 
-  //  Back-calculate GST (prices are inclusive)
+  // Back-calculate GST
   const cgstPercent = parseFloat(item.cgst_percent || 0);
   const sgstPercent = parseFloat(item.sgst_percent || 0);
   const totalGstPercent = cgstPercent + sgstPercent;
 
-  // Taxable amount = Amount / (1 + GST%)
   const taxableAmount = amountAfterDiscount / (1 + totalGstPercent / 100);
-
-  // Tax amounts (for display, already included)
   const cgstAmount = (taxableAmount * cgstPercent) / 100;
   const sgstAmount = (taxableAmount * sgstPercent) / 100;
-
-  //  Line total = Amount after discount (tax already included, NOT added again)
-  const lineTotal = amountAfterDiscount;
 
   return {
     gross_amount: Number(grossAmount.toFixed(2)),
@@ -91,12 +84,12 @@ export function calculateLineItem(item) {
     taxable_amount: Number(taxableAmount.toFixed(2)),
     cgst_amount: Number(cgstAmount.toFixed(2)),
     sgst_amount: Number(sgstAmount.toFixed(2)),
-    line_total: Number(lineTotal.toFixed(2)),
+    line_total: Number(amountAfterDiscount.toFixed(2)),
   };
 }
 
 // ============================================
-// HELPER: Calculate Invoice Totals
+// HELPER: Calculate Invoice Totals (NO ROUNDING)
 // ============================================
 
 export function calculateInvoiceTotals(
@@ -110,17 +103,18 @@ export function calculateInvoiceTotals(
   let totalCgstAmount = 0;
   let totalSgstAmount = 0;
 
-  // Sum up line items
   lineItems.forEach((item) => {
     const qty = parseFloat(item.quantity || 0);
-
-    //  CRITICAL: Use selling_rate instead of mrp
-    const inclusiveRate = parseFloat(item.selling_rate || item.mrp || 0);
+    const mrp = parseFloat(item.mrp || 0);
     const discountPercent = parseFloat(item.discount_percent || 0);
+    const sellingRate = parseFloat(item.selling_rate || mrp);
 
-    const grossAmount = qty * inclusiveRate;
+    // Gross amount based on full MRP
+    const grossAmount = qty * mrp;
     const itemDiscount = (grossAmount * discountPercent) / 100;
-    const amountAfterItemDiscount = grossAmount - itemDiscount;
+    
+    // Effective line item total uses selling rate directly
+    const amountAfterItemDiscount = qty * sellingRate;
 
     // Back-calculate tax
     const cgstPct = parseFloat(item.cgst_percent || 0);
@@ -152,7 +146,7 @@ export function calculateInvoiceTotals(
   const totalDiscount =
     itemDiscountAmount + customerDiscountAmount + billDiscountAmount;
 
-  // Final net (already inclusive)
+  // Final net (inclusive)
   const netAmountBeforeRounding = subtotal - totalDiscount;
 
   // Recalculate tax proportionally
@@ -163,10 +157,9 @@ export function calculateInvoiceTotals(
   const finalSgstAmount = totalSgstAmount * discountRatio;
   const totalTax = finalCgstAmount + finalSgstAmount;
 
-  // Round off
-  const roundOff =
-    Math.round(netAmountBeforeRounding) - netAmountBeforeRounding;
-  const netAmount = Math.round(netAmountBeforeRounding);
+  //  NO ROUNDING — exact float values
+  const roundOff = 0;
+  const netAmount = Number(netAmountBeforeRounding.toFixed(2));
 
   return {
     subtotal: Number(subtotal.toFixed(2)),
@@ -180,11 +173,12 @@ export function calculateInvoiceTotals(
     cgst_amount: Number(finalCgstAmount.toFixed(2)),
     sgst_amount: Number(finalSgstAmount.toFixed(2)),
     total_tax: Number(totalTax.toFixed(2)),
-    round_off: Number(roundOff.toFixed(2)),
+    round_off: roundOff,
     net_amount: netAmount,
     balance_amount: netAmount,
   };
 }
+
 // ============================================
 // HELPER: Calculate Payment Status
 // ============================================
@@ -223,22 +217,18 @@ export function calculatePaymentStatus(
 
 // ============================================
 // HELPER: Generate Sales Invoice Number
-// Branch-level sequence: SALE-{BranchCode}-{Sequence}
 // ============================================
 
 export async function generateSalesInvoiceNumber(shopId, branchId) {
-  // Get branch code
   const branch = await prisma.branch.findUnique({
     where: { branch_id: branchId },
     select: { branch_name: true },
   });
 
-  // Create short branch code (first 3 chars uppercase)
   const branchCode = branch?.branch_name
     ? branch.branch_name.substring(0, 3).toUpperCase().replace(/\s/g, "")
     : "BR1";
 
-  // Get last invoice for this branch
   const lastInvoice = await prisma.salesInvoice.findFirst({
     where: {
       shop_id: shopId,
@@ -252,7 +242,6 @@ export async function generateSalesInvoiceNumber(shopId, branchId) {
   let nextNumber = 1;
 
   if (lastInvoice) {
-    // Extract number from SALE-XXX-000001 format
     const parts = lastInvoice.invoice_number.split("-");
     if (parts.length >= 3) {
       nextNumber = parseInt(parts[2]) + 1;
@@ -342,7 +331,6 @@ export async function checkStockAvailability(shopId, branchId, items) {
       });
     }
 
-    // Check expiry
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const expiryDate = new Date(inventory.expiry_date);
@@ -388,7 +376,6 @@ export async function reserveStock(tx, shopId, branchId, items, invoiceId) {
       );
     }
 
-    // Update inventory: increase reserved, decrease available
     await tx.inventory.update({
       where: { inventory_id: item.inventory_id },
       data: {
@@ -400,7 +387,7 @@ export async function reserveStock(tx, shopId, branchId, items, invoiceId) {
 }
 
 // ============================================
-// HELPER: Release Reserved Stock (for cancelled DRAFT)
+// HELPER: Release Reserved Stock
 // ============================================
 
 export async function releaseReservedStock(tx, items) {
@@ -415,7 +402,6 @@ export async function releaseReservedStock(tx, items) {
     const currentAvailable = parseFloat(inventory.available_stock);
     const reservedQty = parseFloat(item.quantity);
 
-    // Release: decrease reserved, increase available
     await tx.inventory.update({
       where: { inventory_id: item.inventory_id },
       data: {
@@ -447,21 +433,17 @@ export async function confirmStockDeduction(tx, invoice, lineItems, userId) {
     const currentStock = parseFloat(inventory.current_stock);
     const currentReserved = parseFloat(inventory.reserved_stock) || 0;
 
-    // Move from reserved to actual deduction
     const newCurrentStock = currentStock - qty;
     const newReservedStock = Math.max(0, currentReserved - qty);
 
-    // Update inventory
     await tx.inventory.update({
       where: { inventory_id: item.inventory_id },
       data: {
         current_stock: newCurrentStock,
         reserved_stock: newReservedStock,
-        // available_stock stays same (was already reduced during reservation)
       },
     });
 
-    // Create stock ledger entry
     await tx.stockLedger.create({
       data: {
         shop_id: invoice.shop_id,

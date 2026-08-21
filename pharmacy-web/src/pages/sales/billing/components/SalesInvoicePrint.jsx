@@ -17,6 +17,7 @@ const SalesInvoicePrint = ({
   invoiceNumber,
   invoiceDate,
   billedBy = "Staff",
+  showDiscount = true,
 }) => {
   const dataRows = rows.filter(
     (row) => row.name && row.name.trim() !== "" && row.qty,
@@ -116,30 +117,13 @@ const SalesInvoicePrint = ({
     return result;
   };
 
-  // GST Summary calculation
-  const gstSummary = useMemo(() => {
-    const groups = {};
-    dataRows.forEach((row) => {
-      const cgst = parseFloat(row.cgstPercent) || 0;
-      const sgst = parseFloat(row.sgstPercent) || 0;
-      const rate = cgst + sgst;
-      const key = rate.toFixed(0);
-
-      if (!groups[key]) {
-        groups[key] = { taxable: 0, cgst: 0, sgst: 0 };
-      }
-      groups[key].taxable += parseFloat(row.taxableAmount) || 0;
-      groups[key].cgst += parseFloat(row.cgstAmount) || 0;
-      groups[key].sgst += parseFloat(row.sgstAmount) || 0;
-    });
-    return groups;
-  }, [dataRows]);
-
   const displayInvoiceNumber = invoiceNumber || "DRAFT";
   const displayInvoiceDate = formatDate(invoiceDate);
   const netAmount = summary?.netAmount || 0;
   const cashReceived = parseFloat(customer?.cashReceived) || 0;
   const balance = netAmount - cashReceived;
+
+  const totalColumns = showDiscount ? 8 : 7;
 
   return (
     <div className="print-container">
@@ -186,7 +170,7 @@ const SalesInvoicePrint = ({
                 {companyDetails.name}
               </h1>
 
-              {/* Address — only rendered when present */}
+              {/* Address */}
               {companyDetails.address && (
                 <p
                   style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}
@@ -195,7 +179,7 @@ const SalesInvoicePrint = ({
                 </p>
               )}
 
-              {/* Phone / Email — only rendered when at least one is present */}
+              {/* Phone / Email */}
               {(companyDetails.phone || companyDetails.email) && (
                 <p
                   style={{ margin: "2px 0", fontSize: "9pt", color: "#333" }}
@@ -206,7 +190,7 @@ const SalesInvoicePrint = ({
                 </p>
               )}
 
-              {/* GSTIN / Drug License — only rendered when at least one is present */}
+              {/* GSTIN / Drug License */}
               {(companyDetails.gstin || companyDetails.drugLicense) && (
                 <div
                   style={{ marginTop: "4px", fontSize: "8pt", color: "#666" }}
@@ -295,9 +279,11 @@ const SalesInvoicePrint = ({
                     Name:
                   </td>
                   <td style={{ padding: "2px 0", fontWeight: "600" }}>
-                    {customer?.name ||
-                      customer?.patientName ||
-                      "Walk-in Customer"}
+                    {customer?.customer_id
+                      ? (customer?.name || "Customer")
+                      : (customer?.name || customer?.patientName)
+                        ? `Walk-in Customer: ${customer?.name || customer?.patientName}`
+                        : "Walk-in Customer"}
                   </td>
                 </tr>
                 {customer?.phone && (
@@ -481,16 +467,6 @@ const SalesInvoicePrint = ({
                     padding: "6px 4px",
                     textAlign: "center",
                     borderRight: "1px solid #fff",
-                    width: "50px",
-                  }}
-                >
-                  HSN
-                </th>
-                <th
-                  style={{
-                    padding: "6px 4px",
-                    textAlign: "center",
-                    borderRight: "1px solid #fff",
                     width: "55px",
                   }}
                 >
@@ -536,36 +512,18 @@ const SalesInvoicePrint = ({
                 >
                   Rate
                 </th>
-                <th
-                  style={{
-                    padding: "6px 4px",
-                    textAlign: "center",
-                    borderRight: "1px solid #fff",
-                    width: "35px",
-                  }}
-                >
-                  Disc%
-                </th>
-                <th
-                  style={{
-                    padding: "6px 4px",
-                    textAlign: "right",
-                    borderRight: "1px solid #fff",
-                    width: "55px",
-                  }}
-                >
-                  Taxable
-                </th>
-                <th
-                  style={{
-                    padding: "6px 4px",
-                    textAlign: "center",
-                    borderRight: "1px solid #fff",
-                    width: "35px",
-                  }}
-                >
-                  GST%
-                </th>
+                {showDiscount && (
+                  <th
+                    style={{
+                      padding: "6px 4px",
+                      textAlign: "center",
+                      borderRight: "1px solid #fff",
+                      width: "35px",
+                    }}
+                  >
+                    Disc%
+                  </th>
+                )}
                 <th
                   style={{
                     padding: "6px 4px",
@@ -605,17 +563,6 @@ const SalesInvoicePrint = ({
                           {row.manufacturer}
                         </div>
                       )}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 4px",
-                        textAlign: "center",
-                        borderRight: "1px solid #ddd",
-                        fontFamily: "monospace",
-                        fontSize: "7pt",
-                      }}
-                    >
-                      {row.hsn || "-"}
                     </td>
                     <td
                       style={{
@@ -666,41 +613,21 @@ const SalesInvoicePrint = ({
                     >
                       {Number(row.rate || row.mrp || 0).toFixed(2)}
                     </td>
-                    <td
-                      style={{
-                        padding: "5px 4px",
-                        textAlign: "center",
-                        borderRight: "1px solid #ddd",
-                        color:
-                          parseFloat(row.discountPercent) > 0
-                            ? "#dc2626"
-                            : "inherit",
-                      }}
-                    >
-                      {Number(row.discountPercent || 0).toFixed(1)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 4px",
-                        textAlign: "right",
-                        borderRight: "1px solid #ddd",
-                      }}
-                    >
-                      {Number(row.taxableAmount || 0).toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 4px",
-                        textAlign: "center",
-                        borderRight: "1px solid #ddd",
-                      }}
-                    >
-                      {(
-                        Number(row.cgstPercent || 0) +
-                        Number(row.sgstPercent || 0)
-                      ).toFixed(0)}
-                      %
-                    </td>
+                    {showDiscount && (
+                      <td
+                        style={{
+                          padding: "5px 4px",
+                          textAlign: "center",
+                          borderRight: "1px solid #ddd",
+                          color:
+                            parseFloat(row.discountPercent) > 0
+                              ? "#dc2626"
+                              : "inherit",
+                        }}
+                      >
+                        {Number(row.discountPercent || 0).toFixed(1)}
+                      </td>
+                    )}
                     <td
                       style={{
                         padding: "5px 4px",
@@ -715,7 +642,7 @@ const SalesInvoicePrint = ({
               ) : (
                 <tr>
                   <td
-                    colSpan="12"
+                    colSpan={totalColumns}
                     style={{
                       textAlign: "center",
                       padding: "20px",
@@ -738,11 +665,11 @@ const SalesInvoicePrint = ({
                       borderBottom: "1px solid #eee",
                     }}
                   >
-                    {[...Array(12)].map((__, j) => (
+                    {[...Array(totalColumns)].map((__, j) => (
                       <td
                         key={j}
                         style={{
-                          borderRight: j < 11 ? "1px solid #eee" : "none",
+                          borderRight: j < totalColumns - 1 ? "1px solid #eee" : "none",
                         }}
                       >
                         &nbsp;
@@ -825,27 +752,9 @@ const SalesInvoicePrint = ({
                     ₹ {(summary?.subtotal || 0).toFixed(2)}
                   </td>
                 </tr>
-                {(summary?.totalDiscount || 0) > 0 && (
-                  <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td
-                      style={{ padding: "6px 10px", color: "#dc2626" }}
-                    >
-                      Discount:
-                    </td>
-                    <td
-                      style={{
-                        padding: "6px 10px",
-                        textAlign: "right",
-                        color: "#dc2626",
-                      }}
-                    >
-                      - ₹ {(summary?.totalDiscount || 0).toFixed(2)}
-                    </td>
-                  </tr>
-                )}
                 <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
                   <td style={{ padding: "6px 10px", color: "#64748b" }}>
-                    Taxable Amount:
+                    Taxable Amt:
                   </td>
                   <td
                     style={{
@@ -873,30 +782,6 @@ const SalesInvoicePrint = ({
                     ₹ {(summary?.sgstAmount || 0).toFixed(2)}
                   </td>
                 </tr>
-                {(summary?.roundOff || 0) !== 0 && (
-                  <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td
-                      style={{
-                        padding: "4px 10px",
-                        color: "#94a3b8",
-                        fontSize: "8pt",
-                      }}
-                    >
-                      Round Off:
-                    </td>
-                    <td
-                      style={{
-                        padding: "4px 10px",
-                        textAlign: "right",
-                        fontSize: "8pt",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      {(summary?.roundOff || 0) >= 0 ? "+" : ""} ₹{" "}
-                      {(summary?.roundOff || 0).toFixed(2)}
-                    </td>
-                  </tr>
-                )}
                 <tr style={{ background: "#05015A", color: "#fff" }}>
                   <td
                     style={{
@@ -921,204 +806,6 @@ const SalesInvoicePrint = ({
               </tbody>
             </table>
           </div>
-        </section>
-
-        {/* ============================================ */}
-        {/* GST SUMMARY TABLE */}
-        {/* ============================================ */}
-        <section style={{ marginBottom: "12px" }}>
-          <h4
-            style={{
-              fontSize: "9pt",
-              fontWeight: "bold",
-              color: "#05015A",
-              margin: "0 0 6px 0",
-            }}
-          >
-            GST Summary
-          </h4>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "8pt",
-              border: "1px solid #ddd",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                <th
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "center",
-                    borderRight: "1px solid #ddd",
-                    borderBottom: "1px solid #ddd",
-                  }}
-                >
-                  GST Rate
-                </th>
-                <th
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderBottom: "1px solid #ddd",
-                  }}
-                >
-                  Taxable Amount
-                </th>
-                <th
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderBottom: "1px solid #ddd",
-                  }}
-                >
-                  CGST
-                </th>
-                <th
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderBottom: "1px solid #ddd",
-                  }}
-                >
-                  SGST
-                </th>
-                <th
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderBottom: "1px solid #ddd",
-                  }}
-                >
-                  Total Tax
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(gstSummary).length > 0 ? (
-                Object.entries(gstSummary).map(([rate, values]) => (
-                  <tr
-                    key={rate}
-                    style={{ borderBottom: "1px solid #eee" }}
-                  >
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "center",
-                        borderRight: "1px solid #eee",
-                      }}
-                    >
-                      {rate}%
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "right",
-                        borderRight: "1px solid #eee",
-                      }}
-                    >
-                      ₹ {values.taxable.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "right",
-                        borderRight: "1px solid #eee",
-                      }}
-                    >
-                      ₹ {values.cgst.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "right",
-                        borderRight: "1px solid #eee",
-                      }}
-                    >
-                      ₹ {values.sgst.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "5px 8px",
-                        textAlign: "right",
-                        fontWeight: "600",
-                      }}
-                    >
-                      ₹ {(values.cgst + values.sgst).toFixed(2)}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="5"
-                    style={{
-                      textAlign: "center",
-                      padding: "10px",
-                      color: "#999",
-                    }}
-                  >
-                    -
-                  </td>
-                </tr>
-              )}
-              <tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                <td
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "center",
-                    borderRight: "1px solid #ddd",
-                    borderTop: "1px solid #ddd",
-                  }}
-                >
-                  Total
-                </td>
-                <td
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderTop: "1px solid #ddd",
-                  }}
-                >
-                  ₹ {(summary?.taxableAmount || 0).toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderTop: "1px solid #ddd",
-                  }}
-                >
-                  ₹ {(summary?.cgstAmount || 0).toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderRight: "1px solid #ddd",
-                    borderTop: "1px solid #ddd",
-                  }}
-                >
-                  ₹ {(summary?.sgstAmount || 0).toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    padding: "5px 8px",
-                    textAlign: "right",
-                    borderTop: "1px solid #ddd",
-                  }}
-                >
-                  ₹ {(summary?.totalTax || 0).toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </section>
 
         {/* ============================================ */}
@@ -1277,4 +964,4 @@ const SalesInvoicePrint = ({
   );
 };
 
-export default SalesInvoicePrint;
+export default SalesInvoicePrint; 
