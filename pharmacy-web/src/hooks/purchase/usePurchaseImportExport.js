@@ -9,7 +9,7 @@ import medicinesAPI from "../../api/medicines";
 const generateRowId = () =>
   `row_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-// ── Header mapping — unchanged ────────────────────────────────
+// ── Header mapping ────────────────────────────────────────────
 const mapHeaderToKey = (h) => {
   if (!h) return null;
   const key = String(h)
@@ -140,7 +140,7 @@ const mapHeaderToKey = (h) => {
   return map[key] || null;
 };
 
-// ── Parsing helpers — unchanged ───────────────────────────────
+// ── Enhanced Expiry parsing helper ────────────────────────────
 const parseExpiryFromData = (row, headers, values) => {
   const getColValue = (colName) => {
     const idx = headers.findIndex((h) => {
@@ -151,6 +151,7 @@ const parseExpiryFromData = (row, headers, values) => {
     });
     return idx !== -1 ? String(values[idx] || "").trim() : "";
   };
+
   const expMonth = getColValue("expmonth");
   const expYear = getColValue("expyear");
   if (expMonth && expYear) {
@@ -159,20 +160,35 @@ const parseExpiryFromData = (row, headers, values) => {
     if (year.length === 4) year = year.slice(-2);
     return `${month}/${year}`;
   }
+
   if (row.exp) {
     const exp = String(row.exp).trim();
+
+    // Excel Date object
     if (row.exp instanceof Date) {
       const month = String(row.exp.getMonth() + 1).padStart(2, "0");
       const year = String(row.exp.getFullYear()).slice(-2);
       return `${month}/${year}`;
     }
-    if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(exp)) {
-      const parts = exp.split("/");
+
+    // Format YYYY-MM-DD or YYYY/MM/DD (e.g., 2027-07-01 from Paragon Excel)
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(exp)) {
+      const parts = exp.split(/[-/]/);
+      const month = parts[1].padStart(2, "0");
+      const year = parts[0].slice(-2);
+      return `${month}/${year}`;
+    }
+
+    // Format DD-MM-YYYY or DD/MM/YYYY (e.g., 01-07-2027)
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(exp)) {
+      const parts = exp.split(/[-/]/);
       const month = parts[1].padStart(2, "0");
       let year = parts[2];
       if (year.length === 4) year = year.slice(-2);
       return `${month}/${year}`;
     }
+
+    // Format MM/YY
     if (/^\d{2}\/\d{2}$/.test(exp)) return exp;
   }
   return row.exp || "";
@@ -230,9 +246,17 @@ const parseRowData = (headers, values, debugMode = false) => {
       if (value) row[key] = value;
     }
   });
+
   if (!row.name && row.name2) row.name = row.name2;
   delete row.name2;
+
   row.exp = parseExpiryFromData(row, headers, values);
+
+  //  AUTO-SET SELLING RATE: If sRate is empty, default to MRP
+  if (!row.sRate && row.mrp) {
+    row.sRate = row.mrp;
+  }
+
   row.isFreeItem = checkIsFreeItem(row);
   if (row.isFreeItem) {
     row.amount = "0";
@@ -254,7 +278,7 @@ const parseRowData = (headers, values, debugMode = false) => {
   return calculateRow(row);
 };
 
-// ── ExcelJS cell extractor — unchanged ───────────────────────
+// ── ExcelJS cell extractor ────────────────────────────────────
 const extractCellValue = (cell) => {
   const value = cell.value;
   if (value === null || value === undefined) return "";
@@ -271,7 +295,7 @@ const extractCellValue = (cell) => {
   return value;
 };
 
-// ── SheetJS .xls reader — unchanged ──────────────────────────
+// ── SheetJS .xls reader ───────────────────────────────────────
 const readXlsWithSheetJS = (arrayBuffer, filename) => {
   const workbook = XLSX.read(arrayBuffer, {
     type: "array",
@@ -329,7 +353,7 @@ const readXlsWithSheetJS = (arrayBuffer, filename) => {
   return { headers, dataRows };
 };
 
-// ── ExcelJS .xlsx reader — unchanged ─────────────────────────
+// ── ExcelJS .xlsx reader ──────────────────────────────────────
 const readXlsxWithExcelJS = async (arrayBuffer, filename) => {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(arrayBuffer);
@@ -378,12 +402,10 @@ export const usePurchaseImportExport = (
   toast,
   productMaster = [],
   onCatalogCheckComplete = null,
-  // ── NEW: callback so PurchasePage can track import progress ──
   onImportProgress = null,
 ) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  // ── NEW: emit progress updates to parent ──────────────────
   const emitProgress = useCallback(
     (phase, checked, total) => {
       if (onImportProgress) {
@@ -393,14 +415,13 @@ export const usePurchaseImportExport = (
     [onImportProgress],
   );
 
-  // ── detectNewProducts — progress-aware ───────────────────
   const detectNewProducts = useCallback(
     async (parsedRows) => {
       const newProducts = [];
       const processedRows = [];
       const matchedProductCache = new Map();
 
-      // ── Step 1: Local matching — unchanged ───────────────
+      // Step 1: Local matching
       parsedRows.forEach((row) => {
         if (!row.name || !row.name.trim()) return;
 
@@ -495,21 +516,16 @@ export const usePurchaseImportExport = (
         }
       });
 
-      // ── Step 2: Master catalog check with progress ────────
+      // Step 2: Master catalog check with progress
       let catalogResults = null;
 
       if (newProducts.length > 0) {
         const total = newProducts.length;
 
-        // Signal start of catalog check phase
         emitProgress("analyzing", 0, total);
-        await new Promise((resolve) => setTimeout(resolve, 50)); // ← let React render the 0%
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         try {
-          // ── NEW: Process in visible batches so we can update progress ──
-          // The backend already batches internally (20 at a time),
-          // but we split the API call into chunks of 20 here too
-          // so we can report progress after each chunk resolves.
           const CHUNK_SIZE = 20;
           const allResults = new Array(total);
           let checkedSoFar = 0;
@@ -520,14 +536,13 @@ export const usePurchaseImportExport = (
               name: p.name,
               manufacturer: p.manufacturer,
               generic_name: p.genericName || "",
-              pack_size:    p.packSize    || "",   
+              pack_size: p.packSize || "",
             }));
 
             const chunkResponse =
               await medicinesAPI.checkMasterCatalog(chunkRows);
             const chunkData = chunkResponse.data;
 
-            // Remap rowIndex relative to full array
             if (chunkData?.results) {
               chunkData.results.forEach((result) => {
                 const globalIndex = i + result.rowIndex;
@@ -539,7 +554,6 @@ export const usePurchaseImportExport = (
             emitProgress("analyzing", checkedSoFar, total);
           }
 
-          // Rebuild catalogResults in the same shape the rest of the code expects
           catalogResults = {
             results: allResults.filter(Boolean),
             stats: {
@@ -552,7 +566,6 @@ export const usePurchaseImportExport = (
             },
           };
 
-          // Attach catalogMatch to each newProduct
           catalogResults.results.forEach((result) => {
             if (result.rowIndex !== undefined && newProducts[result.rowIndex]) {
               newProducts[result.rowIndex].catalogMatch = result;
@@ -563,10 +576,9 @@ export const usePurchaseImportExport = (
             "⚠️ Master catalog check failed (non-blocking):",
             error.message,
           );
-          emitProgress("analyzing", total, total); // mark complete even on error
+          emitProgress("analyzing", total, total);
         }
 
-        // Signal catalog check done
         emitProgress("done", total, total);
       }
 
@@ -714,7 +726,7 @@ export const usePurchaseImportExport = (
     [onImport, toast, detectNewProducts, onCatalogCheckComplete],
   );
 
-  // ── Excel Export — unchanged ──────────────────────────────
+  // ── Excel Export ──────────────────────────────────────────
   const handleExportExcel = useCallback(
     async (rows) => {
       setIsLoading(true);
@@ -837,7 +849,7 @@ export const usePurchaseImportExport = (
     [supplier, toast],
   );
 
-  // ── File router — unchanged ───────────────────────────────
+  // ── File router ───────────────────────────────────────────
   const handleImportFile = useCallback(
     (file) => {
       if (!file) {

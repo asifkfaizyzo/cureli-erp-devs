@@ -75,7 +75,6 @@ const PurchaseTable = ({
   onAddNewProduct,
   onProductSelect,
   isLoading = false,
-  //  NEW: Free row handlers
   onCreateFreeRow,
   onRemoveFreeRow,
 }) => {
@@ -293,20 +292,18 @@ const PurchaseTable = ({
     (index) => {
       const row = rows[index];
 
-      // If removing a parent row, also remove its free row
       if (!row.isFreeItem) {
         const nextRow = rows[index + 1];
         if (nextRow && nextRow.isFreeItem && nextRow.parentRowIndex === index) {
           setRows((prev) => {
             const newRows = [...prev];
-            newRows.splice(index, 2); // Remove both parent and free row
+            newRows.splice(index, 2);
             return newRows;
           });
           return;
         }
       }
 
-      // If removing a free row, clear the parent's sch field
       if (row.isFreeItem && row.parentRowIndex !== null) {
         setRows((prev) => {
           const newRows = [...prev];
@@ -341,17 +338,34 @@ const PurchaseTable = ({
     [rows, setRows],
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  //  ROW CHANGE HANDLER: AUTO-SET sRate = mrp
+  // ═══════════════════════════════════════════════════════════════
   const handleRowChange = useCallback(
     (idx, key, value) => {
       setRows((prev) => {
         const newRows = [...prev];
-        newRows[idx] = { ...newRows[idx], [key]: value };
+        let updatedRow = { ...newRows[idx], [key]: value };
 
-        // Don't recalculate free items
-        if (!newRows[idx].isFreeItem) {
-          newRows[idx] = calculateRow(newRows[idx]);
+        // Auto-update sRate when MRP changes (if sRate is empty or was matching previous MRP)
+        if (key === "mrp") {
+          const prevMrp = newRows[idx].mrp;
+          const prevSRate = newRows[idx].sRate;
+          if (
+            !prevSRate ||
+            prevSRate === prevMrp ||
+            prevSRate === "0" ||
+            prevSRate === "0.00"
+          ) {
+            updatedRow.sRate = value;
+          }
         }
 
+        if (!updatedRow.isFreeItem) {
+          updatedRow = calculateRow(updatedRow);
+        }
+
+        newRows[idx] = updatedRow;
         return newRows;
       });
     },
@@ -426,7 +440,6 @@ const PurchaseTable = ({
     [rows.length, setRows],
   );
 
-  //  Calculate stats with free items separation
   const filledRows = rows.filter((r) => r.name).length;
   const freeRows = rows.filter((r) => r.name && r.isFreeItem).length;
   const billableRows = filledRows - freeRows;
@@ -464,7 +477,6 @@ const PurchaseTable = ({
               <span className="text-[8px] text-slate-400">/ {totalRows}</span>
             </div>
 
-            {/*  NEW: Free items indicator */}
             {freeRows > 0 && (
               <>
                 <div className="h-3 w-px bg-slate-300" />
@@ -556,7 +568,6 @@ const PurchaseTable = ({
 
       {/* Table Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Fixed Header with scrollbar compensation */}
         <div
           ref={headerRef}
           className="shrink-0 overflow-hidden border-b-2 border-slate-300"
@@ -587,7 +598,6 @@ const PurchaseTable = ({
               <col style={{ width: columnWidths.free }} />
             </colgroup>
             <thead>
-              {/* Group Header Row */}
               <tr className="bg-gradient-to-r from-[#05015A] to-[#0a0280] text-white h-5">
                 <th className="px-0.5 py-0.5 text-[7px] font-bold text-center border-r border-slate-500/30 bg-slate-800/20"></th>
                 <th
@@ -631,7 +641,6 @@ const PurchaseTable = ({
                 </th>
               </tr>
 
-              {/* Individual Column Headers */}
               <tr className="bg-gradient-to-r from-[#070170] to-[#0c03a0] text-white h-6">
                 <th className="px-0.5 py-0.5 text-[7px] 2xl:text-[8px] font-bold text-center border-r border-slate-600/30">
                   #

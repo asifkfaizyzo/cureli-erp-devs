@@ -62,13 +62,140 @@ const parseDecimalValue = (value) => {
   return null;
 };
 
+// ============================================
+//  PACK SIZE MULTIPLIER HELPER
+// ============================================
+/**
+ * Parses a pack size string and returns the multiplier for quantity conversion.
+ *
+ * Rules:
+ * - "30s"    → 30 (tablets/capsules per strip)
+ * - "120s"   → 120 (tablets in bottle)
+ * - "10"     → 10 (plain number, assumed strip count)
+ * - "10ml"   → 1 (liquids treated as 1 bottle)
+ * - "3ml"    → 1 (injections/drops treated as 1 vial)
+ * - "20GM"   → 1 (creams/gels treated as 1 tube)
+ * - "100mg"  → 1 (powders treated as 1 unit)
+ * - null/""  → 1 (default)
+ */
+const parsePackSizeMultiplier = (packStr) => {
+  if (!packStr) return 1;
+  const str = String(packStr).trim().toLowerCase();
+
+  // Liquids, creams, gels, injections, etc. → always 1 unit
+  if (
+    str.includes("ml") ||
+    str.includes("gm") ||
+    str.includes("mg") ||
+    str.endsWith("g") ||
+    str.includes("litre") ||
+    str.includes("bottle") ||
+    str.includes("tube") ||
+    str.includes("vial") ||
+    str.includes("ampoule") ||
+    str.includes("drop") ||
+    str.includes("spray") ||
+    str.includes("inhaler") ||
+    str.includes("cream") ||
+    str.includes("gel") ||
+    str.includes("ointment") ||
+    str.includes("syrup") ||
+    str.includes("susp")
+  ) {
+    return 1;
+  }
+
+  // Extract digits for tablets/capsules (e.g. "30s" → 30, "10" → 10)
+  const match = str.match(/(\d+)/);
+  if (match) {
+    const val = parseInt(match[1], 10);
+    return val > 0 ? val : 1;
+  }
+
+  return 1;
+};
+
+// ============================================
+//  FULL EXPIRY DATE PARSER HELPER
+// ============================================
+/**
+ * Parses multiple expiry formats into standard ISO string format for DB storage.
+ *
+ * Rules:
+ * - "2028-03-01" / "2028/03/01" -> ISO String
+ * - "01-03-2028" / "01/03/2028" -> ISO String
+ * - "03/28" / "03/2028"          -> Default to 1st of the month (e.g. 2028-03-01 ISO String)
+ */
+const parseExpiryDate = (expString) => {
+  if (!expString) {
+    const defaultDate = new Date();
+    defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+    return defaultDate.toISOString();
+  }
+
+  const str = String(expString).trim();
+
+  // Full ISO date string check
+  if (str.includes("T") && !isNaN(new Date(str).getTime())) {
+    return new Date(str).toISOString();
+  }
+
+  // Format: YYYY-MM-DD or YYYY/MM/DD (e.g. "2028-03-01")
+  if (/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(str)) {
+    const [y, m, d] = str.split(/[-/]/);
+    const date = new Date(
+      Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10)),
+    );
+    if (!isNaN(date.getTime())) return date.toISOString();
+  }
+
+  // Format: DD-MM-YYYY or DD/MM/YYYY (e.g. "01-03-2028" or "01/03/2028")
+  if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str)) {
+    const [d, m, y] = str.split(/[-/]/);
+    const date = new Date(
+      Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10)),
+    );
+    if (!isNaN(date.getTime())) return date.toISOString();
+  }
+
+  // Format: MM/YY or MM/YYYY (e.g. "03/28" or "03/2028")
+  if (/^\d{1,2}\/\d{2,4}$/.test(str)) {
+    const [month, year] = str.split("/");
+    const fullYear =
+      year.length === 2
+        ? parseInt(year, 10) > 50
+          ? 1900 + parseInt(year, 10)
+          : 2000 + parseInt(year, 10)
+        : parseInt(year, 10);
+    const monthNum = parseInt(month, 10);
+
+    // Default to the first day of the month
+    const date = new Date(Date.UTC(fullYear, monthNum - 1, 1));
+    if (!isNaN(date.getTime())) return date.toISOString();
+  }
+
+  try {
+    const fallback = new Date(str);
+    if (!isNaN(fallback.getTime())) {
+      return fallback.toISOString();
+    }
+  } catch (e) {
+    console.warn("Failed to parse expiry date:", expString);
+  }
+
+  // Default fallback to 1 year from today
+  const defaultDate = new Date();
+  defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+  return defaultDate.toISOString();
+};
+
 export const usePurchaseAPI = () => {
   const toast = useToast();
 
   //  Get branch context
   const branchContext = useAuthStore(selectBranchContext);
 
-  //  NEW: Track last branch for comparison
+  //  Track last branch for comparison
   const lastBranchIdRef = useRef(branchContext.branch_id);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -148,8 +275,6 @@ export const usePurchaseAPI = () => {
           params.branch_id = currentBranchId;
         }
 
-        
-
         //  Update tracking ref BEFORE the API call
         lastBranchIdRef.current = currentBranchId;
 
@@ -185,8 +310,6 @@ export const usePurchaseAPI = () => {
             return true;
           },
         );
-
-        
 
         const formattedSuppliers = activeSuppliers.map((sup) => ({
           id: sup.supplier_id,
@@ -320,7 +443,7 @@ export const usePurchaseAPI = () => {
       try {
         setIsLoading(true);
 
-        //  Helper: safely convert to number or null
+        // Helper: safely convert to number or null
         const toNumberOrNull = (val) => {
           if (val === null || val === undefined || val === "") return null;
           const num = Number(val);
@@ -577,222 +700,239 @@ export const usePurchaseAPI = () => {
     [toast, branchContext.branch_id],
   );
 
+  // ============================================
+  // SAVE PURCHASE INVOICE
+  //  UPDATED: Applies pack size multiplier before sending to backend
+  //     - Quantities are MULTIPLIED by pack size (e.g. 2 packs of 30s → 60 tablets)
+  //     - Rates (purchase_rate, mrp, selling_rate) are DIVIDED by pack size
+  //       (e.g. ₹320.53 per pack of 30 → ₹10.68 per tablet)
+  //     - Line totals remain mathematically identical (Q × R = (Q×N) × (R/N))
+  //     - Selling rate (`sRate` / `selling_rate`) falls back to `mrp` if not set.
+  // ============================================
+  const savePurchaseInvoice = useCallback(
+    async (invoiceData, rows, supplier) => {
+      try {
+        setIsLoading(true);
 
-// Only change: savePurchaseInvoice function - the validation block
+        const filledRows = rows.filter(
+          (r) => r.name && r.qty && parseFloat(r.qty) > 0,
+        );
 
-const savePurchaseInvoice = useCallback(
-  async (invoiceData, rows, supplier) => {
-    try {
-      setIsLoading(true);
+        if (filledRows.length === 0) {
+          toast.warning("No Items", "Please add at least one item to save.");
+          return null;
+        }
 
-      const filledRows = rows.filter(
-        (r) => r.name && r.qty && parseFloat(r.qty) > 0,
-      );
+        // Validate supplier_id
+        if (!supplier.supplier_id) {
+          toast.error("Missing Supplier", "Please select a valid supplier");
+          return null;
+        }
 
-      if (filledRows.length === 0) {
-        toast.warning("No Items", "Please add at least one item to save.");
-        return null;
-      }
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(supplier.supplier_id)) {
+          toast.error("Invalid Supplier", `Supplier ID must be a UUID.`);
+          return null;
+        }
 
-      // Validate supplier_id
-      if (!supplier.supplier_id) {
-        toast.error("Missing Supplier", "Please select a valid supplier");
-        return null;
-      }
+        const billableRows = filledRows.filter((row) => !row.isFreeItem);
+        const freeRows = filledRows.filter((row) => row.isFreeItem === true);
 
-      const uuidRegex =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(supplier.supplier_id)) {
-        toast.error("Invalid Supplier", `Supplier ID must be a UUID.`);
-        return null;
-      }
+        // ═══════════════════════════════════════════════════════════════
+        // FIX: Build a name→medicine_id map from rows that DO have medicine_id
+        // Then apply that medicine_id to rows with same name but missing id
+        // This handles: same medicine, different batch, second row missing id
+        // ═══════════════════════════════════════════════════════════════
+        const nameMedicineIdMap = new Map();
 
-      const billableRows = filledRows.filter((row) => !row.isFreeItem);
-      const freeRows = filledRows.filter((row) => row.isFreeItem === true);
-
-      
-
-      // ═══════════════════════════════════════════════════════════════
-      // FIX: Build a name→medicine_id map from rows that DO have medicine_id
-      // Then apply that medicine_id to rows with same name but missing id
-      // This handles: same medicine, different batch, second row missing id
-      // ═══════════════════════════════════════════════════════════════
-      const nameMedicineIdMap = new Map();
-
-      // First pass: collect all resolved medicine_ids by name (case-insensitive)
-      billableRows.forEach((row) => {
-        if (row.medicine_id && uuidRegex.test(row.medicine_id)) {
-          const nameKey = (row.name || "").toLowerCase().trim();
-          if (!nameMedicineIdMap.has(nameKey)) {
-            nameMedicineIdMap.set(nameKey, row.medicine_id);
+        // First pass: collect all resolved medicine_ids by name (case-insensitive)
+        billableRows.forEach((row) => {
+          if (row.medicine_id && uuidRegex.test(row.medicine_id)) {
+            const nameKey = (row.name || "").toLowerCase().trim();
+            if (!nameMedicineIdMap.has(nameKey)) {
+              nameMedicineIdMap.set(nameKey, row.medicine_id);
+            }
           }
-        }
-      });
+        });
 
-      // Second pass: fill in missing medicine_ids from the map
-      const resolvedBillableRows = billableRows.map((row) => {
-        if (!row.medicine_id || !uuidRegex.test(row.medicine_id)) {
-          const nameKey = (row.name || "").toLowerCase().trim();
-          const resolvedId = nameMedicineIdMap.get(nameKey);
-          if (resolvedId) {
-            
-            return { ...row, medicine_id: resolvedId };
+        // Second pass: fill in missing medicine_ids from the map
+        const resolvedBillableRows = billableRows.map((row) => {
+          if (!row.medicine_id || !uuidRegex.test(row.medicine_id)) {
+            const nameKey = (row.name || "").toLowerCase().trim();
+            const resolvedId = nameMedicineIdMap.get(nameKey);
+            if (resolvedId) {
+              return { ...row, medicine_id: resolvedId };
+            }
           }
-        }
-        return row;
-      });
+          return row;
+        });
 
-      // Now validate — only flag rows that STILL have no medicine_id
-      const rowsWithoutMedicineId = resolvedBillableRows
-        .map((row, idx) => ({ row, idx: idx + 1 }))
-        .filter(({ row }) => !row.medicine_id || !uuidRegex.test(row.medicine_id));
+        // Now validate — only flag rows that STILL have no medicine_id
+        const rowsWithoutMedicineId = resolvedBillableRows
+          .map((row, idx) => ({ row, idx: idx + 1 }))
+          .filter(
+            ({ row }) => !row.medicine_id || !uuidRegex.test(row.medicine_id),
+          );
 
-      if (rowsWithoutMedicineId.length > 0) {
-        const missingProducts = rowsWithoutMedicineId
-          .slice(0, 5)
-          .map(
-            ({ row, idx }) =>
-              `Row ${idx}: "${row.name}" (Batch: ${row.batch || "N/A"})`,
-          )
-          .join("\n");
+        if (rowsWithoutMedicineId.length > 0) {
+          const missingProducts = rowsWithoutMedicineId
+            .slice(0, 5)
+            .map(
+              ({ row, idx }) =>
+                `Row ${idx}: "${row.name}" (Batch: ${row.batch || "N/A"})`,
+            )
+            .join("\n");
 
-        const moreCount =
-          rowsWithoutMedicineId.length > 5
-            ? `\n...and ${rowsWithoutMedicineId.length - 5} more`
-            : "";
+          const moreCount =
+            rowsWithoutMedicineId.length > 5
+              ? `\n...and ${rowsWithoutMedicineId.length - 5} more`
+              : "";
 
-        toast.error(
-          "Products Not in Master",
-          `${rowsWithoutMedicineId.length} item(s) need to be added to product master first:\n${missingProducts}${moreCount}`,
-        );
+          toast.error(
+            "Products Not in Master",
+            `${rowsWithoutMedicineId.length} item(s) need to be added to product master first:\n${missingProducts}${moreCount}`,
+          );
 
-        return null;
-      }
-
-      // Validate all medicine_ids are valid UUIDs
-      const invalidMedicineIds = resolvedBillableRows
-        .map((row, idx) => ({ row, idx: idx + 1 }))
-        .filter(({ row }) => !uuidRegex.test(row.medicine_id));
-
-      if (invalidMedicineIds.length > 0) {
-        toast.error(
-          "Invalid Product IDs",
-          `${invalidMedicineIds.length} item(s) have invalid product IDs. Please re-select these products.`,
-        );
-        return null;
-      }
-
-      // Parse expiry date helper
-      const parseExpiryDate = (expString) => {
-        if (!expString || !/^\d{2}\/\d{2}$/.test(expString)) {
-          const defaultDate = new Date();
-          defaultDate.setFullYear(defaultDate.getFullYear() + 1);
-          return defaultDate.toISOString();
+          return null;
         }
 
-        const [month, year] = expString.split("/");
-        const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
-        const date = new Date(`${fullYear}-${month}-01`);
-        date.setMonth(date.getMonth() + 1);
-        date.setDate(0);
-        return date.toISOString();
-      };
+        // Validate all medicine_ids are valid UUIDs
+        const invalidMedicineIds = resolvedBillableRows
+          .map((row, idx) => ({ row, idx: idx + 1 }))
+          .filter(({ row }) => !uuidRegex.test(row.medicine_id));
 
-      // Build line items using RESOLVED rows (with filled medicine_ids)
-      const allResolvedRows = filledRows.map((row) => {
-        if (!row.isFreeItem && (!row.medicine_id || !uuidRegex.test(row.medicine_id))) {
-          const nameKey = (row.name || "").toLowerCase().trim();
-          const resolvedId = nameMedicineIdMap.get(nameKey);
-          if (resolvedId) {
-            return { ...row, medicine_id: resolvedId };
+        if (invalidMedicineIds.length > 0) {
+          toast.error(
+            "Invalid Product IDs",
+            `${invalidMedicineIds.length} item(s) have invalid product IDs. Please re-select these products.`,
+          );
+          return null;
+        }
+
+        // Build line items using RESOLVED rows (with filled medicine_ids)
+        const allResolvedRows = filledRows.map((row) => {
+          if (
+            !row.isFreeItem &&
+            (!row.medicine_id || !uuidRegex.test(row.medicine_id))
+          ) {
+            const nameKey = (row.name || "").toLowerCase().trim();
+            const resolvedId = nameMedicineIdMap.get(nameKey);
+            if (resolvedId) {
+              return { ...row, medicine_id: resolvedId };
+            }
           }
+          return row;
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        //  APPLY PACK SIZE MULTIPLIER & AUTO-SET SELLING RATE TO MRP
+        //     Quantity   × N  (e.g. 2 packs × 30 = 60 tablets)
+        //     Rate       ÷ N  (e.g. ₹320.53 / 30 = ₹10.68 per tablet)
+        //     MRP        ÷ N  (e.g. ₹420.69 / 30 = ₹14.02 per tablet)
+        //     SellRate   ÷ N  (defaults to MRP if null/empty)
+        //     FreeQty    × N  (free tablets also scale up)
+        // ═══════════════════════════════════════════════════════════════
+        const lineItems = allResolvedRows.map((row, idx) => {
+          const packMultiplier = parsePackSizeMultiplier(row.pack);
+
+          const rowQty = parseFloat(row.qty) || 0;
+          const rowPrice = parseFloat(row.price) || 0;
+          const rowMrp = parseFloat(row.mrp) || 0;
+          // Fallback to MRP if selling rate is empty, 0, or invalid
+          const rowSRate = parseFloat(row.sRate) || rowMrp;
+          const rowFreeQty = parseFloat(row.sch || row.pQty) || 0;
+
+          return {
+            medicine_id: row.medicine_id,
+            batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
+            expiry_date: parseExpiryDate(row.exp),
+            manufacturing_date: null,
+
+            //  Multiply quantities by pack size
+            quantity: rowQty * packMultiplier,
+            free_quantity: row.isFreeItem ? 0 : rowFreeQty * packMultiplier,
+
+            pack_size: row.pack || null,
+            unit_of_measure: "UNIT",
+
+            //  Divide rates to get per-unit price
+            purchase_rate: rowPrice / packMultiplier,
+            mrp: rowMrp / packMultiplier,
+            selling_rate: rowSRate ? rowSRate / packMultiplier : null,
+
+            scheme_discount: parseFloat(row.schemePercent) || 0,
+            trade_discount: parseFloat(row.discountPercent) || 0,
+            cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
+            sgst_percent: parseFloat(row.sgstPercent) || 0,
+            igst_percent: 0,
+            margin_percent: null,
+            rack_no: row.rack || null,
+            is_free_item: row.isFreeItem === true,
+          };
+        });
+
+        const paidAmount = parseFloat(supplier.amountPaid) || 0;
+
+        const payload = {
+          supplier_id: supplier.supplier_id,
+          branch_id: invoiceData.branch_id || null,
+          supplier_invoice_no: supplier.invoiceNo || null,
+          invoice_date:
+            toISODateTime(invoiceData.invoice_date) || new Date().toISOString(),
+          due_date: toISODateTime(invoiceData.due_date),
+          received_date: toISODateTime(invoiceData.received_date),
+          payment_mode: paidAmount > 0 ? supplier.paymentMode || "CASH" : null,
+          paid_amount: paidAmount,
+          transport_charges: parseFloat(invoiceData.transport_charges) || null,
+          other_charges: parseFloat(invoiceData.other_charges) || null,
+          remarks: invoiceData.remarks || null,
+          lineItems,
+        };
+
+        let response;
+        if (currentInvoice?.invoice_id) {
+          response = await purchaseAPI.update(
+            currentInvoice.invoice_id,
+            payload,
+          );
+          toast.success(
+            "Invoice Updated",
+            "Purchase invoice updated successfully.",
+          );
+        } else {
+          response = await purchaseAPI.create(payload);
+          toast.success(
+            "Invoice Saved",
+            `Invoice #${response.data.invoice_number} saved as draft.`,
+          );
         }
-        return row;
-      });
 
-      const lineItems = allResolvedRows.map((row, idx) => ({
-        medicine_id: row.medicine_id,
-        batch_number: row.batch || `BATCH-${Date.now()}-${idx}`,
-        expiry_date: parseExpiryDate(row.exp),
-        manufacturing_date: null,
-        quantity: parseFloat(row.qty) || 0,
-        free_quantity: row.isFreeItem
-          ? 0
-          : parseFloat(row.sch || row.pQty) || 0,
-        pack_size: row.pack || null,
-        unit_of_measure: "UNIT",
-        purchase_rate: parseFloat(row.price) || 0,
-        mrp: parseFloat(row.mrp) || 0,
-        scheme_discount: parseFloat(row.schemePercent) || 0,
-        trade_discount: parseFloat(row.discountPercent) || 0,
-        cgst_percent: parseFloat(row.cgstPercent || row.sgstPercent) || 0,
-        sgst_percent: parseFloat(row.sgstPercent) || 0,
-        igst_percent: 0,
-        selling_rate: parseFloat(row.sRate) || null,
-        margin_percent: null,
-        rack_no: row.rack || null,
-        is_free_item: row.isFreeItem === true,
-      }));
+        setCurrentInvoice(response.data);
+        return response.data;
+      } catch (error) {
+        console.error("Save purchase invoice error:", error);
 
-      const paidAmount = parseFloat(supplier.amountPaid) || 0;
+        let errorMessage = "Failed to save invoice";
 
-      const payload = {
-        supplier_id: supplier.supplier_id,
-        branch_id: invoiceData.branch_id || null,
-        supplier_invoice_no: supplier.invoiceNo || null,
-        invoice_date:
-          toISODateTime(invoiceData.invoice_date) || new Date().toISOString(),
-        due_date: toISODateTime(invoiceData.due_date),
-        received_date: toISODateTime(invoiceData.received_date),
-        payment_mode: paidAmount > 0 ? supplier.paymentMode || "CASH" : null,
-        paid_amount: paidAmount,
-        transport_charges: parseFloat(invoiceData.transport_charges) || null,
-        other_charges: parseFloat(invoiceData.other_charges) || null,
-        remarks: invoiceData.remarks || null,
-        lineItems,
-      };
+        if (error.response?.data?.errors) {
+          errorMessage = error.response.data.errors
+            .map((e) => `${e.field}: ${e.message}`)
+            .join(", ");
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
 
-
-      let response;
-      if (currentInvoice?.invoice_id) {
-        response = await purchaseAPI.update(currentInvoice.invoice_id, payload);
-        toast.success(
-          "Invoice Updated",
-          "Purchase invoice updated successfully.",
-        );
-      } else {
-        response = await purchaseAPI.create(payload);
-        toast.success(
-          "Invoice Saved",
-          `Invoice #${response.data.invoice_number} saved as draft.`,
-        );
+        toast.error("Save Failed", errorMessage);
+        throw error;
+      } finally {
+        setIsLoading(false);
       }
-
-      setCurrentInvoice(response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Save purchase invoice error:", error);
-
-      let errorMessage = "Failed to save invoice";
-
-      if (error.response?.data?.errors) {
-        errorMessage = error.response.data.errors
-          .map((e) => `${e.field}: ${e.message}`)
-          .join(", ");
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      toast.error("Save Failed", errorMessage);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  },
-  [toast, currentInvoice],
-);
+    },
+    [toast, currentInvoice],
+  );
 
   // ============================================
   // CONFIRM PURCHASE INVOICE
@@ -873,5 +1013,9 @@ const savePurchaseInvoice = useCallback(
     confirmPurchaseInvoice,
     loadInvoiceForEdit,
     resetInvoice,
+    parsePackSizeMultiplier,
+    parseExpiryDate,
   };
 };
+
+export { parsePackSizeMultiplier, parseExpiryDate };

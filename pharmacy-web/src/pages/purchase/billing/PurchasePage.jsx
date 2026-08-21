@@ -34,7 +34,10 @@ import { useResponsiveRowCount } from "../../../hooks/purchase/useResponsiveRowC
 import { usePurchaseRows } from "../../../hooks/purchase/usePurchaseRows";
 import { usePurchaseImportExport } from "../../../hooks/purchase/usePurchaseImportExport";
 import { usePurchaseSupplier } from "../../../hooks/purchase/usePurchaseSupplier";
-import { usePurchaseAPI } from "../../../hooks/purchase/usePurchaseAPI";
+import {
+  usePurchaseAPI,
+  parsePackSizeMultiplier,
+} from "../../../hooks/purchase/usePurchaseAPI";
 import { useToast } from "../../../components/common/Toast";
 import ConfirmDialog from "../../../components/common/ConfirmDialog";
 import { useAuthStore, selectBranchContext } from "../../../store/useAuthStore";
@@ -44,8 +47,6 @@ import { useShopDetails } from "../../../hooks/useShopDetails";
 
 // Styles
 import "../../../styles/print.css";
-
-// ── REMOVED: Hardcoded COMPANY_DETAILS constant ──
 
 const PurchasePage = () => {
   const toast = useToast();
@@ -351,6 +352,10 @@ const PurchasePage = () => {
 
   // ============================================
   // POPULATE INVOICE DATA (EDIT MODE)
+  //  UPDATED: Reverses the pack-size conversion when loading from database
+  //     Backend stores per-unit values (60 tablets @ ₹10.68 each)
+  //     UI needs pack-level values (2 packs @ ₹320.53 each)
+  //     So we DIVIDE quantities and MULTIPLY rates.
   // ============================================
   const populateInvoiceData = useCallback(
     (invoice) => {
@@ -397,6 +402,27 @@ const PurchasePage = () => {
           expiry = `${month}/${year}`;
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        //  REVERSE THE PACK SIZE CONVERSION
+        //     DB has: quantity=60, purchase_rate=10.68 (per tablet)
+        //     UI needs: qty=2, price=320.53 (per pack)
+        //     Divide quantities, multiply rates.
+        // ═══════════════════════════════════════════════════════════════
+        const packMultiplier = parsePackSizeMultiplier(item.pack_size);
+
+        const dbQty = parseFloat(item.quantity) || 0;
+        const dbFreeQty = parseFloat(item.free_quantity) || 0;
+        const dbPurchaseRate = parseFloat(item.purchase_rate) || 0;
+        const dbMrp = parseFloat(item.mrp) || 0;
+        const dbSellingRate = parseFloat(item.selling_rate) || 0;
+
+        //  Convert back to pack-level values
+        const uiQty = dbQty / packMultiplier;
+        const uiFreeQty = dbFreeQty / packMultiplier;
+        const uiPurchaseRate = dbPurchaseRate * packMultiplier;
+        const uiMrp = dbMrp * packMultiplier;
+        const uiSellingRate = dbSellingRate * packMultiplier;
+
         return {
           medicine_id: item.medicine_id,
           name: item.medicine.name,
@@ -405,22 +431,27 @@ const PurchasePage = () => {
           hsn: item.medicine.hsn_code,
           exp: expiry,
           pack: item.pack_size,
-          pQty: item.free_quantity?.toString() || "",
-          qty: item.quantity?.toString() || "",
-          price: item.purchase_rate?.toString() || "",
+
+          //  Pack-level quantities for display
+          pQty: uiFreeQty > 0 ? uiFreeQty.toString() : "",
+          qty: uiQty > 0 ? uiQty.toString() : "",
+          sch: uiFreeQty > 0 ? uiFreeQty.toString() : "",
+
+          //  Pack-level rates for display
+          price: uiPurchaseRate > 0 ? uiPurchaseRate.toFixed(2) : "",
+          mrp: uiMrp > 0 ? uiMrp.toFixed(2) : "",
+          sRate: uiSellingRate > 0 ? uiSellingRate.toFixed(2) : "",
+
           schemePercent: item.scheme_discount?.toString() || "",
           discountPercent: item.trade_discount?.toString() || "",
           cgstPercent: item.cgst_percent?.toString() || "",
           sgstPercent: item.sgst_percent?.toString() || "",
-          mrp: item.mrp?.toString() || "",
           rack: item.rack_no || "",
-          sRate: item.selling_rate?.toString() || "",
-          sch: item.free_quantity?.toString() || "",
+
+          //  Net rate: use pack-level qty for the divisor
           netRate:
-            item.taxable_amount && item.quantity
-              ? (
-                  parseFloat(item.taxable_amount) / parseFloat(item.quantity)
-                ).toFixed(2)
+            item.taxable_amount && uiQty > 0
+              ? (parseFloat(item.taxable_amount) / uiQty).toFixed(2)
               : "",
           amount: item.line_total?.toString() || "",
           isFreeItem: item.is_free_item || false,
@@ -1084,16 +1115,12 @@ const PurchasePage = () => {
   // ============================================
   // BATCH PRODUCT IMPORT HANDLERS
   // ============================================
-  // In PurchasePage.jsx — replace ONLY handleBatchProductSave
-
   const handleBatchProductSave = useCallback(
     async (productsToSave) => {
       setIsBatchSaving(true);
       try {
         if (productsToSave.length > 0) {
           const productsWithLinking = productsToSave.map((product) => {
-            // Find the original import product by the name that was in the
-            // table row at import time (stored as _originalImportName)
             const lookupName = product._originalImportName || product.name;
 
             const originalProduct = newProductsFromImport.find((imp) => {
@@ -1131,9 +1158,6 @@ const PurchasePage = () => {
               const newRows = [...prev];
 
               result.created.forEach((createdMed) => {
-                // ── Find the matching row using THREE strategies, most reliable first ──
-
-                // Strategy 1: exact name match on rows that still have no medicine_id
                 let matchingRowIndex = newRows.findIndex(
                   (row) =>
                     row.name &&
@@ -1143,8 +1167,6 @@ const PurchasePage = () => {
                       createdMed.name.toLowerCase().trim(),
                 );
 
-                // Strategy 2: the _originalImportName that was passed through
-                // (handles case where user renamed inside ProductMasterModal)
                 if (matchingRowIndex === -1) {
                   const saved = productsToSave.find(
                     (p) =>
@@ -1164,7 +1186,6 @@ const PurchasePage = () => {
                   }
                 }
 
-                // Strategy 3: partial / includes match as last resort
                 if (matchingRowIndex === -1) {
                   matchingRowIndex = newRows.findIndex(
                     (row) =>
@@ -1184,7 +1205,7 @@ const PurchasePage = () => {
                   newRows[matchingRowIndex] = {
                     ...newRows[matchingRowIndex],
                     medicine_id: createdMed.medicine_id,
-                    name: createdMed.name, // use the canonical DB name
+                    name: createdMed.name,
                     mfac:
                       createdMed.manufacturer || newRows[matchingRowIndex].mfac,
                     hsn: createdMed.hsn_code || newRows[matchingRowIndex].hsn,
@@ -1265,6 +1286,7 @@ const PurchasePage = () => {
 
   // ============================================
   // AUTO-FILL FROM EXISTING INVENTORY
+  //  UPDATED: Reverses pack multiplier when suggesting last-used MRP/rate
   // ============================================
   const handleProductSelect = useCallback(
     async (rowIndex, product) => {
@@ -1297,10 +1319,21 @@ const PurchasePage = () => {
         if (existingBatches.length > 0) {
           const recentBatch = existingBatches[0];
 
+          //  Reverse the pack multiplier for auto-filled MRP
+          const packMultiplier = parsePackSizeMultiplier(
+            newRows[rowIndex].pack,
+          );
+
           if (!newRows[rowIndex].batch)
             newRows[rowIndex].batch = recentBatch.batch_number;
-          if (!newRows[rowIndex].mrp)
-            newRows[rowIndex].mrp = recentBatch.mrp?.toString() || "";
+
+          //  Convert per-unit MRP back to per-pack MRP for the UI
+          if (!newRows[rowIndex].mrp && recentBatch.mrp) {
+            const perUnitMrp = parseFloat(recentBatch.mrp) || 0;
+            const perPackMrp = perUnitMrp * packMultiplier;
+            newRows[rowIndex].mrp = perPackMrp.toFixed(2);
+          }
+
           if (!newRows[rowIndex].rack)
             newRows[rowIndex].rack = recentBatch.rack_no || "";
 
@@ -1353,8 +1386,6 @@ const PurchasePage = () => {
     !isEditingConfirmed && suppliers.length === 0 && !loadingStates.supplier;
 
   // ── Build print-ready company details from real shop data ──
-  // Falls back to placeholder text while loading so the print
-  // component always receives a valid object.
   const printCompanyDetails = {
     name:
       companyDetails.business_name ||
@@ -1485,9 +1516,9 @@ const PurchasePage = () => {
           hasUnsavedData={hasData}
           isEditingConfirmed={isEditingConfirmed}
           billedBy={billedByName}
-            importModalOpen={importModalOpen}
-  onOpenImportModal={() => setImportModalOpen(true)}
-  onCloseImportModal={() => setImportModalOpen(false)}
+          importModalOpen={importModalOpen}
+          onOpenImportModal={() => setImportModalOpen(true)}
+          onCloseImportModal={() => setImportModalOpen(false)}
         />
       </div>
 
@@ -1557,7 +1588,6 @@ const PurchasePage = () => {
             rows={rows}
             supplier={supplier}
             summary={summary}
-            // ── Pass real shop details instead of the old hardcoded constant ──
             companyDetails={printCompanyDetails}
             invoiceNumber={currentInvoice?.invoice_number}
             invoiceDate={currentInvoice?.invoice_date}
@@ -1566,22 +1596,16 @@ const PurchasePage = () => {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════
-    IMPORT PROGRESS OVERLAY
-    ══════════════════════════════════════════════════ */}
+      {/* IMPORT PROGRESS OVERLAY */}
       {importProgress && importProgress.phase === "analyzing" && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-          {/* Card */}
           <div className="relative bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4 flex flex-col items-center gap-5">
-            {/* Icon */}
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">
               <FileSpreadsheet size={32} className="text-indigo-600" />
             </div>
 
-            {/* Title */}
             <div className="text-center">
               <h3 className="text-lg font-bold text-gray-900">
                 Checking Master Catalog
@@ -1591,7 +1615,6 @@ const PurchasePage = () => {
               </p>
             </div>
 
-            {/* Progress bar */}
             <div className="w-full">
               <div className="flex justify-between text-xs text-gray-500 mb-1.5">
                 <span>
@@ -1621,7 +1644,6 @@ const PurchasePage = () => {
               </div>
             </div>
 
-            {/* Row count detail */}
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <SpinnerIcon size={13} className="animate-spin text-indigo-500" />
               <span>
@@ -1630,7 +1652,6 @@ const PurchasePage = () => {
               </span>
             </div>
 
-            {/* Do not close warning */}
             <p className="text-[11px] text-gray-400 text-center">
               Please wait — do not close this window
             </p>
@@ -1689,7 +1710,7 @@ const PurchasePage = () => {
         newProducts={newProductsFromImport}
         onSaveAll={handleBatchProductSave}
         onSkipAll={handleBatchProductSkip}
-        isSaving={isBatchSaving} // ← ADD
+        isSaving={isBatchSaving}
       />
 
       <ImportResultModal

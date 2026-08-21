@@ -290,14 +290,11 @@ const MONTH_NAMES = {
 };
 
 function lastDayOfMonth(year, month) {
-  // month is 1-based. new Date(year, month, 0) gives the last day.
   return new Date(year, month, 0);
 }
 
 /**
  * Convert a 2-digit year to a full 4-digit year.
- * Always prefixes with 20 — pharmacy expiry dates are always future.
- * "27" → 2027, "34" → 2034, "00" → 2000
  */
 function inferYear(twoDigitStr) {
   const n = parseInt(twoDigitStr, 10);
@@ -306,24 +303,12 @@ function inferYear(twoDigitStr) {
 }
 
 /**
- * Parse an expiry date from any format used by Indian pharmacy software.
- *
- * Supported string formats (in evaluation order):
- *
- *   DD-MMM        "27-Nov"    → infer year from current date
- *   MM-YY         "02-35"     → last day of Feb 2035  ← NEW
- *   MMM-YY        "Feb-29"    → last day of Feb 2029
- *   MMM-YYYY      "Feb-2029"  → last day of Feb 2029
- *   MM/YY         "06/27"     → last day of Jun 2027
- *   MM/YYYY       "06/2027"   → last day of Jun 2027
- *   DD/MM/YYYY    "30/06/2027"→ Jun 30 2027
- *   YYYY-MM-DD    "2027-06-30"→ Jun 30 2027
- *   MMM YYYY      "Jun 2027"  → last day of Jun 2027
- *   YYYY-MM       "2027-06"   → last day of Jun 2027
- *
- * Non-string inputs:
- *   JS Date  → returned as-is (SheetJS cellDates: true path)
- *   number   → Excel serial date → last day of that month
+ * Parse an expiry date from Indian pharmacy software.
+ * 
+ * STRICT RULES FOR MEDICINE EXPIRY:
+ * - Medicine expiries are assumed to be month-and-year only.
+ * - Any 2-part input like "xx/yy", "xx-yy", "xx-MMM", or "MMM-xx" is ALWAYS parsed as MM/YYYY.
+ * - Day/Month formats (without a year) are completely disabled.
  */
 export function parseExpiryDate(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -345,118 +330,85 @@ export function parseExpiryDate(value) {
   const str = String(value).trim();
   if (!str || str === "-") return null;
 
-  // ── DD-MMM  e.g. "27-Nov", "02-Feb", "1-Jan" ─────────────────────────────
-  // Second part must be 3 alpha chars — no collision with MM-YY below.
-  // No year present: infer from current date.
-  // If the month has already passed this year → use next year.
-  const ddMmmMatch = str.match(/^(\d{1,2})-([A-Za-z]{3})$/);
-  if (ddMmmMatch) {
-    const day      = parseInt(ddMmmMatch[1], 10);
-    const monthNum = MONTH_NAMES[ddMmmMatch[2].toLowerCase()];
-    if (!monthNum || day < 1 || day > 31) return null;
+  // ── 1. Alphanumeric Month-Year Pairs (2-value) ────────────────────────────
+  // e.g. "Feb-29", "29-Feb", "Feb/2029", "2029/Feb", "Nov-27", "27-Nov", "Jun 2027"
+  // The word component is ALWAYS the month, the numeric component is ALWAYS the year.
+  
+  // Format: [Alpha Month] [Separator] [Year]
+  const alphaMatch1 = str.match(/^([A-Za-z]{3,})[-\/\s](\d{2,4})$/);
+  if (alphaMatch1) {
+    const monthNum = MONTH_NAMES[alphaMatch1[1].toLowerCase().slice(0, 3)];
+    const yearStr = alphaMatch1[2];
+    const year = yearStr.length === 2 ? inferYear(yearStr) : parseInt(yearStr, 10);
+    if (monthNum && year) return lastDayOfMonth(year, monthNum);
+  }
 
-    const today        = new Date();
-    const currentYear  = today.getFullYear();
-    const currentMonth = today.getMonth() + 1; // 1-based
+  // Format: [Year] [Separator] [Alpha Month] (e.g., "27-Nov")
+  const alphaMatch2 = str.match(/^(\d{2,4})[-\/\s]([A-Za-z]{3,})$/);
+  if (alphaMatch2) {
+    const monthNum = MONTH_NAMES[alphaMatch2[2].toLowerCase().slice(0, 3)];
+    const yearStr = alphaMatch2[1];
+    const year = yearStr.length === 2 ? inferYear(yearStr) : parseInt(yearStr, 10);
+    if (monthNum && year) return lastDayOfMonth(year, monthNum);
+  }
 
-    let year = currentYear;
-    if (monthNum < currentMonth) {
-      year = currentYear + 1;
-    } else if (monthNum === currentMonth && day < today.getDate()) {
-      year = currentYear + 1;
+  // ── 2. Numeric Month-Year Pairs (2-value) ─────────────────────────────────
+  // e.g., "02-35", "06/27", "27/06", "06/2027", "2027/06", "2027-06"
+  // Always parses as month and year. No component is ever mapped to a "Day".
+
+  // Format: YYYY-MM or YYYY/MM (4-digit year followed by 1 or 2-digit month)
+  const numericYyMm = str.match(/^(\d{4})[-\/\s](\d{1,2})$/);
+  if (numericYyMm) {
+    const year = parseInt(numericYyMm[1], 10);
+    const month = parseInt(numericYyMm[2], 10);
+    if (month >= 1 && month <= 12) return lastDayOfMonth(year, month);
+  }
+
+  // Format: MM-YY, MM/YY, MM-YYYY, MM/YYYY, YY-MM, YY/MM
+  const numericTwoParts = str.match(/^(\d{1,2})[-\/\s](\d{2}|\d{4})$/);
+  if (numericTwoParts) {
+    const part1 = parseInt(numericTwoParts[1], 10);
+    const part2 = parseInt(numericTwoParts[2], 10);
+    const part2Str = numericTwoParts[2];
+
+    // Evaluate which part represents the Month (1-12 range check)
+    if (part1 >= 1 && part1 <= 12) {
+      const year = part2Str.length === 2 ? inferYear(part2Str) : part2;
+      if (year) return lastDayOfMonth(year, part1);
+    } else if (part2 >= 1 && part2 <= 12) {
+      const part1Str = numericTwoParts[1];
+      const year = part1Str.length === 2 ? inferYear(part1Str) : part1;
+      if (year) return lastDayOfMonth(year, part2);
     }
-
-    const date = new Date(year, monthNum - 1, day);
-    return isNaN(date.getTime()) ? null : date;
   }
 
-  // ── MM-YY  e.g. "02-35", "03-34", "12-33", "09-32", "08-26" ─────────────
-  // 2-digit numeric month (01–12) + dash + 2-digit numeric year.
-  // This is the format MargERP uses for expiry on cells that Excel stored
-  // as text (typically far-future years like 2032–2040 that Excel didn't
-  // auto-detect as dates). Near-future dates like "08-26" come through as
-  // JS Date objects via SheetJS and never reach this code path.
-  // Must be checked BEFORE MMM-YY (which requires alpha month chars).
-  const mmYyDashMatch = str.match(/^(\d{1,2})-(\d{2})$/);
-  if (mmYyDashMatch) {
-    const month = parseInt(mmYyDashMatch[1], 10);
-    const year  = inferYear(mmYyDashMatch[2]);
-    if (month >= 1 && month <= 12 && year) {
-      return lastDayOfMonth(year, month);
-    }
-    // Month out of range (e.g. "13-25") — fall through to remaining checks
-  }
-
-  // ── MMM-YY  e.g. "Feb-29", "Nov-27", "Jan-28" ────────────────────────────
-  const mmmYyMatch = str.match(/^([A-Za-z]{3})-(\d{2})$/);
-  if (mmmYyMatch) {
-    const monthNum = MONTH_NAMES[mmmYyMatch[1].toLowerCase()];
-    const year     = inferYear(mmmYyMatch[2]);
-    if (!monthNum || !year) return null;
-    return lastDayOfMonth(year, monthNum);
-  }
-
-  // ── MMM-YYYY  e.g. "Feb-2029", "Nov-2027" ────────────────────────────────
-  const mmmYyyyMatch = str.match(/^([A-Za-z]{3})-(\d{4})$/);
-  if (mmmYyyyMatch) {
-    const monthNum = MONTH_NAMES[mmmYyyyMatch[1].toLowerCase()];
-    const year     = parseInt(mmmYyyyMatch[2], 10);
-    if (!monthNum || !year) return null;
-    return lastDayOfMonth(year, monthNum);
-  }
-
-  // ── MM/YY  e.g. "06/27" ──────────────────────────────────────────────────
-  if (/^\d{1,2}\/\d{2}$/.test(str)) {
-    const [m, y] = str.split("/");
-    const month  = parseInt(m, 10);
-    const year   = inferYear(y);
-    if (!month || month < 1 || month > 12 || !year) return null;
-    return lastDayOfMonth(year, month);
-  }
-
-  // ── MM/YYYY  e.g. "06/2027" ───────────────────────────────────────────────
-  if (/^\d{1,2}\/\d{4}$/.test(str)) {
-    const [m, y] = str.split("/");
-    const month  = parseInt(m, 10);
-    const year   = parseInt(y, 10);
-    if (month < 1 || month > 12) return null;
-    return lastDayOfMonth(year, month);
-  }
-
-  // ── DD/MM/YYYY  e.g. "30/06/2027" ────────────────────────────────────────
+  // ── 3. Explicit Full Dates (3-value) ──────────────────────────────────────
+  // We only parse 3-value formats if explicitly stated with all three parts.
+  
+  // Format: DD/MM/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
     const parts = str.split("/");
     const day   = parseInt(parts[0], 10);
     const month = parseInt(parts[1], 10);
     const year  = parseInt(parts[2], 10);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return new Date(year, month - 1, day);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return new Date(year, month - 1, day);
+    }
   }
 
-  // ── YYYY-MM-DD  ISO format ────────────────────────────────────────────────
+  // Format: YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     const date = new Date(str);
     return isNaN(date.getTime()) ? null : date;
   }
 
-  // ── MMM YYYY or MMM-YYYY (4-digit year) ───────────────────────────────────
-  const monthYearMatch = str.match(/^([A-Za-z]{3})[-\s](\d{4})$/);
-  if (monthYearMatch) {
-    const monthNum = MONTH_NAMES[monthYearMatch[1].toLowerCase()];
-    const year     = parseInt(monthYearMatch[2], 10);
-    if (monthNum && year > 2000) return lastDayOfMonth(year, monthNum);
+  // ── Fallback safety block ─────────────────────────────────────────────────
+  // Blocks native Date parsing from interpreting any 2-value segment as "Month/Day" of the current year.
+  const separatorCount = (str.match(/[-\/\s]/g) || []).length;
+  if (separatorCount < 2) {
+    return null;
   }
 
-  // ── YYYY-MM  e.g. "2027-06" ───────────────────────────────────────────────
-  if (/^\d{4}-\d{2}$/.test(str)) {
-    const [y, m] = str.split("-");
-    const year   = parseInt(y, 10);
-    const month  = parseInt(m, 10);
-    if (month < 1 || month > 12) return null;
-    return lastDayOfMonth(year, month);
-  }
-
-  // ── Last resort: native Date ──────────────────────────────────────────────
   const fallback = new Date(str);
   return isNaN(fallback.getTime()) ? null : fallback;
 }
