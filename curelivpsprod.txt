@@ -240,3 +240,84 @@ git push origin dev
 # - If "git stash pop" reports conflicts, resolve them before
 #   committing.
 # ============================================================
+
+
+
+
+
+
+
+
+Here is the complete step-by-step checklist to build and release both **Android** and **iOS** with your new changes.
+
+---
+
+### Step 1: Check Config & Bump Versions
+
+1. **Verify Production API URL**  
+   Open `src/constants/config.ts` and confirm:
+   ```typescript
+   export const CONFIG = {
+     BASE_URL: "https://api.curelihealth.com",
+     API_TIMEOUT: 15000,
+   };
+   ```
+
+2. **Bump Versions in `app.config.js`**  
+   Open `app.config.js`:
+   * **Android**: Bump `versionCode` from `11` to **`12`**.
+   * **iOS**: 
+     * If `2.1.1` is **not yet released/approved** on the App Store: keep `version: "2.1.1"` and bump `buildNumber` from `"1"` to **`"2"`**.
+     * If `2.1.1` was **already approved/live**: bump `version` to **`"2.1.2"`** and reset `buildNumber` to **`"1"`**.
+
+---
+
+### Step 2: Build Android (Local `.aab`)
+
+Run these commands inside `/Users/sibixavier/cureli-erp-devs/cureli-mobile`:
+
+```bash
+# 1. Ensure google-services.json is present
+ls google-services.json
+
+# 2. Temporarily un-ignore google-services.json for the build archive
+sed -i '' '/google-services.json/d' .gitignore
+
+# 3. Run the local Android build
+eas build --profile production --platform android --local
+
+# 4. Immediately add google-services.json back to .gitignore after build starts/finishes
+echo "google-services.json" >> .gitignore
+```
+
+* **Upload to Play Store**: When finished, take the generated `.aab` path printed at the end and upload it to **Google Play Console** ➔ **Production** ➔ **Create new release**.
+
+---
+
+### Step 3: Build & Submit iOS (EAS Cloud)
+
+```bash
+# 1. Run the cloud iOS build
+eas build --profile production --platform ios
+
+# 2. Once the build finishes, submit directly to App Store Connect
+eas submit --platform ios --latest
+```
+
+* **Submit on App Store Connect**:
+  1. Go to [appstoreconnect.apple.com](https://appstoreconnect.apple.com) ➔ **Cureli**.
+  2. Wait ~5–10 mins for Apple processing.
+  3. Under **Distribution / App Store**, select the newly uploaded build.
+  4. Save and click **Submit for Review**.
+
+---
+
+### Step 4: Git Sync
+
+Commit your changes and version bumps:
+
+```bash
+git add -A
+git commit -m "chore: release update (Android versionCode 12, iOS new build)"
+git push origin dev
+```
