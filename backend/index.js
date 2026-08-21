@@ -54,6 +54,7 @@ import inventoryImportRoutes        from "./src/modules/inventory-import/invento
 import prescriptionRequestsMobileRouter from "./src/modules/prescription-requests/prescription.requests.routes.js";
 import prescriptionRequestsErpRouter    from "./src/modules/prescription-requests/prescription.requests.erp.routes.js";
 import salesReportRoutes from "./src/modules/reports/sales/sales.report.routes.js";
+import purchaseReportRoutes from "./src/modules/reports/purchase/purchase.report.routes.js";
 
 // ============================================
 // CADMIN ROUTES
@@ -146,8 +147,6 @@ app.options("/{*path}", cors(corsOptions));
 app.use(cors(corsOptions));
 
 // 4. Razorpay webhook — needs raw body, MUST be before express.json()
-//    Mounts at /mobile/checkout/webhook
-//    Converts raw buffer → rawBody string + parsed body for downstream handlers
 app.use(
   "/mobile/checkout/webhook",
   express.raw({ type: "application/json" }),
@@ -262,7 +261,8 @@ app.use("/api/marketplace-orders",     marketplaceOrdersRoutes);
 app.use("/api/marketplace/dashboard",  marketplaceDashboardRoutes);
 app.use("/api/inventory/import",       inventoryImportRoutes);
 app.use("/api/prescription-requests",  prescriptionRequestsErpRouter);
-app.use("/api/reports/sales", salesReportRoutes);
+app.use("/api/reports/sales",          salesReportRoutes);
+app.use("/api/reports/purchase",       purchaseReportRoutes); // Fixed router -> app
 
 // ============================================
 // CADMIN ROUTES
@@ -290,7 +290,7 @@ app.use("/cadmin", cadminMarketplaceOrdersRoutes);
 app.use("/cadmin", cadminMobileBroadcastRoutes);
 app.use("/cadmin", cadminPricingRoutes);
 app.use("/cadmin", cadminAppConfigRoutes);
-app.use("/cadmin", cadminRiderRoutes);          // ← Rider management by CAdmin
+app.use("/cadmin", cadminRiderRoutes);
 
 // ============================================
 // MOBILE ROUTES
@@ -311,9 +311,9 @@ app.use("/mobile/app-config",            mobileAppConfigRoutes);
 // ============================================
 // RIDER ROUTES
 // ============================================
-app.use("/rider/auth",        riderAuthRoutes);       // login / refresh / logout
-app.use("/rider/onboarding",  riderOnboardingRoutes); // profile & document upload
-app.use("/rider/sse",         riderSseRoutes);        // real-time SSE stream
+app.use("/rider/auth",        riderAuthRoutes);
+app.use("/rider/onboarding",  riderOnboardingRoutes);
+app.use("/rider/sse",         riderSseRoutes);
 
 // ============================================
 // HEALTH CHECK

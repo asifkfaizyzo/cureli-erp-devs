@@ -15,7 +15,6 @@ function getBranchHeaders() {
 const reportsAPI = {
   // ── SALES REPORTS ──────────────────────────────────────────────────────────
 
-  // A1 — Sales Summary
   getSalesSummary: async (filters = {}) => {
     const response = await API.get("/reports/sales/summary", {
       params: filters,
@@ -24,7 +23,6 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A2 — Sales Register
   getSalesRegister: async (filters = {}) => {
     const response = await API.get("/reports/sales/register", {
       params: filters,
@@ -33,7 +31,6 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A3 — Profit Report
   getSalesProfit: async (filters = {}) => {
     const response = await API.get("/reports/sales/profit", {
       params: filters,
@@ -42,7 +39,6 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A4 — Sales Returns
   getSalesReturnsReport: async (filters = {}) => {
     const response = await API.get("/reports/sales/returns", {
       params: filters,
@@ -51,7 +47,6 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A5 — Payment Collection
   getPaymentCollection: async (filters = {}) => {
     const response = await API.get("/reports/sales/payments", {
       params: filters,
@@ -60,7 +55,6 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A6 — Outstanding & Receivables
   getOutstandingReceivables: async (filters = {}) => {
     const response = await API.get("/reports/sales/outstanding", {
       params: filters,
@@ -69,9 +63,37 @@ const reportsAPI = {
     return response.data;
   },
 
-  // A7 — Day Book
   getDayBook: async (filters = {}) => {
     const response = await API.get("/reports/sales/daybook", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  // ── PURCHASE REPORTS ───────────────────────────────────────────────────────
+
+  // B1 — Purchase Register
+  getPurchaseRegister: async (filters = {}) => {
+    const response = await API.get("/reports/purchase/register", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  // B2 — Purchase Outstanding & Payables
+  getPurchaseOutstanding: async (filters = {}) => {
+    const response = await API.get("/reports/purchase/outstanding", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  // B3 — Purchase Returns
+  getPurchaseReturnsReport: async (filters = {}) => {
+    const response = await API.get("/reports/purchase/returns", {
       params: filters,
       headers: getBranchHeaders(),
     });

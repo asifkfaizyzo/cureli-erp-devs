@@ -1,12 +1,10 @@
-// pharmacy-web\src\App.jsx
-
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // ============================================
 // AUTH INITIALIZATION
@@ -48,7 +46,7 @@ import MaintenancePage from "./pages/maintenance/MaintenancePage.jsx";
 // LAYOUT
 // ============================================
 import AppLayout from "./components/layout/AppLayout.jsx";
-import OnboardingShellLayout from "./components/layout/OnboardingShellLayout.jsx"; // ← NEW
+import OnboardingShellLayout from "./components/layout/OnboardingShellLayout.jsx";
 
 // ============================================
 // ERP PAGES
@@ -57,11 +55,15 @@ import DashboardPage from "./pages/dashboard/DashboardPage.jsx";
 import BillingPage from "./pages/sales/billing/SalesBillingPage.jsx";
 import InvoicePage from "./pages/sales/invoice/SalesInvoicePage.jsx";
 import PurchaseInvoicePage from "./pages/purchase/invoice/PurchaseInvoicePage.jsx";
-import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage";
+import PurchaseReturnsPage from "./pages/purchase/returns/PurchaseReturnsPage.jsx";
 import SalesReturnsPage from "./pages/sales/returns/SalesReturnsPage.jsx";
 import PurchasePage from "./pages/purchase/billing/PurchasePage.jsx";
 import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
+
+// ============================================
+// ERP — REPORTS (SALES)
+// ============================================
 import SalesSummaryPage from "./pages/report/sales/SalesSummaryPage.jsx";
 import SalesRegisterPage from "./pages/report/sales/SalesRegisterPage.jsx";
 import SalesProfitPage from "./pages/report/sales/SalesProfitPage.jsx";
@@ -69,6 +71,13 @@ import SalesReturnsReportPage from "./pages/report/sales/SalesReturnsReportPage.
 import PaymentCollectionPage from "./pages/report/sales/PaymentCollectionPage.jsx";
 import OutstandingReceivablesPage from "./pages/report/sales/OutstandingReceivablesPage.jsx";
 import DayBookPage from "./pages/report/sales/DayBookPage.jsx";
+
+// ============================================
+// ERP — REPORTS (PURCHASE)
+// ============================================
+import PurchaseRegisterPage from "./pages/report/purchase/PurchaseRegisterPage.jsx";
+import PurchaseOutstandingPage from "./pages/report/purchase/PurchaseOutstandingPage.jsx";
+import PurchaseReturnsReportPage from "./pages/report/purchase/PurchaseReturnsPage.jsx";
 
 // ============================================
 // ERP — SETTINGS PAGES
@@ -229,6 +238,7 @@ const App = () => {
         <Route
           path="/*"
           element={
+            <MaintenanceCheck>
               <AuthInitializer>
                 <Routes>
                   {/* ── ROOT REDIRECT ── */}
@@ -394,62 +404,108 @@ const App = () => {
                         />
 
                         {/* ── REPORTS — SALES ── */}
-<Route
-  path="/erp/reports/sales/summary"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <SalesSummaryPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/register"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <SalesRegisterPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/profit"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <SalesProfitPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/returns"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <SalesReturnsReportPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/payments"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <PaymentCollectionPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/outstanding"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <OutstandingReceivablesPage />
-    </PermissionGuard>
-  }
-/>
-<Route
-  path="/erp/reports/sales/daybook"
-  element={
-    <PermissionGuard permission={PERMISSIONS.REPORTS_SALES}>
-      <DayBookPage />
-    </PermissionGuard>
-  }
-/>
+                        <Route
+                          path="/erp/reports/sales/summary"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <SalesSummaryPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/register"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <SalesRegisterPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/profit"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <SalesProfitPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/returns"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <SalesReturnsReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/payments"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <PaymentCollectionPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/outstanding"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <OutstandingReceivablesPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/sales/daybook"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <DayBookPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* ── REPORTS — PURCHASE ── */}
+                        <Route
+                          path="/erp/reports/purchase/register"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_PURCHASE}
+                            >
+                              <PurchaseRegisterPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/purchase/outstanding"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_PURCHASE}
+                            >
+                              <PurchaseOutstandingPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/purchase/returns"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_PURCHASE}
+                            >
+                              <PurchaseReturnsReportPage />
+                            </PermissionGuard>
+                          }
+                        />
 
                         {/* ── SUPPLIERS ── */}
                         <Route
@@ -542,6 +598,7 @@ const App = () => {
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </AuthInitializer>
+            </MaintenanceCheck>
           }
         />
       </Routes>
