@@ -39,9 +39,8 @@ async function getConfig() {
 /**
  * @param {{ items: {variantId, quantity}[], distance_km: number, tip?: number }}
  */
-export async function getQuote({ items, distance_km, tip = 0 }) {
-  // Resolve current prices from listings
-  const subtotal = await resolveSubtotal(items);
+export async function getQuote({ items, distance_km, tip = 0, branch_id }) {
+  const subtotal = await resolveSubtotal(items, branch_id);
   const config = await getConfig();
 
   return computePricing({ subtotal, distance_km, tip, config });
@@ -430,7 +429,7 @@ async function _createOrderFromSession({
     return order;
   });
 
- // Fire events post-commit
+  // Fire events post-commit
   await fireOrderPlacedEvents({
     ...createdOrder,
     items: cartItems,
@@ -443,7 +442,10 @@ async function _createOrderFromSession({
       session.prescription_recipient_id,
       createdOrder.order_id,
     ).catch((err) =>
-      console.error('[Checkout] markConverted failed (non-fatal):', err.message),
+      console.error(
+        "[Checkout] markConverted failed (non-fatal):",
+        err.message,
+      ),
     );
   }
   // ────────────────────────────────────────────────────────────────────────────
@@ -462,13 +464,21 @@ async function _generateOrderNumber() {
   return `MKT-${String(seq).padStart(6, "0")}`;
 }
 
-async function resolveSubtotal(items) {
+async function resolveSubtotal(items, branch_id) {
   let subtotal = 0;
   for (const { variantId, quantity } of items) {
+    const query = { linked_variant_id: variantId };
+    
+    // Only apply branch filter if it is provided
+    if (branch_id) {
+      query.branch_id = branch_id;
+    }
+
     const listing = await prisma.marketplaceListing.findFirst({
-      where: { linked_variant_id: variantId },
+      where: query,
       select: { marketplace_price: true },
     });
+    
     if (listing?.marketplace_price) {
       subtotal += Number(listing.marketplace_price) * quantity;
     }

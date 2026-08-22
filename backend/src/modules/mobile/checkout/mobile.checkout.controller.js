@@ -1,14 +1,18 @@
 // backend/src/modules/mobile/checkout/mobile.checkout.controller.js
 
-import crypto from 'crypto';
+import crypto from "crypto";
 import {
   getQuote,
   createCheckoutSession,
   confirmCheckoutPayment,
   handleCheckoutWebhook,
-} from './mobile.checkout.service.js';
-import { quoteSchema, createSessionSchema, confirmSchema } from './mobile.checkout.schema.js';
-import { success, fail } from '../../../utils/response.js';
+} from "./mobile.checkout.service.js";
+import {
+  quoteSchema,
+  createSessionSchema,
+  confirmSchema,
+} from "./mobile.checkout.schema.js";
+import { success, fail } from "../../../utils/response.js";
 
 export async function quoteHandler(req, res) {
   try {
@@ -19,6 +23,7 @@ export async function quoteHandler(req, res) {
       items:       parsed.data.items,
       distance_km: parsed.data.distance_km,
       tip:         parsed.data.tip,
+      branch_id:   parsed.data.branch_id, 
     });
 
     return success(res, result, 'Quote calculated');
@@ -34,35 +39,36 @@ export async function createSessionHandler(req, res) {
     if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
     const result = await createCheckoutSession({
-      customer_id:         req.mobileUser.id,
-      branch_id:           parsed.data.branch_id,
+      customer_id: req.mobileUser.id,
+      branch_id: parsed.data.branch_id,
       delivery_address_id: parsed.data.delivery_address_id,
-      items:               parsed.data.items,
-      distance_km:         parsed.data.distance_km,
-      tip:                 parsed.data.tip,
-      prescription_files:  parsed.data.prescription_files,
-      patient:             parsed.data.patient,  // ← ADDED
+      items: parsed.data.items,
+      distance_km: parsed.data.distance_km,
+      tip: parsed.data.tip,
+      prescription_files: parsed.data.prescription_files,
+      patient: parsed.data.patient, // ← ADDED
     });
 
-    return success(res, result, 'Checkout session created', 201);
+    return success(res, result, "Checkout session created", 201);
   } catch (err) {
-    console.error('[Checkout] createSession error:', err.message);
+    console.error("[Checkout] createSession error:", err.message);
 
     const knownErrors = [
-      'Customer account is not active',
-      'Delivery address not found',
-      'Branch is not available',
-      'This branch is not accepting marketplace orders',
-      'One or more items are no longer available',
-      'One or more items are no longer listed',
-      'One or more items are out of stock',
-      'One or more items have no price set',
-      'This order requires a prescription. Please upload at least one prescription file.',
+      "Customer account is not active",
+      "Delivery address not found",
+      "Branch is not available",
+      "This branch is not accepting marketplace orders",
+      "One or more items are no longer available",
+      "One or more items are no longer listed",
+      "One or more items are out of stock",
+      "One or more items have no price set",
+      "This order requires a prescription. Please upload at least one prescription file.",
     ];
 
     if (knownErrors.includes(err.message)) return fail(res, err.message, 400);
-    if (err.message.startsWith('Delivery not available')) return fail(res, err.message, 400);
-    return fail(res, 'Failed to create checkout session', 500);
+    if (err.message.startsWith("Delivery not available"))
+      return fail(res, err.message, 400);
+    return fail(res, "Failed to create checkout session", 500);
   }
 }
 
@@ -72,34 +78,42 @@ export async function confirmHandler(req, res) {
     if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
     const result = await confirmCheckoutPayment({
-      session_id:          parsed.data.session_id,
-      customer_id:         req.mobileUser.id,
+      session_id: parsed.data.session_id,
+      customer_id: req.mobileUser.id,
       razorpay_payment_id: parsed.data.razorpay_payment_id,
-      razorpay_order_id:   parsed.data.razorpay_order_id,
-      razorpay_signature:  parsed.data.razorpay_signature,
+      razorpay_order_id: parsed.data.razorpay_order_id,
+      razorpay_signature: parsed.data.razorpay_signature,
     });
 
-    return success(res, result, 'Payment confirmed, order placed');
+    return success(res, result, "Payment confirmed, order placed");
   } catch (err) {
-    console.error('[Checkout] confirm error:', err.message);
-    if (err.message === 'Session not found')         return fail(res, 'Session not found', 404);
-    if (err.message === 'Session expired')           return fail(res, 'Your checkout session has expired. Please try again.', 410);
-    if (err.message === 'Already paid')              return fail(res, 'This order has already been placed.', 409);
-    if (err.message === 'Invalid payment signature') return fail(res, 'Payment verification failed.', 400);
-    return fail(res, 'Failed to confirm payment', 500);
+    console.error("[Checkout] confirm error:", err.message);
+    if (err.message === "Session not found")
+      return fail(res, "Session not found", 404);
+    if (err.message === "Session expired")
+      return fail(
+        res,
+        "Your checkout session has expired. Please try again.",
+        410,
+      );
+    if (err.message === "Already paid")
+      return fail(res, "This order has already been placed.", 409);
+    if (err.message === "Invalid payment signature")
+      return fail(res, "Payment verification failed.", 400);
+    return fail(res, "Failed to confirm payment", 500);
   }
 }
 
 export async function webhookHandler(req, res) {
   try {
-    const signature = req.headers['x-razorpay-signature'];
-    const rawBody   = req.rawBody ?? JSON.stringify(req.body);
-    const secret    = process.env.RAZORPAY_MOBILE_WEBHOOK_SECRET ;
+    const signature = req.headers["x-razorpay-signature"];
+    const rawBody = req.rawBody ?? JSON.stringify(req.body);
+    const secret = process.env.RAZORPAY_MOBILE_WEBHOOK_SECRET;
 
     const expected = crypto
-      .createHmac('sha256', secret)
+      .createHmac("sha256", secret)
       .update(rawBody)
-      .digest('hex');
+      .digest("hex");
 
     if (expected !== signature) {
       return res.status(400).json({ success: false });
@@ -108,7 +122,7 @@ export async function webhookHandler(req, res) {
     await handleCheckoutWebhook(req.body);
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error('[Webhook] checkout error:', err.message);
+    console.error("[Webhook] checkout error:", err.message);
     return res.status(200).json({ success: true }); // always 200 to Razorpay
   }
 }
