@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Wallet } from "lucide-react";
 import reportsAPI from "../../../api/reports";
+import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsGlobalMode } from "../../../store/useAuthStore";
 import ReportPageWrapper from "../shared/ReportPageWrapper";
 import ReportFiltersBar from "../shared/ReportFiltersBar";
 import ReportTable from "../shared/ReportTable";
@@ -20,31 +22,9 @@ const defaultFilters = () => {
     endDate: today.toISOString().split("T")[0],
     paymentMode: "",
     search: "",
+    branchId: "",
   };
 };
-
-const filterConfig = [
-  { key: "startDate", label: "From Date", type: "date" },
-  { key: "endDate", label: "To Date", type: "date" },
-  {
-    key: "paymentMode",
-    label: "Payment Mode",
-    type: "select",
-    options: [
-      { value: "CASH", label: "Cash" },
-      { value: "CARD", label: "Card" },
-      { value: "UPI", label: "UPI" },
-      { value: "CREDIT", label: "Credit" },
-      { value: "ONLINE", label: "Online" },
-    ],
-  },
-  {
-    key: "search",
-    label: "",
-    type: "search",
-    placeholder: "Search invoice / customer...",
-  },
-];
 
 const COLUMNS = [
   {
@@ -107,10 +87,28 @@ const EXPORT_COLUMNS = [
 
 const PaymentCollectionPage = () => {
   const toast = useToast();
+  const branchContext = useAuthStore(selectBranchContext);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+
   const [filters, setFilters] = useState(defaultFilters());
+  const [branches, setBranches] = useState([]);
   const [data, setData] = useState(null);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await inventoryAPI.getFacets();
+        if (res?.success && res.data) {
+          setBranches(res.data.branches.map((b) => ({ value: b.branch_id, label: b.branch_name })));
+        }
+      } catch (err) {
+        console.error("Facets error:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -126,9 +124,12 @@ const PaymentCollectionPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, offset]); // eslint-disable-line
+  }, [filters, offset, branchContext]); // eslint-disable-line
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setOffset(0);
+    load();
+  }, [branchContext, load]);
 
   const handleFilterChange = (key, value) => {
     setOffset(0);
@@ -139,6 +140,30 @@ const PaymentCollectionPage = () => {
     setOffset(0);
     setFilters(defaultFilters());
   };
+
+  const filterConfig = [
+    { key: "startDate", label: "From Date", type: "date" },
+    { key: "endDate", label: "To Date", type: "date" },
+    {
+      key: "paymentMode",
+      label: "Payment Mode",
+      type: "select",
+      options: [
+        { value: "CASH", label: "Cash" },
+        { value: "CARD", label: "Card" },
+        { value: "UPI", label: "UPI" },
+        { value: "CREDIT", label: "Credit" },
+        { value: "ONLINE", label: "Online" },
+      ],
+    },
+    ...(isGlobalMode ? [{ key: "branchId", label: "Branch", type: "select", options: branches }] : []),
+    {
+      key: "search",
+      label: "",
+      type: "search",
+      placeholder: "Search invoice / customer...",
+    },
+  ];
 
   const sm = data?.summary;
 

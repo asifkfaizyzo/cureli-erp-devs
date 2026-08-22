@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertCircle } from "lucide-react";
 import reportsAPI from "../../../api/reports";
+import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsGlobalMode } from "../../../store/useAuthStore";
 import ReportPageWrapper from "../shared/ReportPageWrapper";
 import ReportFiltersBar from "../shared/ReportFiltersBar";
 import ReportTable from "../shared/ReportTable";
@@ -15,28 +17,8 @@ const LIMIT = 50;
 const defaultFilters = () => ({
   agingBucket: "",
   search: "",
+  branchId: "",
 });
-
-const filterConfig = [
-  {
-    key: "agingBucket",
-    label: "Aging Bucket",
-    type: "select",
-    options: [
-      { value: "current", label: "Current" },
-      { value: "1_30", label: "1–30 Days" },
-      { value: "31_60", label: "31–60 Days" },
-      { value: "61_90", label: "61–90 Days" },
-      { value: "90_plus", label: "90+ Days" },
-    ],
-  },
-  {
-    key: "search",
-    label: "",
-    type: "search",
-    placeholder: "Search invoice / customer...",
-  },
-];
 
 const COLUMNS = [
   { key: "invoice_number", label: "Invoice No", width: "w-36" },
@@ -149,10 +131,28 @@ const EXPORT_COLUMNS = [
 
 const OutstandingReceivablesPage = () => {
   const toast = useToast();
+  const branchContext = useAuthStore(selectBranchContext);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+
   const [filters, setFilters] = useState(defaultFilters());
+  const [branches, setBranches] = useState([]);
   const [data, setData] = useState(null);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await inventoryAPI.getFacets();
+        if (res?.success && res.data) {
+          setBranches(res.data.branches.map((b) => ({ value: b.branch_id, label: b.branch_name })));
+        }
+      } catch (err) {
+        console.error("Facets error:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -168,9 +168,12 @@ const OutstandingReceivablesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, offset]); // eslint-disable-line
+  }, [filters, offset, branchContext]); // eslint-disable-line
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setOffset(0);
+    load();
+  }, [branchContext, load]);
 
   const handleFilterChange = (key, value) => {
     setOffset(0);
@@ -181,6 +184,28 @@ const OutstandingReceivablesPage = () => {
     setOffset(0);
     setFilters(defaultFilters());
   };
+
+  const filterConfig = [
+    {
+      key: "agingBucket",
+      label: "Aging Bucket",
+      type: "select",
+      options: [
+        { value: "current", label: "Current" },
+        { value: "1_30", label: "1–30 Days" },
+        { value: "31_60", label: "31–60 Days" },
+        { value: "61_90", label: "61–90 Days" },
+        { value: "90_plus", label: "90+ Days" },
+      ],
+    },
+    ...(isGlobalMode ? [{ key: "branchId", label: "Branch", type: "select", options: branches }] : []),
+    {
+      key: "search",
+      label: "",
+      type: "search",
+      placeholder: "Search invoice / customer...",
+    },
+  ];
 
   const sm = data?.summary;
   const buckets = data?.aging_buckets;

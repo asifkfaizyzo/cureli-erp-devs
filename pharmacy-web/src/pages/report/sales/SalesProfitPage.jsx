@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { TrendingUp } from "lucide-react";
 import reportsAPI from "../../../api/reports";
+import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsGlobalMode } from "../../../store/useAuthStore";
 import ReportPageWrapper from "../shared/ReportPageWrapper";
 import ReportFiltersBar from "../shared/ReportFiltersBar";
 import ReportTable from "../shared/ReportTable";
@@ -20,30 +22,9 @@ const defaultFilters = () => {
     endDate: today.toISOString().split("T")[0],
     sortBy: "profit",
     manufacturer: "",
+    branchId: "",
   };
 };
-
-const filterConfig = [
-  { key: "startDate", label: "From Date", type: "date" },
-  { key: "endDate", label: "To Date", type: "date" },
-  {
-    key: "sortBy",
-    label: "Sort By",
-    type: "select",
-    options: [
-      { value: "profit", label: "Profit ↓" },
-      { value: "margin", label: "Margin % ↓" },
-      { value: "revenue", label: "Revenue ↓" },
-      { value: "quantity", label: "Quantity ↓" },
-    ],
-  },
-  {
-    key: "manufacturer",
-    label: "",
-    type: "search",
-    placeholder: "Filter by manufacturer...",
-  },
-];
 
 const COLUMNS = [
   { key: "medicine_name", label: "Medicine" },
@@ -125,10 +106,28 @@ const EXPORT_COLUMNS = [
 
 const SalesProfitPage = () => {
   const toast = useToast();
+  const branchContext = useAuthStore(selectBranchContext);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+
   const [filters, setFilters] = useState(defaultFilters());
+  const [branches, setBranches] = useState([]);
   const [data, setData] = useState(null);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await inventoryAPI.getFacets();
+        if (res?.success && res.data) {
+          setBranches(res.data.branches.map((b) => ({ value: b.branch_id, label: b.branch_name })));
+        }
+      } catch (err) {
+        console.error("Facets error:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -144,11 +143,12 @@ const SalesProfitPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, offset]); // eslint-disable-line
+  }, [filters, offset, branchContext]); // eslint-disable-line
 
   useEffect(() => {
+    setOffset(0);
     load();
-  }, [load]);
+  }, [branchContext, load]);
 
   const handleFilterChange = (key, value) => {
     setOffset(0);
@@ -159,6 +159,29 @@ const SalesProfitPage = () => {
     setOffset(0);
     setFilters(defaultFilters());
   };
+
+  const filterConfig = [
+    { key: "startDate", label: "From Date", type: "date" },
+    { key: "endDate", label: "To Date", type: "date" },
+    {
+      key: "sortBy",
+      label: "Sort By",
+      type: "select",
+      options: [
+        { value: "profit", label: "Profit ↓" },
+        { value: "margin", label: "Margin % ↓" },
+        { value: "revenue", label: "Revenue ↓" },
+        { value: "quantity", label: "Quantity ↓" },
+      ],
+    },
+    ...(isGlobalMode ? [{ key: "branchId", label: "Branch", type: "select", options: branches }] : []),
+    {
+      key: "manufacturer",
+      label: "",
+      type: "search",
+      placeholder: "Filter by manufacturer...",
+    },
+  ];
 
   const gt = data?.grand_totals;
 

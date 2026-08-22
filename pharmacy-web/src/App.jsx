@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import {
   BrowserRouter as Router,
   Routes,
@@ -78,6 +80,15 @@ import DayBookPage from "./pages/report/sales/DayBookPage.jsx";
 import PurchaseRegisterPage from "./pages/report/purchase/PurchaseRegisterPage.jsx";
 import PurchaseOutstandingPage from "./pages/report/purchase/PurchaseOutstandingPage.jsx";
 import PurchaseReturnsReportPage from "./pages/report/purchase/PurchaseReturnsPage.jsx";
+
+// ============================================
+// ERP — REPORTS (INVENTORY)
+// ============================================
+import CurrentStockReportPage from "./pages/report/inventory/CurrentStockReportPage.jsx";
+import ExpiryReportPage from "./pages/report/inventory/ExpiryReportPage.jsx";
+import MinStockReorderReportPage from "./pages/report/inventory/MinStockReorderReportPage.jsx";
+import DeadStockReportPage from "./pages/report/inventory/DeadStockReportPage.jsx";
+import StockAdjustmentReportPage from "./pages/report/inventory/StockAdjustmentReportPage.jsx";
 
 // ============================================
 // ERP — SETTINGS PAGES
@@ -503,6 +514,58 @@ const App = () => {
                               permission={PERMISSIONS.REPORTS_PURCHASE}
                             >
                               <PurchaseReturnsReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* ── REPORTS — INVENTORY ── */}
+                        <Route
+                          path="/erp/reports/inventory/current-stock"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <CurrentStockReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/inventory/expiry"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <ExpiryReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/inventory/min-stock"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <MinStockReorderReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/inventory/dead-stock"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <DeadStockReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/inventory/adjustments"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.INVENTORY_VIEW}
+                            >
+                              <StockAdjustmentReportPage />
                             </PermissionGuard>
                           }
                         />

@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { BookOpen } from "lucide-react";
 import reportsAPI from "../../../api/reports";
+import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsGlobalMode } from "../../../store/useAuthStore";
 import ReportPageWrapper from "../shared/ReportPageWrapper";
 import StatCard from "../shared/StatCard";
 import ReportTable from "../shared/ReportTable";
@@ -114,25 +116,46 @@ const RETURNS_COLUMNS = [
 
 const DayBookPage = () => {
   const toast = useToast();
+  const branchContext = useAuthStore(selectBranchContext);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+
   const [date, setDate] = useState(today());
+  const [branches, setBranches] = useState([]);
+  const [branchId, setBranchId] = useState("");
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("invoices");
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await inventoryAPI.getFacets();
+        if (res?.success && res.data) {
+          setBranches(res.data.branches.map((b) => ({ value: b.branch_id, label: b.branch_name })));
+        }
+      } catch (err) {
+        console.error("Facets error:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const load = useCallback(async () => {
     if (!date) return;
     setIsLoading(true);
     try {
-      const res = await reportsAPI.getDayBook({ date });
+      const res = await reportsAPI.getDayBook({ date, branchId });
       setData(res.data);
     } catch (err) {
       toast.error("Error", err?.response?.data?.message || "Failed to load report");
     } finally {
       setIsLoading(false);
     }
-  }, [date]); // eslint-disable-line
+  }, [date, branchId, branchContext]); // eslint-disable-line
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [branchContext, load]);
 
   const sm = data?.summary;
 
@@ -145,9 +168,9 @@ const DayBookPage = () => {
       iconBg="bg-purple-100"
       isLoading={isLoading}
     >
-      {/* Date selector */}
+      {/* Date selector + Branch */}
       <div className="shrink-0 px-5 py-3 border-b border-gray-100 bg-gray-50/50 space-y-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
             <label className="absolute -top-2 left-2 text-[9px] bg-white px-1 font-semibold text-gray-500 z-10">
               Select Date
@@ -166,6 +189,23 @@ const DayBookPage = () => {
           >
             Today
           </button>
+          {isGlobalMode && branches.length > 0 && (
+            <div className="relative">
+              <label className="absolute -top-2 left-2 text-[9px] bg-white px-1 font-semibold text-gray-500 z-10">
+                Branch
+              </label>
+              <select
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                className="h-9 pl-3 pr-7 text-xs border border-gray-200 rounded-lg outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 bg-white appearance-none min-w-[150px]"
+              >
+                <option value="">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Summary KPIs */}

@@ -99,6 +99,47 @@ const reportsAPI = {
     });
     return response.data;
   },
+  getCurrentStockReport: async (filters = {}) => {
+    const response = await API.get("/reports/inventory/current-stock", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getExpiryReport: async (filters = {}) => {
+    const response = await API.get("/reports/inventory/expiry", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getMinStockReport: async (filters = {}) => {
+    const response = await API.get("/reports/inventory/min-stock", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getDeadStockReport: async (filters = {}) => {
+    const response = await API.get("/reports/inventory/dead-stock", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getStockAdjustmentsReport: async (filters = {}) => {
+    const response = await API.get("/reports/inventory/adjustments", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+
 };
 
 export default reportsAPI;

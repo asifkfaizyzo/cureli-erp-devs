@@ -13,14 +13,14 @@ class ApiError extends Error {
 
 class SalesReportService {
   // ─────────────────────────────────────────────────────────────────
-  // HELPER: build date filter
+  // HELPER: build date filter (Timezone-safe UTC bounds)
   // ─────────────────────────────────────────────────────────────────
   _dateFilter(startDate, endDate) {
     if (!startDate || !endDate) return {};
     return {
       invoice_date: {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: new Date(`${startDate}T00:00:00.000Z`),
+        lte: new Date(`${endDate}T23:59:59.999Z`),
       },
     };
   }
@@ -29,8 +29,9 @@ class SalesReportService {
   // A1 — SALES SUMMARY
   // ─────────────────────────────────────────────────────────────────
   async getSalesSummary(shopId, branchId, role, branchMode, filters = {}) {
-    const { startDate, endDate } = filters;
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const { startDate, endDate, branchId: filterBranchId } = filters;
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const baseWhere = {
       ...branchFilter,
@@ -42,8 +43,8 @@ class SalesReportService {
     // Previous period for comparison
     let prevWhere = null;
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      const start = new Date(`${startDate}T00:00:00.000Z`);
+      const end = new Date(`${endDate}T23:59:59.999Z`);
       const diffMs = end - start;
       const prevEnd = new Date(start.getTime() - 1);
       const prevStart = new Date(prevEnd.getTime() - diffMs);
@@ -103,8 +104,8 @@ class SalesReportService {
           ...(startDate && endDate
             ? {
                 payment_date: {
-                  gte: new Date(startDate),
-                  lte: new Date(endDate),
+                  gte: new Date(`${startDate}T00:00:00.000Z`),
+                  lte: new Date(`${endDate}T23:59:59.999Z`),
                 },
               }
             : {}),
@@ -181,11 +182,13 @@ class SalesReportService {
       paymentStatus,
       search,
       staffId,
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -301,11 +304,13 @@ class SalesReportService {
       category,
       manufacturer,
       sortBy = "profit",
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     // Fetch confirmed sales line items with purchase_rate
     const items = await prisma.salesInvoiceItem.findMany({
@@ -363,8 +368,6 @@ class SalesReportService {
       const revenue = lineTotal;
       const cost = purchaseRate * qty;
       const grossProfit = revenue - cost;
-      const marginPct =
-        revenue > 0 ? ((grossProfit / revenue) * 100) : 0;
 
       if (!medicineMap.has(mid)) {
         medicineMap.set(mid, {
@@ -483,11 +486,13 @@ class SalesReportService {
       returnReason,
       approvalStatus,
       search,
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -577,11 +582,13 @@ class SalesReportService {
       customerId,
       paymentMode,
       search,
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       shop_id: shopId,
@@ -592,8 +599,8 @@ class SalesReportService {
       ...(startDate && endDate
         ? {
             payment_date: {
-              gte: new Date(startDate),
-              lte: new Date(endDate),
+              gte: new Date(`${startDate}T00:00:00.000Z`),
+              lte: new Date(`${endDate}T23:59:59.999Z`),
             },
           }
         : {}),
@@ -680,9 +687,17 @@ class SalesReportService {
   // A6 — OUTSTANDING & RECEIVABLES
   // ─────────────────────────────────────────────────────────────────
   async getOutstandingReceivables(shopId, branchId, role, branchMode, filters = {}) {
-    const { customerId, agingBucket, search, limit = 50, offset = 0 } = filters;
+    const {
+      customerId,
+      agingBucket,
+      search,
+      branchId: filterBranchId,
+      limit = 50,
+      offset = 0,
+    } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -733,7 +748,6 @@ class SalesReportService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Compute aging buckets
     const agingBuckets = {
       current: { count: 0, amount: 0 },
       "1_30": { count: 0, amount: 0 },
@@ -777,7 +791,6 @@ class SalesReportService {
       };
     });
 
-    // Filter by aging bucket if provided
     const filtered = agingBucket
       ? enriched.filter((inv) => inv.aging_bucket === agingBucket)
       : enriched;
@@ -822,21 +835,21 @@ class SalesReportService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // A7 — DAY BOOK
+  // A7 — DAY BOOK (FIXED: Timezone-Safe Date Matching)
   // ─────────────────────────────────────────────────────────────────
   async getDayBook(shopId, branchId, role, branchMode, filters = {}) {
-    const { date } = filters;
+    const { date, branchId: filterBranchId } = filters;
 
     if (!date) {
       throw new ApiError("Date is required for Day Book report", 400, "DATE_REQUIRED");
     }
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
-    const targetDate = new Date(date);
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
+
+    // Forces date to evaluate exactly as strict UTC Midnight to prevent local timezone shifts
+    const startOfDay = new Date(`${date}T00:00:00.000Z`);
+    const endOfDay = new Date(`${date}T23:59:59.999Z`);
 
     const dayFilter = {
       invoice_date: { gte: startOfDay, lte: endOfDay },

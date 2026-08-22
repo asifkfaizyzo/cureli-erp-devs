@@ -33,6 +33,7 @@ export async function getPurchaseRegisterController(req, res) {
       supplierId: req.query.supplierId,
       paymentStatus: req.query.paymentStatus,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -59,6 +60,7 @@ export async function getPurchaseOutstandingController(req, res) {
       supplierId: req.query.supplierId,
       agingBucket: req.query.agingBucket,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -88,6 +90,7 @@ export async function getPurchaseReturnsReportController(req, res) {
       returnReason: req.query.returnReason,
       approvalStatus: req.query.approvalStatus,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };

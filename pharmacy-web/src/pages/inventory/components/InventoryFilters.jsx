@@ -25,7 +25,6 @@ import {
   CheckCircle2,
   Check,
   Upload,
-  History,
   ScrollText,
 } from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
@@ -316,7 +315,7 @@ const InventoryFilters = ({
   totalItems = 0,
   onImport,
   onImportHistory,
-  onImportLogs, // ← NEW
+  onImportLogs,
 }) => {
   const searchInputRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -363,7 +362,7 @@ const InventoryFilters = ({
   const branchOptions = useMemo(
     () => [
       { value: "", label: `All Branches (${branches.length})` },
-      ...branches.map((b) => ({ value: b, label: b })),
+      ...branches.map((b) => ({ value: b.branch_id || b, label: b.branch_name || b })),
     ],
     [branches],
   );
@@ -400,12 +399,14 @@ const InventoryFilters = ({
         label: filters.category,
         value: filters.category,
       });
-    if (filters.branch)
+    if (filters.branchId) {
+      const branchName = branches.find((b) => b.branch_id === filters.branchId)?.branch_name || filters.branchId;
       active.push({
-        key: "branch",
-        label: filters.branch,
-        value: filters.branch,
+        key: "branchId",
+        label: branchName,
+        value: filters.branchId,
       });
+    }
     if (filters.lowStock)
       active.push({ key: "lowStock", label: "Low Stock", value: true });
     if (filters.includeExpired)
@@ -414,8 +415,14 @@ const InventoryFilters = ({
         label: "Include Expired",
         value: true,
       });
+    if (filters.expiredOnly)
+      active.push({
+        key: "expiredOnly",
+        label: "Expired Only",
+        value: true,
+      });
     return active;
-  }, [filters, expiryOptions]);
+  }, [filters, expiryOptions, branches]);
 
   const hasActiveFilters = activeFilters.length > 0;
   const activeFilterCount = activeFilters.length;
@@ -426,16 +433,17 @@ const InventoryFilters = ({
     onChange("expiry", "");
     onChange("supplier", "");
     onChange("category", "");
-    onChange("branch", "");
+    onChange("branchId", "");
     onChange("lowStock", false);
     onChange("includeExpired", false);
+    onChange("expiredOnly", false);
   };
 
   const removeFilter = (key) => {
-    if (key === "lowStock" || key === "includeExpired") {
+    if (key === "lowStock" || key === "includeExpired" || key === "expiredOnly") {
       onChange(key, false);
     } else {
-      onChange(key, "");
+      onChange(key === "branch" ? "branchId" : key, "");
     }
   };
 
@@ -552,7 +560,7 @@ const InventoryFilters = ({
             </button>
           )}
 
-          {/* ── Import + History + Logs button group ──────────────────── */}
+          {/* Import + History + Logs button group */}
           {(onImport || onImportHistory || onImportLogs) && (
             <div className="flex items-center border border-indigo-200 rounded-lg overflow-hidden">
               {/* Import button */}
@@ -573,7 +581,7 @@ const InventoryFilters = ({
                 <div className="w-px h-7 bg-indigo-200" />
               )}
 
-              {/* Logs button — full logs panel */}
+              {/* Logs button */}
               {onImportLogs && (
                 <button
                   onClick={onImportLogs}
@@ -587,7 +595,6 @@ const InventoryFilters = ({
               )}
             </div>
           )}
-          {/* ─────────────────────────────────────────────────────────── */}
         </div>
       </div>
 
@@ -614,7 +621,12 @@ const InventoryFilters = ({
               </label>
               <StyledSelect
                 value={filters.status}
-                onChange={(val) => onChange("status", val)}
+                onChange={(val) => {
+                  onChange("status", val);
+                  if (val === "Expired") {
+                    onChange("expiredOnly", true);
+                  }
+                }}
                 options={statusOptions}
                 placeholder="All Status"
               />
@@ -628,7 +640,12 @@ const InventoryFilters = ({
               </label>
               <StyledSelect
                 value={filters.expiry}
-                onChange={(val) => onChange("expiry", val)}
+                onChange={(val) => {
+                  onChange("expiry", val);
+                  if (val === "expired") {
+                    onChange("expiredOnly", true);
+                  }
+                }}
                 options={expiryOptions}
                 placeholder="All Expiry"
               />
@@ -680,8 +697,8 @@ const InventoryFilters = ({
                   Branch
                 </label>
                 <SearchableDropdown
-                  value={filters.branch}
-                  onChange={(val) => onChange("branch", val)}
+                  value={filters.branchId}
+                  onChange={(val) => onChange("branchId", val)}
                   options={branchOptions}
                   placeholder="All Branches"
                   searchPlaceholder="Search branches..."
@@ -725,7 +742,7 @@ const InventoryFilters = ({
                 <span
                   className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
                     filters.lowStock
-                      ? "text-amber-600"
+                      ? "text-amber-600 font-semibold"
                       : "text-slate-600 group-hover:text-amber-600"
                   }`}
                 >
@@ -734,35 +751,75 @@ const InventoryFilters = ({
                 </span>
               </label>
 
-              {/* Include Expired Toggle */}
+              {/* Expired Only Toggle */}
               <label className="flex items-center gap-2.5 cursor-pointer group select-none">
                 <div className="relative">
                   <input
                     type="checkbox"
-                    checked={filters.includeExpired || false}
-                    onChange={(e) =>
-                      onChange("includeExpired", e.target.checked)
-                    }
+                    checked={filters.expiredOnly || false}
+                    onChange={(e) => {
+                      const val = e.target.checked;
+                      onChange("expiredOnly", val);
+                      if (val) {
+                        onChange("includeExpired", true);
+                      }
+                    }}
                     className="sr-only peer"
                   />
                   <div
                     className={`
                       w-9 h-5 rounded-full transition-all duration-200
-                      ${filters.includeExpired ? "bg-red-500" : "bg-slate-200 group-hover:bg-slate-300"}
+                      ${filters.expiredOnly ? "bg-red-600" : "bg-slate-200 group-hover:bg-slate-300"}
                     `}
                   />
                   <div
                     className={`
                       absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
-                      ${filters.includeExpired ? "translate-x-4" : "translate-x-0"}
+                      ${filters.expiredOnly ? "translate-x-4" : "translate-x-0"}
                     `}
                   />
                 </div>
                 <span
                   className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    filters.includeExpired
-                      ? "text-red-600"
+                    filters.expiredOnly
+                      ? "text-red-600 font-bold"
                       : "text-slate-600 group-hover:text-red-600"
+                  }`}
+                >
+                  <Clock size={14} className="text-red-500 animate-pulse" />
+                  Expired Only
+                </span>
+              </label>
+
+              {/* Include Expired Toggle */}
+              <label className="flex items-center gap-2.5 cursor-pointer group select-none">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    disabled={filters.expiredOnly}
+                    checked={filters.includeExpired || filters.expiredOnly || false}
+                    onChange={(e) => onChange("includeExpired", e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div
+                    className={`
+                      w-9 h-5 rounded-full transition-all duration-200
+                      ${filters.includeExpired || filters.expiredOnly ? "bg-indigo-500" : "bg-slate-200 group-hover:bg-slate-300"}
+                      ${filters.expiredOnly ? "opacity-60 cursor-not-allowed" : ""}
+                    `}
+                  />
+                  <div
+                    className={`
+                      absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-200
+                      ${filters.includeExpired || filters.expiredOnly ? "translate-x-4" : "translate-x-0"}
+                    `}
+                  />
+                </div>
+                <span
+                  className={`text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    filters.includeExpired || filters.expiredOnly
+                      ? "text-indigo-600"
+                      : "text-slate-600 group-hover:text-indigo-600"
                   }`}
                 >
                   <Clock size={14} />
@@ -799,12 +856,16 @@ const InventoryFilters = ({
             {activeFilters.map((filter) => (
               <span
                 key={filter.key}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-medium group"
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium group ${
+                  filter.key === "expiredOnly"
+                    ? "bg-red-100 text-red-700 border border-red-200"
+                    : "bg-indigo-100 text-indigo-700"
+                }`}
               >
                 <span className="max-w-[120px] truncate">{filter.label}</span>
                 <button
                   onClick={() => removeFilter(filter.key)}
-                  className="p-0.5 hover:bg-indigo-200 rounded-full transition-colors"
+                  className="p-0.5 hover:bg-black/10 rounded-full transition-colors"
                 >
                   <X size={10} strokeWidth={2.5} />
                 </button>

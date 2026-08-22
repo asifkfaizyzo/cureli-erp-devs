@@ -55,6 +55,7 @@ import prescriptionRequestsMobileRouter from "./src/modules/prescription-request
 import prescriptionRequestsErpRouter    from "./src/modules/prescription-requests/prescription.requests.erp.routes.js";
 import salesReportRoutes from "./src/modules/reports/sales/sales.report.routes.js";
 import purchaseReportRoutes from "./src/modules/reports/purchase/purchase.report.routes.js";
+import inventoryReportRoutes from "./src/modules/reports/inventory/inventory.report.routes.js";
 
 // ============================================
 // CADMIN ROUTES
@@ -262,7 +263,8 @@ app.use("/api/marketplace/dashboard",  marketplaceDashboardRoutes);
 app.use("/api/inventory/import",       inventoryImportRoutes);
 app.use("/api/prescription-requests",  prescriptionRequestsErpRouter);
 app.use("/api/reports/sales",          salesReportRoutes);
-app.use("/api/reports/purchase",       purchaseReportRoutes); // Fixed router -> app
+app.use("/api/reports/purchase",       purchaseReportRoutes); 
+app.use("/api/reports/inventory", inventoryReportRoutes);
 
 // ============================================
 // CADMIN ROUTES

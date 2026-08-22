@@ -33,32 +33,6 @@ function buildBranchFilter(shopId, branchId, role, branchMode) {
 }
 
 /* =====================================================
-   HELPER: Build Sort Order for Prisma
-   Maps pharmacy-web column keys to Prisma orderBy clauses
-===================================================== */
-function buildSortOrder(sortBy, sortOrder) {
-  const direction = sortOrder === "desc" ? "desc" : "asc";
-
-  const sortMap = {
-    batch: { batch_number: direction },
-    expiry: { expiry_date: direction },
-    qty: { current_stock: direction },
-    mrp: { mrp: direction },
-    rack: { rack_no: direction },
-    name: { medicine: { name: direction } },
-    category: { medicine: { category: direction } },
-    manufacturer: { medicine: { manufacturer: direction } },
-    branch: { branch: { branch_name: direction } },
-  };
-
-  if (sortBy && sortMap[sortBy]) {
-    return [sortMap[sortBy]];
-  }
-
-  return [{ expiry_date: "asc" }, { batch_number: "asc" }];
-}
-
-/* =====================================================
    INVENTORY SERVICE
 ===================================================== */
 class InventoryService {
@@ -77,7 +51,7 @@ class InventoryService {
     return null;
   }
 
-  _calculateStockStatus(
+   _calculateStockStatus(
     currentStock,
     inventoryMinStock,
     medicineStockLevels,
@@ -91,6 +65,14 @@ class InventoryService {
     const minStockFromInventory = this._toNumber(inventoryMinStock);
     const effectiveMinStock = minStockFromInventory ?? minStockFromMedicine;
 
+    // ── PRIORITY 1: AVAILABILITY (OUT OF STOCK) ──
+    // If quantity is 0, it is Out of Stock. Expiry alerts on empty batches 
+    // are irrelevant and create false positives for inventory audits.
+    if (stock === 0) return "Out of Stock";
+
+    // ── PRIORITY 2: COMPLIANCE & LEGAL (EXPIRED) ──
+    // If we have physical stock, but it is expired, we must flag it immediately
+    // to block dispensing systems and prevent illegal sales.
     if (isExpired === true) return "Expired";
 
     if (expiryDate) {
@@ -102,12 +84,19 @@ class InventoryService {
         (expDate - today) / (1000 * 60 * 60 * 24),
       );
       if (daysUntilExpiry < 0) return "Expired";
+      
+      // ── PRIORITY 3: LIQUIDATION ALERT (EXPIRING SOON) ──
+      // If we have stock expiring within 30 days, flag it for near-term removal.
       if (daysUntilExpiry <= 30) return "Expiring Soon";
     }
 
-    if (stock === 0) return "Out of Stock";
-    if (effectiveMinStock !== null && stock < effectiveMinStock)
+    // ── PRIORITY 4: REPLENISHMENT ALERT (LOW STOCK) ──
+    // The item is safe to sell, but quantity is below the safety threshold.
+    if (effectiveMinStock !== null && stock < effectiveMinStock) {
       return "Low Stock";
+    }
+
+    // ── PRIORITY 5: HEALTHY (IN STOCK) ──
     return "In Stock";
   }
 
@@ -338,7 +327,7 @@ class InventoryService {
   }
 
   /* ============================================
-     GET INVENTORY — with server-side sorting
+     GET INVENTORY — Dynamic Server-Side Filter & Sort
   ============================================ */
   async getInventory(shopId, branchId, role, branchMode, filters = {}) {
     const {
@@ -346,35 +335,28 @@ class InventoryService {
       search,
       includeExpired = false,
       lowStock = false,
+      expiredOnly = false,
+      status = null,
+      expiry = null,
+      supplier = null,
+      category = null,
+      branchId: filterBranchId = null,
       limit = 100,
       offset = 0,
       sortBy = null,
       sortOrder = "asc",
     } = filters;
 
-    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const baseFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...baseFilter,
       ...(medicineId && { medicine_id: medicineId }),
       is_active: true,
-      ...(!includeExpired && { is_expired: false }),
-      ...(search && {
-        OR: [
-          { medicine: { name: { contains: search, mode: "insensitive" } } },
-          {
-            medicine: {
-              manufacturer: { contains: search, mode: "insensitive" },
-            },
-          },
-          { medicine: { category: { contains: search, mode: "insensitive" } } },
-          { batch_number: { contains: search, mode: "insensitive" } },
-        ],
-      }),
     };
 
-    const orderBy = buildSortOrder(sortBy, sortOrder);
-
+    // ── Load full set to execute precise, compliant, global sorting and filtering ──
     const rawInventories = await prisma.inventory.findMany({
       where,
       include: {
@@ -422,9 +404,6 @@ class InventoryService {
           },
         },
       },
-      orderBy,
-      take: limit,
-      skip: offset,
     });
 
     const purchaseInvoiceIds = rawInventories
@@ -452,7 +431,7 @@ class InventoryService {
       purchaseInvoices.map((inv) => [inv.invoice_id, inv.supplier?.name]),
     );
 
-    const inventories = rawInventories.map((inv) => {
+    let inventories = rawInventories.map((inv) => {
       const firstMovementId = inv.stockMovements?.[0]?.reference_id;
       const supplierName = firstMovementId
         ? supplierMap.get(firstMovementId)
@@ -460,7 +439,7 @@ class InventoryService {
 
       const { stockMovements, ...rest } = inv;
 
-      const status = this._calculateStockStatus(
+      const computedStatus = this._calculateStockStatus(
         rest.current_stock,
         rest.minimum_stock,
         {
@@ -480,7 +459,7 @@ class InventoryService {
       return {
         ...rest,
         supplier_name: supplierName || null,
-        status,
+        status: computedStatus,
         medicine_name: rest.medicine?.name,
         medicine_manufacturer: rest.medicine?.manufacturer,
         medicine_category: resolvedCategory,
@@ -495,12 +474,84 @@ class InventoryService {
       };
     });
 
-    let filteredInventories = inventories;
+    // ── Apply JS Filtering ──
+    if (search) {
+      const s = search.toLowerCase();
+      inventories = inventories.filter(
+        (inv) =>
+          inv.medicine_name?.toLowerCase().includes(s) ||
+          inv.medicine_manufacturer?.toLowerCase().includes(s) ||
+          inv.medicine_category?.toLowerCase().includes(s) ||
+          inv.batch_number?.toLowerCase().includes(s) ||
+          inv.supplier_name?.toLowerCase().includes(s),
+      );
+    }
+
+    if (status) {
+      inventories = inventories.filter(
+        (inv) => inv.status.toLowerCase() === status.toLowerCase(),
+      );
+    }
+
+    if (expiry) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      inventories = inventories.filter((inv) => {
+        const expDate = inv.expiry_date ? new Date(inv.expiry_date) : null;
+        if (!expDate) return expiry !== "expired";
+        expDate.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+
+        if (expiry === "expired") {
+          return inv.is_expired === true || diffDays < 0;
+        }
+        if (expiry === "30days") {
+          return diffDays >= 0 && diffDays <= 30;
+        }
+        if (expiry === "90days") {
+          return diffDays >= 0 && diffDays <= 90;
+        }
+        if (expiry === "valid") {
+          return !inv.is_expired && diffDays > 90;
+        }
+        return true;
+      });
+    }
+
+    if (expiredOnly) {
+      inventories = inventories.filter((inv) => inv.status === "Expired");
+    }
+
+    if (!includeExpired && !expiredOnly && !expiry && !status) {
+      inventories = inventories.filter((inv) => inv.status !== "Expired");
+    }
+
     if (lowStock) {
-      filteredInventories = inventories.filter(
+      inventories = inventories.filter(
         (inv) => inv.status === "Low Stock" || inv.status === "Out of Stock",
       );
     }
+
+    if (category) {
+      inventories = inventories.filter(
+        (inv) => inv.medicine_category?.toLowerCase() === category.toLowerCase(),
+      );
+    }
+
+    if (supplier) {
+      inventories = inventories.filter(
+        (inv) => inv.supplier_name?.toLowerCase() === supplier.toLowerCase(),
+      );
+    }
+
+    if (filterBranchId) {
+      inventories = inventories.filter((inv) => inv.branch_id === filterBranchId);
+    }
+
+    // ── Apply JS Global Sorting ──
+    const dir = sortOrder === "desc" ? -1 : 1;
 
     if (sortBy === "status") {
       const statusOrder = [
@@ -510,26 +561,114 @@ class InventoryService {
         "Expired",
         "In Stock",
       ];
-      const dir = sortOrder === "desc" ? -1 : 1;
-      filteredInventories.sort((a, b) => {
+      inventories.sort((a, b) => {
         const aIdx = statusOrder.indexOf(a.status);
         const bIdx = statusOrder.indexOf(b.status);
         return (aIdx - bIdx) * dir;
       });
-    }
-
-    if (sortBy === "supplier") {
-      const dir = sortOrder === "desc" ? -1 : 1;
-      filteredInventories.sort((a, b) => {
+    } else if (sortBy === "supplier") {
+      inventories.sort((a, b) => {
         const aVal = (a.supplier_name || "").toLowerCase();
         const bVal = (b.supplier_name || "").toLowerCase();
         return aVal.localeCompare(bVal) * dir;
       });
+    } else if (sortBy === "name") {
+      inventories.sort((a, b) => {
+        const aVal = (a.medicine_name || "").toLowerCase();
+        const bVal = (b.medicine_name || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else if (sortBy === "category") {
+      inventories.sort((a, b) => {
+        const aVal = (a.medicine_category || "").toLowerCase();
+        const bVal = (b.medicine_category || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else if (sortBy === "manufacturer") {
+      inventories.sort((a, b) => {
+        const aVal = (a.medicine_manufacturer || "").toLowerCase();
+        const bVal = (b.medicine_manufacturer || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else if (sortBy === "branch") {
+      inventories.sort((a, b) => {
+        const aVal = (a.branch?.branch_name || "").toLowerCase();
+        const bVal = (b.branch?.branch_name || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else if (sortBy === "batch") {
+      inventories.sort((a, b) => {
+        const aVal = (a.batch_number || "").toLowerCase();
+        const bVal = (b.batch_number || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else if (sortBy === "expiry") {
+      inventories.sort((a, b) => {
+        const aVal = a.expiry_date ? new Date(a.expiry_date).getTime() : 0;
+        const bVal = b.expiry_date ? new Date(b.expiry_date).getTime() : 0;
+        return (aVal - bVal) * dir;
+      });
+    } else if (sortBy === "qty") {
+      inventories.sort((a, b) => {
+        const aVal = Number(a.current_stock || 0);
+        const bVal = Number(b.current_stock || 0);
+        return (aVal - bVal) * dir;
+      });
+    } else if (sortBy === "mrp") {
+      inventories.sort((a, b) => {
+        const aVal = Number(a.mrp || 0);
+        const bVal = Number(b.mrp || 0);
+        return (aVal - bVal) * dir;
+      });
+    } else if (sortBy === "rack") {
+      inventories.sort((a, b) => {
+        const aVal = (a.rack_no || "").toLowerCase();
+        const bVal = (b.rack_no || "").toLowerCase();
+        return aVal.localeCompare(bVal) * dir;
+      });
+    } else {
+      // Default Sort: Expiry Ascending, then Batch Ascending
+      inventories.sort((a, b) => {
+        const aExp = a.expiry_date ? new Date(a.expiry_date).getTime() : 0;
+        const bExp = b.expiry_date ? new Date(b.expiry_date).getTime() : 0;
+        if (aExp !== bExp) return aExp - bExp;
+        return (a.batch_number || "").localeCompare(b.batch_number || "");
+      });
     }
 
-    const total = await prisma.inventory.count({ where });
+    const total = inventories.length;
+    const paginatedItems = inventories.slice(offset, offset + limit);
 
-    return { inventories: filteredInventories, total };
+    return { inventories: paginatedItems, total };
+  }
+
+  /* ============================================
+     GET DYNAMIC FILTER METADATA (FACETS)
+  ============================================ */
+  async getInventoryFacets(shopId, branchId, role, branchMode) {
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
+    const medicinesWithCategories = await prisma.medicine.findMany({
+      where: {
+        shop_id: shopId,
+        ...(baseFilter.branch_id && { branch_id: baseFilter.branch_id }),
+        is_active: true,
+        category: { not: null },
+      },
+      distinct: ["category"],
+      select: { category: true },
+    });
+
+    const categories = medicinesWithCategories
+      .map((m) => m.category)
+      .filter(Boolean);
+
+    const branches = await prisma.branch.findMany({
+      where: { shop_id: shopId, is_active: true },
+      select: { branch_id: true, branch_name: true },
+    });
+
+    return { categories, branches };
   }
 
   async getInventoryByMedicine(
@@ -1289,9 +1428,6 @@ class InventoryService {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // NEW METHOD: createInventoryWithMedicine
-  // ─────────────────────────────────────────────────────────────────────────
   async createInventoryWithMedicine(data, shopId, branchId, userId) {
     if (!branchId) {
       throw new ApiError(
@@ -1302,7 +1438,6 @@ class InventoryService {
     }
 
     const {
-      // Medicine fields
       name,
       manufacturer,
       generic_name,
@@ -1319,8 +1454,6 @@ class InventoryService {
       min_stock_level,
       max_stock_level,
       reorder_point,
-
-      // Inventory / batch fields
       batch_number,
       expiry_date,
       quantity,
@@ -1331,7 +1464,6 @@ class InventoryService {
     } = data;
 
     return prisma.$transaction(async (tx) => {
-      // ── 1. Duplicate medicine check ──────────────────────────────────────
       const existingMedicine = await tx.medicine.findFirst({
         where: {
           shop_id: shopId,
@@ -1346,25 +1478,19 @@ class InventoryService {
       if (existingMedicine) {
         medicine = existingMedicine;
       } else {
-        // ── 2. Create medicine master record ─────────────────────────────
         medicine = await tx.medicine.create({
           data: {
-            // ── Required relations — must use connect ──────────────────────────
             shop: {
               connect: { shop_id: shopId },
             },
             creator: {
               connect: { user_id: userId },
             },
-
-            // ── Optional relation — branch_id is nullable so connect only if present
             ...(branchId && {
               branch: {
                 connect: { branch_id: branchId },
               },
             }),
-
-            // ── Plain scalar fields — no relation defined for these ────────────
             name: name.trim(),
             manufacturer: manufacturer.trim(),
             generic_name: generic_name?.trim() || null,
@@ -1381,13 +1507,10 @@ class InventoryService {
             min_stock_level: min_stock_level ?? null,
             max_stock_level: max_stock_level ?? null,
             reorder_point: reorder_point ?? null,
-            // link_status omitted — uses @default(PENDING)
-            // master_medicine_id omitted — nullable, defaults to null
           },
         });
       }
 
-      // ── 3. Duplicate batch check ─────────────────────────────────────────
       const existingBatch = await tx.inventory.findFirst({
         where: {
           shop_id: shopId,
@@ -1406,7 +1529,6 @@ class InventoryService {
         );
       }
 
-      // ── 4. Parse and validate expiry date ────────────────────────────────
       const parsedExpiry = this._parseExpiryDate(expiry_date);
       if (!parsedExpiry) {
         throw new ApiError("Invalid expiry date format", 400, "INVALID_EXPIRY");
@@ -1416,7 +1538,6 @@ class InventoryService {
       today.setHours(0, 0, 0, 0);
       const isExpired = parsedExpiry < today;
 
-      // ── 5. Create inventory record ───────────────────────────────────────
       const inventory = await tx.inventory.create({
         data: {
           shop_id: shopId,
@@ -1437,7 +1558,6 @@ class InventoryService {
         },
       });
 
-      // ── 6. Stock ledger entry ────────────────────────────────────────────
       if (quantity > 0) {
         await tx.stockLedger.create({
           data: {
@@ -1464,7 +1584,6 @@ class InventoryService {
         });
       }
 
-      // ── 7. Compute status for response ───────────────────────────────────
       const status = this._calculateStockStatus(
         quantity,
         minimum_stock,

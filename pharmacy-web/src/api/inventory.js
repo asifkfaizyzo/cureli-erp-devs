@@ -23,6 +23,13 @@ const inventoryAPI = {
     return response.data;
   },
 
+  getFacets: async () => {
+    const response = await api.get("/inventory/facets", {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
   getByMedicine: async (medicineId, filters = {}) => {
     const response = await api.get(`/inventory/medicine/${medicineId}`, {
       params: filters,
@@ -55,14 +62,12 @@ const inventoryAPI = {
     return response.data;
   },
 
-  // ── NEW ──────────────────────────────────────────────────────────────────
   createWithMedicine: async (data) => {
     const response = await api.post("/inventory/create-with-medicine", data, {
       headers: getBranchHeaders(),
     });
     return response.data;
   },
-  // ─────────────────────────────────────────────────────────────────────────
 
   update: async (inventoryId, data) => {
     const response = await api.put(`/inventory/${inventoryId}`, data, {

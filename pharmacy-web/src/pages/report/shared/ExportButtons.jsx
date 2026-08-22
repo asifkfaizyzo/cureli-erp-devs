@@ -1,11 +1,51 @@
 // pharmacy-web/src/pages/report/shared/ExportButtons.jsx
 
 import { useState } from "react";
-import { Download, FileText, Sheet, Printer } from "lucide-react";
+import { Download, FileText, Sheet, Printer, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const ExportButtons = ({ data = [], filename = "report", columns = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  // ── 1. EXCEL EXPORT (.xlsx) ──────────────────────────────────────────────
+  const handleExcel = () => {
+    if (!data.length) return;
+
+    // Transform data according to defined columns
+    const excelRows = data.map((row) => {
+      const rowObj = {};
+      columns.forEach((col) => {
+        const val = row[col.key] ?? "";
+        // If numeric string, convert to Number for Excel formulas/formatting
+        rowObj[col.label] = !isNaN(val) && val !== "" && typeof val !== "boolean"
+          ? Number(val)
+          : val;
+      });
+      return rowObj;
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+    // Auto-fit column widths
+    const colWidths = columns.map((col) => {
+      const maxLen = Math.max(
+        col.label.length,
+        ...data.map((row) => String(row[col.key] ?? "").length),
+      );
+      return { wch: Math.min(Math.max(maxLen + 3, 12), 50) };
+    });
+    worksheet["!cols"] = colWidths;
+
+    // Create workbook and write file
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    setIsOpen(false);
+  };
+
+  // ── 2. CSV EXPORT (.csv) ─────────────────────────────────────────────────
   const handleCSV = () => {
     if (!data.length) return;
 
@@ -14,7 +54,6 @@ const ExportButtons = ({ data = [], filename = "report", columns = [] }) => {
       columns
         .map((col) => {
           const val = row[col.key] ?? "";
-          // Escape commas and quotes
           const str = String(val).replace(/"/g, '""');
           return str.includes(",") || str.includes('"') ? `"${str}"` : str;
         })
@@ -26,12 +65,13 @@ const ExportButtons = ({ data = [], filename = "report", columns = [] }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${filename}.csv`;
+    a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     setIsOpen(false);
   };
 
+  // ── 3. PRINT ─────────────────────────────────────────────────────────────
   const handlePrint = () => {
     window.print();
     setIsOpen(false);
@@ -53,20 +93,32 @@ const ExportButtons = ({ data = [], filename = "report", columns = [] }) => {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[140px]">
+          <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-gray-200 py-1 min-w-[160px] animate-in fade-in zoom-in-95 duration-100">
+            {/* Excel Option */}
+            <button
+              onClick={handleExcel}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors font-medium"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" />
+              Export Excel (.xlsx)
+            </button>
+
+            {/* CSV Option */}
             <button
               onClick={handleCSV}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors font-medium"
             >
-              <Sheet size={14} className="text-green-600" />
-              Export CSV
+              <Sheet size={15} className="text-blue-600" />
+              Export CSV (.csv)
             </button>
+
+            {/* Print Option */}
             <button
               onClick={handlePrint}
-              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors font-medium border-t border-gray-100"
             >
-              <Printer size={14} className="text-gray-600" />
-              Print
+              <Printer size={15} className="text-gray-600" />
+              Print Report
             </button>
           </div>
         </>

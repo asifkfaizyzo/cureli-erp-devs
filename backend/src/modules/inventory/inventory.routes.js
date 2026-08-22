@@ -21,12 +21,13 @@ router.get("/low-stock", inventoryController.getLowStock);
 router.get("/expiring-soon", inventoryController.getExpiringSoon);
 router.get("/medicine/:medicineId", inventoryController.getByMedicine);
 
+// ── NEW: Expose filter facets metadata ────────────────────────────────────
+router.get("/facets", inventoryController.getInventoryFacets);
+
 // ── Stock ledger ───────────────────────────────────────────────────────────
 router.get("/ledger", inventoryController.getStockLedger);
 
 // ── NEW: Create inventory + medicine in one shot ───────────────────────────
-// IMPORTANT: Must be defined BEFORE /:inventoryId routes so Express does not
-// treat "create-with-medicine" as an inventoryId parameter value.
 router.post(
   "/create-with-medicine",
   validate(createInventoryWithMedicineSchema),
@@ -41,7 +42,6 @@ router.post(
 );
 
 // ── CRUD on existing inventory items ──────────────────────────────────────
-// These must come AFTER all fixed-path POST/GET routes above.
 router.put(
   "/:inventoryId",
   validate(updateInventorySchema),

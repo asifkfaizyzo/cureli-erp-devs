@@ -1,7 +1,7 @@
-// pharmacy-web/src/pages/report/sales/SalesRegisterPage.jsx
+// pharmacy-web/src/pages/report/inventory/StockAdjustmentReportPage.jsx
 
-import { useState, useEffect, useCallback } from "react";
-import { FileText } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Shield } from "lucide-react";
 import reportsAPI from "../../../api/reports";
 import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
@@ -19,16 +19,14 @@ const defaultFilters = () => {
   return {
     startDate: firstOfMonth.toISOString().split("T")[0],
     endDate: today.toISOString().split("T")[0],
-    paymentStatus: "",
-    search: "",
+    reasonType: "",
     branchId: "",
   };
 };
 
 const COLUMNS = [
-  { key: "invoice_number", label: "Invoice No", width: "w-36" },
   {
-    key: "invoice_date",
+    key: "adjustment_date",
     label: "Date",
     width: "w-28",
     render: (v) =>
@@ -40,74 +38,52 @@ const COLUMNS = [
           })
         : "-",
   },
-  { key: "customer_name", label: "Customer" },
-  { key: "item_count", label: "Items", align: "center", width: "w-16" },
+  { key: "medicine_name", label: "Medicine" },
+  { key: "batch_number", label: "Batch", align: "center", width: "w-24" },
+  { key: "old_quantity", label: "Old Stock", align: "center" },
+  { key: "new_quantity", label: "New Stock", align: "center" },
   {
-    key: "subtotal",
-    label: "Subtotal",
-    align: "right",
-    render: (v) => `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-  },
-  {
-    key: "total_discount",
-    label: "Discount",
-    align: "right",
-    render: (v) => `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-  },
-  {
-    key: "total_tax",
-    label: "Tax",
-    align: "right",
-    render: (v) => `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-  },
-  {
-    key: "net_amount",
-    label: "Net Amount",
-    align: "right",
-    render: (v) => (
-      <span className="font-semibold">
-        ₹{Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-      </span>
-    ),
-  },
-  {
-    key: "payment_status",
-    label: "Payment",
+    key: "variance",
+    label: "Variance",
     align: "center",
     render: (v) => {
-      const colors = {
-        PAID: "bg-green-100 text-green-700",
-        PARTIALLY_PAID: "bg-amber-100 text-amber-700",
-        UNPAID: "bg-red-100 text-red-700",
-      };
+      const isPositive = Number(v) > 0;
       return (
-        <span
-          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[v] || "bg-gray-100 text-gray-600"}`}
-        >
-          {v?.replace("_", " ") || "-"}
+        <span className={`font-bold ${isPositive ? "text-green-600" : "text-red-600"}`}>
+          {isPositive ? `+${v}` : v}
         </span>
       );
     },
   },
-  { key: "payment_modes", label: "Mode", align: "center" },
-  { key: "billed_by", label: "Billed By" },
+  {
+    key: "reason",
+    label: "Adjustment Reason",
+    render: (v, row) => (
+      <div>
+        <p className="font-semibold text-gray-800">{v?.replace(/_/g, " ")}</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">{row.reason_notes}</p>
+      </div>
+    ),
+  },
+  { key: "adjusted_by", label: "Adjusted By" },
+  { key: "approved_by", label: "Authorized By" },
 ];
 
 const EXPORT_COLUMNS = [
-  { key: "invoice_number", label: "Invoice No" },
-  { key: "invoice_date", label: "Date" },
-  { key: "customer_name", label: "Customer" },
-  { key: "item_count", label: "Items" },
-  { key: "subtotal", label: "Subtotal" },
-  { key: "total_discount", label: "Discount" },
-  { key: "total_tax", label: "Tax" },
-  { key: "net_amount", label: "Net Amount" },
-  { key: "payment_status", label: "Payment Status" },
-  { key: "payment_modes", label: "Payment Mode" },
-  { key: "billed_by", label: "Billed By" },
+  { key: "adjustment_date", label: "Date" },
+  { key: "medicine_name", label: "Medicine" },
+  { key: "batch_number", label: "Batch" },
+  { key: "old_quantity", label: "Old Quantity" },
+  { key: "new_quantity", label: "New Quantity" },
+  { key: "variance", label: "Variance" },
+  { key: "reason", label: "Reason Class" },
+  { key: "reason_notes", label: "Staff Description" },
+  { key: "adjusted_by", label: "Adjusted By" },
+  { key: "approved_by", label: "Authorized By" },
+  { key: "branch_name", label: "Branch" },
 ];
 
-const SalesRegisterPage = () => {
+const StockAdjustmentReportPage = () => {
   const toast = useToast();
   const branchContext = useAuthStore(selectBranchContext);
   const isGlobalMode = useAuthStore(selectIsGlobalMode);
@@ -135,7 +111,7 @@ const SalesRegisterPage = () => {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await reportsAPI.getSalesRegister({
+      const res = await reportsAPI.getStockAdjustmentsReport({
         ...filters,
         limit: LIMIT,
         offset,
@@ -167,46 +143,31 @@ const SalesRegisterPage = () => {
     { key: "startDate", label: "From Date", type: "date" },
     { key: "endDate", label: "To Date", type: "date" },
     {
-      key: "paymentStatus",
-      label: "Payment Status",
+      key: "reasonType",
+      label: "Reason",
       type: "select",
       options: [
-        { value: "PAID", label: "Paid" },
-        { value: "PARTIALLY_PAID", label: "Partial" },
-        { value: "UNPAID", label: "Unpaid" },
+        { value: "PHYSICAL_COUNT_VARIANCE", label: "Physical Count Discrepancy" },
+        { value: "DAMAGED_GOODS", label: "Damaged Stock" },
+        { value: "EXPIRED_GOODS", label: "Expired Stock" },
+        { value: "SYSTEM_CORRECTION", label: "System Correction" },
+        { value: "THEFT_LOSS", label: "Loss / Theft" },
+        { value: "OTHER", label: "Other" },
       ],
     },
     ...(isGlobalMode ? [{ key: "branchId", label: "Branch", type: "select", options: branches }] : []),
-    { key: "search", label: "", type: "search", placeholder: "Search invoice / customer..." },
   ];
-
-  const totals = data?.totals;
-  const footerRow = totals
-    ? {
-        invoice_number: "TOTALS",
-        invoice_date: "",
-        customer_name: "",
-        item_count: "",
-        subtotal: `₹${totals.subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        total_discount: `₹${totals.total_discount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        total_tax: `₹${totals.total_tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        net_amount: `₹${totals.net_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        payment_status: "",
-        payment_modes: "",
-        billed_by: "",
-      }
-    : null;
 
   return (
     <ReportPageWrapper
-      title="Sales Register"
-      subtitle="Complete invoice-by-invoice sales record"
-      icon={FileText}
-      iconColor="text-blue-600"
-      iconBg="bg-blue-100"
+      title="Stock Adjustment Log"
+      subtitle="Full transparency audit trail of stock counts modified by hand"
+      icon={Shield}
+      iconColor="text-violet-600"
+      iconBg="bg-violet-100"
       isLoading={isLoading}
-      exportData={data?.invoices || []}
-      exportFilename="sales_register"
+      exportData={data?.records || []}
+      exportFilename="manual_stock_adjustments_audit"
       exportColumns={EXPORT_COLUMNS}
     >
       <div className="shrink-0 px-5 py-3 border-b border-gray-100 bg-gray-50/50">
@@ -221,9 +182,8 @@ const SalesRegisterPage = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <ReportTable
           columns={COLUMNS}
-          rows={data?.invoices || []}
-          footerRow={footerRow}
-          emptyMessage="No sales invoices found"
+          rows={data?.records || []}
+          emptyMessage="No adjustments on file during this selection range"
         />
         <ReportPagination
           total={data?.total || 0}
@@ -236,4 +196,4 @@ const SalesRegisterPage = () => {
   );
 };
 
-export default SalesRegisterPage;
+export default StockAdjustmentReportPage;

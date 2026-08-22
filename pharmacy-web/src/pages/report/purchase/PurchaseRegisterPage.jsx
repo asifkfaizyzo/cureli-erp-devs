@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { ShoppingCart } from "lucide-react";
 import reportsAPI from "../../../api/reports";
+import inventoryAPI from "../../../api/inventory";
 import { useToast } from "../../../components/common/Toast";
+import { useAuthStore, selectBranchContext, selectIsGlobalMode } from "../../../store/useAuthStore";
 import ReportPageWrapper from "../shared/ReportPageWrapper";
 import ReportFiltersBar from "../shared/ReportFiltersBar";
 import ReportTable from "../shared/ReportTable";
@@ -19,28 +21,13 @@ const defaultFilters = () => {
     endDate: today.toISOString().split("T")[0],
     paymentStatus: "",
     search: "",
+    branchId: "",
   };
 };
 
-const filterConfig = [
-  { key: "startDate", label: "From Date", type: "date" },
-  { key: "endDate", label: "To Date", type: "date" },
-  {
-    key: "paymentStatus",
-    label: "Payment Status",
-    type: "select",
-    options: [
-      { value: "PAID", label: "Paid" },
-      { value: "PARTIALLY_PAID", label: "Partial" },
-      { value: "UNPAID", label: "Unpaid" },
-    ],
-  },
-  { key: "search", label: "", type: "search", placeholder: "Search invoice / supplier..." },
-];
-
 const COLUMNS = [
   { key: "invoice_number", label: "Invoice No", width: "w-32" },
-  { key: "supplier_invoice_no", label: "Supplier Inv", width: "w-28" }, // Fixed field mapping
+  { key: "supplier_invoice_no", label: "Supplier Inv", width: "w-28" },
   {
     key: "invoice_date",
     label: "Date",
@@ -108,7 +95,7 @@ const COLUMNS = [
 
 const EXPORT_COLUMNS = [
   { key: "invoice_number", label: "Invoice No" },
-  { key: "supplier_invoice_no", label: "Supplier Invoice" }, // Fixed field mapping
+  { key: "supplier_invoice_no", label: "Supplier Invoice" },
   { key: "invoice_date", label: "Date" },
   { key: "supplier_name", label: "Supplier" },
   { key: "item_count", label: "Items" },
@@ -122,10 +109,28 @@ const EXPORT_COLUMNS = [
 
 const PurchaseRegisterPage = () => {
   const toast = useToast();
+  const branchContext = useAuthStore(selectBranchContext);
+  const isGlobalMode = useAuthStore(selectIsGlobalMode);
+
   const [filters, setFilters] = useState(defaultFilters());
+  const [branches, setBranches] = useState([]);
   const [data, setData] = useState(null);
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await inventoryAPI.getFacets();
+        if (res?.success && res.data) {
+          setBranches(res.data.branches.map((b) => ({ value: b.branch_id, label: b.branch_name })));
+        }
+      } catch (err) {
+        console.error("Facets error:", err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -141,9 +146,12 @@ const PurchaseRegisterPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filters, offset]); // eslint-disable-line
+  }, [filters, offset, branchContext]); // eslint-disable-line
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    setOffset(0);
+    load();
+  }, [branchContext, load]);
 
   const handleFilterChange = (key, value) => {
     setOffset(0);
@@ -154,6 +162,23 @@ const PurchaseRegisterPage = () => {
     setOffset(0);
     setFilters(defaultFilters());
   };
+
+  const filterConfig = [
+    { key: "startDate", label: "From Date", type: "date" },
+    { key: "endDate", label: "To Date", type: "date" },
+    {
+      key: "paymentStatus",
+      label: "Payment Status",
+      type: "select",
+      options: [
+        { value: "PAID", label: "Paid" },
+        { value: "PARTIALLY_PAID", label: "Partial" },
+        { value: "UNPAID", label: "Unpaid" },
+      ],
+    },
+    ...(isGlobalMode ? [{ key: "branchId", label: "Branch", type: "select", options: branches }] : []),
+    { key: "search", label: "", type: "search", placeholder: "Search invoice / supplier..." },
+  ];
 
   const totals = data?.totals;
   const footerRow = totals

@@ -35,11 +35,14 @@ class PurchaseReportService {
       supplierId,
       paymentStatus,
       search,
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    // Priority: dropdown branchId over header branchId
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -97,7 +100,10 @@ class PurchaseReportService {
             select: { payment_mode: true, amount: true },
           },
         },
-        orderBy: { invoice_date: "desc" },
+        orderBy: [
+          { invoice_date: "desc" },
+          { invoice_number: "desc" },
+        ],
         take: Number(limit),
         skip: Number(offset),
       }),
@@ -157,9 +163,17 @@ class PurchaseReportService {
   // B2 — PURCHASE OUTSTANDING & PAYABLES
   // ─────────────────────────────────────────────────────────────────
   async getPurchaseOutstanding(shopId, branchId, role, branchMode, filters = {}) {
-    const { supplierId, agingBucket, search, limit = 50, offset = 0 } = filters;
+    const {
+      supplierId,
+      agingBucket,
+      search,
+      branchId: filterBranchId,
+      limit = 50,
+      offset = 0,
+    } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -199,7 +213,10 @@ class PurchaseReportService {
           },
           branch: { select: { branch_name: true } },
         },
-        orderBy: { invoice_date: "asc" },
+        orderBy: [
+          { invoice_date: "asc" },
+          { invoice_number: "asc" },
+        ],
         take: Number(limit),
         skip: Number(offset),
       }),
@@ -310,11 +327,13 @@ class PurchaseReportService {
       returnReason,
       approvalStatus,
       search,
+      branchId: filterBranchId,
       limit = 50,
       offset = 0,
     } = filters;
 
-    const branchFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+    const queryBranchId = filterBranchId || branchId;
+    const branchFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
 
     const where = {
       ...branchFilter,
@@ -364,7 +383,10 @@ class PurchaseReportService {
           creator: { select: { full_name: true } },
           branch: { select: { branch_name: true } },
         },
-        orderBy: { invoice_date: "desc" },
+        orderBy: [
+          { invoice_date: "desc" },
+          { invoice_number: "desc" },
+        ],
         take: Number(limit),
         skip: Number(offset),
       }),

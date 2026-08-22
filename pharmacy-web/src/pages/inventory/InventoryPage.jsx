@@ -23,6 +23,7 @@ import StockAdjustmentModal  from "./components/StockAdjustmentModal";
 import ConfirmDialog         from "../../components/common/ConfirmDialog";
 import AddInventoryModal     from "./components/AddInventoryModal";
 import inventoryAPI          from "../../api/inventory";
+import suppliersAPI          from "../../api/suppliers";
 import useDynamicRowCount    from "../../hooks/useDynamicRowCount";
 import {
   Package,
@@ -182,11 +183,16 @@ const InventoryPage = () => {
     expiry:         "",
     supplier:       "",
     category:       "",
-    branch:         "",
     branchId:       "",
     includeExpired: false,
     lowStock:       false,
+    expiredOnly:    false,
   });
+
+  // Dynamic filter lists
+  const [suppliers, setSuppliers]   = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [branches, setBranches]     = useState([]);
 
   const [sortConfig, setSortConfig] = useState({ sortBy: null, order: null });
 
@@ -201,7 +207,41 @@ const InventoryPage = () => {
   const [addInventoryModalOpen, setAddInventoryModalOpen] = useState(false);
   const [importModalOpen,       setImportModalOpen]       = useState(false);
   const [historyDrawerOpen,     setHistoryDrawerOpen]     = useState(false);
-  const [logsPanelOpen,         setLogsPanelOpen]         = useState(false); // ← NEW
+  const [logsPanelOpen,         setLogsPanelOpen]         = useState(false);
+
+  // ── Load Facets Metadata ──────────────────────────────────────────────────
+
+  const loadFacets = useCallback(async () => {
+    try {
+      const res = await inventoryAPI.getFacets();
+      if (res?.success && res.data) {
+        setCategories(res.data.categories || []);
+        setBranches(res.data.branches || []);
+      }
+    } catch (error) {
+      console.error("Failed to load metadata facets:", error);
+    }
+  }, []);
+
+  const loadSuppliersList = useCallback(async () => {
+    try {
+      const res = await suppliersAPI.getAll({ limit: 1000 });
+      let supplierList = [];
+      if (res?.success && Array.isArray(res.data)) {
+        supplierList = res.data;
+      } else if (Array.isArray(res)) {
+        supplierList = res;
+      }
+      setSuppliers(supplierList.map((s) => s.name).filter(Boolean));
+    } catch (error) {
+      console.error("Failed to load suppliers:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFacets();
+    loadSuppliersList();
+  }, [loadFacets, loadSuppliersList, branchContext.branch_id, branchContext.mode]);
 
   // ── Build API filters ─────────────────────────────────────────────────────
 
@@ -214,6 +254,12 @@ const InventoryPage = () => {
     if (filters.search)         apiFilters.search         = filters.search;
     if (filters.includeExpired) apiFilters.includeExpired = true;
     if (filters.lowStock)       apiFilters.lowStock       = true;
+    if (filters.expiredOnly)    apiFilters.expiredOnly    = true;
+
+    if (filters.status)         apiFilters.status         = filters.status;
+    if (filters.expiry)         apiFilters.expiry         = filters.expiry;
+    if (filters.supplier)       apiFilters.supplier       = filters.supplier;
+    if (filters.category)       apiFilters.category       = filters.category;
 
     if (!isGlobalMode && branchContext.branch_id) {
       apiFilters.branchId = branchContext.branch_id;
@@ -229,8 +275,13 @@ const InventoryPage = () => {
     return apiFilters;
   }, [
     filters.search,
+    filters.status,
+    filters.expiry,
+    filters.supplier,
+    filters.category,
     filters.includeExpired,
     filters.lowStock,
+    filters.expiredOnly,
     filters.branchId,
     sortConfig.sortBy,
     sortConfig.order,
@@ -258,12 +309,13 @@ const InventoryPage = () => {
         setCurrentPage(1);
         await fetchInventory(buildApiFilters(1));
         await fetchStats();
+        await loadFacets();
       } catch (error) {
         console.error("Add inventory error:", error);
         throw error;
       }
     },
-    [toast, fetchInventory, fetchStats, buildApiFilters]
+    [toast, fetchInventory, fetchStats, loadFacets, buildApiFilters]
   );
 
   const handleImportSuccess = useCallback(async () => {
@@ -271,8 +323,9 @@ const InventoryPage = () => {
     await fetchInventory(buildApiFilters(1));
     await fetchStats();
     await refreshCatalogStatus();
+    await loadFacets();
     toast.success("Import Complete", "Inventory has been updated.");
-  }, [fetchInventory, fetchStats, refreshCatalogStatus, buildApiFilters, toast]);
+  }, [fetchInventory, fetchStats, refreshCatalogStatus, loadFacets, buildApiFilters, toast]);
 
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -300,6 +353,8 @@ const InventoryPage = () => {
         fetchInventory(buildApiFilters(1)),
         fetchStats(),
         refreshCatalogStatus(),
+        loadFacets(),
+        loadSuppliersList(),
       ]);
       toast.success("Refreshed", "Inventory data updated");
     } catch (error) {
@@ -350,6 +405,7 @@ const InventoryPage = () => {
       setOpenModal(false);
       setSelectedItem(null);
       await fetchInventory(buildApiFilters(currentPage));
+      await loadFacets();
     } catch (error) {
       console.error("Failed to save inventory item:", error);
       toast.error(
@@ -441,9 +497,14 @@ const InventoryPage = () => {
     return () => clearTimeout(timeout);
   }, [
     filters.search,
+    filters.status,
+    filters.expiry,
+    filters.supplier,
+    filters.category,
     filters.branchId,
     filters.includeExpired,
     filters.lowStock,
+    filters.expiredOnly,
     sortConfig.sortBy,
     sortConfig.order,
     currentPage,
@@ -507,9 +568,9 @@ const InventoryPage = () => {
         <InventoryFilters
           filters={filters}
           onChange={handleFilterChange}
-          suppliers={[]}
-          categories={[]}
-          branches={[]}
+          suppliers={suppliers}
+          categories={categories}
+          branches={branches}
           showBranchFilter={isGlobalMode}
           onAddMedicine={handleAddMedicine}
           onRefresh={handleRefresh}

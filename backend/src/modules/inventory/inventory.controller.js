@@ -3,14 +3,10 @@
 import inventoryService from "./inventory.service.js";
 import { success, fail } from "../../utils/response.js";
 
-/**
- * Extract branch context from request headers
- */
 function extractBranchContext(req) {
   const branchMode = req.headers["x-branch-mode"] || "BRANCH";
   const headerBranchId = req.headers["x-branch-id"] || null;
 
-  // For super_admin: use header branch context
   if (req.user.role === "super_admin") {
     return {
       branchId: branchMode === "GLOBAL" ? null : headerBranchId,
@@ -18,7 +14,6 @@ function extractBranchContext(req) {
     };
   }
 
-  // branch_admin/staff: always use their assigned branch
   return {
     branchId: req.user.branch_id,
     branchMode: "BRANCH",
@@ -37,6 +32,12 @@ class InventoryController {
         search: req.query.search,
         includeExpired: req.query.includeExpired === "true",
         lowStock: req.query.lowStock === "true",
+        expiredOnly: req.query.expiredOnly === "true",
+        status: req.query.status || null,
+        expiry: req.query.expiry || null,
+        supplier: req.query.supplier || null,
+        category: req.query.category || null,
+        branchId: req.query.branchId || null,
         limit: parseInt(req.query.limit) || 100,
         offset: parseInt(req.query.offset) || 0,
         sortBy: req.query.sortBy || null,
@@ -54,6 +55,26 @@ class InventoryController {
       return success(res, result, "Inventory retrieved successfully");
     } catch (error) {
       console.error("getInventory error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  async getInventoryFacets(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const role = req.user.role;
+      const { branchId, branchMode } = extractBranchContext(req);
+
+      const facets = await inventoryService.getInventoryFacets(
+        shopId,
+        branchId,
+        role,
+        branchMode,
+      );
+
+      return success(res, facets, "Inventory metadata facets retrieved");
+    } catch (error) {
+      console.error("getInventoryFacets error:", error);
       return fail(res, error.message, error.statusCode || 500);
     }
   }
@@ -266,9 +287,6 @@ class InventoryController {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // NEW METHOD: createInventoryWithMedicine
-  // ─────────────────────────────────────────────────────────────────────────
   async createInventoryWithMedicine(req, res) {
     try {
       const shopId = req.user.shop_id;

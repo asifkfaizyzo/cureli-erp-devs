@@ -30,6 +30,7 @@ export async function getSalesSummaryController(req, res) {
     const filters = {
       startDate: req.query.startDate,
       endDate: req.query.endDate,
+      branchId: req.query.branchId,
     };
 
     const data = await salesReportService.getSalesSummary(
@@ -58,6 +59,7 @@ export async function getSalesRegisterController(req, res) {
       paymentStatus: req.query.paymentStatus,
       search: req.query.search,
       staffId: req.query.staffId,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -86,6 +88,7 @@ export async function getSalesProfitController(req, res) {
       category: req.query.category,
       manufacturer: req.query.manufacturer,
       sortBy: req.query.sortBy || "profit",
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -115,6 +118,7 @@ export async function getSalesReturnsReportController(req, res) {
       returnReason: req.query.returnReason,
       approvalStatus: req.query.approvalStatus,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -143,6 +147,7 @@ export async function getPaymentCollectionController(req, res) {
       customerId: req.query.customerId,
       paymentMode: req.query.paymentMode,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -169,6 +174,7 @@ export async function getOutstandingReceivablesController(req, res) {
       customerId: req.query.customerId,
       agingBucket: req.query.agingBucket,
       search: req.query.search,
+      branchId: req.query.branchId,
       limit: parseInt(req.query.limit) || 50,
       offset: parseInt(req.query.offset) || 0,
     };
@@ -193,6 +199,7 @@ export async function getDayBookController(req, res) {
 
     const filters = {
       date: req.query.date,
+      branchId: req.query.branchId,
     };
 
     const data = await salesReportService.getDayBook(
