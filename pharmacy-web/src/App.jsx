@@ -104,6 +104,15 @@ import MedicinePLReportPage from "./pages/report/financial/MedicinePLReportPage.
 import PeriodPLReportPage from "./pages/report/financial/PeriodPLReportPage.jsx";
 
 // ============================================
+// ERP — REPORTS (MARKETPLACE — SECTION F)
+// ============================================
+import MarketplaceSalesSummaryPage from "./pages/report/marketplace/MarketplaceSalesSummaryPage.jsx";
+import OrderStatusFunnelPage from "./pages/report/marketplace/OrderStatusFunnelPage.jsx";
+import AcceptanceRatePage from "./pages/report/marketplace/AcceptanceRatePage.jsx";
+import PrescriptionRequestSummaryPage from "./pages/report/marketplace/PrescriptionRequestSummaryPage.jsx";
+import ListingHealthPage from "./pages/report/marketplace/ListingHealthPage.jsx";
+
+// ============================================
 // ERP — SETTINGS PAGES
 // ============================================
 import UsersPage from "./pages/settings/users/UsersPage.jsx";
@@ -632,6 +641,58 @@ const App = () => {
                               permission={PERMISSIONS.REPORTS_FINANCIAL}
                             >
                               <PeriodPLReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* ── SECTION F: REPORTS — MARKETPLACE ── */}
+                        <Route
+                          path="/erp/reports/marketplace/sales-summary"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <MarketplaceSalesSummaryPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/marketplace/order-funnel"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <OrderStatusFunnelPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/marketplace/acceptance-rate"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <AcceptanceRatePage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/marketplace/prescription-summary"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <PrescriptionRequestSummaryPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/marketplace/listing-health"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <ListingHealthPage />
                             </PermissionGuard>
                           }
                         />

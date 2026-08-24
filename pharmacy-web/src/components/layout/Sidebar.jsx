@@ -44,6 +44,9 @@ import {
   Shield,
   Receipt,
   CircleDollarSign,
+  Filter,       // Added to fix uncaught ReferenceError
+  CheckCircle2, // Added to fix uncaught ReferenceError
+  Activity,     // Added to fix uncaught ReferenceError
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
@@ -856,6 +859,54 @@ const Sidebar = () => {
                 icon: CircleDollarSign,
                 path: "/erp/reports/financial/period-pl",
                 breadcrumbs: ["Reports", "Period-wise P&L"],
+                permissionKey: "salesReport",
+              },
+            ],
+          },
+          {
+            id: "reports-marketplace",
+            label: "Marketplace Reports",
+            icon: ShoppingBag,
+            permissionKey: "salesReport",
+            items: [
+              {
+                id: "report-mkt-sales-summary",
+                label: "Sales Summary",
+                icon: BarChart2,
+                path: "/erp/reports/marketplace/sales-summary",
+                breadcrumbs: ["Reports", "Marketplace Sales Summary"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-mkt-order-funnel",
+                label: "Order Status Funnel",
+                icon: Filter,
+                path: "/erp/reports/marketplace/order-funnel",
+                breadcrumbs: ["Reports", "Order Status Funnel"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-mkt-acceptance-rate",
+                label: "Acceptance Rate",
+                icon: CheckCircle2,
+                path: "/erp/reports/marketplace/acceptance-rate",
+                breadcrumbs: ["Reports", "Acceptance Rate"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-mkt-prescription-summary",
+                label: "Prescription Requests",
+                icon: FileText,
+                path: "/erp/reports/marketplace/prescription-summary",
+                breadcrumbs: ["Reports", "Prescription Request Summary"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-mkt-listing-health",
+                label: "Listing Health",
+                icon: Activity,
+                path: "/erp/reports/marketplace/listing-health",
+                breadcrumbs: ["Reports", "Listing Health"],
                 permissionKey: "salesReport",
               },
             ],
