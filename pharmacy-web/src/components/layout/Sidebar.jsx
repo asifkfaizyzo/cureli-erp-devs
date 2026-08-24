@@ -32,16 +32,18 @@ import {
   AlertTriangle,
   ShoppingBag,
   Store,
-  PieChart,     // Reports parent icon
-  BarChart2,    // Sales Summary
-  TrendingUp,   // Profit
-  RotateCcw,    // Returns
-  Wallet,       // Payment Collection
-  AlertCircle,  // Outstanding
+  PieChart,
+  BarChart2,
+  TrendingUp,
+  RotateCcw,
+  Wallet,
+  AlertCircle,
   BookOpen,
-  Clock,        // Expiry Report
-  TrendingDown, // Dead Stock
-  Shield,       // Stock Adjustments
+  Clock,
+  TrendingDown,
+  Shield,
+  Receipt,
+  CircleDollarSign,
 } from "lucide-react";
 import { useMenuStore } from "../../store/useMenuStore";
 import { useMenuPermissions } from "../../hooks/usePermission";
@@ -228,7 +230,7 @@ const ERPMenuItem = ({
               const SubIcon = sub.icon;
               const hasSubItems = sub.items?.length > 0;
 
-              // ── CATEGORY MODE RENDER (Accordion Accorded Categories) ──
+              // ── CATEGORY ACCORDION ──
               if (hasSubItems) {
                 const isCategoryOpen = openCategoryId === sub.id;
                 const isCategoryActive = sub.items.some((child) => child.id === activeMenu);
@@ -301,7 +303,7 @@ const ERPMenuItem = ({
                 );
               }
 
-              // ── STANDARD ITEM RENDER ──
+              // ── STANDARD SUBMENU ITEM ──
               const isSubActive = activeMenu === sub.id;
               const subShowBadge =
                 isSuperAdmin && needsRenewal && sub.id === "settings-profile";
@@ -364,7 +366,7 @@ const ERPMenuItem = ({
   );
 };
 
-/* ─────────────── Marketplace MenuItem (dark theme) ─────────────── */
+/* ─────────────── Marketplace MenuItem ─────────────── */
 const MarketplaceMenuItem = ({
   item,
   activeMenu,
@@ -565,7 +567,7 @@ const Sidebar = () => {
     if (isSuperAdmin) loadSubscriptionStatus();
   }, [isSuperAdmin, loadSubscriptionStatus]);
 
-  /* ─────────── ERP menu config (Supports nested category accordion) ─────────── */
+  /* ─────────── ERP menu config ─────────── */
   const erpMenuItems = useMemo(
     () => [
       {
@@ -802,6 +804,62 @@ const Sidebar = () => {
               },
             ],
           },
+          {
+            id: "reports-gst",
+            label: "GST Reports",
+            icon: Receipt,
+            permissionKey: "salesReport",
+            items: [
+              {
+                id: "report-gst-gstr1",
+                label: "GSTR-1 Outward",
+                icon: FileText,
+                path: "/erp/reports/gst/gstr1",
+                breadcrumbs: ["Reports", "GSTR-1 Outward Supply"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-gst-gstr2",
+                label: "GSTR-2 Inward",
+                icon: FileText,
+                path: "/erp/reports/gst/gstr2",
+                breadcrumbs: ["Reports", "GSTR-2 Inward Supply"],
+                permissionKey: "purchaseBilling",
+              },
+              {
+                id: "report-gst-gstr3b",
+                label: "GSTR-3B Summary",
+                icon: Receipt,
+                path: "/erp/reports/gst/gstr3b",
+                breadcrumbs: ["Reports", "GSTR-3B Monthly Summary"],
+                permissionKey: "salesReport",
+              },
+            ],
+          },
+          {
+            id: "reports-financial",
+            label: "Financial Reports",
+            icon: CircleDollarSign,
+            permissionKey: "salesReport",
+            items: [
+              {
+                id: "report-financial-medicine",
+                label: "Medicine-wise P&L",
+                icon: TrendingUp,
+                path: "/erp/reports/financial/medicine-pl",
+                breadcrumbs: ["Reports", "Medicine-wise P&L"],
+                permissionKey: "salesReport",
+              },
+              {
+                id: "report-financial-period",
+                label: "Period-wise P&L",
+                icon: CircleDollarSign,
+                path: "/erp/reports/financial/period-pl",
+                breadcrumbs: ["Reports", "Period-wise P&L"],
+                permissionKey: "salesReport",
+              },
+            ],
+          },
         ],
       },
       {
@@ -900,7 +958,7 @@ const Sidebar = () => {
 
   const allMenuItems = isMarketplace ? marketplaceMenuItems : erpMenuItems;
 
-  /* ─────────── Permission filtering (recursive for level-3 nested submenus) ─────────── */
+  /* ─────────── Permission filtering ─────────── */
   const visibleMenuItems = useMemo(() => {
     if (isMarketplace) {
       return marketplaceMenuItems.filter((item) => {

@@ -64,7 +64,7 @@ import InventoryPage from "./pages/inventory/InventoryPage.jsx";
 import SupplierPage from "./pages/suppliers/SupplierPage.jsx";
 
 // ============================================
-// ERP — REPORTS (SALES)
+// ERP — REPORTS (SALES — SECTION A)
 // ============================================
 import SalesSummaryPage from "./pages/report/sales/SalesSummaryPage.jsx";
 import SalesRegisterPage from "./pages/report/sales/SalesRegisterPage.jsx";
@@ -75,20 +75,33 @@ import OutstandingReceivablesPage from "./pages/report/sales/OutstandingReceivab
 import DayBookPage from "./pages/report/sales/DayBookPage.jsx";
 
 // ============================================
-// ERP — REPORTS (PURCHASE)
+// ERP — REPORTS (PURCHASE — SECTION B)
 // ============================================
 import PurchaseRegisterPage from "./pages/report/purchase/PurchaseRegisterPage.jsx";
 import PurchaseOutstandingPage from "./pages/report/purchase/PurchaseOutstandingPage.jsx";
 import PurchaseReturnsReportPage from "./pages/report/purchase/PurchaseReturnsPage.jsx";
 
 // ============================================
-// ERP — REPORTS (INVENTORY)
+// ERP — REPORTS (INVENTORY — SECTION C)
 // ============================================
 import CurrentStockReportPage from "./pages/report/inventory/CurrentStockReportPage.jsx";
 import ExpiryReportPage from "./pages/report/inventory/ExpiryReportPage.jsx";
 import MinStockReorderReportPage from "./pages/report/inventory/MinStockReorderReportPage.jsx";
 import DeadStockReportPage from "./pages/report/inventory/DeadStockReportPage.jsx";
 import StockAdjustmentReportPage from "./pages/report/inventory/StockAdjustmentReportPage.jsx";
+
+// ============================================
+// ERP — REPORTS (GST — SECTION D)
+// ============================================
+import GSTR1ReportPage from "./pages/report/gst/GSTR1ReportPage.jsx";
+import GSTR2ReportPage from "./pages/report/gst/GSTR2ReportPage.jsx";
+import GSTR3BReportPage from "./pages/report/gst/GSTR3BReportPage.jsx";
+
+// ============================================
+// ERP — REPORTS (FINANCIAL — SECTION E)
+// ============================================
+import MedicinePLReportPage from "./pages/report/financial/MedicinePLReportPage.jsx";
+import PeriodPLReportPage from "./pages/report/financial/PeriodPLReportPage.jsx";
 
 // ============================================
 // ERP — SETTINGS PAGES
@@ -302,7 +315,6 @@ const App = () => {
 
                   {/* ════════════════════════════════════════════════
                       MARKETPLACE ONBOARDING  →  /marketplace/onboarding
-                      Header only — no sidebar, no breadcrumb
                   ════════════════════════════════════════════════ */}
                   <Route element={<AuthGuard />}>
                     <Route element={<SetupGuard />}>
@@ -414,7 +426,7 @@ const App = () => {
                           }
                         />
 
-                        {/* ── REPORTS — SALES ── */}
+                        {/* ── SECTION A: REPORTS — SALES ── */}
                         <Route
                           path="/erp/reports/sales/summary"
                           element={
@@ -486,7 +498,7 @@ const App = () => {
                           }
                         />
 
-                        {/* ── REPORTS — PURCHASE ── */}
+                        {/* ── SECTION B: REPORTS — PURCHASE ── */}
                         <Route
                           path="/erp/reports/purchase/register"
                           element={
@@ -518,7 +530,7 @@ const App = () => {
                           }
                         />
 
-                        {/* ── REPORTS — INVENTORY ── */}
+                        {/* ── SECTION C: REPORTS — INVENTORY ── */}
                         <Route
                           path="/erp/reports/inventory/current-stock"
                           element={
@@ -566,6 +578,60 @@ const App = () => {
                               permission={PERMISSIONS.INVENTORY_VIEW}
                             >
                               <StockAdjustmentReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* ── SECTION D: REPORTS — GST ── */}
+                        <Route
+                          path="/erp/reports/gst/gstr1"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <GSTR1ReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/gst/gstr2"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_PURCHASE}
+                            >
+                              <GSTR2ReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/gst/gstr3b"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_SALES}
+                            >
+                              <GSTR3BReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+
+                        {/* ── SECTION E: REPORTS — FINANCIAL ── */}
+                        <Route
+                          path="/erp/reports/financial/medicine-pl"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_FINANCIAL}
+                            >
+                              <MedicinePLReportPage />
+                            </PermissionGuard>
+                          }
+                        />
+                        <Route
+                          path="/erp/reports/financial/period-pl"
+                          element={
+                            <PermissionGuard
+                              permission={PERMISSIONS.REPORTS_FINANCIAL}
+                            >
+                              <PeriodPLReportPage />
                             </PermissionGuard>
                           }
                         />
@@ -632,7 +698,6 @@ const App = () => {
 
                         {/* ════════════════════════════════════════════════
                             MARKETPLACE POST-ONBOARDING  →  /marketplace/*
-                            Gated by MarketplaceOnboardingGuard
                         ════════════════════════════════════════════════ */}
                         <Route element={<MarketplaceOnboardingGuard />}>
                           <Route

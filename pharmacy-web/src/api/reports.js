@@ -139,6 +139,92 @@ const reportsAPI = {
     return response.data;
   },
 
+   // ── GST REPORTS ────────────────────────────────────────────────────────────
+
+  getGstr1Report: async (filters = {}) => {
+    const response = await API.get("/reports/gst/gstr1", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getGstr2Report: async (filters = {}) => {
+    const response = await API.get("/reports/gst/gstr2", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getGstr3bReport: async (filters = {}) => {
+    const response = await API.get("/reports/gst/gstr3b", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  // ── FINANCIAL REPORTS ──────────────────────────────────────────────────────
+
+  getMedicinePLReport: async (filters = {}) => {
+    const response = await API.get("/reports/financial/medicine-pl", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getPeriodPLReport: async (filters = {}) => {
+    const response = await API.get("/reports/financial/period-pl", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  // ── MARKETPLACE REPORTS ────────────────────────────────────────────────────
+
+  getMarketplaceSalesSummary: async (filters = {}) => {
+    const response = await API.get("/reports/marketplace/sales-summary", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getOrderStatusFunnel: async (filters = {}) => {
+    const response = await API.get("/reports/marketplace/order-funnel", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getAcceptanceRate: async (filters = {}) => {
+    const response = await API.get("/reports/marketplace/acceptance-rate", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getPrescriptionSummary: async (filters = {}) => {
+    const response = await API.get("/reports/marketplace/prescription-summary", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
+  getListingHealth: async (filters = {}) => {
+    const response = await API.get("/reports/marketplace/listing-health", {
+      params: filters,
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
+
 
 };
 

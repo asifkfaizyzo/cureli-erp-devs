@@ -56,6 +56,9 @@ import prescriptionRequestsErpRouter    from "./src/modules/prescription-request
 import salesReportRoutes from "./src/modules/reports/sales/sales.report.routes.js";
 import purchaseReportRoutes from "./src/modules/reports/purchase/purchase.report.routes.js";
 import inventoryReportRoutes from "./src/modules/reports/inventory/inventory.report.routes.js";
+import gstReportRoutes from "./src/modules/reports/gst/gst.report.routes.js";
+import financialReportRoutes from "./src/modules/reports/financial/financial.report.routes.js";
+import marketplaceReportRoutes from "./src/modules/reports/marketplace/marketplace.report.routes.js";
 
 // ============================================
 // CADMIN ROUTES
@@ -265,6 +268,9 @@ app.use("/api/prescription-requests",  prescriptionRequestsErpRouter);
 app.use("/api/reports/sales",          salesReportRoutes);
 app.use("/api/reports/purchase",       purchaseReportRoutes); 
 app.use("/api/reports/inventory", inventoryReportRoutes);
+app.use("/api/reports/gst", gstReportRoutes);
+app.use("/api/reports/financial", financialReportRoutes);
+app.use("/api/reports/marketplace", marketplaceReportRoutes);
 
 // ============================================
 // CADMIN ROUTES
