@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Sparkles,
   CheckCircle2,
-  Lock,
 } from "lucide-react";
 import { getLoyaltyConfig, updateLoyaltyConfig } from "../../../api/cadminLoyalty";
 import { useToast } from "../../../components/common/Toast";
@@ -30,7 +29,7 @@ function InlineFeedback({ type, message }) {
 
 export default function LoyaltyConfigPage() {
   const navigate = useNavigate();
-  const toast = useToast(); // ◄ Updated to get the raw toast function
+  const toast = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,7 +40,7 @@ export default function LoyaltyConfigPage() {
   const [config, setConfig] = useState({
     is_enabled: false,
     earn_rate_amount: 100,
-    earn_basis: "SUBTOTAL",
+    earn_basis: "TOTAL_PAYABLE",
     redemption_value: 1,
     min_redeem_points: 50,
     min_order_amount: 299,
@@ -63,7 +62,7 @@ export default function LoyaltyConfigPage() {
         setConfig({
           is_enabled: data.is_enabled ?? false,
           earn_rate_amount: data.earn_rate_amount ? Number(data.earn_rate_amount) : 100,
-          earn_basis: data.earn_basis || "SUBTOTAL",
+          earn_basis: data.earn_basis || "TOTAL_PAYABLE",
           redemption_value: data.redemption_value ? Number(data.redemption_value) : 1,
           min_redeem_points: data.min_redeem_points ?? 50,
           min_order_amount: data.min_order_amount ? Number(data.min_order_amount) : 299,
@@ -101,7 +100,7 @@ export default function LoyaltyConfigPage() {
       const payload = {
         is_enabled: Boolean(config.is_enabled),
         earn_rate_amount: Number(config.earn_rate_amount),
-        earn_basis: "SUBTOTAL",
+        earn_basis: config.earn_basis, // ◄ Uses selected earn_basis
         redemption_value: Number(config.redemption_value),
         min_redeem_points: parseInt(config.min_redeem_points, 10),
         min_order_amount: Number(config.min_order_amount),
@@ -136,7 +135,6 @@ export default function LoyaltyConfigPage() {
   };
 
   // Live Simulator Calculations
-  const calcPointsEarned = Math.floor(simOrderAmount / (config.earn_rate_amount || 100));
   let simAllowedPoints = Math.min(simUserPoints, Math.floor((simOrderAmount - 1) / (config.redemption_value || 1)));
 
   if (config.max_redeem_points !== "") {
@@ -147,7 +145,14 @@ export default function LoyaltyConfigPage() {
     simAllowedPoints = Math.min(simAllowedPoints, maxPtsByPercent);
   }
   const isRedeemEligible = simOrderAmount >= config.min_order_amount && simUserPoints >= config.min_redeem_points && config.is_enabled;
-  const simFinalDiscount = isRedeemEligible ? (simAllowedPoints * config.redemption_value).toFixed(2) : 0;
+  const simFinalDiscount = isRedeemEligible ? Number((simAllowedPoints * config.redemption_value).toFixed(2)) : 0;
+
+  // Accrual base based on configured basis
+  const simEarningBase = config.earn_basis === "TOTAL_PAYABLE"
+    ? Math.max(0, simOrderAmount - simFinalDiscount)
+    : simOrderAmount;
+
+  const calcPointsEarned = Math.floor(simEarningBase / (config.earn_rate_amount || 100));
 
   if (loading) {
     return (
@@ -249,18 +254,19 @@ export default function LoyaltyConfigPage() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-gray-600">Calculated Accrual Basis</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                    <Lock size={12} />
-                  </span>
-                  <input
-                    type="text"
-                    disabled
-                    value="Post-coupon subtotal"
-                    className="w-full h-11 pl-9 pr-4 border-2 rounded-xl text-xs font-semibold bg-gray-50 border-gray-150 text-gray-400 cursor-not-allowed"
-                  />
-                </div>
-                <p className="text-[10px] text-gray-400">Excludes taxes, service charges, delivery, and tips.</p>
+                <select
+                  value={config.earn_basis}
+                  onChange={(e) => handleChange("earn_basis", e.target.value)}
+                  className="w-full h-11 px-4 border-2 rounded-xl text-xs font-semibold bg-white border-gray-200 hover:border-gray-300 focus:border-indigo-400 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.1)] focus:outline-none transition-all duration-200"
+                >
+                  <option value="TOTAL_PAYABLE">Total Payable Amount (Grand Total after all discounts & charges)</option>
+                  <option value="SUBTOTAL">Post-Coupon Subtotal (Items minus coupon only)</option>
+                </select>
+                <p className="text-[10px] text-gray-400">
+                  {config.earn_basis === "TOTAL_PAYABLE"
+                    ? "Customer earns points on what they actually pay out-of-pocket."
+                    : "Points are calculated before loyalty discount and delivery charges."}
+                </p>
               </div>
             </div>
           </div>
@@ -407,7 +413,7 @@ export default function LoyaltyConfigPage() {
 
                 <div className="flex justify-between text-gray-900 font-bold pt-2.5 border-t border-gray-200">
                   <span>Total discount value:</span>
-                  <span className="text-[#05015A]">-₹{simFinalDiscount}</span>
+                  <span className="text-[#05015A]">-₹{simFinalDiscount.toFixed(2)}</span>
                 </div>
               </div>
 

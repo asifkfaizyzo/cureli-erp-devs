@@ -99,9 +99,75 @@ class InventoryController {
         filters,
       );
 
-      return success(res, inventory, "Medicine inventory retrieved successfully");
+      return success(
+        res,
+        inventory,
+        "Medicine inventory retrieved successfully",
+      );
     } catch (error) {
       console.error("getByMedicine error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  async exportInventory(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const role = req.user.role;
+      const { branchId, branchMode } = extractBranchContext(req);
+
+      const result = await inventoryService.exportInventory(
+        shopId,
+        branchId,
+        role,
+        branchMode,
+      );
+
+      const timestamp = new Date().toISOString().split("T")[0];
+      const branchSuffix = branchId ? `_${branchId.slice(0, 8)}` : "_all";
+      const filename = `Inventory_Backup${branchSuffix}_${timestamp}.xlsx`;
+
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.setHeader("Content-Length", result.buffer.length);
+
+      return res.status(200).send(result.buffer);
+    } catch (error) {
+      console.error("exportInventory error:", error);
+      return fail(res, error.message, error.statusCode || 500);
+    }
+  }
+
+  async resetInventory(req, res) {
+    try {
+      const shopId = req.user.shop_id;
+      const userId = req.user.user_id;
+      const { branchId, branchMode } = extractBranchContext(req);
+
+      if (!branchId || branchMode === "GLOBAL") {
+        return fail(
+          res,
+          "Please select a specific branch to reset inventory. Global mode is not allowed.",
+          400,
+          { code: "BRANCH_REQUIRED" },
+        );
+      }
+
+      const result = await inventoryService.resetInventory(
+        shopId,
+        branchId,
+        userId,
+      );
+
+      return success(res, result, result.message);
+    } catch (error) {
+      console.error("resetInventory error:", error);
       return fail(res, error.message, error.statusCode || 500);
     }
   }
@@ -199,7 +265,12 @@ class InventoryController {
         userId,
       );
 
-      return success(res, adjustment, "Stock adjustment created successfully", 201);
+      return success(
+        res,
+        adjustment,
+        "Stock adjustment created successfully",
+        201,
+      );
     } catch (error) {
       console.error("createAdjustment error:", error);
       return fail(res, error.message, error.statusCode || 500);
@@ -309,7 +380,12 @@ class InventoryController {
         userId,
       );
 
-      return success(res, result, "Medicine added to inventory successfully", 201);
+      return success(
+        res,
+        result,
+        "Medicine added to inventory successfully",
+        201,
+      );
     } catch (error) {
       console.error("createInventoryWithMedicine error:", error);
 

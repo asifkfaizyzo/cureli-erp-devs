@@ -1,3 +1,4 @@
+// backend/src/modules/mobile/checkout/mobile.checkout.controller.js
 import crypto from "crypto";
 import {
   getQuote,
@@ -19,15 +20,25 @@ export async function quoteHandler(req, res) {
 
     const customer_id = req.mobileUser?.id ?? null;
 
+    // ── BULLETPROOF FALLBACKS (Bypass Zod stripping) ────────────────────────
+    const coupon_code = parsed.data.coupon_code !== undefined
+      ? parsed.data.coupon_code
+      : (req.body.coupon_code ?? null);
+
+    const raw_loyalty = parsed.data.loyalty_points_to_redeem !== undefined
+      ? parsed.data.loyalty_points_to_redeem
+      : req.body.loyalty_points_to_redeem;
+
+    const loyalty_points_to_redeem = raw_loyalty ? Number(raw_loyalty) : 0;
+    // ────────────────────────────────────────────────────────────────────────
+
     const result = await getQuote({
       items: parsed.data.items,
       distance_km: parsed.data.distance_km,
       tip: parsed.data.tip,
       branch_id: parsed.data.branch_id,
-      coupon_code: parsed.data.coupon_code ?? null,
-      loyalty_points_to_redeem: parsed.data.loyalty_points_to_redeem
-        ? Number(parsed.data.loyalty_points_to_redeem)
-        : 0,
+      coupon_code,
+      loyalty_points_to_redeem,
       customer_id,
     });
 
@@ -43,6 +54,18 @@ export async function createSessionHandler(req, res) {
     const parsed = createSessionSchema.safeParse(req.body);
     if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
+    // ── BULLETPROOF FALLBACKS (Bypass Zod stripping) ────────────────────────
+    const coupon_code = parsed.data.coupon_code !== undefined
+      ? parsed.data.coupon_code
+      : (req.body.coupon_code ?? null);
+
+    const raw_loyalty = parsed.data.loyalty_points_to_redeem !== undefined
+      ? parsed.data.loyalty_points_to_redeem
+      : req.body.loyalty_points_to_redeem;
+
+    const loyalty_points_to_redeem = raw_loyalty ? Number(raw_loyalty) : 0;
+    // ────────────────────────────────────────────────────────────────────────
+
     const result = await createCheckoutSession({
       customer_id: req.mobileUser.id,
       branch_id: parsed.data.branch_id,
@@ -54,10 +77,8 @@ export async function createSessionHandler(req, res) {
       patient: parsed.data.patient,
       prescription_request_id: parsed.data.prescription_request_id ?? null,
       prescription_recipient_id: parsed.data.prescription_recipient_id ?? null,
-      coupon_code: parsed.data.coupon_code ?? null,
-      loyalty_points_to_redeem: parsed.data.loyalty_points_to_redeem
-        ? Number(parsed.data.loyalty_points_to_redeem)
-        : 0,
+      coupon_code,
+      loyalty_points_to_redeem,
     });
 
     return success(res, result, "Checkout session created", 201);

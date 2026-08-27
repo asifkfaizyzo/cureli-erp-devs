@@ -26,6 +26,10 @@ import {
   Check,
   Upload,
   ScrollText,
+  Download,
+  Trash2,
+  History,
+  MoreVertical,
 } from "lucide-react";
 import StyledSelect from "../../../components/common/StyledSelect";
 
@@ -129,7 +133,6 @@ const SearchableDropdown = ({
       className={`relative ${className}`}
       style={{ zIndex: isOpen ? 100 : 1 }}
     >
-      {/* Trigger Button */}
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -179,7 +182,6 @@ const SearchableDropdown = ({
         </div>
       </button>
 
-      {/* Dropdown Panel */}
       {isOpen && (
         <div
           className="absolute z-[9999] top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl"
@@ -189,7 +191,6 @@ const SearchableDropdown = ({
             minWidth: "100%",
           }}
         >
-          {/* Search Input */}
           <div className="p-2 border-b border-slate-100 bg-slate-50/50">
             <div className="relative">
               <Search
@@ -219,7 +220,6 @@ const SearchableDropdown = ({
             </div>
           </div>
 
-          {/* Search Stats */}
           {search && (
             <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100">
               <div className="flex items-center justify-between text-[10px] text-slate-500">
@@ -231,7 +231,6 @@ const SearchableDropdown = ({
             </div>
           )}
 
-          {/* Options List */}
           <div
             ref={listRef}
             className="max-h-56 overflow-y-auto py-1 overscroll-contain"
@@ -284,7 +283,6 @@ const SearchableDropdown = ({
             )}
           </div>
 
-          {/* Footer */}
           {options.length > 5 && (
             <div className="px-3 py-2 bg-slate-50 border-t border-slate-100">
               <p className="text-[10px] text-slate-500 text-center">
@@ -295,6 +293,205 @@ const SearchableDropdown = ({
         </div>
       )}
     </div>
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// TOOLS DIALOG BOX COMPONENT (Immune to clipping issues!)
+// ════════════════════════════════════════════════════════════════════════════
+
+const ToolsDialog = ({
+  onImport,
+  onImportHistory,
+  onImportLogs,
+  onExport,
+  onReset,
+  isExporting,
+  canReset,
+  canExport,
+  totalItems,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleAction = (action) => {
+    setIsOpen(false);
+    if (action) action();
+  };
+
+  return (
+    <>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="h-10 sm:h-9 px-3 flex items-center gap-2 rounded-lg border text-sm font-medium
+                   bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300
+                   transition-all duration-200 shrink-0"
+        title="Inventory Tools"
+      >
+        <MoreVertical size={16} />
+        <span className="hidden sm:inline">Tools</span>
+      </button>
+
+      {/* Dialog Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop Blur */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Dialog Container */}
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            style={{ maxHeight: "80vh" }}
+          >
+            {/* Header */}
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={16} className="text-indigo-600" />
+                <span className="font-bold text-slate-800 text-sm">
+                  Inventory Tools
+                </span>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Actions Container with Scrollbar Styling */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-4 max-h-[320px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+              {/* ── Import Group ── */}
+              {(onImport || onImportHistory || onImportLogs) && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1">
+                    Import & Logs
+                  </p>
+                  <div className="space-y-1">
+                    {onImport && (
+                      <button
+                        onClick={() => handleAction(onImport)}
+                        className="w-full p-2 flex items-center gap-3 text-left rounded-xl hover:bg-indigo-50/70 transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                          <Upload size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">
+                            Import Inventory
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            Upload excel or CSV file
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    {onImportHistory && (
+                      <button
+                        onClick={() => handleAction(onImportHistory)}
+                        className="w-full p-2 flex items-center gap-3 text-left rounded-xl hover:bg-indigo-50/70 transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                          <History size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">
+                            Import History
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            Track recent sheets uploaded
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    {onImportLogs && (
+                      <button
+                        onClick={() => handleAction(onImportLogs)}
+                        className="w-full p-2 flex items-center gap-3 text-left rounded-xl hover:bg-indigo-50/70 transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                          <ScrollText size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">
+                            Import Logs
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            Inspect details and errors
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Backup & Danger Group ── */}
+              {(onExport || onReset) && (
+                <div className="space-y-2 border-t border-slate-100 pt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1">
+                    Backup & Reset
+                  </p>
+                  <div className="space-y-1">
+                    {onExport && (
+                      <button
+                        onClick={() => handleAction(onExport)}
+                        disabled={isExporting || !canExport || totalItems === 0}
+                        className="w-full p-2 flex items-center gap-3 text-left rounded-xl hover:bg-emerald-50/70 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                          <Download size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">
+                            {isExporting ? "Exporting..." : "Export Inventory"}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            Save current stock backup (.xlsx)
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    {onReset && (
+                      <button
+                        onClick={() => handleAction(onReset)}
+                        disabled={!canReset || totalItems === 0}
+                        className="w-full p-2 flex items-center gap-3 text-left rounded-xl hover:bg-red-50/70 transition-colors group disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                          <Trash2 size={15} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-700">
+                            Reset Inventory
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            Download backup and clear stock
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 text-center shrink-0">
+              <span className="text-[10px] text-slate-400">
+                Type escape key or click outside to dismiss
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -316,6 +513,11 @@ const InventoryFilters = ({
   onImport,
   onImportHistory,
   onImportLogs,
+  onExport,
+  onReset,
+  isExporting = false,
+  canReset = false,
+  canExport = false,
 }) => {
   const searchInputRef = useRef(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -370,57 +572,30 @@ const InventoryFilters = ({
   const activeFilters = useMemo(() => {
     const active = [];
     if (filters.search)
-      active.push({
-        key: "search",
-        label: `"${filters.search}"`,
-        value: filters.search,
-      });
+      active.push({ key: "search", label: `"${filters.search}"`, value: filters.search });
     if (filters.status)
-      active.push({
-        key: "status",
-        label: filters.status,
-        value: filters.status,
-      });
+      active.push({ key: "status", label: filters.status, value: filters.status });
     if (filters.expiry) {
       const expiryLabel =
-        expiryOptions.find((o) => o.value === filters.expiry)?.label ||
-        filters.expiry;
+        expiryOptions.find((o) => o.value === filters.expiry)?.label || filters.expiry;
       active.push({ key: "expiry", label: expiryLabel, value: filters.expiry });
     }
     if (filters.supplier)
-      active.push({
-        key: "supplier",
-        label: filters.supplier,
-        value: filters.supplier,
-      });
+      active.push({ key: "supplier", label: filters.supplier, value: filters.supplier });
     if (filters.category)
-      active.push({
-        key: "category",
-        label: filters.category,
-        value: filters.category,
-      });
+      active.push({ key: "category", label: filters.category, value: filters.category });
     if (filters.branchId) {
-      const branchName = branches.find((b) => b.branch_id === filters.branchId)?.branch_name || filters.branchId;
-      active.push({
-        key: "branchId",
-        label: branchName,
-        value: filters.branchId,
-      });
+      const branchName =
+        branches.find((b) => b.branch_id === filters.branchId)?.branch_name ||
+        filters.branchId;
+      active.push({ key: "branchId", label: branchName, value: filters.branchId });
     }
     if (filters.lowStock)
       active.push({ key: "lowStock", label: "Low Stock", value: true });
     if (filters.includeExpired)
-      active.push({
-        key: "includeExpired",
-        label: "Include Expired",
-        value: true,
-      });
+      active.push({ key: "includeExpired", label: "Include Expired", value: true });
     if (filters.expiredOnly)
-      active.push({
-        key: "expiredOnly",
-        label: "Expired Only",
-        value: true,
-      });
+      active.push({ key: "expiredOnly", label: "Expired Only", value: true });
     return active;
   }, [filters, expiryOptions, branches]);
 
@@ -460,7 +635,6 @@ const InventoryFilters = ({
       <div className="px-3 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Left Section — Search */}
         <div className="flex-1 flex items-center gap-2 sm:gap-3">
-          {/* Search Input */}
           <div className="relative flex-1 min-w-0">
             <Search
               size={16}
@@ -560,40 +734,19 @@ const InventoryFilters = ({
             </button>
           )}
 
-          {/* Import + History + Logs button group */}
-          {(onImport || onImportHistory || onImportLogs) && (
-            <div className="flex items-center border border-indigo-200 rounded-lg overflow-hidden">
-              {/* Import button */}
-              {onImport && (
-                <button
-                  onClick={onImport}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium
-                             text-indigo-700 bg-indigo-50 hover:bg-indigo-100
-                             transition-colors"
-                >
-                  <Upload size={15} />
-                  Import
-                </button>
-              )}
-
-              {/* Divider: History | Logs */}
-              {onImportLogs && (onImport || onImportHistory) && (
-                <div className="w-px h-7 bg-indigo-200" />
-              )}
-
-              {/* Logs button */}
-              {onImportLogs && (
-                <button
-                  onClick={onImportLogs}
-                  title="View import logs & error details"
-                  className="flex items-center gap-1 px-3 py-2 text-sm
-                             text-indigo-600 hover:bg-indigo-50
-                             transition-colors"
-                >
-                  <ScrollText size={15} />
-                </button>
-              )}
-            </div>
+          {/* Tools Menu overlay — Import / History / Logs / Export / Reset */}
+          {(onImport || onImportHistory || onImportLogs || onExport || onReset) && (
+            <ToolsDialog
+              onImport={onImport}
+              onImportHistory={onImportHistory}
+              onImportLogs={onImportLogs}
+              onExport={onExport}
+              onReset={onReset}
+              isExporting={isExporting}
+              canReset={canReset}
+              canExport={canExport}
+              totalItems={totalItems}
+            />
           )}
         </div>
       </div>
@@ -611,7 +764,6 @@ const InventoryFilters = ({
         }}
       >
         <div className="px-3 sm:px-4 py-4 border-t border-slate-100 bg-gradient-to-b from-slate-50/80 to-white overflow-visible">
-          {/* Filter Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 overflow-visible">
             {/* Stock Status */}
             <div className="space-y-1.5">
@@ -828,7 +980,6 @@ const InventoryFilters = ({
               </label>
             </div>
 
-            {/* Clear All Filters */}
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
@@ -883,15 +1034,11 @@ const InventoryFilters = ({
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════ */}
-      {/* MOBILE ACTIVE FILTER COUNT                                        */}
-      {/* ══════════════════════════════════════════════════════════════════ */}
       {hasActiveFilters && showFilters && (
         <div className="sm:hidden px-3 py-2 border-t border-slate-100 bg-indigo-50/50">
           <div className="flex items-center justify-between">
             <span className="text-xs text-indigo-600 font-medium">
-              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}{" "}
-              active
+              {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} active
             </span>
             <button
               onClick={clearFilters}

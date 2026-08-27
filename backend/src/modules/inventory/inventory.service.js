@@ -51,7 +51,7 @@ class InventoryService {
     return null;
   }
 
-   _calculateStockStatus(
+  _calculateStockStatus(
     currentStock,
     inventoryMinStock,
     medicineStockLevels,
@@ -66,7 +66,7 @@ class InventoryService {
     const effectiveMinStock = minStockFromInventory ?? minStockFromMedicine;
 
     // ── PRIORITY 1: AVAILABILITY (OUT OF STOCK) ──
-    // If quantity is 0, it is Out of Stock. Expiry alerts on empty batches 
+    // If quantity is 0, it is Out of Stock. Expiry alerts on empty batches
     // are irrelevant and create false positives for inventory audits.
     if (stock === 0) return "Out of Stock";
 
@@ -84,7 +84,7 @@ class InventoryService {
         (expDate - today) / (1000 * 60 * 60 * 24),
       );
       if (daysUntilExpiry < 0) return "Expired";
-      
+
       // ── PRIORITY 3: LIQUIDATION ALERT (EXPIRING SOON) ──
       // If we have stock expiring within 30 days, flag it for near-term removal.
       if (daysUntilExpiry <= 30) return "Expiring Soon";
@@ -348,7 +348,12 @@ class InventoryService {
     } = filters;
 
     const queryBranchId = filterBranchId || branchId;
-    const baseFilter = buildBranchFilter(shopId, queryBranchId, role, branchMode);
+    const baseFilter = buildBranchFilter(
+      shopId,
+      queryBranchId,
+      role,
+      branchMode,
+    );
 
     const where = {
       ...baseFilter,
@@ -536,7 +541,8 @@ class InventoryService {
 
     if (category) {
       inventories = inventories.filter(
-        (inv) => inv.medicine_category?.toLowerCase() === category.toLowerCase(),
+        (inv) =>
+          inv.medicine_category?.toLowerCase() === category.toLowerCase(),
       );
     }
 
@@ -547,7 +553,9 @@ class InventoryService {
     }
 
     if (filterBranchId) {
-      inventories = inventories.filter((inv) => inv.branch_id === filterBranchId);
+      inventories = inventories.filter(
+        (inv) => inv.branch_id === filterBranchId,
+      );
     }
 
     // ── Apply JS Global Sorting ──
@@ -1424,6 +1432,182 @@ class InventoryService {
         inventory_id: inventoryId,
         medicine_name: inventory.medicine?.name,
         deleted_at: new Date(),
+      };
+    });
+  }
+
+  async exportInventory(shopId, branchId, role, branchMode) {
+    const XLSX = await import("xlsx");
+
+    const baseFilter = buildBranchFilter(shopId, branchId, role, branchMode);
+
+    const inventories = await prisma.inventory.findMany({
+      where: {
+        ...baseFilter,
+        is_active: true,
+      },
+      include: {
+        medicine: {
+          select: {
+            name: true,
+            manufacturer: true,
+            pack_size: true,
+            hsn_code: true,
+            category: true,
+            rack_no: true,
+          },
+        },
+        branch: {
+          select: { branch_name: true },
+        },
+      },
+      orderBy: [{ expiry_date: "asc" }, { batch_number: "asc" }],
+    });
+
+    const rows = inventories.map((inv) => ({
+      "Product Name": inv.medicine?.name || "",
+      Manufacturer: inv.medicine?.manufacturer || "",
+      Batch: inv.batch_number || "",
+      Expiry: inv.expiry_date
+        ? new Date(inv.expiry_date).toLocaleDateString("en-IN")
+        : "",
+      "Pack Size": inv.medicine?.pack_size || "",
+      Quantity: Number(inv.current_stock || 0),
+      MRP: Number(inv.mrp || 0),
+      "Purchase Rate": Number(inv.last_purchase_rate || 0),
+      "Selling Rate": Number(inv.selling_rate || 0),
+      "HSN Code": inv.medicine?.hsn_code || "",
+      Category: inv.medicine?.category || "",
+      Rack: inv.rack_no || inv.medicine?.rack_no || "",
+      Branch: inv.branch?.branch_name || "",
+      Status: inv.is_expired ? "Expired" : "Active",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+
+    // Set column widths
+    worksheet["!cols"] = [
+      { wch: 30 }, // Product Name
+      { wch: 20 }, // Manufacturer
+      { wch: 12 }, // Batch
+      { wch: 12 }, // Expiry
+      { wch: 10 }, // Pack Size
+      { wch: 10 }, // Quantity
+      { wch: 10 }, // MRP
+      { wch: 12 }, // Purchase Rate
+      { wch: 12 }, // Selling Rate
+      { wch: 10 }, // HSN
+      { wch: 15 }, // Category
+      { wch: 8 }, // Rack
+      { wch: 15 }, // Branch
+      { wch: 10 }, // Status
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
+
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+    return {
+      buffer,
+      totalItems: rows.length,
+    };
+  }
+
+  /* ============================================
+     RESET INVENTORY (SOFT DELETE ALL)
+     - Deactivates all inventory for a branch
+     - Creates stock ledger entries for audit trail
+     - Does NOT permanently delete any records
+  ============================================ */
+  async resetInventory(shopId, branchId, userId) {
+    if (!branchId) {
+      throw new ApiError(
+        "Branch selection is required to reset inventory",
+        400,
+        "BRANCH_REQUIRED",
+      );
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Fetch all active inventory for this branch
+      const allInventory = await tx.inventory.findMany({
+        where: {
+          shop_id: shopId,
+          branch_id: branchId,
+          is_active: true,
+        },
+        include: {
+          medicine: {
+            select: { name: true },
+          },
+        },
+      });
+
+      if (allInventory.length === 0) {
+        return {
+          deactivatedCount: 0,
+          ledgerEntriesCreated: 0,
+          message: "No active inventory found for this branch.",
+        };
+      }
+
+      let ledgerEntriesCreated = 0;
+
+      // Create audit ledger entries for items that have stock
+      for (const inv of allInventory) {
+        const currentStock = Number(inv.current_stock || 0);
+
+        if (currentStock > 0) {
+          await tx.stockLedger.create({
+            data: {
+              shop_id: shopId,
+              branch_id: branchId,
+              medicine_id: inv.medicine_id,
+              inventory_id: inv.inventory_id,
+              movement_type: "STOCK_ADJUSTMENT", // ← FIXED (was "INVENTORY_RESET")
+              reference_type: "STOCK_ADJUSTMENT", // ← FIXED (was "INVENTORY_RESET")
+              reference_id: null,
+              reference_number: `RESET-${Date.now()}`,
+              batch_number: inv.batch_number,
+              expiry_date: inv.expiry_date,
+              quantity_in: 0,
+              quantity_out: currentStock,
+              quantity_net: -currentStock,
+              balance_after: 0,
+              rate: inv.last_purchase_rate,
+              amount: inv.last_purchase_rate
+                ? currentStock * Number(inv.last_purchase_rate)
+                : null,
+              transaction_date: new Date(),
+              created_by: userId,
+              remarks: `Inventory reset — bulk deactivation by user ${userId}`,
+            },
+          });
+          ledgerEntriesCreated++;
+        }
+      }
+
+      // Soft-deactivate all inventory and zero out stock
+      const updateResult = await tx.inventory.updateMany({
+        where: {
+          shop_id: shopId,
+          branch_id: branchId,
+          is_active: true,
+        },
+        data: {
+          is_active: false,
+          current_stock: 0,
+          available_stock: 0,
+          reserved_stock: 0,
+          updated_at: new Date(),
+        },
+      });
+
+      return {
+        deactivatedCount: updateResult.count,
+        ledgerEntriesCreated,
+        message: `Successfully deactivated ${updateResult.count} inventory items.`,
       };
     });
   }

@@ -829,54 +829,56 @@ model BranchCategoryVisibility {
 }
 
 model CheckoutSession {
-  session_id    String   @id @default(uuid()) @db.Uuid
-  customer_id   String   @db.Uuid
-  branch_id     String   @db.Uuid
+  session_id                 String    @id @default(uuid()) @db.Uuid
+  customer_id                String    @db.Uuid
+  branch_id                  String    @db.Uuid
 
-  razorpay_order_id          String   @unique @db.VarChar(100)
+  razorpay_order_id          String    @unique @db.VarChar(100)
 
   cart_snapshot              Json
-  delivery_address_id        String?  @db.Uuid
+  delivery_address_id        String?   @db.Uuid
   delivery_address_snapshot  Json
 
-  subtotal        Decimal  @db.Decimal(10, 2)
-  service_charge  Decimal  @db.Decimal(10, 2)
-  delivery_fee    Decimal  @db.Decimal(10, 2)
-  km_surcharge    Decimal  @db.Decimal(10, 2)
-  tip             Decimal  @default(0) @db.Decimal(10, 2)
-  grand_total     Decimal  @db.Decimal(10, 2)
-  distance_km     Decimal  @db.Decimal(10, 2)
+  subtotal                   Decimal   @db.Decimal(10, 2)
+  service_charge             Decimal   @db.Decimal(10, 2)
+  delivery_fee               Decimal   @db.Decimal(10, 2)
+  km_surcharge               Decimal   @db.Decimal(10, 2)
+  tip                        Decimal   @default(0) @db.Decimal(10, 2)
+  grand_total                Decimal   @db.Decimal(10, 2)
+  distance_km                Decimal   @db.Decimal(10, 2)
 
-  prescription_files  Json  @default("[]")
+  prescription_files         Json      @default("[]")
 
-  patient_is_self         Boolean  @default(true)
-  patient_name_snapshot   String?  @db.VarChar(200)
-  patient_age_snapshot    Int?
-  patient_sex_snapshot    String?  @db.VarChar(10)
+  patient_is_self            Boolean   @default(true)
+  patient_name_snapshot      String?   @db.VarChar(200)
+  patient_age_snapshot       Int?
+  patient_sex_snapshot       String?   @db.VarChar(10)
 
-  // ── ADDED ──────────────────────────────────────────────────────────────────
-  // Set when this checkout was initiated from a prescription quote acceptance.
-  // Both are null for normal cart checkouts.
-  prescription_request_id   String?  @db.Uuid
-  prescription_recipient_id String?  @db.Uuid
-  // ───────────────────────────────────────────────────────────────────────────
+  prescription_request_id    String?   @db.Uuid
+  prescription_recipient_id  String?   @db.Uuid
 
-  status      String    @default("created") @db.VarChar(20)
-  expires_at  DateTime  @db.Timestamptz(6)
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  paid_at     DateTime? @db.Timestamptz(6)
+  coupon_code                String?   @db.VarChar(50)
+  coupon_discount_amount     Decimal?  @default(0) @db.Decimal(10, 2)
+  loyalty_points_redeemed    Int?      @default(0)
+  loyalty_discount_amount    Decimal?  @default(0) @db.Decimal(10, 2)
 
-  order_id    String?  @unique @db.Uuid
+  status                     String    @default("created") @db.VarChar(20)
+  expires_at                 DateTime  @db.Timestamptz(6)
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  paid_at                    DateTime? @db.Timestamptz(6)
 
-  customer    CureliMobileUser   @relation("CustomerCheckoutSessions", fields: [customer_id], references: [id], onDelete: Restrict)
-  branch      Branch             @relation("BranchCheckoutSessions", fields: [branch_id], references: [branch_id], onDelete: Restrict)
-  order       MarketplaceOrder?  @relation("SessionOrder", fields: [order_id], references: [order_id], onDelete: SetNull)
+  order_id                   String?   @unique @db.Uuid
+
+  customer                   CureliMobileUser   @relation("CustomerCheckoutSessions", fields: [customer_id], references: [id], onDelete: Restrict)
+  branch                     Branch             @relation("BranchCheckoutSessions", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  order                      MarketplaceOrder?  @relation("SessionOrder", fields: [order_id], references: [order_id], onDelete: SetNull)
 
   @@index([customer_id, status])
   @@index([razorpay_order_id])
   @@index([status, expires_at])
   @@map("checkout_sessions")
 }
+
 
 
 model DeliveryPricingConfig {
@@ -1012,68 +1014,219 @@ model HomeStripBanner {
   @@map("home_strip_banners")
 }
 
+model HomeFeedSectionOverride {
+  id                   String   @id @default(uuid()) @db.Uuid
+  category_key         String   @unique @db.VarChar(150)
+
+  label_override       String?  @db.VarChar(100)
+  position             Int?
+  is_hidden            Boolean  @default(false)
+
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category_key])
+  @@map("home_feed_section_overrides")
+}
+
+model HomeScreenConfig {
+  config_id            String   @id @default(uuid()) @db.Uuid
+  config_key           String   @unique @db.VarChar(100)
+  config_value         String   @db.Text
+
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([config_key])
+  @@map("home_screen_config")
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LOYALTY PROGRAM
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+model LoyaltyConfig {
+  config_id              String   @id @default(uuid()) @db.Uuid
+  version                Int      @default(1)
+
+  // Master toggle
+  is_enabled             Boolean  @default(false)
+
+  // Earning rules
+  earn_rate_amount       Decimal  @default(100)    @db.Decimal(10, 2)  // ₹X per 1 point
+  earn_basis             String   @default("SUBTOTAL") @db.VarChar(20)
+
+  // Redemption rules
+  redemption_value       Decimal  @default(1)      @db.Decimal(10, 2)  // 1 point = ₹Y
+  min_redeem_points      Int      @default(50)
+  min_order_amount       Decimal  @default(299)    @db.Decimal(10, 2)
+  max_redeem_points      Int?
+  max_redeem_percent     Decimal? @db.Decimal(5, 2)
+
+  // Expiry
+  points_expiry_days     Int?
+
+  // Audit
+  updated_by_cadmin_id   String?  @db.Uuid
+  updated_by_name        String?  @db.VarChar(100)
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("loyalty_config")
+}
+
+model LoyaltyTransaction {
+  transaction_id     String                 @id @default(uuid()) @db.Uuid
+  customer_id        String                 @db.Uuid
+  type               LoyaltyTransactionType
+  points             Int                                        // always positive; type indicates direction
+  order_id           String?                @db.Uuid
+  description        String                 @db.VarChar(300)
+  balance_after      Int
+  is_expired         Boolean                @default(false)     // set true by expiry cron
+  expires_at         DateTime?              @db.Timestamptz(6)  // set on EARNED if expiry configured
+  created_at         DateTime               @default(now()) @db.Timestamptz(6)
+
+  customer           CureliMobileUser       @relation("CustomerLoyaltyTransactions", fields: [customer_id], references: [id], onDelete: Restrict)
+  order              MarketplaceOrder?      @relation("OrderLoyaltyTransactions", fields: [order_id], references: [order_id], onDelete: SetNull)
+
+  @@index([customer_id, created_at(sort: Desc)])
+  @@index([customer_id, type])
+  @@index([order_id])
+  @@index([expires_at, is_expired])
+  @@map("loyalty_transactions")
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// COUPONS
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+model Coupon {
+  coupon_id            String     @id @default(uuid()) @db.Uuid
+  code                 String     @unique @db.VarChar(50)
+  description          String?    @db.VarChar(300)
+
+  // Discount
+  type                 CouponType
+  value                Decimal    @db.Decimal(10, 2)    // ₹50 for FLAT, 20.00 for PERCENTAGE
+  max_discount         Decimal?   @db.Decimal(10, 2)    // cap for PERCENTAGE type; null = no cap
+
+  // Eligibility
+  min_order_amount     Decimal    @default(0) @db.Decimal(10, 2)
+  max_uses_total       Int?                               // null = unlimited
+  max_uses_per_user    Int?       @default(1)              // null = unlimited per user
+
+  // Validity
+  valid_from           DateTime   @db.Timestamptz(6)
+  valid_until          DateTime?  @db.Timestamptz(6)      // null = never expires
+  is_active            Boolean    @default(true)
+
+  // Denormalized counter
+  total_used           Int        @default(0)
+
+  // Audit
+  created_by_cadmin_id String?    @db.Uuid
+  created_by_name      String?    @db.VarChar(100)
+  created_at           DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime   @updatedAt @db.Timestamptz(6)
+
+  usages               CouponUsage[]
+
+  @@index([code])
+  @@index([is_active, valid_from, valid_until])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  usage_id        String    @id @default(uuid()) @db.Uuid
+  coupon_id       String    @db.Uuid
+  customer_id     String    @db.Uuid
+  order_id        String    @db.Uuid
+  discount_amount Decimal   @db.Decimal(10, 2)
+  used_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  coupon          Coupon           @relation(fields: [coupon_id], references: [coupon_id], onDelete: Restrict)
+  customer        CureliMobileUser @relation("CustomerCouponUsages", fields: [customer_id], references: [id], onDelete: Restrict)
+  order           MarketplaceOrder @relation("OrderCouponUsages", fields: [order_id], references: [order_id], onDelete: Restrict)
+
+  @@unique([coupon_id, order_id])
+  @@index([coupon_id])
+  @@index([customer_id, coupon_id])
+  @@index([order_id])
+  @@map("coupon_usages")
+}
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MARKETPLACE ORDERS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model MarketplaceOrder {
-  order_id                  String    @id @default(uuid()) @db.Uuid
-  order_number              String    @unique @db.VarChar(20)
+  order_id                  String                          @id @default(uuid()) @db.Uuid
+  order_number              String                          @unique @db.VarChar(20)
 
-  shop_id                   String    @db.Uuid
-  branch_id                 String    @db.Uuid
-  customer_id               String    @db.Uuid
+  shop_id                   String                          @db.Uuid
+  branch_id                 String                          @db.Uuid
+  customer_id               String                          @db.Uuid
 
-  delivery_address_id       String?   @db.Uuid
+  delivery_address_id       String?                         @db.Uuid
   delivery_address_snapshot Json
 
-  customer_name_snapshot    String    @db.VarChar(200)
-  customer_phone_snapshot   String    @db.VarChar(15)
+  customer_name_snapshot    String                          @db.VarChar(200)
+  customer_phone_snapshot   String                          @db.VarChar(15)
 
-  status                    MarketplaceOrderStatus @default(PLACED)
+  status                    MarketplaceOrderStatus          @default(PLACED)
 
-  payment_method            String    @default("COD") @db.VarChar(30)
-  payment_status            String    @default("PENDING") @db.VarChar(30)
+  payment_method            String                          @default("COD") @db.VarChar(30)
+  payment_status            String                          @default("PENDING") @db.VarChar(30)
 
-  subtotal                  Decimal   @db.Decimal(10, 2)
-  total_amount              Decimal   @db.Decimal(10, 2)
+  subtotal                  Decimal                         @db.Decimal(10, 2)
+  total_amount              Decimal                         @db.Decimal(10, 2)
 
-  checkout_session_id       String?   @db.Uuid
-  service_charge            Decimal   @default(0) @db.Decimal(10, 2)
-  delivery_fee              Decimal   @default(0) @db.Decimal(10, 2)
-  km_surcharge              Decimal   @default(0) @db.Decimal(10, 2)
-  tip                       Decimal   @default(0) @db.Decimal(10, 2)
-  distance_km               Decimal   @default(0) @db.Decimal(10, 2)
-  razorpay_order_id         String?   @db.VarChar(100)
-  razorpay_payment_id       String?   @db.VarChar(100)
-  razorpay_signature        String?   @db.VarChar(500)
+  checkout_session_id       String?                         @db.Uuid
+  service_charge            Decimal                         @default(0) @db.Decimal(10, 2)
+  delivery_fee              Decimal                         @default(0) @db.Decimal(10, 2)
+  km_surcharge              Decimal                         @default(0) @db.Decimal(10, 2)
+  tip                       Decimal                         @default(0) @db.Decimal(10, 2)
+  distance_km               Decimal                         @default(0) @db.Decimal(10, 2)
+  razorpay_order_id         String?                         @db.VarChar(100)
+  razorpay_payment_id       String?                         @db.VarChar(100)
+  razorpay_signature        String?                         @db.VarChar(500)
 
-  requires_prescription     Boolean   @default(false)
-  notes                     String?   @db.VarChar(500)
-  patient_is_self           Boolean   @default(true)
-  patient_name_snapshot     String?   @db.VarChar(200)
+  requires_prescription     Boolean                         @default(false)
+  notes                     String?                         @db.VarChar(500)
+  patient_is_self           Boolean                         @default(true)
+  patient_name_snapshot     String?                         @db.VarChar(200)
   patient_age_snapshot      Int?
-  patient_sex_snapshot      String?   @db.VarChar(10)
+  patient_sex_snapshot      String?                         @db.VarChar(10)
 
-  rejection_reason          String?   @db.VarChar(50)
-  rejection_reason_other    String?   @db.VarChar(300)
-  cancelled_by              String?   @db.VarChar(20)
-  auto_completed            Boolean   @default(false)
+  rejection_reason          String?                         @db.VarChar(50)
+  rejection_reason_other    String?                         @db.VarChar(300)
+  cancelled_by              String?                         @db.VarChar(20)
+  auto_completed            Boolean                         @default(false)
 
-  // ── Sales Invoice Link ────────────────────────────────
-  sales_invoice_id          String?   @unique @db.Uuid
-  invoice_pdf_key           String?   @db.VarChar(500)
-  invoice_generated_at      DateTime? @db.Timestamptz(6)
+  coupon_code               String?                         @db.VarChar(50)
+  coupon_discount_amount    Decimal?                        @default(0) @db.Decimal(10, 2)
+  loyalty_points_redeemed   Int?                            @default(0)
+  loyalty_discount_amount   Decimal?                        @default(0) @db.Decimal(10, 2)
+  loyalty_points_earned     Int?
 
-  placed_at                 DateTime  @db.Timestamptz(6)
-  accepted_at               DateTime? @db.Timestamptz(6)
-  ready_at                  DateTime? @db.Timestamptz(6)
-  completed_at              DateTime? @db.Timestamptz(6)
-  rejected_at               DateTime? @db.Timestamptz(6)
-  cancelled_at              DateTime? @db.Timestamptz(6)
-  created_at                DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at                DateTime  @updatedAt @db.Timestamptz(6)
+  sales_invoice_id          String?                         @unique @db.Uuid
+  invoice_pdf_key           String?                         @db.VarChar(500)
+  invoice_generated_at      DateTime?                       @db.Timestamptz(6)
+
+  placed_at                 DateTime                        @db.Timestamptz(6)
+  accepted_at               DateTime?                       @db.Timestamptz(6)
+  ready_at                  DateTime?                       @db.Timestamptz(6)
+  completed_at              DateTime?                       @db.Timestamptz(6)
+  rejected_at               DateTime?                       @db.Timestamptz(6)
+  cancelled_at              DateTime?                       @db.Timestamptz(6)
+  created_at                DateTime                        @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                        @updatedAt @db.Timestamptz(6)
 
   shop                      Shop                            @relation("ShopMarketplaceOrders", fields: [shop_id], references: [shop_id], onDelete: Restrict)
   branch                    Branch                          @relation("BranchMarketplaceOrders", fields: [branch_id], references: [branch_id], onDelete: Restrict)
@@ -1084,6 +1237,8 @@ model MarketplaceOrder {
   statusHistory             MarketplaceOrderStatusHistory[] @relation("OrderStatusHistory")
   checkoutSession           CheckoutSession?                @relation("SessionOrder")
   salesInvoice              SalesInvoice?                   @relation("MarketplaceSalesInvoice", fields: [sales_invoice_id], references: [invoice_id])
+  couponUsages              CouponUsage[]                   @relation("OrderCouponUsages")
+  loyaltyTransactions       LoyaltyTransaction[]            @relation("OrderLoyaltyTransactions")
 
   @@index([shop_id, status])
   @@index([customer_id, placed_at(sort: Desc)])
@@ -1092,6 +1247,7 @@ model MarketplaceOrder {
   @@index([status, ready_at])
   @@map("marketplace_orders")
 }
+
 
 model MarketplaceOrderItem {
 
@@ -1327,59 +1483,60 @@ model PrescriptionQuoteItem {
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 model CureliMobileUser {
-  id                     String    @id @default(uuid()) @db.Uuid
+  id                     String                      @id @default(uuid()) @db.Uuid
 
-  phone                  String    @unique @db.VarChar(15)
-  phone_verified         Boolean   @default(false)
-  phone_verified_at      DateTime? @db.Timestamptz(6)
+  phone                  String                      @unique @db.VarChar(15)
+  phone_verified         Boolean                     @default(false)
+  phone_verified_at      DateTime?                   @db.Timestamptz(6)
 
-  email                  String?   @unique @db.VarChar(255)
-  full_name              String?   @db.VarChar(200)
-  profile_image_key      String?   @db.VarChar(500)
-  date_of_birth          DateTime? @db.Date
+  email                  String?                     @unique @db.VarChar(255)
+  full_name              String?                     @db.VarChar(200)
+  profile_image_key      String?                     @db.VarChar(500)
+  date_of_birth          DateTime?                   @db.Date
   sex                    UserSex?
-  profile_complete       Boolean   @default(false)
+  profile_complete       Boolean                     @default(false)
 
-  status                 String    @default("active") @db.VarChar(20)
-  suspended_at           DateTime? @db.Timestamptz(6)
-  suspension_reason      String?   @db.VarChar(500)
-  suspended_by           String?   @db.VarChar(100)
+  status                 String                      @default("active") @db.VarChar(20)
+  suspended_at           DateTime?                   @db.Timestamptz(6)
+  suspension_reason      String?                     @db.VarChar(500)
+  suspended_by           String?                     @db.VarChar(100)
 
-  deleted_at             DateTime? @db.Timestamptz(6)
-  deletion_reason        String?   @db.VarChar(500)
+  deleted_at             DateTime?                   @db.Timestamptz(6)
+  deletion_reason        String?                     @db.VarChar(500)
 
   delete_otp_hash        String?
-  delete_otp_expires     DateTime? @db.Timestamptz(6)
+  delete_otp_expires     DateTime?                   @db.Timestamptz(6)
 
   login_otp_hash         String?
-  login_otp_expires      DateTime? @db.Timestamptz(6)
-  login_otp_attempts     Int       @default(0)
-  otp_cycle_failures     Int       @default(0)
-  otp_locked_until       DateTime? @db.Timestamptz(6)
+  login_otp_expires      DateTime?                   @db.Timestamptz(6)
+  login_otp_attempts     Int                         @default(0)
+  otp_cycle_failures     Int                         @default(0)
+  otp_locked_until       DateTime?                   @db.Timestamptz(6)
 
-  phone_change_new       String?   @db.VarChar(15)
+  phone_change_new       String?                     @db.VarChar(15)
   phone_change_otp_hash  String?
-  phone_change_expires   DateTime? @db.Timestamptz(6)
+  phone_change_expires   DateTime?                   @db.Timestamptz(6)
 
-  logout_all_issued_at   DateTime? @db.Timestamptz(6)
+  logout_all_issued_at   DateTime?                   @db.Timestamptz(6)
 
-  referral_code          String?   @unique @db.VarChar(20)
-  referred_by_code       String?   @db.VarChar(20)
+  referral_code          String?                     @unique @db.VarChar(20)
+  referred_by_code       String?                     @db.VarChar(20)
 
-  created_at             DateTime  @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime  @updatedAt @db.Timestamptz(6)
-  last_seen_at           DateTime? @db.Timestamptz(6)
+  created_at             DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                    @updatedAt @db.Timestamptz(6)
+  last_seen_at           DateTime?                   @db.Timestamptz(6)
 
   sessions               CureliMobileSession[]
   addresses              CureliMobileAddress[]
   marketplaceOrders      MarketplaceOrder[]          @relation("CustomerMarketplaceOrders")
   pushPreference         CureliMobilePushPreference?
   mobileNotifications    CureliMobileNotification[]
-  checkoutSessions       CheckoutSession[]            @relation("CustomerCheckoutSessions")
+  checkoutSessions       CheckoutSession[]           @relation("CustomerCheckoutSessions")
   familyMembers          CureliMobileFamilyMember[]
-  // ── ADDED ─────────────────────────────────────────────────
-  prescriptionRequests   PrescriptionRequest[]        @relation("CustomerPrescriptionRequests")
-  // ──────────────────────────────────────────────────────────
+  prescriptionRequests   PrescriptionRequest[]       @relation("CustomerPrescriptionRequests")
+  loyalty_points_balance Int                         @default(0)
+  loyaltyTransactions    LoyaltyTransaction[]        @relation("CustomerLoyaltyTransactions")
+  couponUsages           CouponUsage[]               @relation("CustomerCouponUsages")
 
   @@index([phone])
   @@index([status])
@@ -1387,6 +1544,11 @@ model CureliMobileUser {
   @@index([created_at(sort: Desc)])
   @@map("cureli_mobile_users")
 }
+
+
+
+
+
 
 
 model CureliMobileFamilyMember {
@@ -1632,617 +1794,6 @@ model CureliMobileBroadcastCampaign {
   @@map("cureli_mobile_broadcast_campaigns")
 }
 
-
-
-
-// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// CURELI DELIVERY — RIDER & DELIVERY MODULE
-// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-model DeliveryZone {
-  zone_id    String   @id @default(uuid()) @db.Uuid
-  name       String   @db.VarChar(100)
-  city       String   @db.VarChar(100)
-  state      String   @db.VarChar(100)
-  is_active  Boolean  @default(true)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
-
-  riders             Rider[]
-  zoneChangeRequests ZoneChangeRequest[]
-  trainingContent    RiderTrainingContent[]
-
-  @@index([city, is_active])
-  @@index([is_active])
-  @@map("delivery_zones")
-}
-
-model DeliveryConfig {
-  config_id                String   @id @default(uuid()) @db.Uuid
-  base_fee_per_delivery    Decimal  @default(30) @db.Decimal(10, 2)
-  per_km_rate              Decimal  @default(5)  @db.Decimal(10, 2)
-  accept_timeout_seconds   Int      @default(30)
-  max_cascade_attempts     Int      @default(5)
-  min_payout_amount        Decimal  @default(100) @db.Decimal(10, 2)
-  payout_day_of_week       Int      @default(1)
-  low_rating_threshold     Decimal  @default(3.5) @db.Decimal(3, 2)
-  updated_at               DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-  updated_by               String?  @db.Uuid
-
-  @@map("delivery_config")
-}
-
-model DeliveryShift {
-  shift_id        String   @id @default(uuid()) @db.Uuid
-  name            String   @db.VarChar(100)
-  start_time      String   @db.VarChar(5)
-  end_time        String   @db.VarChar(5)
-  min_deliveries  Int
-  bonus_amount    Decimal  @db.Decimal(10, 2)
-  is_active       Boolean  @default(true)
-  created_at      DateTime @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime @updatedAt @db.Timestamptz(6)
-
-  @@index([is_active])
-  @@map("delivery_shifts")
-}
-
-model DeliverySurgeRule {
-  rule_id       String   @id @default(uuid()) @db.Uuid
-  name          String   @db.VarChar(100)
-  start_time    String   @db.VarChar(5)
-  end_time      String   @db.VarChar(5)
-  days_of_week  String[]
-  multiplier    Decimal  @db.Decimal(4, 2)
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime @updatedAt @db.Timestamptz(6)
-
-  @@index([is_active])
-  @@map("delivery_surge_rules")
-}
-
-model DeliveryIncentive {
-  incentive_id  String          @id @default(uuid()) @db.Uuid
-  type          IncentiveType
-  target_count  Int
-  reward_amount Decimal         @db.Decimal(10, 2)
-  period        IncentivePeriod
-  is_active     Boolean         @default(true)
-  expires_at    DateTime?       @db.Timestamptz(6)
-  created_at    DateTime        @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime        @updatedAt @db.Timestamptz(6)
-
-  @@index([is_active])
-  @@map("delivery_incentives")
-}
-
-model Rider {
-  rider_id                 String       @id @default(uuid()) @db.Uuid
-  phone                    String       @unique @db.VarChar(15)
-  full_name                String?      @db.VarChar(200)
-  date_of_birth            DateTime?    @db.Date
-  sex                      UserSex?
-
-  // Profile
-  profile_photo_key        String?      @db.VarChar(500)
-
-  // Vehicle details
-  vehicle_type             String?      @db.VarChar(20)
-  vehicle_number           String?      @db.VarChar(20)
-  vehicle_make_model       String?      @db.VarChar(100)
-
-  // Status
-  status                   RiderStatus  @default(PENDING_REVIEW)
-
-  // Zone
-  zone_id                  String?      @db.Uuid
-
-  // Online state
-  is_online                Boolean      @default(false)
-  current_lat              Decimal?     @db.Decimal(10, 8)
-  current_lng              Decimal?     @db.Decimal(11, 8)
-  last_location_at         DateTime?    @db.Timestamptz(6)
-
-  // Bank details (flat fields — required for payout processing)
-  bank_account_number      String?      @db.VarChar(30)
-  bank_ifsc                String?      @db.VarChar(15)
-  bank_holder_name         String?      @db.VarChar(200)
-  bank_name                String?      @db.VarChar(100)
-  bank_verified            Boolean      @default(false)
-
-  // Emergency contact (flat fields — used in SOS critical path)
-  emergency_contact_name   String?      @db.VarChar(200)
-  emergency_contact_phone  String?      @db.VarChar(15)
-
-  // Ratings
-  rating                   Float        @default(0)
-  total_ratings            Int          @default(0)
-  total_deliveries         Int          @default(0)
-
-  // Referral
-  referral_code            String?      @unique @db.VarChar(20)
-  referred_by_code         String?      @db.VarChar(20)
-
-  // Suspension
-  suspension_reason        String?      @db.VarChar(500)
-  suspended_at             DateTime?    @db.Timestamptz(6)
-  suspended_by             String?      @db.Uuid
-
-  // Auth OTP fields — mirrors CureliMobileUser exactly
-  login_otp_hash           String?
-  login_otp_expires        DateTime?    @db.Timestamptz(6)
-  login_otp_attempts       Int          @default(0)
-  otp_cycle_failures       Int          @default(0)
-  otp_locked_until         DateTime?    @db.Timestamptz(6)
-
-  // Session control
-  logout_all_issued_at     DateTime?    @db.Timestamptz(6)
-
-  // Soft delete
-  deleted_at               DateTime?    @db.Timestamptz(6)
-  deletion_reason          String?      @db.VarChar(500)
-
-  created_at               DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime     @updatedAt @db.Timestamptz(6)
-  last_seen_at             DateTime?    @db.Timestamptz(6)
-
-  // Relations
-  zone                     DeliveryZone?          @relation(fields: [zone_id], references: [zone_id])
-  sessions                 RiderSession[]
-  documents                RiderDocument[]
-  zoneChangeRequests       ZoneChangeRequest[]
-  deliveries               Delivery[]
-  earningLedger            RiderEarningLedger[]
-  payouts                  RiderPayout[]
-  ratingsReceived          RiderRating[]
-  ratingsGiven             RiderGivesRating[]
-  incidents                RiderIncident[]
-  appeals                  RiderAppeal[]
-  tickets                  RiderTicket[]
-  notifications            RiderNotification[]
-  assignmentLogs           DeliveryAssignmentLog[]
-
-  @@index([phone])
-  @@index([status])
-  @@index([zone_id, is_online, status])
-  @@index([referral_code])
-  @@index([deleted_at])
-  @@index([created_at(sort: Desc)])
-  @@map("riders")
-}
-
-model RiderSession {
-  id                   String    @id @default(uuid()) @db.Uuid
-  rider_id             String    @db.Uuid
-  refresh_token_hash   String    @unique @db.VarChar(500)
-  device_id            String?   @db.VarChar(255)
-  device_name          String?   @db.VarChar(200)
-  device_platform      String?   @db.VarChar(20)
-  device_os_version    String?   @db.VarChar(50)
-  app_version          String?   @db.VarChar(20)
-  push_token           String?   @db.VarChar(500)
-  push_token_type      String?   @db.VarChar(20)
-  push_token_updated_at DateTime? @db.Timestamptz(6)
-  ip_address           String?   @db.VarChar(45)
-  user_agent           String?   @db.VarChar(500)
-  is_active            Boolean   @default(true)
-  created_at           DateTime  @default(now()) @db.Timestamptz(6)
-  last_active_at       DateTime  @default(now()) @db.Timestamptz(6)
-  expires_at           DateTime  @db.Timestamptz(6)
-  revoked_at           DateTime? @db.Timestamptz(6)
-  revoked_reason       String?   @db.VarChar(50)
-
-  rider                Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
-
-  @@index([rider_id])
-  @@index([refresh_token_hash])
-  @@index([rider_id, is_active])
-  @@index([expires_at])
-  @@map("rider_sessions")
-}
-
-model RiderDocument {
-  document_id       String              @id @default(uuid()) @db.Uuid
-  rider_id          String              @db.Uuid
-  type              RiderDocumentType
-  storage_key       String?             @db.VarChar(500)
-  back_storage_key  String?             @db.VarChar(500)
-  status            RiderDocumentStatus @default(PENDING)
-  rejection_reason  String?             @db.VarChar(500)
-  reviewed_by       String?             @db.Uuid
-  reviewed_at       DateTime?           @db.Timestamptz(6)
-  resubmission_count Int                @default(0)
-  uploaded_at       DateTime?           @db.Timestamptz(6)
-  created_at        DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime            @updatedAt @db.Timestamptz(6)
-
-  rider             Rider               @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
-
-  @@unique([rider_id, type])
-  @@index([rider_id])
-  @@index([rider_id, type])
-  @@index([status])
-  @@map("rider_documents")
-}
-
-model ZoneChangeRequest {
-  request_id   String           @id @default(uuid()) @db.Uuid
-  rider_id     String           @db.Uuid
-  from_zone_id String?          @db.Uuid
-  to_zone_id   String           @db.Uuid
-  reason       String?          @db.VarChar(500)
-  status       ZoneChangeStatus @default(PENDING)
-  reviewed_by  String?          @db.Uuid
-  reviewed_at  DateTime?        @db.Timestamptz(6)
-  review_note  String?          @db.VarChar(500)
-  created_at   DateTime         @default(now()) @db.Timestamptz(6)
-
-  rider        Rider            @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
-  toZone       DeliveryZone     @relation(fields: [to_zone_id], references: [zone_id])
-
-  @@index([rider_id])
-  @@index([status, created_at(sort: Desc)])
-  @@map("zone_change_requests")
-}
-
-model Delivery {
-  delivery_id                String              @id @default(uuid()) @db.Uuid
-  order_id                   String              @unique @db.Uuid
-  rider_id                   String?             @db.Uuid
-  zone_id                    String?             @db.Uuid
-  status                     DeliveryStatus      @default(PENDING_ASSIGNMENT)
-
-  // Assignment tracking
-  assigned_at                DateTime?           @db.Timestamptz(6)
-  accepted_at                DateTime?           @db.Timestamptz(6)
-  assignment_attempts        Int                 @default(0)
-
-  // Pharmacy step
-  arrived_at_pharmacy_at     DateTime?           @db.Timestamptz(6)
-  pharmacy_confirmed_at      DateTime?           @db.Timestamptz(6)
-  pharmacy_confirmed_by      String?             @db.Uuid
-  picked_up_at               DateTime?           @db.Timestamptz(6)
-
-  // Customer step
-  arrived_at_customer_at     DateTime?           @db.Timestamptz(6)
-  delivered_at               DateTime?           @db.Timestamptz(6)
-
-  // Failed delivery
-  failed_at                  DateTime?           @db.Timestamptz(6)
-  failure_reason             DeliveryFailureReason?
-  failure_note               String?             @db.VarChar(500)
-
-  // Masked call gate
-  masked_call_enabled        Boolean             @default(false)
-
-  // Location snapshots (captured at delivery creation)
-  pickup_lat                 Decimal?            @db.Decimal(10, 8)
-  pickup_lng                 Decimal?            @db.Decimal(11, 8)
-  drop_lat                   Decimal?            @db.Decimal(10, 8)
-  drop_lng                   Decimal?            @db.Decimal(11, 8)
-  total_distance_km          Decimal?            @db.Decimal(10, 2)
-
-  // Earnings snapshot (immutable after delivery completes)
-  base_fee                   Decimal?            @db.Decimal(10, 2)
-  distance_fee               Decimal?            @db.Decimal(10, 2)
-  surge_fee                  Decimal?            @db.Decimal(10, 2)
-  bonus_fee                  Decimal?            @db.Decimal(10, 2)
-  total_rider_earning        Decimal?            @db.Decimal(10, 2)
-
-  created_at                 DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at                 DateTime            @updatedAt @db.Timestamptz(6)
-
-  rider                      Rider?              @relation(fields: [rider_id], references: [rider_id])
-  assignmentLogs             DeliveryAssignmentLog[]
-  chatMessages               DeliveryChat[]
-  riderRating                RiderRating?
-  customerRating             RiderGivesRating?
-
-  @@index([order_id])
-  @@index([rider_id, status])
-  @@index([status, created_at(sort: Desc)])
-  @@index([zone_id, status])
-  @@map("deliveries")
-}
-
-model DeliveryAssignmentLog {
-  log_id      String          @id @default(uuid()) @db.Uuid
-  delivery_id String          @db.Uuid
-  rider_id    String          @db.Uuid
-  action      AssignmentAction
-  reason      String?         @db.VarChar(200)
-  created_at  DateTime        @default(now()) @db.Timestamptz(6)
-
-  delivery    Delivery        @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
-  rider       Rider           @relation(fields: [rider_id], references: [rider_id])
-
-  @@index([delivery_id])
-  @@index([rider_id])
-  @@map("delivery_assignment_logs")
-}
-
-model DeliveryChat {
-  message_id   String         @id @default(uuid()) @db.Uuid
-  delivery_id  String         @db.Uuid
-  sender_id    String         @db.Uuid
-  sender_type  ChatSenderType
-  message      String         @db.VarChar(1000)
-  is_preset    Boolean        @default(false)
-  read_at      DateTime?      @db.Timestamptz(6)
-  created_at   DateTime       @default(now()) @db.Timestamptz(6)
-
-  delivery     Delivery       @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
-
-  @@index([delivery_id, created_at(sort: Asc)])
-  @@map("delivery_chats")
-}
-
-model RiderEarningLedger {
-  ledger_id   String      @id @default(uuid()) @db.Uuid
-  rider_id    String      @db.Uuid
-  delivery_id String?     @db.Uuid
-  payout_id   String?     @db.Uuid
-  type        EarningType
-  amount      Decimal     @db.Decimal(10, 2)
-  description String?     @db.VarChar(300)
-  week_start  DateTime    @db.Date
-  is_paid     Boolean     @default(false)
-  created_at  DateTime    @default(now()) @db.Timestamptz(6)
-
-  rider       Rider       @relation(fields: [rider_id], references: [rider_id])
-  payout      RiderPayout? @relation(fields: [payout_id], references: [payout_id])
-
-  @@index([rider_id, is_paid])
-  @@index([rider_id, week_start])
-  @@index([payout_id])
-  @@map("rider_earning_ledger")
-}
-
-model RiderPayout {
-  payout_id          String        @id @default(uuid()) @db.Uuid
-  rider_id           String        @db.Uuid
-  week_start         DateTime      @db.Date
-  week_end           DateTime      @db.Date
-  gross_amount       Decimal       @db.Decimal(10, 2)
-  status             PayoutStatus  @default(PENDING)
-  payment_method     PayoutMethod  @default(MANUAL)
-
-  // Manual payout fields
-  manual_reference   String?       @db.VarChar(100)
-  manual_notes       String?       @db.VarChar(500)
-  manual_payment_date DateTime?    @db.Date
-  manual_bank_used   String?       @db.VarChar(100)
-
-  // Provider payload — null for MANUAL, populated for RAZORPAY_X in future
-  provider_payload   Json?
-
-  // Bank details snapshot at time of payout (immutable audit trail)
-  bank_snapshot      Json
-
-  processed_by       String?       @db.Uuid
-  processed_at       DateTime?     @db.Timestamptz(6)
-  failed_reason      String?       @db.VarChar(500)
-
-  created_at         DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime      @updatedAt @db.Timestamptz(6)
-
-  rider              Rider         @relation(fields: [rider_id], references: [rider_id])
-  ledgerEntries      RiderEarningLedger[]
-
-  @@index([rider_id, status])
-  @@index([status, created_at(sort: Desc)])
-  @@index([week_start])
-  @@map("rider_payouts")
-}
-
-model RiderRating {
-  rating_id   String   @id @default(uuid()) @db.Uuid
-  delivery_id String   @unique @db.Uuid
-  rider_id    String   @db.Uuid
-  customer_id String   @db.Uuid
-  stars       Int
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-
-  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
-  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
-
-  @@index([rider_id])
-  @@map("rider_ratings")
-}
-
-model RiderGivesRating {
-  rating_id   String   @id @default(uuid()) @db.Uuid
-  delivery_id String   @unique @db.Uuid
-  rider_id    String   @db.Uuid
-  customer_id String   @db.Uuid
-  stars       Int
-  reason      String?  @db.VarChar(200)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-
-  delivery    Delivery @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
-  rider       Rider    @relation(fields: [rider_id], references: [rider_id])
-
-  @@index([rider_id])
-  @@map("rider_gives_ratings")
-}
-
-model RiderIncident {
-  incident_id  String         @id @default(uuid()) @db.Uuid
-  rider_id     String         @db.Uuid
-  type         IncidentType
-  is_sos       Boolean        @default(false)
-  description  String?        @db.VarChar(1000)
-  lat          Decimal?       @db.Decimal(10, 8)
-  lng          Decimal?       @db.Decimal(11, 8)
-  delivery_id  String?        @db.Uuid
-  status       IncidentStatus @default(OPEN)
-  resolved_by  String?        @db.Uuid
-  resolved_at  DateTime?      @db.Timestamptz(6)
-  created_at   DateTime       @default(now()) @db.Timestamptz(6)
-
-  rider        Rider          @relation(fields: [rider_id], references: [rider_id])
-
-  @@index([rider_id])
-  @@index([is_sos, status])
-  @@index([status, created_at(sort: Desc)])
-  @@map("rider_incidents")
-}
-
-model RiderAppeal {
-  appeal_id   String       @id @default(uuid()) @db.Uuid
-  rider_id    String       @db.Uuid
-  reason      String       @db.VarChar(1000)
-  status      AppealStatus @default(PENDING)
-  review_note String?      @db.VarChar(500)
-  reviewed_by String?      @db.Uuid
-  reviewed_at DateTime?    @db.Timestamptz(6)
-  created_at  DateTime     @default(now()) @db.Timestamptz(6)
-
-  rider       Rider        @relation(fields: [rider_id], references: [rider_id])
-
-  @@index([rider_id])
-  @@index([status, created_at(sort: Desc)])
-  @@map("rider_appeals")
-}
-
-model RiderTicket {
-  ticket_id   String            @id @default(uuid()) @db.Uuid
-  rider_id    String            @db.Uuid
-  category    RiderTicketCategory
-  description String            @db.VarChar(2000)
-  status      RiderTicketStatus @default(OPEN)
-  created_at  DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime          @updatedAt @db.Timestamptz(6)
-
-  rider       Rider             @relation(fields: [rider_id], references: [rider_id])
-  replies     RiderTicketReply[]
-
-  @@index([rider_id, status])
-  @@index([status, created_at(sort: Desc)])
-  @@map("rider_tickets")
-}
-
-model RiderTicketReply {
-  reply_id    String      @id @default(uuid()) @db.Uuid
-  ticket_id   String      @db.Uuid
-  sender_id   String      @db.Uuid
-  sender_type String      @db.VarChar(10)
-  message     String      @db.VarChar(2000)
-  created_at  DateTime    @default(now()) @db.Timestamptz(6)
-
-  ticket      RiderTicket @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
-
-  @@index([ticket_id, created_at(sort: Asc)])
-  @@map("rider_ticket_replies")
-}
-
-model RiderNotification {
-  id             String    @id @default(uuid()) @db.Uuid
-  rider_id       String    @db.Uuid
-  title          String    @db.VarChar(200)
-  body           String    @db.VarChar(500)
-  category       String    @db.VarChar(50)
-  data           Json?
-  is_read        Boolean   @default(false)
-  read_at        DateTime? @db.Timestamptz(6)
-  push_sent      Boolean   @default(false)
-  push_ticket_id String?   @db.VarChar(200)
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-
-  rider          Rider     @relation(fields: [rider_id], references: [rider_id], onDelete: Cascade)
-
-  @@index([rider_id, is_read, created_at(sort: Desc)])
-  @@index([rider_id, created_at(sort: Desc)])
-  @@map("rider_notifications")
-}
-
-model RiderTrainingContent {
-  content_id   String              @id @default(uuid()) @db.Uuid
-  type         TrainingContentType
-  title        String              @db.VarChar(200)
-  body         String              @db.Text
-  order        Int                 @default(0)
-  is_active    Boolean             @default(true)
-  target_zone_id String?           @db.Uuid
-  created_by   String              @db.Uuid
-  created_at   DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime            @updatedAt @db.Timestamptz(6)
-
-  targetZone   DeliveryZone?       @relation(fields: [target_zone_id], references: [zone_id])
-
-  @@index([type, is_active])
-  @@index([target_zone_id])
-  @@map("rider_training_content")
-}
-
-
-// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// PLANS
-// ════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-model Plan {
-  plan_id              String             @id @default(uuid()) @db.Uuid
-  plan_code            String             @unique @db.VarChar(20)   // e.g. PLAN-0001
-  name                 String             @db.VarChar(100)          // ← @unique REMOVED
-  max_branches         Int
-  max_users            Int
-  price                BigInt
-  is_customizable      Boolean            @default(false)
-  created_at           DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime           @updatedAt @db.Timestamptz(6)
-  activated_at         DateTime?          @db.Timestamptz(6)
-  created_by           String?            @db.Uuid
-  deleted_at           DateTime?          @db.Timestamptz(6)
-  description          String?
-  status               PlanStatus         @default(ACTIVE)
-  suspended_at         DateTime?          @db.Timestamptz(6)
-  created_for_shop_id  String?            @db.Uuid
-  type                 PlanType           @default(PRE_MADE)
-  billing_cycle_months Int                @default(12)
-  bonus_months         Int                @default(0)
-  compare_at_price     BigInt?
-  is_featured          Boolean            @default(false)
-  promo_free_until     DateTime?          @db.Timestamptz(6)
-
-  // ── TWO-PHASE PRICING ─────────────────────────────
-  intro_price          BigInt?
-  intro_trigger_type   String?            @db.VarChar(10)           // "duration" | "date"
-  intro_duration_years Int?                                          // how many yearly renewals at intro price
-  intro_end_date       DateTime?          @db.Timestamptz(6)        // used when trigger = "date"
-  // ──────────────────────────────────────────────────
-
-  activityLogs         PlanActivityLog[]
-  creator              CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
-  createdForShop       Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])
-  subscriptions        ShopSubscription[]
-
-  @@index([status])
-  @@index([type])
-  @@index([deleted_at])
-  @@index([created_for_shop_id])
-  @@index([name])                                                    // index for search, not unique
-  @@map("plans")
-}
-
-model PaymentTransaction {
-  transaction_id      String            @id @default(uuid()) @db.Uuid
-  shop_id             String            @db.Uuid
-  subscription_id     String?           @db.Uuid
-  provider            String
-  provider_order_id   String?           @unique
-  provider_payment_id String?           @unique
-  amount              BigInt
-  currency            String            @default("INR")
-  status              String
-  meta                Json?
-  created_at          DateTime          @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime          @updatedAt @db.Timestamptz(6)
-  shop                Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
-  subscription        ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
-
-  @@map("payment_transactions")
-}
 
 
 

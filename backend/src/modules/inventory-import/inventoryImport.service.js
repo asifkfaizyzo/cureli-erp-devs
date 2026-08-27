@@ -1,4 +1,4 @@
-// src/modules/inventory-import/inventoryImport.service.js
+// backend/src/modules/inventory-import/inventoryImport.service.js
 
 import fs from "fs";
 import prisma from "../../config/prisma.js";
@@ -7,6 +7,7 @@ import {
   deduplicateMedicines,
   buildMedicineKey,
   computeFileHash,
+  parsePackSizeMultiplier,
 } from "./inventoryImport.parser.js";
 import { validateRows }           from "./inventoryImport.validator.js";
 import { storeConflictDecisions } from "./inventoryImport.resolver.js";
@@ -86,6 +87,10 @@ async function detectConflicts(validRows, shopId, branchId) {
     if (existingMap.has(key)) {
       const existing    = existingMap.get(key);
       const conflictKey = key;
+      
+      const multiplier  = parsePackSizeMultiplier(row.packSize);
+      const existingStockInPacks = existing.existingStock / multiplier;
+
       if (!conflicts[conflictKey]) {
         conflicts[conflictKey] = {
           medicineKey:         buildMedicineKey(row.productName, row.company),
@@ -94,8 +99,8 @@ async function detectConflicts(validRows, shopId, branchId) {
           batchNumber:         row.batchNumber,
           existingInventoryId: existing.inventoryId,
           existingMedicineId:  existing.medicineId,
-          existingStock:       existing.existingStock,
-          importQuantity:      row.quantity,
+          existingStock:       existingStockInPacks, // Pack-level display
+          importQuantity:      row.quantity,         // Pack-level upload
           rowIndices:          [row.rowIndex],
           userDecision:        null,
         };
@@ -255,6 +260,9 @@ async function _processImportJob(importJobId, parseResult, shopId, branchId) {
 
     await updateProgress(importJobId, PHASE.VALIDATING, 85);
 
+    // Store quantity mode
+    const quantityMode = parseResult.quantityMode || "PER_PACK";
+
     const validationResult = validateRows(parseResult.rows);
     const conflictReport   = await detectConflicts(validationResult.validRows, shopId, branchId);
 
@@ -274,7 +282,7 @@ async function _processImportJob(importJobId, parseResult, shopId, branchId) {
         status:              "AWAITING_REVIEW",
         processing_phase:    PHASE.READY,
         processing_progress: 100,
-        resolutions:         medicinePlans,
+        resolutions:         { ...medicinePlans, __quantityMode: quantityMode },
         conflict_decisions:  conflictReport,
         valid_rows:          validationResult.summary.valid,
         error_rows:          validationResult.summary.errors,
@@ -308,9 +316,6 @@ async function _processImportJob(importJobId, parseResult, shopId, branchId) {
 }
 
 // ── Background write job ──────────────────────────────────────────────────────
-// FIX: No longer overwrites error_log with writeResult.
-// writeResult is stored in-memory via _activeWriteResults map for the
-// polling session, then discarded. Historical access uses DB columns.
 
 const _activeWriteResults = new Map();
 
@@ -334,7 +339,6 @@ async function _executeWrite(importJobId, job, userId) {
       where: { import_job_id: importJobId },
       data: {
         status:    "FAILED",
-        // Append to error_log instead of overwriting
         error_log: [{ message: `Re-parse failed: ${parseError.message}`, phase: "write_reparse" }],
       },
     }).catch(() => {});
@@ -343,27 +347,24 @@ async function _executeWrite(importJobId, job, userId) {
 
   let writeResult;
   try {
-    writeResult = await writeAll(job, parsedRows, userId);
+    const quantityMode = job.resolutions?.__quantityMode || "PER_PACK";
+    writeResult = await writeAll(job, parsedRows, userId, quantityMode);
   } catch (writeError) {
     await prisma.inventoryImportJob.update({
       where: { import_job_id: importJobId },
       data: {
         status:    "FAILED",
-        // Append to error_log instead of overwriting
         error_log: [{ message: writeError.message, phase: "write_all" }],
       },
     }).catch(() => {});
     return;
   }
 
-  // Store writeResult in memory for active polling session.
-  // Auto-expire after 10 minutes — by then the frontend poll has picked it up.
   _activeWriteResults.set(importJobId, writeResult);
   setTimeout(() => {
     _activeWriteResults.delete(importJobId);
   }, 10 * 60 * 1000);
 
-  // Audit log — non-critical
   try {
     await audit.log({
       action:      "INVENTORY_IMPORT_COMPLETED",
@@ -385,7 +386,6 @@ async function _executeWrite(importJobId, job, userId) {
     });
   } catch { /* non-critical */ }
 
-  // Clean up uploaded file — non-critical
   try {
     if (job.storage_key && fs.existsSync(job.storage_key)) {
       fs.unlinkSync(job.storage_key);
@@ -476,8 +476,6 @@ class InventoryImportService {
 
   async getJobStatus(importJobId, shopId) {
     const job = await verifyJobOwnership(importJobId, shopId);
-
-    // Check in-memory write result first (available during active polling)
     const writeResult = _activeWriteResults.get(importJobId) || null;
 
     return {
@@ -504,10 +502,11 @@ class InventoryImportService {
       willCreateLinked:    0,
       willCreateSuggested: 0,
       willCreateUnlinked:  0,
-      totalMedicines:      Object.keys(medicinePlans).length,
+      totalMedicines:      Object.keys(medicinePlans).length - 1, // Exclude __quantityMode helper key
     };
 
-    for (const plan of Object.values(medicinePlans)) {
+    for (const [key, plan] of Object.entries(medicinePlans)) {
+      if (key === "__quantityMode") continue;
       if (plan.medicineAction === "use_existing")     autoSummary.existingMedicines++;
       if (plan.medicineAction === "create_linked")    autoSummary.willCreateLinked++;
       if (plan.medicineAction === "create_suggested") autoSummary.willCreateSuggested++;
@@ -537,8 +536,6 @@ class InventoryImportService {
     };
   }
 
-  // ── NEW: Read-only detail endpoint for logs panel ─────────────────────────
-
   async getJobDetail(importJobId, shopId) {
     const job = await prisma.inventoryImportJob.findUnique({
       where: { import_job_id: importJobId },
@@ -551,18 +548,13 @@ class InventoryImportService {
     if (!job)                   throw new ImportError("Import job not found.", 404, "NOT_FOUND");
     if (job.shop_id !== shopId) throw new ImportError("Access denied.",        403, "FORBIDDEN");
 
-    // error_log is always an array after the fix.
-    // Guard against legacy jobs where it might still be the old __writeResult shape.
     let validationErrors = [];
     if (Array.isArray(job.error_log)) {
       validationErrors = job.error_log;
     } else if (job.error_log && typeof job.error_log === "object" && !job.error_log.__writeResult) {
-      // Single error object from a FAILED job
       validationErrors = [job.error_log];
     }
-    // If it's the old { __writeResult } shape, validationErrors stays empty — no row errors recoverable.
 
-    // Derive breakdown from stored columns
     const mergedAndReplaced   = job.existing_batches_merged || 0;
     const totalImported       = job.imported_rows || 0;
     const pureNewBatches      = Math.max(0, totalImported - mergedAndReplaced);
@@ -577,7 +569,6 @@ class InventoryImportService {
       createdAt:            job.created_at,
       completedAt:          job.completed_at,
 
-      // Row counts
       totalRows:            job.total_rows || 0,
       importedRows:         totalImported,
       newBatches:           pureNewBatches,
@@ -586,7 +577,6 @@ class InventoryImportService {
       errorRows:            job.error_rows || 0,
       newMedicinesCreated:  job.new_medicines_created || 0,
 
-      // Validation errors — always array
       validationErrors,
       hasErrors:            validationErrors.length > 0,
       errorCount:           validationErrors.length,

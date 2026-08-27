@@ -106,6 +106,21 @@ const inventoryAPI = {
     });
     return response.data;
   },
+
+  exportInventory: async () => {
+    const response = await api.get("/inventory/export", {
+      headers: getBranchHeaders(),
+      responseType: "blob",
+    });
+    return response;
+  },
+
+  resetInventory: async () => {
+    const response = await api.post("/inventory/reset", {}, {
+      headers: getBranchHeaders(),
+    });
+    return response.data;
+  },
 };
 
 export default inventoryAPI;

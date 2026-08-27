@@ -1,34 +1,23 @@
 // backend/src/modules/loyalty/loyalty.config.service.js
-//
-// Service layer for the LoyaltyConfig singleton.
-// Follows the exact same pattern as getConfig() in mobile.checkout.service.js:
-//   - Single row in DB, upserted on update
-//   - In-memory cache with version-based invalidation
-//   - Auto-creates the row with defaults on first read
-//
-// Responsibilities:
-//   - getLoyaltyConfig()     → cached read, auto-seeds if missing
-//   - updateLoyaltyConfig()  → validate + upsert + invalidate cache
-//   - getLoyaltyConfigForMobile() → normalised config for mobile endpoint
 
 import prisma from "../../config/prisma.js";
 import { normaliseLoyaltyConfig } from "./loyalty.engine.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CACHE (same pattern as checkout service)
+// CACHE
 // ─────────────────────────────────────────────────────────────────────────────
 
 let _configCache = null;
 let _configVersion = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DEFAULTS (used when seeding the singleton for the first time)
+// DEFAULTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULTS = {
   is_enabled: false,
   earn_rate_amount: 100,
-  earn_basis: "SUBTOTAL",
+  earn_basis: "TOTAL_PAYABLE", // ◄ Default to Total Payable
   redemption_value: 1,
   min_redeem_points: 50,
   min_order_amount: 299,
@@ -48,7 +37,7 @@ const VALIDATION_RULES = {
     (typeof v === "number" && v > 0) || "earn_rate_amount must be a positive number",
 
   earn_basis: (v) =>
-    v === "SUBTOTAL" || "earn_basis must be 'SUBTOTAL'",
+    v === "SUBTOTAL" || v === "TOTAL_PAYABLE" || "earn_basis must be 'SUBTOTAL' or 'TOTAL_PAYABLE'",
 
   redemption_value: (v) =>
     (typeof v === "number" && v > 0) || "redemption_value must be a positive number",
@@ -79,17 +68,9 @@ const VALIDATION_RULES = {
 // GET CONFIG (cached)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns the normalised loyalty config.
- * Auto-creates the singleton row with defaults if it doesn't exist yet.
- * Cached in memory — invalidated when version changes (i.e., after an update).
- *
- * @returns {import("./loyalty.engine.js").LoyaltyConfigInput}
- */
 export async function getLoyaltyConfig() {
   let row = await prisma.loyaltyConfig.findFirst();
 
-  // Auto-seed on first access
   if (!row) {
     row = await prisma.loyaltyConfig.create({
       data: DEFAULTS,
@@ -105,10 +86,6 @@ export async function getLoyaltyConfig() {
   return _configCache;
 }
 
-/**
- * Returns the raw DB row (for CAdmin display with all fields including audit).
- * Not cached — CAdmin reads are infrequent.
- */
 export async function getLoyaltyConfigRaw() {
   let row = await prisma.loyaltyConfig.findFirst();
 
@@ -125,17 +102,7 @@ export async function getLoyaltyConfigRaw() {
 // UPDATE CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Update the loyalty config singleton.
- * Validates all provided fields, upserts the row, increments version,
- * and invalidates the in-memory cache.
- *
- * @param {Object} updates - partial config fields to update
- * @param {{ cadminId: string, cadminName: string }} actor
- * @returns {Object} the updated raw config row
- */
 export async function updateLoyaltyConfig(updates, actor) {
-  // ── 1. Validate keys ───────────────────────────────────────
   const allowedKeys = new Set(Object.keys(VALIDATION_RULES));
 
   for (const key of Object.keys(updates)) {
@@ -147,7 +114,6 @@ export async function updateLoyaltyConfig(updates, actor) {
     }
   }
 
-  // ── 2. Validate values ─────────────────────────────────────
   for (const [key, value] of Object.entries(updates)) {
     const rule = VALIDATION_RULES[key];
     const result = rule(value);
@@ -160,11 +126,6 @@ export async function updateLoyaltyConfig(updates, actor) {
     }
   }
 
-  // ── 3. Cross-field validation ──────────────────────────────
-  // If both max_redeem_points and max_redeem_percent are being set,
-  // ensure they don't contradict each other (informational only — both can coexist)
-
-  // ── 4. Upsert ──────────────────────────────────────────────
   const existing = await prisma.loyaltyConfig.findFirst();
 
   const data = {
@@ -193,7 +154,6 @@ export async function updateLoyaltyConfig(updates, actor) {
     });
   }
 
-  // ── 5. Invalidate cache ────────────────────────────────────
   _configCache = null;
   _configVersion = null;
 
@@ -204,18 +164,13 @@ export async function updateLoyaltyConfig(updates, actor) {
 // MOBILE HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns a mobile-friendly version of the loyalty config.
- * Strips internal fields, returns only what the app needs.
- *
- * @returns {Object}
- */
 export async function getLoyaltyConfigForMobile() {
   const config = await getLoyaltyConfig();
 
   return {
     isEnabled: config.is_enabled,
     earnRateAmount: config.earn_rate_amount,
+    earnBasis: config.earn_basis, // ◄ Expose to mobile
     redemptionValue: config.redemption_value,
     minRedeemPoints: config.min_redeem_points,
     minOrderAmount: config.min_order_amount,

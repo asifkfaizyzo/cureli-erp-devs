@@ -1,4 +1,4 @@
-// src/modules/inventory-import/inventoryImport.parser.js
+// backend/src/modules/inventory-import/inventoryImport.parser.js
 
 import * as XLSX from "xlsx";
 import crypto from "crypto";
@@ -9,7 +9,7 @@ import path from "path";
 // ══════════════════════════════════════════════════════════════════════════════
 
 const HEADER_MAP = {
-  // ── Product name ──────────────────────────────────────────────────────────
+  // ── Product name ────────────────────────────────═════════════════════════════
   description:        "productName",
   product:            "productName",
   name:               "productName",
@@ -23,7 +23,7 @@ const HEADER_MAP = {
   medicinename:       "productName",
   drugname:           "productName",
 
-  // ── Company / manufacturer ────────────────────────────────────────────────
+  // ── Company / manufacturer ────────────────────────────────═══════════════════
   mfac:               "company",
   manufacturer:       "company",
   mfr:                "company",
@@ -36,7 +36,7 @@ const HEADER_MAP = {
   manufacturedby:     "company",
   marketedby:         "company",
 
-  // ── Batch number ──────────────────────────────────────────────────────────
+  // ── Batch number ────────────────────────────────════════════════════════════
   batch:              "batchNumber",
   batchno:            "batchNumber",
   lot:                "batchNumber",
@@ -44,7 +44,7 @@ const HEADER_MAP = {
   batchnumber:        "batchNumber",
   batchcode:          "batchNumber",
 
-  // ── Expiry ────────────────────────────────────────────────────────────────
+  // ── Expiry ────────────────────────────────══════════════════════════════════
   exp:                "expiryDate",
   expiry:             "expiryDate",
   expirydate:         "expiryDate",
@@ -53,7 +53,7 @@ const HEADER_MAP = {
   expdt:              "expiryDate",
   expirymonth:        "expiryDate",
 
-  // ── Quantity ──────────────────────────────────────────────────────────────
+  // ── Quantity ────────────────────────────────════════════════════════════════
   qty:                "quantity",
   Qty:                "quantity",
   quantity:           "quantity",
@@ -67,7 +67,7 @@ const HEADER_MAP = {
   balance:            "quantity",
   balanceqty:         "quantity",
 
-  // ── Pack size ─────────────────────────────────────────────────────────────
+  // ── Pack size ────────────────────────────────═══════════════════════════════
   pack:               "packSize",
   packing:            "packSize",
   unit:               "packSize",
@@ -82,7 +82,7 @@ const HEADER_MAP = {
   expyear:            "_expYear",
   expiryyear:         "_expYear",
 
-  // ── Purchase rate ─────────────────────────────────────────────────────────
+  // ── Purchase rate ────────────────────────────────═══════════════════════════
   price:              "purchaseRate",
   rate:               "purchaseRate",
   purchaserate:       "purchaseRate",
@@ -93,14 +93,14 @@ const HEADER_MAP = {
   cp:                 "purchaseRate",
   buyprice:           "purchaseRate",
 
-  // ── MRP ───────────────────────────────────────────────────────────────────
+  // ── MRP ────────────────────────────────═════════════════════════════════════
   mrp:                "mrp",
   itemmrp:            "mrp",
   maximumretailprice: "mrp",
   vatmrp:             "mrp",
   retailprice:        "mrp",
 
-  // ── Selling rate ──────────────────────────────────────────────────────────
+  // ── Selling rate ────────────────────────────────════════════════════════════
   srate:              "sellingRate",
   sellingrate:        "sellingRate",
   selrate:            "sellingRate",
@@ -109,7 +109,7 @@ const HEADER_MAP = {
   sellprice:          "sellingRate",
   sellingprice:       "sellingRate",
 
-  // ── HSN code ──────────────────────────────────────────────────────────────
+  // ── HSN code ────────────────────────────────════════════════════════════════
   hsn:                "hsnCode",
   hsnsac:             "hsnCode",
   hsncode:            "hsnCode",
@@ -117,7 +117,7 @@ const HEADER_MAP = {
   saccode:            "hsnCode",
   hsnno:              "hsnCode",
 
-  // ── GST ───────────────────────────────────────────────────────────────────
+  // ── GST ────────────────────────────────═════════════════════════════════════
   "gst%":             "gst",
   gst:                "gst",
   gstrate:            "gst",
@@ -127,7 +127,7 @@ const HEADER_MAP = {
   taxper:             "gst",
   vatper:             "gst",
 
-  // ── Rack ──────────────────────────────────────────────────────────────────
+  // ── Rack ────────────────────────────────════════════════════════════════════
   rack:               "rack",
   location:           "rack",
   shelf:              "rack",
@@ -304,21 +304,14 @@ function inferYear(twoDigitStr) {
 
 /**
  * Parse an expiry date from Indian pharmacy software.
- * 
- * STRICT RULES FOR MEDICINE EXPIRY:
- * - Medicine expiries are assumed to be month-and-year only.
- * - Any 2-part input like "xx/yy", "xx-yy", "xx-MMM", or "MMM-xx" is ALWAYS parsed as MM/YYYY.
- * - Day/Month formats (without a year) are completely disabled.
  */
 export function parseExpiryDate(value) {
   if (value === null || value === undefined || value === "") return null;
 
-  // ── Already a JS Date (SheetJS cellDates: true) ───────────────────────────
   if (value instanceof Date) {
     return isNaN(value.getTime()) ? null : value;
   }
 
-  // ── Excel numeric serial date ─────────────────────────────────────────────
   if (typeof value === "number") {
     try {
       const parsed = XLSX.SSF.parse_date_code(value);
@@ -330,11 +323,6 @@ export function parseExpiryDate(value) {
   const str = String(value).trim();
   if (!str || str === "-") return null;
 
-  // ── 1. Alphanumeric Month-Year Pairs (2-value) ────────────────────────────
-  // e.g. "Feb-29", "29-Feb", "Feb/2029", "2029/Feb", "Nov-27", "27-Nov", "Jun 2027"
-  // The word component is ALWAYS the month, the numeric component is ALWAYS the year.
-  
-  // Format: [Alpha Month] [Separator] [Year]
   const alphaMatch1 = str.match(/^([A-Za-z]{3,})[-\/\s](\d{2,4})$/);
   if (alphaMatch1) {
     const monthNum = MONTH_NAMES[alphaMatch1[1].toLowerCase().slice(0, 3)];
@@ -343,7 +331,6 @@ export function parseExpiryDate(value) {
     if (monthNum && year) return lastDayOfMonth(year, monthNum);
   }
 
-  // Format: [Year] [Separator] [Alpha Month] (e.g., "27-Nov")
   const alphaMatch2 = str.match(/^(\d{2,4})[-\/\s]([A-Za-z]{3,})$/);
   if (alphaMatch2) {
     const monthNum = MONTH_NAMES[alphaMatch2[2].toLowerCase().slice(0, 3)];
@@ -352,11 +339,6 @@ export function parseExpiryDate(value) {
     if (monthNum && year) return lastDayOfMonth(year, monthNum);
   }
 
-  // ── 2. Numeric Month-Year Pairs (2-value) ─────────────────────────────────
-  // e.g., "02-35", "06/27", "27/06", "06/2027", "2027/06", "2027-06"
-  // Always parses as month and year. No component is ever mapped to a "Day".
-
-  // Format: YYYY-MM or YYYY/MM (4-digit year followed by 1 or 2-digit month)
   const numericYyMm = str.match(/^(\d{4})[-\/\s](\d{1,2})$/);
   if (numericYyMm) {
     const year = parseInt(numericYyMm[1], 10);
@@ -364,14 +346,12 @@ export function parseExpiryDate(value) {
     if (month >= 1 && month <= 12) return lastDayOfMonth(year, month);
   }
 
-  // Format: MM-YY, MM/YY, MM-YYYY, MM/YYYY, YY-MM, YY/MM
   const numericTwoParts = str.match(/^(\d{1,2})[-\/\s](\d{2}|\d{4})$/);
   if (numericTwoParts) {
     const part1 = parseInt(numericTwoParts[1], 10);
     const part2 = parseInt(numericTwoParts[2], 10);
     const part2Str = numericTwoParts[2];
 
-    // Evaluate which part represents the Month (1-12 range check)
     if (part1 >= 1 && part1 <= 12) {
       const year = part2Str.length === 2 ? inferYear(part2Str) : part2;
       if (year) return lastDayOfMonth(year, part1);
@@ -382,10 +362,6 @@ export function parseExpiryDate(value) {
     }
   }
 
-  // ── 3. Explicit Full Dates (3-value) ──────────────────────────────────────
-  // We only parse 3-value formats if explicitly stated with all three parts.
-  
-  // Format: DD/MM/YYYY
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
     const parts = str.split("/");
     const day   = parseInt(parts[0], 10);
@@ -396,14 +372,11 @@ export function parseExpiryDate(value) {
     }
   }
 
-  // Format: YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     const date = new Date(str);
     return isNaN(date.getTime()) ? null : date;
   }
 
-  // ── Fallback safety block ─────────────────────────────────────────────────
-  // Blocks native Date parsing from interpreting any 2-value segment as "Month/Day" of the current year.
   const separatorCount = (str.match(/[-\/\s]/g) || []).length;
   if (separatorCount < 2) {
     return null;
@@ -411,6 +384,86 @@ export function parseExpiryDate(value) {
 
   const fallback = new Date(str);
   return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PACK SIZE MULTIPLIER HELPER
+// Matches the calculation rule applied in the Purchase invoice logic.
+// ══════════════════════════════════════════════════════════════════════════════
+export function parsePackSizeMultiplier(packStr) {
+  if (!packStr) return 1;
+  const str = String(packStr).trim().toLowerCase();
+
+  // Liquids, creams, gels, injections, etc. -> always 1 unit
+  if (
+    str.includes("ml") ||
+    str.includes("gm") ||
+    str.includes("mg") ||
+    str.endsWith("g") ||
+    str.includes("litre") ||
+    str.includes("bottle") ||
+    str.includes("tube") ||
+    str.includes("vial") ||
+    str.includes("ampoule") ||
+    str.includes("drop") ||
+    str.includes("spray") ||
+    str.includes("inhaler") ||
+    str.includes("cream") ||
+    str.includes("gel") ||
+    str.includes("ointment") ||
+    str.includes("syrup") ||
+    str.includes("susp")
+  ) {
+    return 1;
+  }
+
+  // Extract digits for tablets/capsules (e.g. "30s" -> 30, "10" -> 10)
+  const match = str.match(/(\d+)/);
+  if (match) {
+    const val = parseInt(match[1], 10);
+    return val > 0 ? val : 1;
+  }
+
+  return 1;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// QUANTITY MODE DETECTION (NEW)
+// Determines whether the file contains per-unit or per-pack quantities.
+// ══════════════════════════════════════════════════════════════════════════════
+
+function detectQuantityMode(rows, rawHeaders) {
+  // Check 1: Stock-report-specific column headers
+  const stockReportMarkers = ["pr.amt", "mrp.amt", "mrp/pack", "s.rate/pack", "margin", "pramt", "mrpamt", "mrppack", "sratepack"];
+  const normalizedHeaders = rawHeaders.map((h) =>
+    String(h || "").toLowerCase().replace(/[^a-z0-9.\/]/g, "")
+  );
+  const stockHeaderHits = stockReportMarkers.filter((marker) =>
+    normalizedHeaders.some((h) => h.includes(marker))
+  ).length;
+
+  if (stockHeaderHits >= 2) return "PER_UNIT";
+
+  // Check 2: If ANY row has Qty < packMultiplier, it MUST be per-unit
+  for (const row of rows.slice(0, 50)) {
+    const qty = row.quantity;
+    const pack = parsePackSizeMultiplier(row.packSize);
+    if (qty && pack > 1 && qty < pack) {
+      return "PER_UNIT";
+    }
+  }
+
+  // Check 3: If Qty is not a multiple of Pack for any row, it's per-unit
+  for (const row of rows.slice(0, 50)) {
+    const qty = row.quantity;
+    const pack = parsePackSizeMultiplier(row.packSize);
+    if (qty && pack > 1 && qty % pack !== 0) {
+      return "PER_UNIT";
+    }
+  }
+
+  // Default: per-pack (backward compatible with purchase invoice imports)
+  return "PER_PACK";
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -587,7 +640,6 @@ function parseRow(rawValues, mappedHeaders, rowIndex) {
     }
   });
 
-  // ── Expiry date ───────────────────────────────────────────────────────────
   let expiryDate = null;
 
   if (raw._expMonth && raw._expYear) {
@@ -601,14 +653,12 @@ function parseRow(rawValues, mappedHeaders, rowIndex) {
     expiryDate = parseExpiryDate(raw.expiryDate);
   }
 
-  // ── Numeric fields ────────────────────────────────────────────────────────
   const quantity     = parseQuantity(raw.quantity);
   const mrp          = parseNumeric(raw.mrp);
   const purchaseRate = parseNumeric(raw.purchaseRate);
   const sellingRate  = parseNumeric(raw.sellingRate);
   const gst          = parseNumeric(raw.gst);
 
-  // ── String fields ─────────────────────────────────────────────────────────
   const productName = normalizeString(raw.productName || "");
   const batchNumber = normalizeString(raw.batchNumber || "").toUpperCase();
   const company     = normalizeString(raw.company     || "");
@@ -616,7 +666,6 @@ function parseRow(rawValues, mappedHeaders, rowIndex) {
   const rack        = normalizeString(raw.rack        || "");
   const packSize    = normalizeString(raw.packSize    || "");
 
-  // Raw expiry string for display
   let rawExpiryStr = "";
   if (raw.expiryDate instanceof Date) {
     rawExpiryStr = raw.expiryDate.toLocaleDateString("en-IN");
@@ -740,6 +789,9 @@ export async function parseInventoryFile(buffer, filename, columnMapping = null)
 
   const unmappedHeaders = rawHeaders.filter((h, i) => h && !mappedHeaders[i]);
 
+  // ── Detect quantity mode ──────────────────────────────────────────────────
+  const quantityMode = detectQuantityMode(rows, rawHeaders);
+
   return {
     rows,
     totalRows:             rows.length,
@@ -749,6 +801,7 @@ export async function parseInventoryFile(buffer, filename, columnMapping = null)
     autoMappingConfidence,
     mappingNeeded,
     unmappedHeaders,
+    quantityMode,
   };
 }
 

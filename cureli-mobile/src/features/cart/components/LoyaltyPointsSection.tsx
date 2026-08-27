@@ -1,4 +1,4 @@
-// src/features/cart/components/LoyaltyPointsSection.tsx
+// cureli-mobile/src/features/cart/components/LoyaltyPointsSection.tsx
 
 import React, { useEffect, useState } from "react";
 import {
@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTheme } from "../../../theme/ThemeContext";
-import { Spacing } from "../../../theme/spacing";
 import { Radius } from "../../../theme/radius";
 import { loyaltyApi, LoyaltySummary } from "../../marketplace/api/loyalty.api";
 import { useCheckoutStore } from "../../../store/checkoutStore";
@@ -56,17 +55,25 @@ export function LoyaltyPointsSection({ subtotal }: { subtotal: number }) {
   }
 
   // ── 1. Calculate Estimated Points Earned ────────────────────
+  const earnRate = summary.config.earnRateAmount || 100;
+  const isTotalPayableBasis = (summary.config as any)?.earnBasis !== "SUBTOTAL";
+
   const couponDiscount = breakdown?.coupon_discount ?? 0;
   const effectiveSubtotal = Math.max(0, subtotal - couponDiscount);
-  const earnRate = summary.config.earnRateAmount || 100;
-  const estimatedPointsEarned = Math.floor(effectiveSubtotal / earnRate);
+
+  // If basis is TOTAL_PAYABLE, use grand_total (final payable amount).
+  // If quote hasn't loaded yet, fallback to subtotal.
+  const earningAmount = isTotalPayableBasis
+    ? (breakdown ? breakdown.grand_total : subtotal)
+    : effectiveSubtotal;
+
+  const estimatedPointsEarned = Math.floor(earningAmount / earnRate);
 
   // ── 2. Redemption Eligibility ──────────────────────────────
   const minRedeemPoints = summary.config.minRedeemPoints;
   const minOrderAmount = summary.config.minOrderAmount;
   const hasEnoughPointsToRedeem = summary.balance >= minRedeemPoints;
   const isOrderValueEligible = subtotal >= minOrderAmount;
-  const canRedeem = hasEnoughPointsToRedeem && isOrderValueEligible;
 
   const handleToggle = (value: boolean) => {
     if (value) {

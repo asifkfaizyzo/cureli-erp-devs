@@ -1,13 +1,4 @@
-// src/services/pushNotificationService.ts
-//
-// Handles:
-//   1. Requesting permission from the OS
-//   2. Getting the Expo push token
-//   3. Registering/updating the token with our backend
-//   4. Setting up Android notification channel
-//
-// This is called ONCE after login from PushManager.
-// Token is stored in MMKV so we can detect when it changes.
+// cureli-mobile/src/services/pushNotificationService.ts
 
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
@@ -16,12 +7,6 @@ import { StorageService } from './storage';
 import { api } from './api';
 
 // ── Notification handler behavior ─────────────────────────────────────────────
-// Controls how notifications behave when the app is in the FOREGROUND.
-// - alert: show the notification banner while app is open
-// - badge: update the app badge count
-// - sound: play notification sound
-//
-// Set here at module level so it applies before any notification arrives.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert:  true,
@@ -33,8 +18,6 @@ Notifications.setNotificationHandler({
 });
 
 // ── Android default channel ───────────────────────────────────────────────────
-// Android 8+ requires notifications to be posted to a channel.
-// This creates the default channel. Users can customize it in system settings.
 async function ensureAndroidChannel() {
   if (Platform.OS !== 'android') return;
 
@@ -49,8 +32,6 @@ async function ensureAndroidChannel() {
     showBadge:        true,
   });
 
-  // Order updates get their own channel so users can control them separately
-  // in Android system settings
   await Notifications.setNotificationChannelAsync('order_updates', {
     name:             'Order Updates',
     importance:       Notifications.AndroidImportance.HIGH,
@@ -64,21 +45,15 @@ async function ensureAndroidChannel() {
 }
 
 // ── Permission request ────────────────────────────────────────────────────────
-
 export async function requestPushPermission(): Promise<boolean> {
   const { status: existing, canAskAgain } = await Notifications.getPermissionsAsync();
-
-  
 
   if (existing === 'granted') return true;
 
   if (existing === 'denied' && !canAskAgain) {
-    // User has permanently denied — they must go to Settings manually
-    
     return false;
   }
 
-  // Either undetermined OR denied-but-canAskAgain — prompt the user
   const { status } = await Notifications.requestPermissionsAsync({
     ios: {
       allowAlert: true,
@@ -87,15 +62,10 @@ export async function requestPushPermission(): Promise<boolean> {
     },
   });
 
-  
   return status === 'granted';
 }
 
 // ── Get Expo push token ───────────────────────────────────────────────────────
-// projectId is required for Expo push tokens in SDK 50+.
-// Pulled from app.config.js → extra.eas.projectId
-// which was set by running: npx eas init
-
 export async function getExpoPushToken(): Promise<string | null> {
   try {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
@@ -109,7 +79,6 @@ export async function getExpoPushToken(): Promise<string | null> {
       projectId,
     });
 
-    
     return tokenData.data;
   } catch (err) {
     console.warn('[Push] Failed to get Expo push token:', err);
@@ -118,9 +87,6 @@ export async function getExpoPushToken(): Promise<string | null> {
 }
 
 // ── Register token with backend ───────────────────────────────────────────────
-// Called after login and whenever the token changes.
-// The backend stores the token on the current session.
-
 export async function registerPushToken(token: string): Promise<void> {
   try {
     await api.post('/mobile/push/register-token', {
@@ -128,52 +94,42 @@ export async function registerPushToken(token: string): Promise<void> {
       push_token_type: 'expo',
       platform:        Platform.OS,
     });
-    // Cache the registered token so we can detect future changes
+    // Cache the registered token so we can track local changes if needed
     StorageService.setPushToken(token);
-    
+    console.log('[Push] Registered push token with backend successfully.');
   } catch (err) {
     console.warn('[Push] Token registration failed:', err);
-    // Non-fatal — will retry next app open
   }
 }
 
 // ── Remove token from backend ─────────────────────────────────────────────────
-// Called on logout so we stop sending notifications to this device.
-
 export async function removePushToken(): Promise<void> {
   try {
     await api.post('/mobile/push/remove-token');
     StorageService.removePushToken();
-    
+    console.log('[Push] Cleared push token from backend and local cache.');
   } catch (err) {
     console.warn('[Push] Token removal failed:', err);
   }
 }
 
 // ── Full initialization ───────────────────────────────────────────────────────
-// Called once after authentication is confirmed.
-// Returns the token if successful, null otherwise.
-
 export async function initializePushNotifications(): Promise<string | null> {
   try {
     await ensureAndroidChannel();
 
     const granted = await requestPushPermission();
     if (!granted) {
-      
+      console.warn('[Push] Permission not granted.');
       return null;
     }
 
     const token = await getExpoPushToken();
     if (!token) return null;
 
-    // Only register if token is new or changed
-    const cachedToken = StorageService.getPushToken();
-    if (token !== cachedToken) {
-      await registerPushToken(token);
-    } else {
-      
-    }
+    // ── FIXED: Always register the token on initialization ───────────────────
+    // This guarantees the token is bound to the current active session.
+    await registerPushToken(token);
 
     return token;
   } catch (err) {

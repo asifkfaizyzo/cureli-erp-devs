@@ -1,7 +1,7 @@
-// src/modules/inventory-import/inventoryImport.writer.js
+// backend/src/modules/inventory-import/inventoryImport.writer.js
 
 import prisma from "../../config/prisma.js";
-import { buildMedicineKey } from "./inventoryImport.parser.js";
+import { buildMedicineKey, parsePackSizeMultiplier } from "./inventoryImport.parser.js";
 
 function toNumber(value) {
   if (value === null || value === undefined) return null;
@@ -22,8 +22,6 @@ function buildConflictLookupKey(medicineKey, batchNumber) {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MEDICINE CREATION
-// Each create runs directly on prisma (no transaction) so a unique constraint
-// failure on one medicine does not abort subsequent operations.
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function resolveMedicineId(plan, shopId, branchId, userId) {
@@ -33,7 +31,6 @@ async function resolveMedicineId(plan, shopId, branchId, userId) {
       return plan.existingMedicineId;
 
     case "create_linked": {
-      // Check if already exists (handles duplicate medicine keys from same import)
       const existing = await prisma.medicine.findFirst({
         where: {
           shop_id:      shopId,
@@ -151,53 +148,88 @@ async function resolveMedicineId(plan, shopId, branchId, userId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// WRITE ONE INVENTORY BATCH
-// Runs as a small isolated transaction: one inventory record + one ledger entry.
-// A failure here rolls back only this one batch, not the entire import.
+// WRITE ONE INVENTORY BATCH (UPSERT/REACTIVATE SAFE)
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function writeNewBatch(row, medicineId, shopId, branchId, userId, jobId, fileName) {
-  const qty      = toNumber(row.quantity) ?? 0;
+  const isPerUnit = row._quantityMode === "PER_UNIT";
+  const multiplier = isPerUnit ? 1 : parsePackSizeMultiplier(row.packSize);
+  
+  // Quantities scaled up by pack multiplier
+  const qty      = (toNumber(row.quantity) ?? 0) * multiplier;
   const expiryDt = row.expiryDate ? new Date(row.expiryDate) : null;
 
   if (!expiryDt) {
     throw new Error("Cannot create inventory batch without a valid expiry date.");
   }
 
+  // Rates divided by multiplier (e.g. tablet price = pack price / N)
+  const mrp              = (toNumber(row.mrp) ?? 0) / multiplier;
+  const lastPurchaseRate = toNumber(row.purchaseRate) ? (toNumber(row.purchaseRate) / multiplier) : null;
+  
+  const rawSellingRate   = toNumber(row.sellingRate);
+  const sellingRate      = rawSellingRate ? (rawSellingRate / multiplier) : mrp; // Default to MRP if blank/empty
+
   return prisma.$transaction(async (tx) => {
-    // Race condition guard
-    const duplicate = await tx.inventory.findFirst({
+    // Check if record exists (ACTIVE or INACTIVE)
+    const existing = await tx.inventory.findFirst({
       where: {
         shop_id:      shopId,
         branch_id:    branchId,
         medicine_id:  medicineId,
         batch_number: row.batchNumber,
-        is_active:    true,
       },
     });
 
-    if (duplicate) return null; // Signal: skip this row
+    // Guard against duplicate batch in the same import file
+    if (existing && existing.is_active && existing.import_job_id === jobId) {
+      return null; // Duplicate within same file, skip silently
+    }
 
-    const inventory = await tx.inventory.create({
-      data: {
-        shop_id:            shopId,
-        branch_id:          branchId,
-        medicine_id:        medicineId,
-        batch_number:       row.batchNumber,
-        expiry_date:        expiryDt,
-        current_stock:      qty,
-        available_stock:    qty,
-        reserved_stock:     0,
-        mrp:                toNumber(row.mrp) ?? 0,
-        selling_rate:       toNumber(row.sellingRate)  ?? null,
-        last_purchase_rate: toNumber(row.purchaseRate) ?? null,
-        rack_no:            row.rack || null,
-        is_expired:         isExpired(expiryDt),
-        is_active:          true,
-        source:             "IMPORT",
-        import_job_id:      jobId,
-      },
-    });
+    let inventory;
+    if (existing) {
+      // Re-activate and overwrite with new batch data
+      inventory = await tx.inventory.update({
+        where: { inventory_id: existing.inventory_id },
+        data: {
+          expiry_date:        expiryDt,
+          current_stock:      qty,
+          available_stock:    qty,
+          reserved_stock:     0,
+          mrp,
+          selling_rate:       sellingRate,
+          last_purchase_rate: lastPurchaseRate,
+          rack_no:            row.rack || existing.rack_no || null,
+          is_expired:         isExpired(expiryDt),
+          is_active:          true,
+          source:             "IMPORT",
+          import_job_id:      jobId,
+          updated_at:         new Date(),
+        },
+      });
+    } else {
+      // Create brand new inventory record
+      inventory = await tx.inventory.create({
+        data: {
+          shop_id:            shopId,
+          branch_id:          branchId,
+          medicine_id:        medicineId,
+          batch_number:       row.batchNumber,
+          expiry_date:        expiryDt,
+          current_stock:      qty,
+          available_stock:    qty,
+          reserved_stock:     0,
+          mrp,
+          selling_rate:       sellingRate,
+          last_purchase_rate: lastPurchaseRate,
+          rack_no:            row.rack || null,
+          is_expired:         isExpired(expiryDt),
+          is_active:          true,
+          source:             "IMPORT",
+          import_job_id:      jobId,
+        },
+      });
+    }
 
     if (qty > 0) {
       await tx.stockLedger.create({
@@ -216,9 +248,9 @@ async function writeNewBatch(row, medicineId, shopId, branchId, userId, jobId, f
           quantity_out:     0,
           quantity_net:     qty,
           balance_after:    qty,
-          rate:             toNumber(row.purchaseRate),
-          amount:           toNumber(row.purchaseRate)
-            ? qty * toNumber(row.purchaseRate)
+          rate:             lastPurchaseRate,
+          amount:           lastPurchaseRate
+            ? qty * lastPurchaseRate
             : null,
           transaction_date: new Date(),
           created_by:       userId,
@@ -241,17 +273,24 @@ async function mergeExistingBatch(row, medicineId, existingInventoryId, shopId, 
       where: { inventory_id: existingInventoryId },
     });
 
-    if (!existing) return null; // Stale conflict — signal caller to create new
+    if (!existing) return null;
 
-    const addedQty = toNumber(row.quantity) ?? 0;
+    const isPerUnit = row._quantityMode === "PER_UNIT";
+    const multiplier = isPerUnit ? 1 : parsePackSizeMultiplier(row.packSize);
+    
+    // Scale up merging stock
+    const addedQty = (toNumber(row.quantity) ?? 0) * multiplier;
     const newStock = Number(existing.current_stock) + addedQty;
     const reserved = Number(existing.reserved_stock ?? 0);
+
+    const purchaseRate = toNumber(row.purchaseRate) ? (toNumber(row.purchaseRate) / multiplier) : null;
 
     await tx.inventory.update({
       where: { inventory_id: existing.inventory_id },
       data:  {
         current_stock:   newStock,
         available_stock: newStock - reserved,
+        is_active:       true,
         updated_at:      new Date(),
       },
     });
@@ -272,9 +311,9 @@ async function mergeExistingBatch(row, medicineId, existingInventoryId, shopId, 
         quantity_out:     0,
         quantity_net:     addedQty,
         balance_after:    newStock,
-        rate:             toNumber(row.purchaseRate),
-        amount:           toNumber(row.purchaseRate)
-          ? addedQty * toNumber(row.purchaseRate)
+        rate:             purchaseRate,
+        amount:           purchaseRate
+          ? addedQty * purchaseRate
           : null,
         transaction_date: new Date(),
         created_by:       userId,
@@ -296,22 +335,40 @@ async function replaceExistingBatch(row, medicineId, existingInventoryId, shopId
       where: { inventory_id: existingInventoryId },
     });
 
-    if (!existing) return null; // Stale conflict — signal caller to create new
+    if (!existing) return null;
 
-    const newQty   = toNumber(row.quantity) ?? 0;
+    const isPerUnit = row._quantityMode === "PER_UNIT";
+    const multiplier = isPerUnit ? 1 : parsePackSizeMultiplier(row.packSize);
+    
+    // Scale up replacement stock
+    const newQty   = (toNumber(row.quantity) ?? 0) * multiplier;
     const expiryDt = row.expiryDate ? new Date(row.expiryDate) : existing.expiry_date;
+
+    const rawMrp   = toNumber(row.mrp);
+    const mrp      = rawMrp !== null ? (rawMrp / multiplier) : existing.mrp;
+
+    const rawSellingRate = toNumber(row.sellingRate);
+    const sellingRate  = rawSellingRate !== null
+      ? (rawSellingRate / multiplier)
+      : (rawMrp !== null ? mrp : existing.selling_rate);
+
+    const purchaseRate = toNumber(row.purchaseRate) !== null
+      ? (toNumber(row.purchaseRate) / multiplier)
+      : existing.last_purchase_rate;
 
     await tx.inventory.update({
       where: { inventory_id: existing.inventory_id },
       data:  {
         current_stock:      newQty,
         available_stock:    newQty,
-        mrp:                toNumber(row.mrp)          ?? existing.mrp,
-        selling_rate:       toNumber(row.sellingRate)  ?? existing.selling_rate,
-        last_purchase_rate: toNumber(row.purchaseRate) ?? existing.last_purchase_rate,
+        reserved_stock:     0,
+        mrp,
+        selling_rate:       sellingRate,
+        last_purchase_rate: purchaseRate,
         expiry_date:        expiryDt,
         rack_no:            row.rack || existing.rack_no,
         is_expired:         isExpired(expiryDt),
+        is_active:          true,
         source:             "IMPORT",
         import_job_id:      jobId,
         updated_at:         new Date(),
@@ -334,9 +391,9 @@ async function replaceExistingBatch(row, medicineId, existingInventoryId, shopId
         quantity_out:     0,
         quantity_net:     newQty,
         balance_after:    newQty,
-        rate:             toNumber(row.purchaseRate),
-        amount:           toNumber(row.purchaseRate)
-          ? newQty * toNumber(row.purchaseRate)
+        rate:             purchaseRate,
+        amount:           purchaseRate
+          ? newQty * purchaseRate
           : null,
         transaction_date: new Date(),
         created_by:       userId,
@@ -350,11 +407,9 @@ async function replaceExistingBatch(row, medicineId, existingInventoryId, shopId
 
 // ══════════════════════════════════════════════════════════════════════════════
 // WRITE ALL ROWS
-// No single wrapping transaction. Each row is independent.
-// A failure on one row never blocks subsequent rows.
 // ══════════════════════════════════════════════════════════════════════════════
 
-export async function writeAll(job, parsedRows, userId) {
+export async function writeAll(job, parsedRows, userId, quantityMode = "PER_PACK") {
   const shopId   = job.shop_id;
   const branchId = job.branch_id;
   const jobId    = job.import_job_id;
@@ -363,7 +418,6 @@ export async function writeAll(job, parsedRows, userId) {
   const medicinePlans     = job.resolutions       || {};
   const conflictDecisions = job.conflict_decisions || {};
 
-  // Build row → plan lookup
   const rowToPlan = new Map();
   for (const plan of Object.values(medicinePlans)) {
     for (const rowIdx of (plan.rowIndices || [])) {
@@ -384,9 +438,6 @@ export async function writeAll(job, parsedRows, userId) {
     errors:              [],
   };
 
-  // Cache medicine_id per plan key — populated on first use, reused thereafter.
-  // Uses prisma directly (no transaction) so a duplicate create on one plan
-  // does not abort subsequent plans.
   const medicineIdCache = new Map();
 
   for (const row of parsedRows) {
@@ -402,7 +453,6 @@ export async function writeAll(job, parsedRows, userId) {
       continue;
     }
 
-    // ── Resolve medicine_id ─────────────────────────────────────────────────
     let medicineId;
 
     if (medicineIdCache.has(plan.key)) {
@@ -432,9 +482,11 @@ export async function writeAll(job, parsedRows, userId) {
           message:     `Failed to create medicine: ${medError.message}`,
         });
         continue;
-        // Next row is completely unaffected — no shared transaction
       }
     }
+
+    // Attach quantity mode so write functions know whether to apply multiplier
+    row._quantityMode = quantityMode;
 
     // ── Conflict handling ───────────────────────────────────────────────────
     const conflictKey   = buildConflictLookupKey(plan.key, row.batchNumber);
@@ -459,7 +511,6 @@ export async function writeAll(job, parsedRows, userId) {
             result.mergedRows++;
             continue;
           }
-          // merged === null means stale conflict — fall through to create new batch
         } catch (mergeError) {
           result.errorRows++;
           result.errors.push({
@@ -482,7 +533,6 @@ export async function writeAll(job, parsedRows, userId) {
             result.replacedRows++;
             continue;
           }
-          // replaced === null means stale conflict — fall through to create new batch
         } catch (replaceError) {
           result.errorRows++;
           result.errors.push({
@@ -495,14 +545,12 @@ export async function writeAll(job, parsedRows, userId) {
       }
     }
 
-    // ── New batch ───────────────────────────────────────────────────────────
     try {
       const created = await writeNewBatch(
         row, medicineId, shopId, branchId, userId, jobId, fileName
       );
 
       if (created === null) {
-        // Duplicate batch detected by race condition guard — skip silently
         result.skippedRows++;
       } else {
         result.importedRows++;
@@ -515,9 +563,8 @@ export async function writeAll(job, parsedRows, userId) {
         message:     `Failed to create batch: ${createError.message}`,
       });
     }
-  } // end for each row
+  }
 
-  // ── Update job status — always on a clean connection ──────────────────────
   const finalStatus =
     result.errorRows > 0 &&
     result.importedRows === 0 &&

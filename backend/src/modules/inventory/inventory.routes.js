@@ -8,6 +8,7 @@ import {
   createAdjustmentSchema,
   updateInventorySchema,
   createInventoryWithMedicineSchema,
+  
 } from "./inventory.schema.js";
 
 const router = express.Router();
@@ -24,6 +25,9 @@ router.get("/medicine/:medicineId", inventoryController.getByMedicine);
 // ── NEW: Expose filter facets metadata ────────────────────────────────────
 router.get("/facets", inventoryController.getInventoryFacets);
 
+// ── Export & Reset ─────────────────────────────────────────────────────────
+router.get("/export", inventoryController.exportInventory);
+router.post("/reset", inventoryController.resetInventory);
 // ── Stock ledger ───────────────────────────────────────────────────────────
 router.get("/ledger", inventoryController.getStockLedger);
 

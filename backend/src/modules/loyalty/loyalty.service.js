@@ -7,12 +7,6 @@ import { validateRedemption, calculatePointsEarned } from "./loyalty.engine.js";
 // CORE LOYALTY BUSINESS LOGIC
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Get active point balance and detailed program configurations for a customer.
- *
- * @param {string} customer_id
- * @returns {Promise<{ balance: number, config: Object }>}
- */
 export async function getCustomerLoyaltyBalance(customer_id) {
   const user = await prisma.cureliMobileUser.findUnique({
     where: { id: customer_id },
@@ -28,6 +22,7 @@ export async function getCustomerLoyaltyBalance(customer_id) {
     config: {
       isEnabled: config.is_enabled,
       earnRateAmount: config.earn_rate_amount,
+      earnBasis: config.earn_basis, // ◄ Added
       redemptionValue: config.redemption_value,
       minRedeemPoints: config.min_redeem_points,
       minOrderAmount: config.min_order_amount,
@@ -37,17 +32,6 @@ export async function getCustomerLoyaltyBalance(customer_id) {
   };
 }
 
-/**
- * Atomically reserve and redeem loyalty points during Checkout session creation.
- * Uses SELECT FOR UPDATE on pgSQL row to block overlapping point deductions.
- *
- * @param {Object} params
- * @param {string} params.customer_id
- * @param {number} params.points_requested
- * @param {number} params.effective_subtotal - Subtotal after applying coupons
- * @param {Object} tx                         - Prisma transaction client (required)
- * @returns {Promise<{ points_redeemed: number, discount_amount: number }>}
- */
 export async function redeemPoints({ customer_id, points_requested, effective_subtotal }, tx) {
   if (!tx) {
     throw new Error("RedeemPoints requires an active database transaction wrapper ($transaction)");
@@ -55,7 +39,6 @@ export async function redeemPoints({ customer_id, points_requested, effective_su
 
   const config = await getLoyaltyConfig();
 
-  // 1. Lock Customer Row to guarantee zero balance overlap races
   const [user] = await tx.$queryRaw`
     SELECT id, loyalty_points_balance 
     FROM cureli_mobile_users 
@@ -64,7 +47,6 @@ export async function redeemPoints({ customer_id, points_requested, effective_su
 
   if (!user) throw new Error("Customer not found during transaction validation");
 
-  // 2. Validate redemption limit calculations
   const validation = validateRedemption({
     config,
     userBalance: user.loyalty_points_balance,
@@ -79,7 +61,6 @@ export async function redeemPoints({ customer_id, points_requested, effective_su
   const pointsToDeduct = validation.allowedPoints;
   const finalDiscount = validation.discount;
 
-  // 3. Deduct points from active balance cache
   await tx.cureliMobileUser.update({
     where: { id: customer_id },
     data: {
@@ -87,7 +68,6 @@ export async function redeemPoints({ customer_id, points_requested, effective_su
     },
   });
 
-  // 4. Create balance deduction history row
   await tx.loyaltyTransaction.create({
     data: {
       customer_id,
@@ -104,13 +84,6 @@ export async function redeemPoints({ customer_id, points_requested, effective_su
   };
 }
 
-/**
- * Earn points for a completed order.
- * Safe to fire-and-forget; idempotent.
- *
- * @param {string} order_id
- * @returns {Promise<void>}
- */
 export async function earnLoyaltyPoints(order_id) {
   const config = await getLoyaltyConfig();
   if (!config.is_enabled) return;
@@ -125,6 +98,7 @@ export async function earnLoyaltyPoints(order_id) {
         customer_id: true,
         subtotal: true,
         coupon_discount_amount: true,
+        total_amount: true, // ◄ Query total_amount
         loyalty_points_earned: true,
       },
     });
@@ -137,14 +111,20 @@ export async function earnLoyaltyPoints(order_id) {
       return;
     }
 
-    // Earning basis: POST-coupon subtotal
-    const couponDiscount = Number(order.coupon_discount_amount ?? 0);
-    const effectiveSubtotal = Math.max(0, Number(order.subtotal) - couponDiscount);
+    // Determine earning base amount
+    let earningAmount = 0;
+    if (config.earn_basis === "TOTAL_PAYABLE") {
+      // Calculates points from the exact out-of-pocket amount paid by the customer
+      earningAmount = Math.max(0, Number(order.total_amount));
+    } else {
+      // Fallback: post-coupon subtotal
+      const couponDiscount = Number(order.coupon_discount_amount ?? 0);
+      earningAmount = Math.max(0, Number(order.subtotal) - couponDiscount);
+    }
 
     // Calculate points
-    const pointsEarned = calculatePointsEarned(effectiveSubtotal, config.earn_rate_amount);
+    const pointsEarned = calculatePointsEarned(earningAmount, config.earn_rate_amount);
     if (pointsEarned <= 0) {
-      // Record 0 earned explicitly so idempotency guard registers it
       await tx.marketplaceOrder.update({
         where: { order_id },
         data: { loyalty_points_earned: 0 },
@@ -197,18 +177,10 @@ export async function earnLoyaltyPoints(order_id) {
       },
     });
 
-    console.log(`[LoyaltyService] Credited ${pointsEarned} loyalty points to customer ${order.customer_id} for order ${order.order_number}`);
+    console.log(`[LoyaltyService] Credited ${pointsEarned} loyalty points to customer ${order.customer_id} for order ${order.order_number} (Basis: ${config.earn_basis}, Amount: ₹${earningAmount})`);
   });
 }
 
-/**
- * Retrieve paginated transaction ledger entries for a mobile user.
- *
- * @param {string} customer_id
- * @param {Object} query
- * @param {number} query.page
- * @param {number} query.limit
- */
 export async function getCustomerLoyaltyHistory(customer_id, { page = 1, limit = 20 }) {
   const skip = (Number(page) - 1) * Number(limit);
 

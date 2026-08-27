@@ -33,6 +33,7 @@ import {
   Layers,
   Building2,
   Info,
+  X,
 } from "lucide-react";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -209,6 +210,12 @@ const InventoryPage = () => {
   const [historyDrawerOpen,     setHistoryDrawerOpen]     = useState(false);
   const [logsPanelOpen,         setLogsPanelOpen]         = useState(false);
 
+  // Export / Reset states
+  const [resetModalOpen,   setResetModalOpen]   = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [isResetting,      setIsResetting]      = useState(false);
+  const [isExporting,      setIsExporting]      = useState(false);
+
   // ── Load Facets Metadata ──────────────────────────────────────────────────
 
   const loadFacets = useCallback(async () => {
@@ -326,6 +333,73 @@ const InventoryPage = () => {
     await loadFacets();
     toast.success("Import Complete", "Inventory has been updated.");
   }, [fetchInventory, fetchStats, refreshCatalogStatus, loadFacets, buildApiFilters, toast]);
+
+  const handleExportInventory = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      const response = await inventoryAPI.exportInventory();
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const timestamp = new Date().toISOString().split("T")[0];
+      link.download = `Inventory_Backup_${timestamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Export Complete", "Inventory backup downloaded successfully.");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Export Failed", error.message || "Failed to export inventory.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [toast]);
+
+  const handleResetInventory = useCallback(async () => {
+    if (resetConfirmText !== "RESET") return;
+
+    setIsResetting(true);
+    try {
+      await handleExportInventory();
+      const response = await inventoryAPI.resetInventory();
+
+      if (response?.success) {
+        toast.success(
+          "Inventory Cleared",
+          `${response.data?.deactivatedCount || 0} items deactivated. Backup downloaded.`,
+        );
+        setResetModalOpen(false);
+        setResetConfirmText("");
+
+        setCurrentPage(1);
+        await Promise.all([
+          fetchInventory(buildApiFilters(1)),
+          fetchStats(),
+          loadFacets(),
+        ]);
+      }
+    } catch (error) {
+      console.error("Reset error:", error);
+      toast.error(
+        "Reset Failed",
+        error.response?.data?.message || error.message || "Failed to reset inventory.",
+      );
+    } finally {
+      setIsResetting(false);
+    }
+  }, [
+    resetConfirmText,
+    handleExportInventory,
+    toast,
+    fetchInventory,
+    fetchStats,
+    loadFacets,
+    buildApiFilters,
+  ]);
 
   const handleFilterChange = useCallback((field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -563,8 +637,8 @@ const InventoryPage = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="shrink-0 px-4 pb-3">
+      {/* Filters (Wrapper styled with high stacking order to fix dropdown cropping) */}
+      <div className="shrink-0 px-4 pb-3 relative z-30">
         <InventoryFilters
           filters={filters}
           onChange={handleFilterChange}
@@ -579,6 +653,11 @@ const InventoryPage = () => {
           onImport={() => setImportModalOpen(true)}
           onImportHistory={() => setHistoryDrawerOpen(true)}
           onImportLogs={() => setLogsPanelOpen(true)}
+          onExport={handleExportInventory}
+          onReset={() => setResetModalOpen(true)}
+          isExporting={isExporting}
+          canReset={canAdjustStock}
+          canExport={canAdjustStock}
         />
       </div>
 
@@ -709,17 +788,104 @@ const InventoryPage = () => {
         onSuccess={handleImportSuccess}
       />
 
-      {/* History Drawer — quick summary */}
+      {/* History Drawer */}
       <ImportHistoryDrawer
         open={historyDrawerOpen}
         onClose={() => setHistoryDrawerOpen(false)}
       />
 
-      {/* Import Logs Panel — full detail with error inspection */}
+      {/* Import Logs Panel */}
       <ImportLogsPanel
         open={logsPanelOpen}
         onClose={() => setLogsPanelOpen(false)}
       />
+
+      {/* Reset Inventory Confirmation Modal */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              if (!isResetting) {
+                setResetModalOpen(false);
+                setResetConfirmText("");
+              }
+            }}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <button
+              onClick={() => { setResetModalOpen(false); setResetConfirmText(""); }}
+              disabled={isResetting}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+              <AlertTriangle size={28} className="text-red-600" />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
+              Reset All Inventory?
+            </h3>
+
+            <div className="space-y-3 mb-5">
+              <p className="text-sm text-slate-600">
+                This will <strong>deactivate all {total} inventory items</strong> for{" "}
+                <strong>{branchContext.branch_name || "this branch"}</strong>.
+              </p>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-700">
+                <strong>✓ Auto-Backup:</strong> A backup Excel file will be downloaded
+                automatically before the reset.
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+                <strong>⚠ Not a permanent delete:</strong> Historical records and stock
+                ledger entries are preserved. This can be reversed by your admin.
+              </div>
+
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-xs text-red-700 font-medium mb-2">
+                  Type <code className="bg-red-100 px-1.5 py-0.5 rounded font-bold">RESET</code> to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="Type RESET here"
+                  disabled={isResetting}
+                  className="w-full px-3 py-2 text-sm border border-red-300 rounded-lg
+                             focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500
+                             placeholder:text-red-300 disabled:opacity-50"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setResetModalOpen(false); setResetConfirmText(""); }}
+                disabled={isResetting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg
+                           border border-slate-300 text-slate-700 hover:bg-slate-50
+                           transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetInventory}
+                disabled={resetConfirmText !== "RESET" || isResetting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg
+                           bg-red-600 text-white hover:bg-red-700 transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResetting ? "Resetting..." : "Backup & Reset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
