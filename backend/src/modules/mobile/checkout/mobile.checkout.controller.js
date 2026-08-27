@@ -1,5 +1,3 @@
-// backend/src/modules/mobile/checkout/mobile.checkout.controller.js
-
 import crypto from "crypto";
 import {
   getQuote,
@@ -19,17 +17,24 @@ export async function quoteHandler(req, res) {
     const parsed = quoteSchema.safeParse(req.body);
     if (!parsed.success) return fail(res, parsed.error.errors[0].message, 400);
 
+    const customer_id = req.mobileUser?.id ?? null;
+
     const result = await getQuote({
-      items:       parsed.data.items,
+      items: parsed.data.items,
       distance_km: parsed.data.distance_km,
-      tip:         parsed.data.tip,
-      branch_id:   parsed.data.branch_id, 
+      tip: parsed.data.tip,
+      branch_id: parsed.data.branch_id,
+      coupon_code: parsed.data.coupon_code ?? null,
+      loyalty_points_to_redeem: parsed.data.loyalty_points_to_redeem
+        ? Number(parsed.data.loyalty_points_to_redeem)
+        : 0,
+      customer_id,
     });
 
-    return success(res, result, 'Quote calculated');
+    return success(res, result, "Quote calculated");
   } catch (err) {
-    console.error('[Checkout] quote error:', err.message);
-    return fail(res, 'Failed to calculate quote', 500);
+    console.error("[Checkout] quote error:", err.message);
+    return fail(res, err.message || "Failed to calculate quote", 500);
   }
 }
 
@@ -45,8 +50,14 @@ export async function createSessionHandler(req, res) {
       items: parsed.data.items,
       distance_km: parsed.data.distance_km,
       tip: parsed.data.tip,
-      prescription_files: parsed.data.prescription_files,
-      patient: parsed.data.patient, // ← ADDED
+      prescription_files: parsed.data.prescription_files ?? [],
+      patient: parsed.data.patient,
+      prescription_request_id: parsed.data.prescription_request_id ?? null,
+      prescription_recipient_id: parsed.data.prescription_recipient_id ?? null,
+      coupon_code: parsed.data.coupon_code ?? null,
+      loyalty_points_to_redeem: parsed.data.loyalty_points_to_redeem
+        ? Number(parsed.data.loyalty_points_to_redeem)
+        : 0,
     });
 
     return success(res, result, "Checkout session created", 201);
@@ -68,7 +79,7 @@ export async function createSessionHandler(req, res) {
     if (knownErrors.includes(err.message)) return fail(res, err.message, 400);
     if (err.message.startsWith("Delivery not available"))
       return fail(res, err.message, 400);
-    return fail(res, "Failed to create checkout session", 500);
+    return fail(res, err.message || "Failed to create checkout session", 500);
   }
 }
 
@@ -100,7 +111,7 @@ export async function confirmHandler(req, res) {
       return fail(res, "This order has already been placed.", 409);
     if (err.message === "Invalid payment signature")
       return fail(res, "Payment verification failed.", 400);
-    return fail(res, "Failed to confirm payment", 500);
+    return fail(res, err.message || "Failed to confirm payment", 500);
   }
 }
 
@@ -123,6 +134,10 @@ export async function webhookHandler(req, res) {
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error("[Webhook] checkout error:", err.message);
-    return res.status(200).json({ success: true }); // always 200 to Razorpay
+    return res.status(200).json({ success: true });
   }
 }
+
+export const handleGetQuote = quoteHandler;
+export const handleCreateSession = createSessionHandler;
+export const handleConfirmPayment = confirmHandler;

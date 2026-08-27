@@ -9,6 +9,13 @@ import {
 import { computePricing, normaliseConfig } from "./pricing.engine.js";
 import { fireOrderPlacedEvents } from "../../marketplace-orders/marketplace.orders.events.js";
 import { markConverted } from "../../prescription-requests/prescription.requests.service.js";
+import {
+  validateCouponForCustomer,
+  recordCouponUsage,
+} from "../../coupons/coupon.service.js";
+import { redeemPoints } from "../../loyalty/loyalty.service.js";
+import { getLoyaltyConfig } from "../../loyalty/loyalty.config.service.js";
+import { validateRedemption } from "../../loyalty/loyalty.engine.js";
 
 const SESSION_TTL_MINS = 15;
 
@@ -33,21 +40,114 @@ async function getConfig() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUOTE — no side effects, returns pricing breakdown only
+// QUOTE — no side effects, returns full pricing breakdown with discounts
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {{ items: {variantId, quantity}[], distance_km: number, tip?: number }}
+ * @param {Object} params
+ * @param {{variantId: string, quantity: number}[]} params.items
+ * @param {number} params.distance_km
+ * @param {number} [params.tip]
+ * @param {string} params.branch_id
+ * @param {string|null} [params.coupon_code]
+ * @param {number} [params.loyalty_points_to_redeem]
+ * @param {string|null} [params.customer_id]
  */
-export async function getQuote({ items, distance_km, tip = 0, branch_id }) {
+export async function getQuote({
+  items,
+  distance_km,
+  tip = 0,
+  branch_id,
+  coupon_code = null,
+  loyalty_points_to_redeem = 0,
+  customer_id = null,
+}) {
   const subtotal = await resolveSubtotal(items, branch_id);
   const config = await getConfig();
 
-  return computePricing({ subtotal, distance_km, tip, config });
+  const basePricing = computePricing({ subtotal, distance_km, tip, config });
+
+  if (!basePricing.delivery_available) {
+    return {
+      ...basePricing,
+      coupon_code: null,
+      coupon_discount: 0,
+      coupon_reason: null,
+      loyalty_points_redeemed: 0,
+      loyalty_discount: 0,
+      loyalty_reason: null,
+    };
+  }
+
+  // ── 1. Coupon Discount Calculation ─────────────────────────
+  let coupon_discount = 0;
+  let applied_coupon_code = null;
+  let coupon_reason = null;
+
+  if (coupon_code && customer_id) {
+    const couponResult = await validateCouponForCustomer({
+      code: coupon_code,
+      customer_id,
+      subtotal,
+    });
+
+    if (couponResult.valid) {
+      coupon_discount = couponResult.discount;
+      applied_coupon_code = couponResult.coupon.code;
+    } else {
+      coupon_reason = couponResult.reason;
+    }
+  }
+
+  const effective_subtotal = Math.max(0, subtotal - coupon_discount);
+
+  // ── 2. Loyalty Points Discount Calculation ─────────────────
+  let loyalty_discount = 0;
+  let points_redeemed = 0;
+  let loyalty_reason = null;
+
+  if (loyalty_points_to_redeem > 0 && customer_id) {
+    const loyaltyConfig = await getLoyaltyConfig();
+    const user = await prisma.cureliMobileUser.findUnique({
+      where: { id: customer_id },
+      select: { loyalty_points_balance: true },
+    });
+    const balance = user?.loyalty_points_balance ?? 0;
+
+    const loyaltyResult = validateRedemption({
+      config: loyaltyConfig,
+      userBalance: balance,
+      pointsRequested: loyalty_points_to_redeem,
+      effectiveSubtotal: effective_subtotal,
+    });
+
+    if (loyaltyResult.valid) {
+      loyalty_discount = loyaltyResult.discount;
+      points_redeemed = loyaltyResult.allowedPoints;
+    } else {
+      loyalty_reason = loyaltyResult.reason;
+    }
+  }
+
+  // Combined discounts cannot reduce payable total below ₹1.00 (Razorpay minimum)
+  const combinedDiscounts = coupon_discount + loyalty_discount;
+  const rawGrandTotal = basePricing.grand_total - combinedDiscounts;
+  const grand_total = parseFloat(Math.max(1, rawGrandTotal).toFixed(2));
+
+  return {
+    ...basePricing,
+    coupon_code: applied_coupon_code,
+    coupon_discount,
+    coupon_reason,
+    loyalty_points_redeemed: points_redeemed,
+    loyalty_discount,
+    loyalty_reason,
+    grand_total,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CREATE SESSION — validates cart, creates Razorpay order, persists session
+// CREATE SESSION — validates cart, discounts, creates Razorpay order, persists session
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function createCheckoutSession({
@@ -61,13 +161,21 @@ export async function createCheckoutSession({
   patient,
   prescription_request_id = null,
   prescription_recipient_id = null,
+  coupon_code = null,
+  loyalty_points_to_redeem = 0,
 }) {
   const config = await getConfig();
 
   // ── 1. Validate customer ─────────────────────────────────
   const customer = await prisma.cureliMobileUser.findUnique({
     where: { id: customer_id },
-    select: { id: true, status: true, full_name: true, phone: true },
+    select: {
+      id: true,
+      status: true,
+      full_name: true,
+      phone: true,
+      loyalty_points_balance: true,
+    },
   });
   if (!customer || customer.status !== "active")
     throw new Error("Customer account is not active");
@@ -104,14 +212,67 @@ export async function createCheckoutSession({
     );
   }
 
-  // ── 6. Compute pricing ───────────────────────────────────
+  // ── 6. Base pricing calculation ──────────────────────────
   const pricing = computePricing({ subtotal, distance_km, tip, config });
 
   if (!pricing.delivery_available) {
     throw new Error(pricing.unavailable_reason);
   }
 
-  // ── 7. Snapshot address ──────────────────────────────────
+  // ── 7. Validate & Calculate Coupon Discount ──────────────
+  let coupon_discount_amount = 0;
+  let applied_coupon_code = null;
+  let applied_coupon_id = null;
+
+  if (coupon_code) {
+    const couponValidation = await validateCouponForCustomer({
+      code: coupon_code,
+      customer_id,
+      subtotal,
+    });
+
+    if (!couponValidation.valid) {
+      throw new Error(couponValidation.reason || "Invalid coupon code");
+    }
+
+    coupon_discount_amount = couponValidation.discount;
+    applied_coupon_code = couponValidation.coupon.code;
+    applied_coupon_id = couponValidation.coupon.coupon_id;
+  }
+
+  const effective_subtotal = Math.max(0, subtotal - coupon_discount_amount);
+
+  // ── 8. Validate & Calculate Loyalty Points ───────────────
+  let loyalty_discount_amount = 0;
+  let points_to_redeem = 0;
+
+  if (loyalty_points_to_redeem > 0) {
+    const loyaltyConfig = await getLoyaltyConfig();
+
+    const redemptionValidation = validateRedemption({
+      config: loyaltyConfig,
+      userBalance: customer.loyalty_points_balance,
+      pointsRequested: loyalty_points_to_redeem,
+      effectiveSubtotal: effective_subtotal,
+    });
+
+    if (!redemptionValidation.valid) {
+      throw new Error(
+        redemptionValidation.reason || "Invalid loyalty point redemption",
+      );
+    }
+
+    points_to_redeem = redemptionValidation.allowedPoints;
+    loyalty_discount_amount = redemptionValidation.discount;
+  }
+
+  // Final grand total after all discounts (min payable ₹1.00)
+  const totalDiscount = coupon_discount_amount + loyalty_discount_amount;
+  const grand_total = parseFloat(
+    Math.max(1, pricing.grand_total - totalDiscount).toFixed(2),
+  );
+
+  // ── 9. Snapshot address ──────────────────────────────────
   const address_snapshot = {
     label: address.label,
     address_line_1: address.address_line_1,
@@ -126,8 +287,8 @@ export async function createCheckoutSession({
     recipient_phone: address.recipient_phone ?? null,
   };
 
-  // ── 8. Create Razorpay order ─────────────────────────────
-  const amount_paise = Math.round(pricing.grand_total * 100);
+  // ── 10. Create Razorpay order ────────────────────────────
+  const amount_paise = Math.round(grand_total * 100);
 
   const rzpOrder = await razorpayMobile.orders.create({
     amount: amount_paise,
@@ -136,10 +297,12 @@ export async function createCheckoutSession({
       customer_id,
       branch_id,
       shop_id,
+      coupon_code: applied_coupon_code ?? "",
+      loyalty_points: String(points_to_redeem),
     },
   });
 
-  // ── 9. Persist CheckoutSession ───────────────────────────
+  // ── 11. Persist CheckoutSession ──────────────────────────
   const expires_at = new Date(Date.now() + SESSION_TTL_MINS * 60 * 1000);
 
   const session = await prisma.checkoutSession.create({
@@ -155,7 +318,11 @@ export async function createCheckoutSession({
       delivery_fee: pricing.delivery_fee,
       km_surcharge: pricing.km_surcharge,
       tip: pricing.tip,
-      grand_total: pricing.grand_total,
+      coupon_code: applied_coupon_code,
+      coupon_discount_amount,
+      loyalty_points_redeemed: points_to_redeem,
+      loyalty_discount_amount,
+      grand_total,
       distance_km,
       prescription_files,
       patient_is_self: patient.is_self,
@@ -176,7 +343,14 @@ export async function createCheckoutSession({
     amount_paise,
     currency: RAZORPAY_MOBILE_CURRENCY,
     key_id: process.env.RAZORPAY_MOBILE_KEY_ID,
-    pricing,
+    pricing: {
+      ...pricing,
+      coupon_code: applied_coupon_code,
+      coupon_discount: coupon_discount_amount,
+      loyalty_points_redeemed: points_to_redeem,
+      loyalty_discount: loyalty_discount_amount,
+      grand_total,
+    },
     expires_at,
   };
 }
@@ -252,7 +426,6 @@ export async function handleCheckoutWebhook(payload) {
     const payment = payload.payload?.payment?.entity;
     const rzp_order = payment?.order_id;
     const payment_id = payment?.id;
-    const signature = null; // webhook doesn't send signature — skip sig verification
 
     if (!rzp_order || !payment_id) return;
 
@@ -260,11 +433,9 @@ export async function handleCheckoutWebhook(payload) {
       where: { razorpay_order_id: rzp_order },
     });
 
-    if (!session) return; // unknown
-    if (session.status === "paid") return; // idempotent
-    if (session.status === "expired") return; // too late
-
-    // Order already created (by confirm endpoint racing the webhook)
+    if (!session) return;
+    if (session.status === "paid") return;
+    if (session.status === "expired") return;
     if (session.order_id) return;
 
     await _createOrderFromSession({
@@ -335,6 +506,23 @@ async function _createOrderFromSession({
   );
 
   const createdOrder = await prisma.$transaction(async (tx) => {
+    // 1. Deduct loyalty points atomically if requested
+    if (session.loyalty_points_redeemed > 0) {
+      const effective_subtotal = Math.max(
+        0,
+        Number(session.subtotal) - Number(session.coupon_discount_amount ?? 0),
+      );
+      await redeemPoints(
+        {
+          customer_id: session.customer_id,
+          points_requested: session.loyalty_points_redeemed,
+          effective_subtotal,
+        },
+        tx,
+      );
+    }
+
+    // 2. Create Marketplace Order
     const order = await tx.marketplaceOrder.create({
       data: {
         order_number,
@@ -353,6 +541,10 @@ async function _createOrderFromSession({
         delivery_fee: session.delivery_fee,
         km_surcharge: session.km_surcharge,
         tip: session.tip,
+        coupon_code: session.coupon_code,
+        coupon_discount_amount: session.coupon_discount_amount,
+        loyalty_points_redeemed: session.loyalty_points_redeemed,
+        loyalty_discount_amount: session.loyalty_discount_amount,
         total_amount: session.grand_total,
         distance_km: session.distance_km,
         requires_prescription: requiresPrescription,
@@ -370,7 +562,25 @@ async function _createOrderFromSession({
       },
     });
 
-    // Create order items
+    // 3. Record coupon usage if applied
+    if (session.coupon_code) {
+      const coupon = await tx.coupon.findUnique({
+        where: { code: session.coupon_code },
+      });
+      if (coupon) {
+        await recordCouponUsage(
+          {
+            coupon_id: coupon.coupon_id,
+            customer_id: session.customer_id,
+            order_id: order.order_id,
+            discount_amount: Number(session.coupon_discount_amount),
+          },
+          tx,
+        );
+      }
+    }
+
+    // 4. Create order items
     await tx.marketplaceOrderItem.createMany({
       data: cartItems.map((item) => ({
         order_id: order.order_id,
@@ -389,7 +599,7 @@ async function _createOrderFromSession({
       })),
     });
 
-    // Create prescription records
+    // 5. Create prescription records
     const files = session.prescription_files ?? [];
     if (files.length > 0) {
       await tx.marketplaceOrderPrescription.createMany({
@@ -404,7 +614,7 @@ async function _createOrderFromSession({
       });
     }
 
-    // Status history
+    // 6. Status history
     await tx.marketplaceOrderStatusHistory.create({
       data: {
         order_id: order.order_id,
@@ -416,7 +626,7 @@ async function _createOrderFromSession({
       },
     });
 
-    // Mark session paid
+    // 7. Mark session paid
     await tx.checkoutSession.update({
       where: { session_id: session.session_id },
       data: {
@@ -435,7 +645,7 @@ async function _createOrderFromSession({
     items: cartItems,
   });
 
-  // ── Fire-and-forget: link order back to prescription request if applicable ──
+  // Link order back to prescription request if applicable
   if (session.prescription_request_id && session.prescription_recipient_id) {
     markConverted(
       session.prescription_request_id,
@@ -448,7 +658,6 @@ async function _createOrderFromSession({
       ),
     );
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
   return createdOrder;
 }
@@ -468,8 +677,7 @@ async function resolveSubtotal(items, branch_id) {
   let subtotal = 0;
   for (const { variantId, quantity } of items) {
     const query = { linked_variant_id: variantId };
-    
-    // Only apply branch filter if it is provided
+
     if (branch_id) {
       query.branch_id = branch_id;
     }
@@ -478,7 +686,7 @@ async function resolveSubtotal(items, branch_id) {
       where: query,
       select: { marketplace_price: true },
     });
-    
+
     if (listing?.marketplace_price) {
       subtotal += Number(listing.marketplace_price) * quantity;
     }

@@ -1,14 +1,10 @@
-// backend/src/cron/jobs.js
-
 import cron from "node-cron";
 import prisma from "../config/prisma.js";
 import { withCronLock, getInstanceId } from "./cronLock.js";
 import { transitionDeprecatedPlans } from "../modules/cadmin/plans/cadminPlans.service.js";
 import { cleanupExpiredSessions } from "../utils/session.js";
 import { deleteFile } from "../services/fileStorage.service.js";
-
-
-
+import { processExpiredLoyaltyPoints } from "./loyaltyExpiryWorker.js";
 
 import {
   cleanupOldPendingUsers,
@@ -19,7 +15,6 @@ import { initializeEmailBroadcastWorker } from "./emailBroadcastWorker.js";
 import { initializeFileCleanupWorker } from "./emailFileCleanupWorker.js";
 import cronLogger from "../utils/cronLogger.js";
 
-// Subscription imports
 import {
   transitionExpiredToGrace,
   suspendExpiredGrace,
@@ -27,7 +22,6 @@ import {
   getSubscriptionsDueForReminders,
 } from "../modules/subscription/subscription.service.js";
 
-// Inventory imports
 import inventoryService from "../modules/inventory/inventory.service.js";
 
 import {
@@ -38,17 +32,11 @@ import {
 import { expireStaleCheckoutSessions } from "./checkoutSessionCleanup.js";
 import { runMarketplaceScheduler } from "./marketplaceScheduler.js";
 
-// ── NEW ───────────────────────────────────────────────────────────────────────
 import {
   expireStaleQuotes,
   expireStaleRequests,
   cleanupExpiredRequestFiles,
 } from "../modules/prescription-requests/prescription.requests.service.js";
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ============================================
-// CRON 5: SCHEDULED BROADCASTS - Every 5 minutes
-// ============================================
 
 async function processScheduledBroadcasts() {
   cronLogger.info("Checking for scheduled broadcasts...");
@@ -113,10 +101,6 @@ function initializeScheduledBroadcastsJob() {
   cronLogger.info("Scheduled broadcasts job initialized (every 5 minutes)");
 }
 
-// ============================================
-// SESSION CLEANUP - Every hour
-// ============================================
-
 async function runSessionCleanup() {
   try {
     const count = await cleanupExpiredSessions();
@@ -127,10 +111,6 @@ async function runSessionCleanup() {
     cronLogger.error("Session cleanup failed", err);
   }
 }
-
-// ============================================
-// PLAN STATUS TRANSITION - Daily at 2:00 AM
-// ============================================
 
 function initializePlanTransitionJob() {
   cron.schedule("0 2 * * *", () =>
@@ -157,10 +137,6 @@ function initializePlanTransitionJob() {
 
   cronLogger.info("Plan transition job scheduled (daily at 2:00 AM)");
 }
-
-// ============================================
-// CRON 1: SUBSCRIPTION LIFECYCLE (Every hour)
-// ============================================
 
 function initializeSubscriptionLifecycleJob() {
   cron.schedule("0 * * * *", () =>
@@ -222,10 +198,6 @@ function initializeSubscriptionLifecycleJob() {
   cronLogger.info("Subscription lifecycle job scheduled (every hour)");
 }
 
-// ============================================
-// CRON 2: PAYMENT STATUS SYNC - Daily at 1:00 AM
-// ============================================
-
 function initializePaymentStatusSyncJob() {
   cron.schedule("0 1 * * *", () =>
     withCronLock("payment-sync", 30, async () => {
@@ -247,10 +219,6 @@ function initializePaymentStatusSyncJob() {
 
   cronLogger.info("Payment status sync job scheduled (daily at 1:00 AM)");
 }
-
-// ============================================
-// CRON 3: REMINDERS & FINAL WARNINGS - Daily at 9:00 AM
-// ============================================
 
 function initializeReminderJob() {
   cron.schedule("0 9 * * *", () =>
@@ -322,10 +290,6 @@ function initializeReminderJob() {
   cronLogger.info("Reminder job scheduled (daily at 9:00 AM)");
 }
 
-// ============================================
-// CRON 4: INVENTORY EXPIRY CHECKS - Daily at 6:00 AM
-// ============================================
-
 function initializeInventoryExpiryJob() {
   cron.schedule("0 6 * * *", () =>
     withCronLock("inventory-expiry", 60, async () => {
@@ -378,10 +342,6 @@ function initializeInventoryExpiryJob() {
 
   cronLogger.info("Inventory expiry job scheduled (daily at 6:00 AM)");
 }
-
-// ============================================
-// PRESCRIPTION CLEANUP - Daily at 2:30 AM
-// ============================================
 
 async function cleanupExpiredPrescriptions() {
   cronLogger.info("Checking for expired prescriptions to purge...");
@@ -450,10 +410,6 @@ function initializePrescriptionCleanupJob() {
   cronLogger.info("Prescription cleanup job scheduled (daily at 2:30 AM)");
 }
 
-// ============================================
-// MARKETPLACE ORDER AUTO-COMPLETE - Every hour
-// ============================================
-
 async function autoCompleteStaleOrders() {
   cronLogger.info("Checking for stale READY_FOR_PICKUP orders...");
 
@@ -521,10 +477,6 @@ function initializeMarketplaceOrderAutoComplete() {
   cronLogger.info("Marketplace order auto-complete scheduled (every hour)");
 }
 
-// ============================================
-// CHECKOUT SESSION CLEANUP - Every 5 minutes
-// ============================================
-
 function initializeCheckoutSessionCleanupJob() {
   cron.schedule("*/5 * * * *", () =>
     withCronLock("checkout-session-cleanup", 4, async () => {
@@ -534,20 +486,12 @@ function initializeCheckoutSessionCleanupJob() {
   cronLogger.info("Checkout session cleanup scheduled (every 5 minutes)");
 }
 
-// ============================================
-// MARKETPLACE AUTO OPEN/CLOSE SCHEDULER - Every minute
-// ============================================
-
 function initializeMarketplaceSchedulerJob() {
   cron.schedule("* * * * *", () =>
     withCronLock("marketplace-scheduler", 1, runMarketplaceScheduler),
   );
   cronLogger.info("Marketplace scheduler job initialized (every minute)");
 }
-
-// ============================================
-// ── NEW: PRESCRIPTION QUOTE EXPIRY - Every 5 minutes
-// ============================================
 
 async function runQuoteExpiryJob() {
   try {
@@ -571,21 +515,15 @@ function initializePrescriptionQuoteExpiryJob() {
   );
 }
 
-// ============================================
-// ── NEW: PRESCRIPTION REQUEST DAILY CLEANUP - Daily at 02:00 IST (20:30 UTC)
-// ============================================
-
 async function runPrescriptionRequestCleanupJob() {
   try {
     cronLogger.info("[PRx] Starting prescription request cleanup run");
 
-    // a. Expire stale requests (48h window passed, no acceptance)
     const requestResult = await expireStaleRequests();
     cronLogger.info(
       `[PRx] Expired ${requestResult.expired} stale prescription request(s)`,
     );
 
-    // b. Delete S3 files for request images older than 7 days
     const fileResult = await cleanupExpiredRequestFiles();
     cronLogger.info(
       `[PRx] File cleanup: ${fileResult.deleted} deleted, ${fileResult.failed} failed`,
@@ -596,7 +534,6 @@ async function runPrescriptionRequestCleanupJob() {
 }
 
 function initializePrescriptionRequestCleanupJob() {
-  // 20:30 UTC = 02:00 IST
   cron.schedule("30 20 * * *", () =>
     withCronLock("prescription-request-cleanup", 30, runPrescriptionRequestCleanupJob),
   );
@@ -605,30 +542,37 @@ function initializePrescriptionRequestCleanupJob() {
   );
 }
 
-// ============================================
-// INITIALIZE ALL CRON JOBS
-// ============================================
+function initializeLoyaltyPointsExpiryJob() {
+  cron.schedule("0 2 * * *", () =>
+    withCronLock("loyalty-points-expiry", 30, async () => {
+      cronLogger.info("Starting loyalty points expiry check...");
+      try {
+        const result = await processExpiredLoyaltyPoints();
+        cronLogger.info(`Loyalty points expiry complete | Processed: ${result.processed}`);
+      } catch (err) {
+        cronLogger.error("Loyalty points expiry job failed", err);
+      }
+    }),
+  );
+  cronLogger.info("Loyalty points expiry job scheduled (daily at 2:00 AM IST)");
+}
 
 export function initializeCronJobs() {
   cronLogger.info("Initializing cron jobs...");
   cronLogger.info(`Instance ID: ${getInstanceId()}`);
   cronLogger.info("Distributed locking: ENABLED");
 
-  // Email broadcast worker (has its own lock + atomic claims)
   initializeEmailBroadcastWorker();
   initializeFileCleanupWorker();
   cronLogger.info("Email broadcast worker: Every 1 minute");
   cronLogger.info("Email file cleanup: Daily at 4:00 AM");
 
-  // Session cleanup (every hour)
   setInterval(
     () => withCronLock("session-cleanup", 10, runSessionCleanup),
     60 * 60 * 1000,
   );
-  // Run once on startup
   withCronLock("session-cleanup", 10, runSessionCleanup);
 
-  // Scheduled jobs
   initializePlanTransitionJob();
   initializeSubscriptionLifecycleJob();
   initializePaymentStatusSyncJob();
@@ -640,12 +584,10 @@ export function initializeCronJobs() {
   initializeCheckoutSessionCleanupJob();
   initializeMarketplaceSchedulerJob();
 
-  // ── NEW ───────────────────────────────────────────────────────────────────
   initializePrescriptionQuoteExpiryJob();
   initializePrescriptionRequestCleanupJob();
-  // ─────────────────────────────────────────────────────────────────────────
+  initializeLoyaltyPointsExpiryJob();
 
-  // Cleanup jobs
   cron.schedule("0 3 * * *", () =>
     withCronLock("cleanup-pending-users", 15, async () => {
       cronLogger.info("Running pending users cleanup...");
@@ -717,6 +659,7 @@ export function initializeCronJobs() {
   cronLogger.info("  - Prescription cleanup: Daily at 2:30 AM");
   cronLogger.info("  - Checkout session cleanup: Every 5 minutes");
   cronLogger.info("  - Marketplace auto open/close scheduler: Every minute");
-  cronLogger.info("  - Prescription quote expiry: Every 5 minutes");        // NEW
-  cronLogger.info("  - Prescription request cleanup: Daily at 02:00 IST");  // NEW
+  cronLogger.info("  - Prescription quote expiry: Every 5 minutes");
+  cronLogger.info("  - Prescription request cleanup: Daily at 02:00 IST");
+  cronLogger.info("  - Loyalty points expiry: Daily at 2:00 AM IST");
 }

@@ -174,10 +174,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
 
   // ── Field helpers ──────────────────────────────────────────
 
-  const setField = <K extends keyof FormState>(
-    key: K,
-    value: FormState[K],
-  ) => {
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setSubmitError(null);
     if (touched[key as keyof FormErrors]) {
@@ -220,8 +217,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
     setErrors((prev) => ({
       ...prev,
       address_line_1:
-        details.address_line_1 &&
-        details.address_line_1.trim().length >= 5
+        details.address_line_1 && details.address_line_1.trim().length >= 5
           ? undefined
           : prev.address_line_1,
       city: details.city ? undefined : prev.city,
@@ -230,7 +226,6 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
         details.pincode && /^\d{6}$/.test(details.pincode)
           ? undefined
           : prev.pincode,
-      // Clear location error as soon as coordinates arrive
       location:
         details.latitude && details.longitude ? undefined : prev.location,
     }));
@@ -299,7 +294,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={["bottom"]}
+      edges={["top", "bottom"]}
     >
       {/* ── Header ────────────────────────────────────────── */}
       <View
@@ -383,8 +378,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                 { color: colors.text.muted, fontFamily: "Inter_700Bold" },
               ]}
             >
-              LOCATION{" "}
-              <Text style={{ color: colors.status.error }}>*</Text>
+              LOCATION <Text style={{ color: colors.status.error }}>*</Text>
             </Text>
 
             <TouchableOpacity
@@ -421,9 +415,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   style={[
                     styles.locationPickerTitle,
                     {
-                      color: hasLocation
-                        ? colors.status.success
-                        : brandColor,
+                      color: hasLocation ? colors.status.success : brandColor,
                       fontFamily: "Inter_600SemiBold",
                     },
                   ]}
@@ -449,9 +441,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
               <MaterialIcons
                 name={hasLocation ? "check-circle" : "chevron-right"}
                 size={20}
-                color={
-                  hasLocation ? colors.status.success : colors.text.faint
-                }
+                color={hasLocation ? colors.status.success : colors.text.faint}
               />
             </TouchableOpacity>
           </View>
@@ -480,13 +470,9 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   styles.labelChip,
                   {
                     borderColor:
-                      form.label === lbl
-                        ? brandColor
-                        : colors.border.default,
+                      form.label === lbl ? brandColor : colors.border.default,
                     backgroundColor:
-                      form.label === lbl
-                        ? brandColor
-                        : colors.background.card,
+                      form.label === lbl ? brandColor : colors.background.card,
                   },
                 ]}
                 onPress={() => setField("label", lbl)}
@@ -507,8 +493,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
                   style={[
                     styles.labelChipText,
                     {
-                      color:
-                        form.label === lbl ? "#ffffff" : colors.text.muted,
+                      color: form.label === lbl ? "#ffffff" : colors.text.muted,
                       fontFamily: "Inter_600SemiBold",
                     },
                   ]}
@@ -551,9 +536,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             onChangeText={(v) => setField("address_line_1", v)}
             onBlur={() => handleBlur("address_line_1")}
             onFocus={() => scrollToY(280)}
-            error={
-              touched.address_line_1 ? errors.address_line_1 : undefined
-            }
+            error={touched.address_line_1 ? errors.address_line_1 : undefined}
             placeholder="Flat / House No, Building, Street"
             maxLength={300}
             colors={colors}
@@ -661,9 +644,7 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             onChangeText={(v) => setField("recipient_phone", v)}
             onBlur={() => handleBlur("recipient_phone")}
             onFocus={() => scrollToY(820)}
-            error={
-              touched.recipient_phone ? errors.recipient_phone : undefined
-            }
+            error={touched.recipient_phone ? errors.recipient_phone : undefined}
             placeholder="+91 XXXXX XXXXX"
             keyboardType="phone-pad"
             maxLength={15}
@@ -726,14 +707,9 @@ export function AddressFormScreen({ addressId }: AddressFormScreenProps) {
             disabled={!hasLocation || isPending}
             activeOpacity={0.8}
           >
-            {isPending ? (
-              <ActivityIndicator size={18} color="#ffffff" />
-            ) : null}
+            {isPending ? <ActivityIndicator size={18} color="#ffffff" /> : null}
             <Text
-              style={[
-                styles.saveButtonText,
-                { fontFamily: "Inter_700Bold" },
-              ]}
+              style={[styles.saveButtonText, { fontFamily: "Inter_700Bold" }]}
             >
               {isPending
                 ? isEditMode
@@ -795,18 +771,14 @@ function FieldInput({
         ]}
       >
         {label}{" "}
-        {required && (
-          <Text style={{ color: colors.status.error }}>*</Text>
-        )}
+        {required && <Text style={{ color: colors.status.error }}>*</Text>}
       </Text>
       <TextInput
         style={[
           styles.input,
           {
             backgroundColor: colors.background.input,
-            borderColor: error
-              ? colors.status.error
-              : colors.border.input,
+            borderColor: error ? colors.status.error : colors.border.input,
             color: colors.text.primary,
             fontFamily: "Inter_400Regular",
           },

@@ -19,6 +19,11 @@ import {
   handleUpdateHomeScreenConfig,
 } from "./cadmin.appConfig.controller.js";
 
+import {
+  handleGetLoyaltyConfig,
+  handleUpdateLoyaltyConfig,
+} from "../loyalty/cadminLoyalty.controller.js";
+
 // ── Banner handlers ───────────────────────────────────────────────────────────
 import { uploadBannerImage } from "./banners/cadmin.banners.upload.js";
 import {
@@ -222,6 +227,20 @@ router.patch(
   "/app-config/home-screen",
   requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LAYOUT),
   handleUpdateHomeScreenConfig,
+);
+
+// GET    /cadmin/app-config/loyalty
+router.get(
+  "/app-config/loyalty",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_VIEW),
+  handleGetLoyaltyConfig,
+);
+
+// PATCH  /cadmin/app-config/loyalty
+router.patch(
+  "/app-config/loyalty",
+  requireCAdminPermission(CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LOYALTY),
+  handleUpdateLoyaltyConfig,
 );
 
 export default router;

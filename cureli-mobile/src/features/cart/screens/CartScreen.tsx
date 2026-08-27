@@ -1,6 +1,6 @@
 // src/features/cart/screens/CartScreen.tsx
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -51,7 +51,8 @@ import { useAddresses } from "../../profile/hooks/useAddresses";
 import { useDeliveryLocationStore } from "../../../store/deliveryLocationStore";
 import type { Address } from "../../profile/types/profile.types";
 
-// ── Order success overlay ─────────────────────────────────────
+import { CouponSection } from "../components/CouponSection";
+import { LoyaltyPointsSection } from "../components/LoyaltyPointsSection";
 
 function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
   const { colors } = useTheme();
@@ -112,20 +113,24 @@ function OrderSuccess({ onGoHome }: { onGoHome: () => void }) {
   );
 }
 
-// ── Cart screen ───────────────────────────────────────────────
-
 export function CartScreen() {
   const { colors } = useTheme();
 
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
 
+  // ── Reactive cart subtotal calculation ────────────────────
+  const cartSubtotal = useMemo(
+    () =>
+      items.reduce((sum, item) => sum + item.pricePerUnit * item.quantity, 0),
+    [items],
+  );
+
   const tempPrescriptions = usePrescriptionStore((s) => s.tempFiles);
   const clearPrescriptions = usePrescriptionStore((s) => s.clearTempFiles);
   const deliveryNotes = usePrescriptionStore((s) => s.deliveryNotes);
   const setDeliveryNotes = usePrescriptionStore((s) => s.setDeliveryNotes);
 
-  // ── Address resolution ────────────────────────────────────
   const { addresses, isLoading: addressesLoading } = useAddresses();
   const selectAddress = useDeliveryLocationStore((s) => s.selectAddress);
   const pickedAddressId = useDeliveryLocationStore(
@@ -139,16 +144,6 @@ export function CartScreen() {
     return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
   })();
 
-  // ── Auto-select address ───────────────────────────────────
-  //
-  // Handles two cases:
-  //   1. Nothing selected yet (pickedAddressId is null)
-  //   2. Stale ID selected — address was deleted, ID no longer
-  //      exists in the current list (MMKV persisted a dead ID)
-  //
-  // In both cases: auto-select the default address or first.
-  // If the picked ID still exists → do nothing.
-
   useEffect(() => {
     if (addressesLoading) return;
     if (addresses.length === 0) return;
@@ -159,8 +154,7 @@ export function CartScreen() {
 
     if (pickedExists) return;
 
-    const toSelect =
-      addresses.find((a) => a.is_default) ?? addresses[0];
+    const toSelect = addresses.find((a) => a.is_default) ?? addresses[0];
 
     selectAddress({
       source: "saved",
@@ -172,7 +166,6 @@ export function CartScreen() {
     });
   }, [addresses, addressesLoading, pickedAddressId, selectAddress]);
 
-  // ── Sheet state ───────────────────────────────────────────
   const [addressSheetVisible, setAddressSheetVisible] = useState(false);
   const [patientSheetVisible, setPatientSheetVisible] = useState(false);
 
@@ -311,10 +304,7 @@ export function CartScreen() {
           <TouchableOpacity
             onPress={() => router.push("/(tabs)/home" as any)}
             activeOpacity={0.8}
-            style={[
-              styles.emptyBtn,
-              { backgroundColor: colors.brand.primary },
-            ]}
+            style={[styles.emptyBtn, { backgroundColor: colors.brand.primary }]}
           >
             <Text style={styles.emptyBtnText}>Browse Medicines</Text>
           </TouchableOpacity>
@@ -367,6 +357,10 @@ export function CartScreen() {
           {requiresPrescription && <PrescriptionUploadCard />}
 
           <RecommendationSection />
+
+          {/* ── Reactive subtotal passed to Promo & Loyalty sections ── */}
+          <CouponSection subtotal={cartSubtotal} />
+          <LoyaltyPointsSection subtotal={cartSubtotal} />
 
           <BillDetailsCard />
 
@@ -421,8 +415,6 @@ export function CartScreen() {
     </>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },

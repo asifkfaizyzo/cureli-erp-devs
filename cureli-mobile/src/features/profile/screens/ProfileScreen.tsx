@@ -1,5 +1,3 @@
-// src/features/profile/screens/ProfileScreen.tsx
-
 import React, { useState } from "react";
 import {
   ScrollView,
@@ -50,8 +48,6 @@ export function ProfileScreen() {
 
   const logout = useAuthStore((state) => state.logout);
   const brandColor = isDark ? colors.brand.accent : colors.brand.primary;
-
-  // ── Address handlers ──────────────────────────────────────
 
   const handleEditAddress = (id: string) => {
     router.push(`/profile/address/${id}`);
@@ -122,8 +118,6 @@ export function ProfileScreen() {
     router.replace("/(auth)/login");
   };
 
-  // ── Loading ───────────────────────────────────────────────
-
   if (profileLoading && !user) {
     return (
       <SafeAreaView
@@ -136,8 +130,6 @@ export function ProfileScreen() {
       </SafeAreaView>
     );
   }
-
-  // ── Error ─────────────────────────────────────────────────
 
   if (profileError && !user) {
     return (
@@ -168,8 +160,6 @@ export function ProfileScreen() {
     );
   }
 
-  // ── Main ──────────────────────────────────────────────────
-
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
@@ -185,7 +175,6 @@ export function ProfileScreen() {
       >
         <ProfileHeader user={user} isFetching={isFetching} />
 
-        {/* Addresses section header */}
         <View style={styles.sectionHeader}>
           <Text
             style={[
@@ -255,13 +244,18 @@ export function ProfileScreen() {
 
         <View style={styles.spacer} />
 
-        {/* Account section */}
         <ProfileSection title="Account">
           <ProfileMenuItem
             icon="devices"
             label="Log out of all devices"
             onPress={handleLogoutAll}
             destructive
+            showSeparator
+          />
+          <ProfileMenuItem
+            icon="stars"
+            label="My Loyalty Rewards"
+            onPress={() => router.push("/profile/loyalty" as any)}
             showSeparator
           />
           <ProfileMenuItem
@@ -308,7 +302,6 @@ export function ProfileScreen() {
           />
         </ProfileSection>
 
-        {/* Danger zone */}
         <ProfileSection title="Danger Zone">
           <ProfileMenuItem
             icon="delete-forever"

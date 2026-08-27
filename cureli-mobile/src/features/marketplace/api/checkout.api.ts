@@ -9,6 +9,9 @@ export const checkoutApi = {
     items: { variantId: string; quantity: number }[];
     distance_km: number;
     tip?: number;
+    coupon_code?: string | null;
+    loyalty_points_to_redeem?: number;
+    customer_id?: string | null;
   }) => api.post("/mobile/checkout/quote", data),
 
   createSession: (data: {
@@ -24,9 +27,10 @@ export const checkoutApi = {
       file_size: number;
     }[];
     patient: CheckoutPatient;
-
     prescription_request_id?: string | null;
     prescription_recipient_id?: string | null;
+    coupon_code?: string | null;
+    loyalty_points_to_redeem?: number;
   }) => api.post("/mobile/checkout/create-session", data),
 
   confirm: (data: {

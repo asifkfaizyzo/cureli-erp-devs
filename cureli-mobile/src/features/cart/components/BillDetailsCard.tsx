@@ -1,5 +1,4 @@
 // src/features/cart/components/BillDetailsCard.tsx
-// CHANGED: reads from checkoutStore instead of calculating locally
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -15,25 +14,27 @@ function BillRow({
   isTotal = false,
   isFree = false,
   dim = false,
+  isDiscount = false,
 }: {
   label:    string;
   value:    string;
   isTotal?: boolean;
   isFree?:  boolean;
   dim?:     boolean;
+  isDiscount?: boolean;
 }) {
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
       <Text style={[
         isTotal ? styles.totalLabel : styles.label,
-        { color: dim ? colors.text.faint : isTotal ? colors.text.primary : colors.text.secondary },
+        { color: isDiscount ? colors.status.success : dim ? colors.text.faint : isTotal ? colors.text.primary : colors.text.secondary },
       ]}>
         {label}
       </Text>
       <Text style={[
         isTotal ? styles.totalValue : styles.value,
-        { color: isFree ? colors.status.success : isTotal ? colors.text.primary : colors.text.primary },
+        { color: isDiscount || isFree ? colors.status.success : colors.text.primary },
       ]}>
         {value}
       </Text>
@@ -61,6 +62,17 @@ export function BillDetailsCard() {
       <Text style={[styles.title, { color: colors.text.primary }]}>Bill details</Text>
 
       <BillRow label="Items total"    value={`₹${breakdown.subtotal.toFixed(2)}`} />
+      
+      {/* ── Coupons ── */}
+      {breakdown.coupon_discount > 0 && (
+        <BillRow label={`Coupon Promo Code (${breakdown.coupon_code})`} value={`-₹${breakdown.coupon_discount.toFixed(2)}`} isDiscount />
+      )}
+
+      {/* ── Loyalty Points ── */}
+      {breakdown.loyalty_discount > 0 && (
+        <BillRow label={`Loyalty Points (-${breakdown.loyalty_points_redeemed} pts)`} value={`-₹${breakdown.loyalty_discount.toFixed(2)}`} isDiscount />
+      )}
+
       <BillRow label="Service charge" value={`₹${breakdown.service_charge.toFixed(2)}`} />
       <BillRow label="Delivery fee"   value={`₹${breakdown.delivery_fee.toFixed(2)}`} />
 
@@ -68,7 +80,7 @@ export function BillDetailsCard() {
         <BillRow label="Distance surcharge" value={`₹${breakdown.km_surcharge.toFixed(2)}`} />
       )}
 
-      {/* ── Tip selector ────────────────────────────────── */}
+      {/* ── Tip selector ── */}
       <View style={styles.tipRow}>
         <Text style={[styles.label, { color: colors.text.secondary }]}>Tip for rider</Text>
         <View style={styles.tipOptions}>

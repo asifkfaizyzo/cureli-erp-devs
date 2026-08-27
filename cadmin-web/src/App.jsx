@@ -31,6 +31,8 @@ import NotificationsPage from "./pages/Notifications/NotificationsPage";
 import AuditPage from "./pages/Audit/AuditPage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 import CategoryDisplayPage from "./pages/AppConfig/categories/CategoryDisplayPage";
+import LoyaltyConfigPage from "./pages/AppConfig/loyalty/LoyaltyConfigPage";
+import CouponsPage from "./pages/AppConfig/Coupons/CouponsPage";
 
 // ── Marketplace ──────────────────────────────────────────────────────────────
 import MarketplaceDashboard from "./pages/marketplace/Dashboard/MarketplaceDashboard";
@@ -361,6 +363,24 @@ function App() {
             element={
               <PermissionGuard permission={CADMIN_PERMISSIONS.APP_CONFIG_VIEW}>
                 <HomeScreenPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/app-config/loyalty"
+            element={
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.APP_CONFIG_MANAGE_LOYALTY}
+              >
+                <LoyaltyConfigPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/marketplace/app-config/coupons"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.COUPONS_VIEW}>
+                <CouponsPage />
               </PermissionGuard>
             }
           />

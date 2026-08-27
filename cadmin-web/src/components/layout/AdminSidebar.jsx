@@ -45,7 +45,7 @@ const getExpandedWidth = () => {
   if (width >= 1536) return EXPANDED_WIDTH_CONFIG["2xl"];
   if (width >= 1280) return EXPANDED_WIDTH_CONFIG["xl"];
   if (width >= 1024) return EXPANDED_WIDTH_CONFIG["lg"];
-  if (width >= 768)  return EXPANDED_WIDTH_CONFIG["md"];
+  if (width >= 768) return EXPANDED_WIDTH_CONFIG["md"];
   return EXPANDED_WIDTH_CONFIG["sm"];
 };
 
@@ -151,28 +151,28 @@ const MARKETPLACE_MENU_ITEMS = [
     label: "MP Dashboard",
     icon: LayoutGrid,
     path: "/marketplace/dashboard",
-    breadcrumbs: [ "MP Dashboard"],
+    breadcrumbs: ["MP Dashboard"],
   },
   {
     id: "mp-users",
     label: "Users",
     icon: Users,
     path: "/marketplace/users",
-    breadcrumbs: [ "Users"],
+    breadcrumbs: ["Users"],
   },
   {
     id: "mp-shops",
     label: "Shops",
     icon: HousePlus,
     path: "/marketplace/shops",
-    breadcrumbs: [ "Shops"],
+    breadcrumbs: ["Shops"],
   },
   {
     id: "master-medicines",
     label: "Medicine Catalog",
     icon: Pill,
-    path: "/marketplace/master-medicines",  // ← fixed: was /master-medicines
-    breadcrumbs: [ "Master Medicines"],
+    path: "/marketplace/master-medicines", // ← fixed: was /master-medicines
+    breadcrumbs: ["Master Medicines"],
     permissionKey: "masterMedicines",
   },
   {
@@ -180,7 +180,7 @@ const MARKETPLACE_MENU_ITEMS = [
     label: "Orders",
     icon: ShoppingBag,
     path: "/marketplace/orders",
-    breadcrumbs: [ "Orders"],
+    breadcrumbs: ["Orders"],
   },
   {
     id: "mp-pricing",
@@ -229,27 +229,41 @@ const ADMIN_CHILD_ROUTES = {
 const MARKETPLACE_CHILD_ROUTES = {
   "/marketplace/orders/sessions": {
     parentId: "mp-orders",
-    breadcrumbs: [ "Orders", "Sessions"],
+    breadcrumbs: ["Orders", "Sessions"],
   },
   "/marketplace/orders/pending": {
     parentId: "mp-orders",
-    breadcrumbs: [ "Orders", "Pending"],
+    breadcrumbs: ["Orders", "Pending"],
   },
   "/marketplace/orders/completed": {
     parentId: "mp-orders",
-    breadcrumbs: [ "Orders", "Completed"],
+    breadcrumbs: ["Orders", "Completed"],
   },
   "/marketplace/orders/details": {
     parentId: "mp-orders",
-    breadcrumbs: [ "Orders", "Details"],
+    breadcrumbs: ["Orders", "Details"],
   },
-  "/marketplace/app-config/categories": {  // ← fixed: was /app-config/categories
+  "/marketplace/app-config/categories": {
+    // ← fixed: was /app-config/categories
     parentId: "app-config",
-    breadcrumbs: [ "App Config", "Categories"],
+    breadcrumbs: ["App Config", "Categories"],
   },
-  "/marketplace/app-config/banners": {     // ← fixed: was /app-config/banners
+  "/marketplace/app-config/banners": {
+    // ← fixed: was /app-config/banners
     parentId: "app-config",
-    breadcrumbs: [ "App Config", "Banners"],
+    breadcrumbs: ["App Config", "Banners"],
+  },
+  "/marketplace/app-config/loyalty": {
+    parentId: "app-config",
+    breadcrumbs: ["App Config", "Loyalty Config"],
+  },
+  "/marketplace/app-config/coupons": {
+    parentId: "app-config",
+    breadcrumbs: ["App Config", "Coupons"],
+  },
+  "/marketplace/app-config/home-screen": {
+    parentId: "app-config",
+    breadcrumbs: ["App Config", "Home Layout"],
   },
 };
 
@@ -302,20 +316,22 @@ const MenuItem = ({ item, activeMenu, isExpanded, onNavigate, showBadge }) => {
 };
 
 const AdminSidebar = ({ expanded, onExpandChange }) => {
-  const activeMenu     = useMenuStore((s) => s.activeMenu);
-  const setActiveMenu  = useMenuStore((s) => s.setActiveMenu);
+  const activeMenu = useMenuStore((s) => s.activeMenu);
+  const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const permissions       = useCAdminMenuPermissions();
+  const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
   const { isMarketplace, isAdmin } = useAdminMode();
 
-  const pendingTickets   = useCommunicationBadgeStore((s) => s.pendingTickets);
-  const pendingEnquiries = useCommunicationBadgeStore((s) => s.pendingEnquiries);
-  const hasPendingComms  = pendingTickets > 0 || pendingEnquiries > 0;
+  const pendingTickets = useCommunicationBadgeStore((s) => s.pendingTickets);
+  const pendingEnquiries = useCommunicationBadgeStore(
+    (s) => s.pendingEnquiries,
+  );
+  const hasPendingComms = pendingTickets > 0 || pendingEnquiries > 0;
 
   const [expandedWidth, setExpandedWidth] = useState(getExpandedWidth);
 
@@ -325,11 +341,17 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const currentMenuItems   = isMarketplace ? MARKETPLACE_MENU_ITEMS : ADMIN_MENU_ITEMS;
-  const currentChildRoutes = isMarketplace ? MARKETPLACE_CHILD_ROUTES : ADMIN_CHILD_ROUTES;
-  const defaultMenuId      = isMarketplace ? "mp-users" : "dashboard";
-  const defaultPath        = isMarketplace ? "/marketplace/users" : "/dashboard";
-  const defaultBreadcrumbs = isMarketplace ? ["Marketplace", "Users"] : ["Dashboard"];
+  const currentMenuItems = isMarketplace
+    ? MARKETPLACE_MENU_ITEMS
+    : ADMIN_MENU_ITEMS;
+  const currentChildRoutes = isMarketplace
+    ? MARKETPLACE_CHILD_ROUTES
+    : ADMIN_CHILD_ROUTES;
+  const defaultMenuId = isMarketplace ? "mp-users" : "dashboard";
+  const defaultPath = isMarketplace ? "/marketplace/users" : "/dashboard";
+  const defaultBreadcrumbs = isMarketplace
+    ? ["Marketplace", "Users"]
+    : ["Dashboard"];
 
   const visibleMenuItems = useMemo(() => {
     return currentMenuItems.filter((item) => {
@@ -349,8 +371,14 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     [navigate, setActiveMenu, setBreadcrumbs],
   );
 
-  const handleMouseEnter = useCallback(() => onExpandChange(true),  [onExpandChange]);
-  const handleMouseLeave = useCallback(() => onExpandChange(false), [onExpandChange]);
+  const handleMouseEnter = useCallback(
+    () => onExpandChange(true),
+    [onExpandChange],
+  );
+  const handleMouseLeave = useCallback(
+    () => onExpandChange(false),
+    [onExpandChange],
+  );
 
   // ── Breadcrumb + active menu sync on navigation ───────────────────────────
   useEffect(() => {
@@ -396,8 +424,8 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     if (isMarketplace && !currentPath.startsWith("/marketplace")) return;
     if (isAdmin && currentPath.startsWith("/marketplace")) return;
 
-    const isValidMain       = visibleMenuItems.some((m) => m.path === currentPath);
-    const isValidChild      = Object.keys(currentChildRoutes).includes(currentPath);
+    const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
+    const isValidChild = Object.keys(currentChildRoutes).includes(currentPath);
     const isNonSidebarRoute = NON_SIDEBAR_ROUTES.includes(currentPath);
 
     if (isValidMain || isValidChild || isNonSidebarRoute) return;

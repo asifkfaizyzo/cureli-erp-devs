@@ -1,12 +1,4 @@
-// src/features/cart/hooks/useCheckout.ts
-//
-// CHANGE: Reads prescriptionRequestContext from checkoutStore and passes
-// prescription_request_id + prescription_recipient_id to createSession
-// when the cart was populated from a prescription quote.
-// For normal cart checkouts both fields are omitted (undefined).
-
 import { useCallback, useEffect, useRef } from "react";
-import { Alert } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
 import { useDialog } from "../../../components/Dialog/DialogProvider";
 import { checkoutApi } from "../../marketplace/api/checkout.api";
@@ -23,8 +15,8 @@ interface UseCheckoutOptions {
 
 export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
   const { alert: showAlert } = useDialog();
-  const items            = useCartStore((s) => s.items);
-  const clearCart        = useCartStore((s) => s.clearCart);
+  const items = useCartStore((s) => s.items);
+  const clearCart = useCartStore((s) => s.clearCart);
   const tempPrescriptions = usePrescriptionStore((s) => s.tempFiles);
   const clearPrescriptions = usePrescriptionStore((s) => s.clearTempFiles);
 
@@ -42,18 +34,17 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
     tip,
     setBreakdown,
     setQuoteLoading,
+    couponCode,
+    loyaltyPointsToRedeem,
   } = useCheckoutStore();
 
-  const selectedPatient              = useCheckoutStore((s) => s.selectedPatient);
-  // ── NEW: prescription request context ──────────────────────────────────
-  const prescriptionRequestContext   = useCheckoutStore(
+  const selectedPatient = useCheckoutStore((s) => s.selectedPatient);
+  const prescriptionRequestContext = useCheckoutStore(
     (s) => s.prescriptionRequestContext,
   );
-  // ──────────────────────────────────────────────────────────────────────
 
   const quoteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Quote fetch — unchanged
   useEffect(() => {
     if (items.length === 0 || distanceKm === null) {
       setBreakdown(null);
@@ -65,21 +56,24 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
 
     if (quoteDebounceRef.current) clearTimeout(quoteDebounceRef.current);
 
+    setQuoteLoading(true);
+
     quoteDebounceRef.current = setTimeout(async () => {
       try {
-        setQuoteLoading(true);
         const res = await checkoutApi.getQuote({
           branch_id: branchId,
           items: items.map((i) => ({
             variantId: i.variantId,
-            quantity:  i.quantity,
+            quantity: i.quantity,
           })),
           distance_km: distanceKm,
           tip,
+          coupon_code: couponCode,
+          loyalty_points_to_redeem: loyaltyPointsToRedeem,
         });
         setBreakdown(res.data.data);
       } catch {
-        // Silent — UI shows last known breakdown
+        // Silent recovery
       } finally {
         setQuoteLoading(false);
       }
@@ -88,9 +82,8 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
     return () => {
       if (quoteDebounceRef.current) clearTimeout(quoteDebounceRef.current);
     };
-  }, [items, distanceKm, tip]);
+  }, [items, distanceKm, tip, couponCode, loyaltyPointsToRedeem]);
 
-  // ── Place order ───────────────────────────────────────────
   const placeOrder = useCallback(async () => {
     if (!resolvedAddress) {
       await showAlert({
@@ -142,19 +135,21 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
 
     try {
       const sessionRes = await checkoutApi.createSession({
-        branch_id:           branchId,
+        branch_id: branchId,
         delivery_address_id: resolvedAddress.id,
         items: items.map((i) => ({
           variantId: i.variantId,
-          quantity:  i.quantity,
+          quantity: i.quantity,
         })),
-        distance_km:        distanceKm,
+        distance_km: distanceKm,
         tip,
         prescription_files: tempPrescriptions,
-        patient:            selectedPatient,
+        patient: selectedPatient,
+        coupon_code: couponCode,
+        loyalty_points_to_redeem: loyaltyPointsToRedeem,
         ...(prescriptionRequestContext
           ? {
-              prescription_request_id:   prescriptionRequestContext.prescription_request_id,
+              prescription_request_id: prescriptionRequestContext.prescription_request_id,
               prescription_recipient_id: prescriptionRequestContext.prescription_recipient_id,
             }
           : {}),
@@ -171,23 +166,23 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
       const paymentData = (await RazorpayCheckout.open({
         description: "Medicine Order",
         currency,
-        key:         key_id,
-        amount:      amount_paise,
-        order_id:    razorpay_order_id,
-        name:        "Cureli",
-        prefill:     {},
-        theme:       { color: "#05015A" },
+        key: key_id,
+        amount: amount_paise,
+        order_id: razorpay_order_id,
+        name: "Cureli",
+        prefill: {},
+        theme: { color: "#05015A" },
       })) as {
         razorpay_payment_id: string;
-        razorpay_order_id:   string;
-        razorpay_signature:  string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
       };
 
       await checkoutApi.confirm({
         session_id,
         razorpay_payment_id: paymentData.razorpay_payment_id,
-        razorpay_order_id:   paymentData.razorpay_order_id,
-        razorpay_signature:  paymentData.razorpay_signature,
+        razorpay_order_id: paymentData.razorpay_order_id,
+        razorpay_signature: paymentData.razorpay_signature,
       });
 
       clearCart();
@@ -224,6 +219,8 @@ export function useCheckout({ distanceKm, onSuccess }: UseCheckoutOptions) {
     tip,
     tempPrescriptions,
     selectedPatient,
+    couponCode,
+    loyaltyPointsToRedeem,
     prescriptionRequestContext,
     clearCart,
     clearPrescriptions,

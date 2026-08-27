@@ -7,46 +7,49 @@ import { useMenuStore } from "../../store/useMenuStore";
 
 const BREADCRUMB_PATHS = {
   // ── Admin ─────────────────────────────────────────────────────────────────
-  Dashboard:            "/dashboard",
-  Users:                "/users",
-  Shops:                "/shops",
-  Verification:         "/verification",
-  Subscriptions:        "/subscriptions",
-  Plans:                "/subscriptions/manage",
-  Audits:               "/audits",
-  Admins:               "/admins",
-  Settings:             "/settings",
+  Dashboard: "/dashboard",
+  Users: "/users",
+  Shops: "/shops",
+  Verification: "/verification",
+  Subscriptions: "/subscriptions",
+  Plans: "/subscriptions/manage",
+  Audits: "/audits",
+  Admins: "/admins",
+  Settings: "/settings",
 
   // ── Communications ────────────────────────────────────────────────────────
-  Communications:       "/communications",
-  Tickets:              "/communications/tickets",
-  Enquiries:            "/communications/enquiries",
-  Broadcast:            "/communications/broadcast",
-  "In-App":             "/communications/broadcast/in-app",
-  "In-App Broadcast":   "/communications/broadcast/in-app",
-  "Email Broadcast":    "/communications/broadcast/email",
-  "Mobile Push":        "/communications/broadcast/mobile",
+  Communications: "/communications",
+  Tickets: "/communications/tickets",
+  Enquiries: "/communications/enquiries",
+  Broadcast: "/communications/broadcast",
+  "In-App": "/communications/broadcast/in-app",
+  "In-App Broadcast": "/communications/broadcast/in-app",
+  "Email Broadcast": "/communications/broadcast/email",
+  "Mobile Push": "/communications/broadcast/mobile",
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  Notifications:        "/notifications",
+  Notifications: "/notifications",
 
   // ── Marketplace ───────────────────────────────────────────────────────────
-  Marketplace:          "/marketplace/dashboard",
-  "Master Medicines":   "/marketplace/master-medicines",
-  Orders:               "/marketplace/orders",
-  Pricing:              "/marketplace/pricing",
+  Marketplace: "/marketplace/dashboard",
+  "Master Medicines": "/marketplace/master-medicines",
+  Orders: "/marketplace/orders",
+  Pricing: "/marketplace/pricing",
 
   // ── App Config ────────────────────────────────────────────────────────────
-  "App Config":         "/marketplace/app-config",
-  Categories:           "/marketplace/app-config/categories",
-  Banners:              "/marketplace/app-config/banners",
+  "App Config": "/marketplace/app-config",
+  Categories: "/marketplace/app-config/categories",
+  Banners: "/marketplace/app-config/banners",
+  "Home Layout": "/marketplace/app-config/home-screen",
+  loyalty: "/marketplace/app-config/loyalty",
+  coupons: "/marketplace/app-config/coupons",
 };
 
 const getBreadcrumbPath = (crumb) => BREADCRUMB_PATHS[crumb] ?? null;
 
 const Breadcrumb = () => {
-  const navigate     = useNavigate();
-  const breadcrumbs  = useMenuStore((s) => s.breadcrumbs);
+  const navigate = useNavigate();
+  const breadcrumbs = useMenuStore((s) => s.breadcrumbs);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
 
   const crumbs = useMemo(
@@ -70,8 +73,8 @@ const Breadcrumb = () => {
       <span className="text-gray-300 select-none">›</span>
 
       {crumbs.map((crumb, index) => {
-        const isLast      = index === crumbs.length - 1;
-        const path        = getBreadcrumbPath(crumb);
+        const isLast = index === crumbs.length - 1;
+        const path = getBreadcrumbPath(crumb);
         const isClickable = !isLast && !!path;
 
         return (
@@ -84,7 +87,11 @@ const Breadcrumb = () => {
                 {crumb}
               </button>
             ) : (
-              <span className={isLast ? "text-gray-700 font-medium" : "text-gray-400"}>
+              <span
+                className={
+                  isLast ? "text-gray-700 font-medium" : "text-gray-400"
+                }
+              >
                 {crumb}
               </span>
             )}

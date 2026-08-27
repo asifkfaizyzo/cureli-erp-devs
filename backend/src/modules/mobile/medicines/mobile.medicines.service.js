@@ -538,6 +538,7 @@ export async function getMobileMedicine(idOrSku) {
 
 export async function getMedicineShops(variantId, lat, lng) {
   const hasLocation = lat != null && lng != null;
+  const RADIUS_LIMIT_KM = 20.0; // ◄ Hardcoded 20km limit
 
   const listings = await prisma.marketplaceListing.findMany({
     where: {
@@ -590,10 +591,7 @@ export async function getMedicineShops(variantId, lat, lng) {
     },
   });
 
-  // ── Deduplicate by branchId ───────────────────────────────
-  // A branch may appear multiple times if the shop has linked
-  // multiple medicine records to the same master variant.
-  // Keep the listing with the lowest price per branch.
+  // Deduplicate by branchId
   const byBranch = new Map();
   for (const l of listings) {
     const branchId = l.branch?.branch_id;
@@ -605,7 +603,6 @@ export async function getMedicineShops(variantId, lat, lng) {
       continue;
     }
 
-    // Keep whichever has a lower price
     const existingPrice = existing.marketplace_price
       ? Number(existing.marketplace_price)
       : Infinity;
@@ -619,51 +616,57 @@ export async function getMedicineShops(variantId, lat, lng) {
   }
 
   const deduped = Array.from(byBranch.values());
-  // ─────────────────────────────────────────────────────────
 
-  const rows = deduped.map((l) => {
-    const bs = l.branch?.marketplaceSettings;
-    const branchLat = bs?.latitude ? Number(bs.latitude) : null;
-    const branchLng = bs?.longitude ? Number(bs.longitude) : null;
+  const rows = deduped
+    .map((l) => {
+      const bs = l.branch?.marketplaceSettings;
+      const branchLat = bs?.latitude ? Number(bs.latitude) : null;
+      const branchLng = bs?.longitude ? Number(bs.longitude) : null;
 
-    const shopName =
-      l.shop?.marketplaceProfile?.storefront_name ||
-      l.shop?.business_name ||
-      "Unknown Shop";
+      const shopName =
+        l.shop?.marketplaceProfile?.storefront_name ||
+        l.shop?.business_name ||
+        "Unknown Shop";
 
-    return {
-      shopId: l.shop?.shop_id ?? null,
-      shopName,
-      logoUrl: resolveMarketplaceAsset(
-        l.shop?.marketplaceProfile?.logo_url ?? null,
-      ),
-      branchId: l.branch?.branch_id ?? null,
-      branchName: l.branch?.branch_name ?? null,
-      address: bs?.formatted_address ?? null,
-      latitude: branchLat,
-      longitude: branchLng,
-      distanceKm: haversineKm(
-        hasLocation ? lat : null,
-        hasLocation ? lng : null,
-        branchLat,
-        branchLng,
-      ),
-      isOpen: computeIsOpen(
-        bs?.is_24_hours ?? false,
-        bs?.opening_time ?? null,
-        bs?.closing_time ?? null,
-      ),
-      is24Hours: bs?.is_24_hours ?? false,
-      openingTime: bs?.opening_time ?? null,
-      closingTime: bs?.closing_time ?? null,
-      pickupEnabled: bs?.pickup_enabled ?? false,
-      deliveryEnabled: bs?.delivery_enabled ?? false,
-      contact: bs?.contact_override ?? null,
-      listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
-      stockStatus: l.stock_status,
-      requiresPrescription: l.requires_prescription,
-    };
-  });
+      return {
+        shopId: l.shop?.shop_id ?? null,
+        shopName,
+        logoUrl: resolveMarketplaceAsset(
+          l.shop?.marketplaceProfile?.logo_url ?? null,
+        ),
+        branchId: l.branch?.branch_id ?? null,
+        branchName: l.branch?.branch_name ?? null,
+        address: bs?.formatted_address ?? null,
+        latitude: branchLat,
+        longitude: branchLng,
+        distanceKm: haversineKm(
+          hasLocation ? lat : null,
+          hasLocation ? lng : null,
+          branchLat,
+          branchLng,
+        ),
+        isOpen: computeIsOpen(
+          bs?.is_24_hours ?? false,
+          bs?.opening_time ?? null,
+          bs?.closing_time ?? null,
+        ),
+        is24Hours: bs?.is_24_hours ?? false,
+        openingTime: bs?.opening_time ?? null,
+        closingTime: bs?.closing_time ?? null,
+        pickupEnabled: bs?.pickup_enabled ?? false,
+        deliveryEnabled: bs?.delivery_enabled ?? false,
+        contact: bs?.contact_override ?? null,
+        listingPrice: l.marketplace_price ? Number(l.marketplace_price) : null,
+        stockStatus: l.stock_status,
+        requiresPrescription: l.requires_prescription,
+      };
+    })
+    // ── Apply Hardcoded 20km Proximity Filter on branches ────────────
+    .filter((row) => {
+      if (!hasLocation) return true;
+      return row.distanceKm !== null && row.distanceKm <= RADIUS_LIMIT_KM;
+    });
+    // ────────────────────────────────────────────────────────────────
 
   rows.sort((a, b) => {
     if (hasLocation) {

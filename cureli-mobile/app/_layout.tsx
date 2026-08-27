@@ -1,4 +1,4 @@
-//cureli-mobile\app\_layout.tsx
+// cureli-mobile/app/_layout.tsx
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { router } from 'expo-router';
@@ -118,6 +118,7 @@ export default function RootLayout() {
                 <Stack.Screen name="profile/addresses"      options={{ headerShown: false }} />
                 <Stack.Screen name="profile/address/new"    options={{ headerShown: false }} />
                 <Stack.Screen name="profile/address/[id]"   options={{ headerShown: false }} />
+                <Stack.Screen name="profile/loyalty"        options={{ headerShown: false }} />
                 <Stack.Screen name="profile/delete-account" options={{ headerShown: false }} />
                 <Stack.Screen name="profile/settings"       options={{ headerShown: false }} />
                 <Stack.Screen name="profile/dispensed"      options={{ headerShown: false }} />

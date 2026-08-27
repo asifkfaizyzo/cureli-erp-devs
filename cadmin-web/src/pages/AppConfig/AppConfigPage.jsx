@@ -1,7 +1,14 @@
 // cadmin-web/src/pages/AppConfig/AppConfigPage.jsx
 
 import { useNavigate } from "react-router-dom";
-import { Images, LayoutGrid, ChevronRight, LayoutDashboard } from "lucide-react";
+import {
+  Images,
+  LayoutGrid,
+  ChevronRight,
+  LayoutDashboard,
+  Gift,
+  Ticket,
+} from "lucide-react";
 
 const CONFIG_CARDS = [
   {
@@ -27,6 +34,22 @@ const CONFIG_CARDS = [
       "Control which sections appear on the mobile home screen, edit section titles and text, and manage the order and visibility of product feed categories.",
     icon: LayoutDashboard,
     path: "/marketplace/app-config/home-screen",
+  },
+  {
+    id: "loyalty",
+    title: "Loyalty Program",
+    description:
+      "Configure dynamic point earning rates, point valuation in rupees, minimum checkout requirements, order caps, and automated point expiry rules.",
+    icon: Gift,
+    path: "/marketplace/app-config/loyalty",
+  },
+  {
+    id: "coupons",
+    title: "Coupons & Discounts",
+    description:
+      "Create promotional codes, configure percentage or flat rupee discounts, enforce customer usage limits, and manage campaign validity periods.",
+    icon: Ticket,
+    path: "/marketplace/app-config/coupons",
   },
 ];
 
@@ -70,12 +93,12 @@ export default function AppConfigPage() {
       <div className="px-8 py-6 bg-white border-b border-gray-100">
         <h1 className="text-xl font-bold text-gray-900">App Configuration</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Control what users see on the Cureli mobile app home screen.
+          Control marketplace display, banners, promotions, and reward systems for Cureli mobile app customers.
         </p>
       </div>
 
       <div className="px-8 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 max-w-4xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 max-w-5xl">
           {CONFIG_CARDS.map((card) => (
             <ConfigCard
               key={card.id}
