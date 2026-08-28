@@ -1,4 +1,4 @@
-// src/hooks/marketplace/useStorefrontPage.js
+// pharmacy-web/src/hooks/marketplace/useStorefrontPage.js
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
@@ -34,6 +34,16 @@ function normalizeStorefront(raw) {
     marketplace_status:     raw.marketplace_status     ?? "LIVE",
     is_live:                raw.is_live                ?? false,
     onboarding_completed:   raw.onboarding_completed   ?? false,
+
+    // ── ADDED BANKING DETAILS MAPPING ─────────────────────────
+    bank_account_holder:   raw.bank_account_holder    ?? null,
+    bank_name:             raw.bank_name              ?? null,
+    bank_branch_name:      raw.bank_branch_name       ?? null,
+    bank_ifsc:             raw.bank_ifsc              ?? null,
+    bank_account_number:   raw.bank_account_number    ?? null,
+    bank_mmid:             raw.bank_mmid              ?? null,
+    bank_vpa:              raw.bank_vpa               ?? null,
+    // ──────────────────────────────────────────────────────────
   };
 }
 
@@ -60,10 +70,11 @@ function normalizeConfiguredBranch(bs) {
     opening_time:          bs.opening_time ?? null,
     closing_time:          bs.closing_time ?? null,
     is_24_hours:           bs.is_24_hours  ?? false,
-    open_days:             bs.open_days    ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'], // ← ADD
+    open_days:             bs.open_days    ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'],
 
     pickup_enabled:        bs.pickup_enabled   ?? false,
     delivery_enabled:      bs.delivery_enabled ?? false,
+    delivery_mode:         bs.delivery_mode    ?? "CURELI", // ← Added delivery mode
 
     contact_override:      bs.contact_override ?? null,
   };
@@ -92,9 +103,11 @@ function normalizeUnconfiguredBranch(b) {
     opening_time:          null,
     closing_time:          null,
     is_24_hours:           false,
+    open_days:             ['MON','TUE','WED','THU','FRI','SAT','SUN'],
 
     pickup_enabled:        false,
     delivery_enabled:      false,
+    delivery_mode:         "CURELI", // ← Added default
 
     contact_override:      null,
   };
@@ -132,14 +145,14 @@ function buildBranchPayload(branch, overrides = {}) {
     formatted_address:    merged.formatted_address ?? null,
     opening_time:         merged.opening_time      ?? null,
     closing_time:         merged.closing_time      ?? null,
-    is_24_hours:          merged.is_24_hours        ?? false,
-    open_days:            merged.open_days         ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'], // ← ADD
+    is_24_hours:          merged.is_24_hours       ?? false,
+    open_days:            merged.open_days         ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'],
     pickup_enabled:       merged.pickup_enabled    ?? false,
     delivery_enabled:     merged.delivery_enabled  ?? false,
+    delivery_mode:        merged.delivery_mode     ?? "CURELI", // ← Include in update payload
     contact_override:     merged.contact_override  ?? null,
   };
 }
-
 
 // ─────────────────────────────────────────────────────────────────
 // HOOK
@@ -165,9 +178,7 @@ export function useStorefrontPage() {
 
   // ── Internal refs ─────────────────────────
   const callerRef = useRef({ isSuperAdmin: false, branchId: null });
-
   const loadIdRef = useRef(0);
-
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -228,7 +239,6 @@ export function useStorefrontPage() {
   // ─────────────────────────────────────────
   const refresh = useCallback(async () => {
     const { isSuperAdmin, branchId } = callerRef.current;
-
     const myId = ++loadIdRef.current;
 
     if (isMounted.current) {
@@ -371,7 +381,7 @@ export function useStorefrontPage() {
       };
     } finally {
       setIsUploading((prev)    => ({ ...prev, [type]: false }));
-      setUploadProgress((prev) => ({ ...prev, [type]: 0    }));
+      setUploadProgress((prev) => ({ ...prev, [type]: 0     }));
     }
   }, []);
 

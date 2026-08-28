@@ -141,7 +141,7 @@ const MarketplaceToolbar = ({
         )}
       </div>
 
-      {/* ── Quick Bulk Actions ── */}
+      {/* ── Quick Bulk Actions ──
       <div className="px-5 py-4">
         <div className="flex items-center gap-2 mb-3">
           <Zap size={11} className="text-white/25" />
@@ -191,7 +191,7 @@ const MarketplaceToolbar = ({
             variant="success"
           />
         </div>
-      </div>
+      </div> */}
     </SectionCard>
   );
 };

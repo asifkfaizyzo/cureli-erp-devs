@@ -2,10 +2,6 @@
 
 import prisma from "../../config/prisma.js";
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-
 function deepMerge(target, source) {
   const result = { ...target };
   for (const key of Object.keys(source)) {
@@ -25,9 +21,6 @@ function deepMerge(target, source) {
   return result;
 }
 
-// ─────────────────────────────────────────────
-// GET OR CREATE PROFILE
-// ─────────────────────────────────────────────
 export const getOrCreateProfile = async (shop_id) => {
   let profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -73,9 +66,7 @@ export const getOrCreateProfile = async (shop_id) => {
   return profile;
 };
 
-// ─────────────────────────────────────────────
-// GET ONBOARDING STATUS
-// ─────────────────────────────────────────────
+// GET STATUS — UPDATED: Selected banking fields
 export const getMarketplaceStatus = async (shop_id) => {
   const profile = await getOrCreateProfile(shop_id);
 
@@ -102,26 +93,27 @@ export const getMarketplaceStatus = async (shop_id) => {
     support_phone: profile.support_phone,
     logo_url: profile.logo_url,
     banner_url: profile.banner_url,
+    // ── BANKING DETAILS RETRIEVED ─────────────────────────────
+    bank_account_holder: profile.bank_account_holder,
+    bank_name: profile.bank_name,
+    bank_branch_name: profile.bank_branch_name,
+    bank_ifsc: profile.bank_ifsc,
+    bank_account_number: profile.bank_account_number,
+    bank_mmid: profile.bank_mmid,
+    bank_vpa: profile.bank_vpa,
+    // ──────────────────────────────────────────────────────────
     onboarding_draft: profile.onboarding_draft,
     branch_settings: profile.branchSettings,
     all_branches: allBranches,
   };
 };
 
-// ─────────────────────────────────────────────
 // SAVE DRAFT
-// ─────────────────────────────────────────────
-export const saveDraft = async (shop_id, patch) => {
-  const profile = await prisma.marketplaceProfile.findUnique({
-    where: { shop_id },
-    select: {
-      marketplace_profile_id: true,
-      onboarding_draft: true,
-      marketplace_status: true,
-    },
-  });
 
-  if (!profile) throw new Error("Marketplace profile not found");
+
+export const saveDraft = async (shop_id, patch) => {
+  // Use getOrCreateProfile so draft autosave never fails if profile isn't created yet
+  const profile = await getOrCreateProfile(shop_id);
 
   const existingDraft =
     profile.onboarding_draft &&
@@ -149,9 +141,7 @@ export const saveDraft = async (shop_id, patch) => {
   });
 };
 
-// ─────────────────────────────────────────────
 // SAVE STOREFRONT
-// ─────────────────────────────────────────────
 export const saveStorefront = async (shop_id, data) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -186,9 +176,41 @@ export const saveStorefront = async (shop_id, data) => {
   });
 };
 
-// ─────────────────────────────────────────────
+// ── ADDED SAVE BANKING DETAILS ───────────────────────────────────
+export const saveBanking = async (shop_id, data) => {
+  const profile = await prisma.marketplaceProfile.findUnique({
+    where: { shop_id },
+    select: { marketplace_profile_id: true },
+  });
+
+  if (!profile) throw new Error("Marketplace profile not found");
+
+  return await prisma.marketplaceProfile.update({
+    where: { shop_id },
+    data: {
+      bank_account_holder: data.bank_account_holder,
+      bank_name: data.bank_name,
+      bank_branch_name: data.bank_branch_name,
+      bank_ifsc: data.bank_ifsc,
+      bank_account_number: data.bank_account_number,
+      bank_mmid: data.bank_mmid ?? null,
+      bank_vpa: data.bank_vpa ?? null,
+    },
+    select: {
+      marketplace_profile_id: true,
+      bank_account_holder: true,
+      bank_name: true,
+      bank_branch_name: true,
+      bank_ifsc: true,
+      bank_account_number: true,
+      bank_mmid: true,
+      bank_vpa: true,
+      updated_at: true,
+    },
+  });
+};
+
 // SAVE BRANCH SELECTIONS
-// ─────────────────────────────────────────────
 export const saveBranchSelections = async (shop_id, branch_ids) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -242,12 +264,8 @@ export const saveBranchSelections = async (shop_id, branch_ids) => {
   return { selected: branch_ids, deselected: deselectedIds };
 };
 
-// ─────────────────────────────────────────────
-// SAVE BRANCH CONFIG
-// ── CHANGED: location fields restricted to super_admin
-// ─────────────────────────────────────────────
+// SAVE BRANCH CONFIG — UPDATED: Delivery Mode
 export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
-  // Scope enforcement — branch_admin and staff can only touch their own branch
   if (
     caller.role !== "super_admin" &&
     caller.branch_id !== branch_id
@@ -271,18 +289,17 @@ export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
 
   if (!profile) throw new Error("Marketplace profile not found");
 
-  // ── Base fields — any allowed role can set these ──
   const updateData = {
     marketplace_enabled: data.marketplace_enabled,
     pickup_enabled: data.pickup_enabled ?? false,
     delivery_enabled: data.delivery_enabled ?? false,
+    delivery_mode: data.delivery_mode ?? "CURELI", // <-- Map saved delivery mode
     is_24_hours: data.is_24_hours ?? false,
     contact_override: data.contact_override ?? null,
     shop_image_url: data.shop_image_url ?? null,
     open_days: Array.isArray(data.open_days) ? data.open_days : [],
   };
 
-  // ── Timings — any allowed role can set these ──
   if (data.marketplace_enabled) {
     if (!data.is_24_hours) {
       updateData.opening_time = data.opening_time ?? null;
@@ -293,10 +310,6 @@ export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
     }
   }
 
-  // ── Location — SUPER_ADMIN ONLY ──
-  // branch_admin and staff cannot modify location fields.
-  // We silently ignore location data from non-super_admin callers
-  // rather than throwing, to avoid breaking the modal submit on partial edits.
   if (caller.role === "super_admin" && data.marketplace_enabled) {
     updateData.latitude = data.latitude ?? null;
     updateData.longitude = data.longitude ?? null;
@@ -323,9 +336,7 @@ export const saveBranchConfig = async (shop_id, branch_id, data, caller) => {
   });
 };
 
-// ─────────────────────────────────────────────
-// GET STOREFRONT
-// ─────────────────────────────────────────────
+// GET STOREFRONT — UPDATED: Selected banking details
 export const getStorefront = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -336,6 +347,15 @@ export const getStorefront = async (shop_id) => {
       support_phone: true,
       logo_url: true,
       banner_url: true,
+      // ── BANKING FIELDS RETRIEVED ─────────────────────────────
+      bank_account_holder: true,
+      bank_name: true,
+      bank_branch_name: true,
+      bank_ifsc: true,
+      bank_account_number: true,
+      bank_mmid: true,
+      bank_vpa: true,
+      // ──────────────────────────────────────────────────────────
       marketplace_status: true,
       is_live: true,
       onboarding_completed: true,
@@ -347,10 +367,7 @@ export const getStorefront = async (shop_id) => {
   return profile;
 };
 
-// ─────────────────────────────────────────────
 // GET BRANCH SETTINGS
-// ── CHANGED: staff now restricted to their branch (same as branch_admin)
-// ─────────────────────────────────────────────
 export const getBranchSettings = async (shop_id, caller) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -359,8 +376,6 @@ export const getBranchSettings = async (shop_id, caller) => {
 
   if (!profile) throw new Error("Marketplace profile not found");
 
-  // super_admin → no filter (sees all branches)
-  // branch_admin / staff → scoped to their assigned branch only
   const branchFilter =
     caller.role === "super_admin"
       ? {}
@@ -390,9 +405,7 @@ export const getBranchSettings = async (shop_id, caller) => {
   });
 };
 
-// ─────────────────────────────────────────────
-// GO LIVE
-// ─────────────────────────────────────────────
+// GO LIVE — UPDATED: Added banking requirements check
 export const goLive = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -409,6 +422,7 @@ export const goLive = async (shop_id) => {
 
   const errors = [];
 
+  // Storefront validations
   if (!profile.storefront_name?.trim()) {
     errors.push({ field: "storefront_name", message: "Storefront name is required" });
   }
@@ -418,6 +432,24 @@ export const goLive = async (shop_id) => {
   if (!profile.logo_url?.trim()) {
     errors.push({ field: "logo_url", message: "Logo is required" });
   }
+
+  // ── ADDED BANKING VALIDATION CHECKS ──────────────────────
+  if (!profile.bank_account_holder?.trim()) {
+    errors.push({ field: "bank_account_holder", message: "Bank Account Holder is required" });
+  }
+  if (!profile.bank_name?.trim()) {
+    errors.push({ field: "bank_name", message: "Bank Name is required" });
+  }
+  if (!profile.bank_branch_name?.trim()) {
+    errors.push({ field: "bank_branch_name", message: "Bank Branch Name is required" });
+  }
+  if (!profile.bank_ifsc?.trim()) {
+    errors.push({ field: "bank_ifsc", message: "Bank IFSC Code is required" });
+  }
+  if (!profile.bank_account_number?.trim()) {
+    errors.push({ field: "bank_account_number", message: "Bank Account Number is required" });
+  }
+  // ─────────────────────────────────────────────────────────
 
   const enabledBranches = profile.branchSettings.filter(
     (b) => b.marketplace_enabled
@@ -498,10 +530,7 @@ export const goLive = async (shop_id) => {
   });
 };
 
-// ─────────────────────────────────────────────
 // SUSPEND MARKETPLACE
-// ── CHANGED: now bulk-disables all enabled branches in same transaction
-// ─────────────────────────────────────────────
 export const suspendMarketplace = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },
@@ -517,9 +546,6 @@ export const suspendMarketplace = async (shop_id) => {
     throw new Error("Only a live marketplace can be suspended");
   }
 
-  // Run both updates atomically:
-  // 1. Suspend the marketplace profile
-  // 2. Disable ALL currently-enabled branches
   const [updatedProfile] = await prisma.$transaction([
     prisma.marketplaceProfile.update({
       where: { shop_id },
@@ -548,11 +574,7 @@ export const suspendMarketplace = async (shop_id) => {
   return updatedProfile;
 };
 
-// ─────────────────────────────────────────────
 // RESUME MARKETPLACE
-// No branch state is restored — branches stay disabled.
-// Branches must be manually re-enabled per-branch.
-// ─────────────────────────────────────────────
 export const resumeMarketplace = async (shop_id) => {
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id },

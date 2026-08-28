@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/components/OnboardingProgressBar.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/components/OnboardingProgressBar.jsx
 
 import { Check } from "lucide-react";
 
@@ -7,8 +7,9 @@ const STEPS = [
   { id: 2, label: "Storefront" },
   { id: 3, label: "Branches" },
   { id: 4, label: "Configure" },
-  { id: 5, label: "Preview" },
-  { id: 6, label: "Go Live" },
+  { id: 5, label: "Banking" }, // <-- Added
+  { id: 6, label: "Preview" },
+  { id: 7, label: "Go Live" },
 ];
 
 const OnboardingProgressBar = ({ currentStep }) => {
@@ -17,11 +18,9 @@ const OnboardingProgressBar = ({ currentStep }) => {
       {STEPS.map((step, index) => {
         const isCompleted = currentStep > step.id;
         const isActive = currentStep === step.id;
-        const isUpcoming = currentStep < step.id;
 
         return (
           <div key={step.id} className="flex items-center">
-            {/* Step node */}
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={`
@@ -50,7 +49,6 @@ const OnboardingProgressBar = ({ currentStep }) => {
               </span>
             </div>
 
-            {/* Connector line */}
             {index < STEPS.length - 1 && (
               <div
                 className={`

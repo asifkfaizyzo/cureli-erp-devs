@@ -164,9 +164,21 @@ const BranchCard = ({ branch, canManage, isToggling, onToggle, onEdit }) => {
                   {/* Fulfillment + Hours */}
                   <div className="flex flex-wrap gap-1.5">
                     {[
-                      { icon: ShoppingBag, label: "Pickup",   enabled: branch.pickup_enabled   },
-                      { icon: Truck,       label: "Delivery", enabled: branch.delivery_enabled  },
-                    ].map(({ icon: Icon, label, enabled }) => (
+                      {
+                        icon: ShoppingBag,
+                        label: "Pickup",
+                        enabled: branch.pickup_enabled,
+                        detail: null,
+                      },
+                      {
+                        icon: Truck,
+                        label: "Delivery",
+                        enabled: branch.delivery_enabled,
+                        detail: branch.delivery_enabled
+                          ? `(${branch.delivery_mode === "SELF" ? "Self" : "Cureli"})`
+                          : null,
+                      },
+                    ].map(({ icon: Icon, label, enabled, detail }) => (
                       <span key={label} className={`
                         inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border
                         ${enabled
@@ -176,6 +188,11 @@ const BranchCard = ({ branch, canManage, isToggling, onToggle, onEdit }) => {
                       `}>
                         <Icon size={10} />
                         {label} {enabled ? "On" : "Off"}
+                        {detail && (
+                          <span className="text-[9px] text-white/40 font-normal ml-0.5">
+                            {detail}
+                          </span>
+                        )}
                       </span>
                     ))}
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border bg-white/[0.03] border-white/[0.06] text-white/40">

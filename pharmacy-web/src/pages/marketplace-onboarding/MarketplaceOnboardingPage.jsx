@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/MarketplaceOnboardingPage.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/MarketplaceOnboardingPage.jsx
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +9,7 @@ import WelcomeStep from "./steps/WelcomeStep";
 import StorefrontStep from "./steps/StorefrontStep";
 import BranchSelectionStep from "./steps/BranchSelectionStep";
 import BranchConfigurationStep from "./steps/BranchConfigurationStep";
+import BankingStep from "./steps/BankingStep"; // <-- New step file imported
 import PreviewStep from "./steps/PreviewStep";
 import GoLiveStep from "./steps/GoLiveStep";
 
@@ -61,22 +62,18 @@ const MarketplaceOnboardingPage = () => {
     );
   }
 
-  const goNext = () => setStep(Math.min(currentStep + 1, 6));
+  const goNext = () => setStep(Math.min(currentStep + 1, 7)); // Extended step limit to 7
   const goBack = () => setStep(Math.max(currentStep - 1, 1));
 
   return (
     <div className="flex h-[89vh] overflow-hidden">
-      {/* Sidebar — fills full height, never scrolls with content */}
       <OnboardingSidebar currentStep={currentStep} onStepClick={setStep} />
 
-      {/* Main content — scrolls independently */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile progress bar */}
         <div className="lg:hidden border-b border-white/[0.06] px-4 py-3 flex-shrink-0">
           <MobileProgressBar currentStep={currentStep} />
         </div>
 
-        {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 py-8">
             {currentStep === 1 && <WelcomeStep onNext={goNext} />}
@@ -89,10 +86,15 @@ const MarketplaceOnboardingPage = () => {
             {currentStep === 4 && (
               <BranchConfigurationStep onNext={goNext} onBack={goBack} />
             )}
+            {/* ── NEW STEP 5 INJECTED ───────────────────────────── */}
             {currentStep === 5 && (
+              <BankingStep onNext={goNext} onBack={goBack} />
+            )}
+            {/* ─────────────────────────────────────────────────── */}
+            {currentStep === 6 && (
               <PreviewStep onNext={goNext} onBack={goBack} />
             )}
-            {currentStep === 6 && <GoLiveStep onBack={goBack} />}
+            {currentStep === 7 && <GoLiveStep onBack={goBack} />}
           </div>
         </div>
       </div>
@@ -106,6 +108,7 @@ const MobileProgressBar = ({ currentStep }) => {
     "Storefront",
     "Branches",
     "Configure",
+    "Banking", // <-- Added
     "Preview",
     "Go Live",
   ];
@@ -127,7 +130,7 @@ const MobileProgressBar = ({ currentStep }) => {
         ))}
       </div>
       <span className="text-xs text-white/50 whitespace-nowrap">
-        {currentStep}/6 · {STEPS[currentStep - 1]}
+        {currentStep}/7 · {STEPS[currentStep - 1]}
       </span>
     </div>
   );

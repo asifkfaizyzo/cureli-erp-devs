@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import {
   X,
   Building2,
@@ -315,10 +315,7 @@ const PlacesSearchInput = ({ value, onChange, onSelect }) => {
   );
 };
 
-// ── Draggable map — receives isLoaded/loadError as props ───────
-// useJsApiLoader is called at modal level, passed down here
-// Replace ONLY the DraggableMap component in BranchMarketplaceModal.jsx
-
+// ── Draggable map ──────────────────────────────────────────────
 const DraggableMap = ({
   latitude,
   longitude,
@@ -339,7 +336,6 @@ const DraggableMap = ({
     mapRef.current = map;
   }, []);
 
-  // When user stops dragging/panning the map, get the new center
   const handleIdle = useCallback(() => {
     if (!mapRef.current) return;
     const newCenter = mapRef.current.getCenter();
@@ -348,7 +344,6 @@ const DraggableMap = ({
     const newLat = newCenter.lat();
     const newLng = newCenter.lng();
 
-    // Skip if position hasn't meaningfully changed (prevents infinite loops)
     if (
       Math.abs(newLat - Number(latitude)) < 0.000001 &&
       Math.abs(newLng - Number(longitude)) < 0.000001
@@ -424,27 +419,21 @@ const DraggableMap = ({
         onLoad={onMapLoad}
         onDragStart={() => setIsPanning(true)}
         onIdle={handleIdle}
-      >
-        {/* No <Marker> — the pin is a CSS overlay in the center */}
-      </GoogleMap>
+      />
 
-      {/* ── Fixed center pin (always in the middle) ── */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full
           pointer-events-none z-10 flex flex-col items-center"
       >
-        {/* Pin shadow */}
         <div
           className={`w-3 h-1 rounded-full bg-black/20 blur-[2px]
             absolute bottom-[-2px] transition-transform duration-200
             ${isPanning ? "scale-75 opacity-50" : "scale-100 opacity-100"}`}
         />
-        {/* Pin body */}
         <div
           className={`transition-transform duration-200
             ${isPanning ? "-translate-y-2 scale-110" : "translate-y-0 scale-100"}`}
         >
-          {/* Pin SVG */}
           <svg
             width="32"
             height="42"
@@ -452,20 +441,16 @@ const DraggableMap = ({
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Pin shape */}
             <path
               d="M16 0C7.164 0 0 7.164 0 16c0 12 16 26 16 26s16-14 16-26C32 7.164 24.836 0 16 0z"
               fill="#05015A"
             />
-            {/* White inner circle */}
             <circle cx="16" cy="16" r="7" fill="white" />
-            {/* Blue dot */}
             <circle cx="16" cy="16" r="3.5" fill="#05015A" />
           </svg>
         </div>
       </div>
 
-      {/* ── Bottom hint ── */}
       {!isPanning && !isReverseGeocoding && (
         <div
           className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3
@@ -477,7 +462,6 @@ const DraggableMap = ({
         </div>
       )}
 
-      {/* ── Panning indicator ── */}
       {isPanning && (
         <div
           className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3
@@ -489,7 +473,6 @@ const DraggableMap = ({
         </div>
       )}
 
-      {/* ── Reverse geocoding overlay ── */}
       {isReverseGeocoding && (
         <div
           className="absolute inset-0 bg-white/40 backdrop-blur-[1px]
@@ -619,11 +602,10 @@ const BranchImageUpload = ({
 
 // ── Main Modal ─────────────────────────────────────────────────
 const BranchMarketplaceModal = ({ branch, shop, onClose, onSaved }) => {
-  // ── Load Maps script at modal level so GoogleMap component
- const { isLoaded: mapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
-  googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "",  // ← correct
-  libraries: ["places"],
-});
+  const { isLoaded: mapsLoaded, loadError: mapsLoadError } = useJsApiLoader({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "",
+    libraries: ["places"],
+  });
 
   const linked = isLinked(branch);
   const ms = branch.marketplaceSettings;
@@ -632,6 +614,7 @@ const BranchMarketplaceModal = ({ branch, shop, onClose, onSaved }) => {
     marketplace_enabled: ms?.marketplace_enabled ?? false,
     pickup_enabled: ms?.pickup_enabled ?? false,
     delivery_enabled: ms?.delivery_enabled ?? false,
+    delivery_mode: ms?.delivery_mode ?? "CURELI", // <-- Added delivery mode
     is_24_hours: ms?.is_24_hours ?? false,
     opening_time: ms?.opening_time ?? "",
     closing_time: ms?.closing_time ?? "",
@@ -741,6 +724,7 @@ const BranchMarketplaceModal = ({ branch, shop, onClose, onSaved }) => {
         marketplace_enabled: form.marketplace_enabled,
         pickup_enabled: form.pickup_enabled,
         delivery_enabled: form.delivery_enabled,
+        delivery_mode: form.delivery_mode || "CURELI", // <-- Included in payload
         is_24_hours: form.is_24_hours,
         opening_time: form.is_24_hours ? null : form.opening_time || null,
         closing_time: form.is_24_hours ? null : form.closing_time || null,
@@ -1004,7 +988,6 @@ const BranchMarketplaceModal = ({ branch, shop, onClose, onSaved }) => {
                       </div>
                     )}
 
-                    {/* Pass mapsLoaded/mapsLoadError from modal level */}
                     {isLocationSet && (
                       <DraggableMap
                         latitude={form.latitude}
@@ -1030,26 +1013,64 @@ const BranchMarketplaceModal = ({ branch, shop, onClose, onSaved }) => {
                       required
                       done={isFulfillmentSet}
                     >
-                      <div className="flex gap-2">
-                        <ToggleChip
-                          icon={ShoppingBag}
-                          label="Pickup"
-                          active={form.pickup_enabled}
-                          onClick={() =>
-                            patch("pickup_enabled", !form.pickup_enabled)
-                          }
-                        />
-                        <ToggleChip
-                          icon={Truck}
-                          label="Delivery"
-                          active={form.delivery_enabled}
-                          onClick={() =>
-                            patch("delivery_enabled", !form.delivery_enabled)
-                          }
-                        />
+                      <div className="space-y-2.5">
+                        <div className="flex gap-2">
+                          <ToggleChip
+                            icon={ShoppingBag}
+                            label="Pickup"
+                            active={form.pickup_enabled}
+                            onClick={() =>
+                              patch("pickup_enabled", !form.pickup_enabled)
+                            }
+                          />
+                          <ToggleChip
+                            icon={Truck}
+                            label="Delivery"
+                            active={form.delivery_enabled}
+                            onClick={() =>
+                              patch("delivery_enabled", !form.delivery_enabled)
+                            }
+                          />
+                        </div>
+
+                        {/* ── Delivery Provider Selector (CAdmin) ── */}
+                        {form.delivery_enabled && (
+                          <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1.5">
+                            <p className="text-[10px] text-gray-500 font-semibold uppercase">
+                              Delivery Provider
+                            </p>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => patch("delivery_mode", "CURELI")}
+                                className={`flex-1 p-2 rounded-lg border text-left transition-all ${
+                                  (form.delivery_mode || "CURELI") === "CURELI"
+                                    ? "bg-[#05015A]/[0.08] border-[#05015A]/30 text-[#05015A]"
+                                    : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
+                                }`}
+                              >
+                                <p className="text-xs font-semibold">Cureli Fleet</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">App riders</p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => patch("delivery_mode", "SELF")}
+                                className={`flex-1 p-2 rounded-lg border text-left transition-all ${
+                                  form.delivery_mode === "SELF"
+                                    ? "bg-[#05015A]/[0.08] border-[#05015A]/30 text-[#05015A]"
+                                    : "bg-white border-gray-200 text-gray-400 hover:border-gray-300"
+                                }`}
+                              >
+                                <p className="text-xs font-semibold">Own Fleet</p>
+                                <p className="text-[9px] text-gray-400 mt-0.5">Shop boys</p>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
                       {errors.fulfillment && (
-                        <p className="text-xs text-red-500 flex items-center gap-1">
+                        <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
                           <AlertCircle size={11} /> {errors.fulfillment}
                         </p>
                       )}

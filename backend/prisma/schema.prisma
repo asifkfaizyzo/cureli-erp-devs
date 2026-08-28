@@ -671,6 +671,16 @@ model MarketplaceProfile {
   logo_url               String?           @db.VarChar(500)
   banner_url             String?           @db.VarChar(500)
 
+  // ── ADDED BANKING FIELDS ─────────────────────────────────
+  bank_account_holder   String?           @db.VarChar(200)
+  bank_name             String?           @db.VarChar(200)
+  bank_branch_name      String?           @db.VarChar(200)
+  bank_ifsc             String?           @db.VarChar(11)
+  bank_account_number   String?           @db.VarChar(30)
+  bank_mmid             String?           @db.VarChar(20)
+  bank_vpa              String?           @db.VarChar(100)
+  // ──────────────────────────────────────────────────────────
+
   // Lifecycle
   marketplace_status     MarketplaceStatus @default(NOT_STARTED)
   onboarding_completed   Boolean           @default(false)
@@ -713,18 +723,14 @@ model BranchMarketplaceSettings {
   // Fulfillment
   pickup_enabled         Boolean  @default(false)
   delivery_enabled       Boolean  @default(false)
+  
+  // ── ADDED DELIVERY MODE ──────────────────────────────────
+  delivery_mode         DeliveryMode @default(CURELI)
+  // ──────────────────────────────────────────────────────────
+  
   contact_override       String?  @db.VarChar(20)
 
-  // Schedule — which days this branch is open
-  // Values: "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN"
-  // Empty array = no days configured (branch will never auto-open)
-  // Default: all 7 days (pharmacists deselect their off days)
   open_days              String[] @default([])
-
-  // Tracks the IST date string (YYYY-MM-DD) when cron last auto-opened
-  // this branch. Used to detect manual mid-day closure:
-  // if marketplace_enabled=false AND last_auto_opened_date=today
-  // → pharmacist manually closed → cron skips re-opening until tomorrow.
   last_auto_opened_date  String?  @db.VarChar(10)
 
   created_at             DateTime @default(now()) @db.Timestamptz(6)
@@ -733,8 +739,6 @@ model BranchMarketplaceSettings {
   // Relations
   branch                 Branch             @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
   marketplaceProfile     MarketplaceProfile @relation(fields: [marketplace_profile_id], references: [marketplace_profile_id], onDelete: Cascade)
-  
-  // Schedule Relations
   holidays               BranchHoliday[]
 
   @@index([marketplace_profile_id])
@@ -3908,4 +3912,9 @@ enum LoyaltyTransactionType {
 enum CouponType {
   FLAT
   PERCENTAGE
+}
+
+enum DeliveryMode {
+  CURELI
+  SELF
 }

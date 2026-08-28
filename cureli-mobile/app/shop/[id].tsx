@@ -168,9 +168,13 @@ export default function ShopScreen() {
     [profile, effectiveBranchId],
   );
 
+  // ◄◄ NEW: Closed state determination
+  const isBranchClosed = useMemo(
+    () => (selectedBranch ? !selectedBranch.isOpen : false),
+    [selectedBranch]
+  );
+
   // ── Bottom padding for FlatList ───────────────────────────
-  // Delegates to the shared hook which accounts for the global cart bar
-  // height + safe-area inset automatically.
   const listBottomPadding = useCartBottomPadding();
 
   // ── Handlers ──────────────────────────────────────────────
@@ -186,6 +190,8 @@ export default function ShopScreen() {
 
   const handleAddToCart = useCallback(
     (item: EnrichedBranchMedicine) => {
+      // ◄◄ CHANGED: Block adding if branch is closed
+      if (isBranchClosed) return;
       if (!profile || !selectedBranch) return;
 
       const result = addItem({
@@ -199,8 +205,8 @@ export default function ShopScreen() {
         shopName: profile.name,
         branchId: selectedBranch.branchId,
         branchName: selectedBranch.branchName ?? profile.name,
-        requiresPrescription: item.requiresPrescription, // ← NEW
-        category: item.category, // ← NEW
+        requiresPrescription: item.requiresPrescription,
+        category: item.category,
         branchLatitude: selectedBranch.latitude ?? null,
         branchLongitude: selectedBranch.longitude ?? null,
       });
@@ -210,23 +216,25 @@ export default function ShopScreen() {
         setConflictVisible(true);
       }
     },
-    [addItem, profile, selectedBranch],
+    [addItem, profile, selectedBranch, isBranchClosed],
   );
 
   // ── Stepper handlers ──────────────────────────────────────
 
   const handleIncrementCart = useCallback(
     (item: EnrichedBranchMedicine) => {
+      if (isBranchClosed) return; // ◄◄ CHANGED: Block stepper if branch is closed
       incrementItem(item.variantId);
     },
-    [incrementItem],
+    [incrementItem, isBranchClosed],
   );
 
   const handleDecrementCart = useCallback(
     (item: EnrichedBranchMedicine) => {
+      if (isBranchClosed) return; // ◄◄ CHANGED: Block stepper if branch is closed
       decrementItem(item.variantId);
     },
-    [decrementItem],
+    [decrementItem, isBranchClosed],
   );
 
   // ── Conflict resolution ───────────────────────────────────
@@ -248,8 +256,8 @@ export default function ShopScreen() {
       shopName: profile.name,
       branchId: selectedBranch.branchId,
       branchName: selectedBranch.branchName ?? profile.name,
-      requiresPrescription: pending.requiresPrescription, // ← NEW
-      category: pending.category, // ← NEW
+      requiresPrescription: pending.requiresPrescription,
+      category: pending.category,
       branchLatitude: selectedBranch.latitude ?? null,
       branchLongitude: selectedBranch.longitude ?? null,
     });
@@ -273,7 +281,8 @@ export default function ShopScreen() {
         onDecrement={handleDecrementCart}
         cartQuantity={cartQuantityMap.get(item.variantId) ?? 0}
         colors={colors}
-        isDark={isDark}   
+        isDark={isDark}
+        isBranchClosed={isBranchClosed} // ◄◄ NEW: Prop passed down
       />
     ),
     [
@@ -282,6 +291,8 @@ export default function ShopScreen() {
       handleDecrementCart,
       cartQuantityMap,
       colors,
+      isDark,
+      isBranchClosed,
     ],
   );
 
@@ -314,6 +325,31 @@ export default function ShopScreen() {
               onSelect={handleBranchSelect}
               colors={colors}
             />
+          </View>
+        ) : null}
+
+        {/* ◄◄ NEW: Prominent branch closure warning banner */}
+        {isBranchClosed && selectedBranch ? (
+          <View
+            style={[
+              styles.closedNotice,
+              {
+                backgroundColor: colors.status.errorBg,
+                borderColor: colors.status.error,
+              },
+            ]}
+          >
+            <Ionicons
+              name="time-outline"
+              size={18}
+              color={colors.status.error}
+            />
+            <Text
+              style={[styles.closedNoticeText, { color: colors.status.error }]}
+            >
+              This branch is currently closed ({selectedBranch.statusMessage}).
+              You can still browse, but adding items to the cart is disabled until they open.
+            </Text>
           </View>
         ) : null}
 
@@ -385,6 +421,8 @@ export default function ShopScreen() {
     debouncedSearch,
     total,
     colors,
+    isBranchClosed,
+    selectedBranch,
   ]);
 
   // ── Footer ────────────────────────────────────────────────
@@ -552,8 +590,6 @@ export default function ShopScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-
-  // ── Branch / search / medicines header sections ───────────
   branchSection: {
     paddingHorizontal: Spacing.base,
     marginTop: Spacing.lg,
@@ -561,6 +597,23 @@ const styles = StyleSheet.create({
   },
   branchLabel: {
     ...Typography.smallMedium,
+  },
+  // ◄◄ NEW: Closed notice container and text styles
+  closedNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  closedNoticeText: {
+    ...Typography.caption,
+    flex: 1,
+    lineHeight: 18,
+    fontFamily: "Inter_600SemiBold",
   },
   searchSection: {
     paddingHorizontal: Spacing.base,
@@ -590,8 +643,6 @@ const styles = StyleSheet.create({
   },
   medicinesTitle: { ...Typography.bodyMedium },
   medicinesCount: { ...Typography.small },
-
-  // ── List layout ───────────────────────────────────────────
   listContent: {},
   emptyContent: { flexGrow: 1 },
   footerLoader: {
@@ -599,8 +650,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   footerSpacer: { height: Spacing["2xl"] },
-
-  // ── Centered empty / loading states ──────────────────────
   center: {
     flex: 1,
     alignItems: "center",

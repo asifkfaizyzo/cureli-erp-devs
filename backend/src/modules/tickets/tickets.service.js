@@ -1,3 +1,4 @@
+//backend\src\modules\tickets\tickets.service.js
 import prisma from "../../config/prisma.js";
 import * as SM from "../../config/ticketStateMachine.js";
 import * as fileStorage from "../../services/fileStorage.service.js";

@@ -1,14 +1,15 @@
 // backend/src/modules/mobile/shops/mobile.shops.service.js
-// FULL FILE — replaces existing
-// Changes from previous version:
-//   1. Old computeIsOpen (3 params, no open_days) removed
-//   2. Old getNowIST removed — logic inlined into new computeIsOpen
-//   3. New computeIsOpen (4 params, includes open_days check) replaces both
-//   4. shapeBranch passes open_days to computeIsOpen + returns openDays field
-//   5. Both Prisma selects include open_days: true
+//
+// ◄◄ CHANGED: Now imports timing logic from shared shopTiming utility.
+// ◄◄ CHANGED: Adds holiday-aware status messages to all branch payloads.
+// ◄◄ CHANGED: Sorting puts open shops first, closed shops last.
 
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
+import {
+  computeBranchStatus,
+  buildBranchHolidayMap,
+} from "../../../utils/shopTiming.js";
 
 // ── Marketplace asset resolver ────────────────────────────────
 
@@ -33,64 +34,6 @@ function resolveMarketplaceAsset(pathOrUrl) {
     : PUBLIC_API_ORIGIN;
   const suffix = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
   return `${origin}${suffix}`;
-}
-
-// ── IST helpers ───────────────────────────────────────────────
-
-/**
- * Parse "HH:MM" string → total minutes since midnight.
- * Returns null if input is null/undefined/malformed.
- */
-function toMinutes(timeStr) {
-  if (!timeStr) return null;
-  const parts = timeStr.split(":");
-  if (parts.length !== 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return null;
-  return h * 60 + m;
-}
-
-/**
- * Compute is_open from branch timing fields + open_days.
- * Single authoritative version — handles day-of-week check,
- * overnight windows, and 24h branches.
- *
- * @param {boolean}     is24Hours
- * @param {string|null} openingTime  "HH:MM"
- * @param {string|null} closingTime  "HH:MM"
- * @param {string[]}    openDays     ["MON","TUE",...] — empty = never auto-open
- * @returns {boolean}
- */
-function computeIsOpen(is24Hours, openingTime, closingTime, openDays = []) {
-  if (is24Hours) return true;
-
-  // Compute IST time inline (avoids separate getNowIST function)
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
-  const istMs = utcMs + 5.5 * 60 * 60_000;
-  const ist = new Date(istMs);
-
-  const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const todayDay = DAY_NAMES[ist.getDay()];
-
-  // If open_days is empty or today is not in the list → closed
-  if (!Array.isArray(openDays) || openDays.length === 0) return false;
-  if (!openDays.includes(todayDay)) return false;
-
-  const open = toMinutes(openingTime);
-  const close = toMinutes(closingTime);
-  if (open === null || close === null) return false;
-
-  const nowMins = ist.getHours() * 60 + ist.getMinutes();
-
-  if (open <= close) {
-    // Normal window e.g. 09:00 → 21:00
-    return nowMins >= open && nowMins < close;
-  } else {
-    // Overnight window e.g. 22:00 → 06:00
-    return nowMins >= open || nowMins < close;
-  }
 }
 
 // ── Haversine distance ────────────────────────────────────────
@@ -174,11 +117,22 @@ const VARIANT_SELECT = {
 
 /**
  * Shape a BranchMarketplaceSettings row into a BranchResult.
- * Used by both searchShops and getShopProfile.
+ * ◄◄ CHANGED: Now accepts holidayDates and uses computeBranchStatus.
  */
-function shapeBranch(bs, userLat, userLng, listedMedicineCount = 0) {
+function shapeBranch(bs, userLat, userLng, listedMedicineCount = 0, holidayDates = []) {
   const lat = bs.latitude ? Number(bs.latitude) : null;
   const lng = bs.longitude ? Number(bs.longitude) : null;
+
+  // ◄◄ CHANGED: Use unified timing engine
+  const { isOpen, statusMessage } = computeBranchStatus(
+    {
+      is24Hours: bs.is_24_hours,
+      openingTime: bs.opening_time,
+      closingTime: bs.closing_time,
+      openDays: bs.open_days ?? [],
+    },
+    holidayDates,
+  );
 
   return {
     branchId: bs.branch_id,
@@ -187,17 +141,10 @@ function shapeBranch(bs, userLat, userLng, listedMedicineCount = 0) {
     latitude: lat,
     longitude: lng,
     distanceKm: haversineKm(userLat, userLng, lat, lng),
-
-    // Open/closed — now checks open_days + time window
-    isOpen: computeIsOpen(
-      bs.is_24_hours,
-      bs.opening_time,
-      bs.closing_time,
-      bs.open_days ?? [],
-    ),
-
+    isOpen,
+    statusMessage, // ◄◄ NEW
     is24Hours: bs.is_24_hours,
-    openDays: bs.open_days ?? [], // NEW — exposed to mobile
+    openDays: bs.open_days ?? [],
     openingTime: bs.opening_time ?? null,
     closingTime: bs.closing_time ?? null,
     pickupEnabled: bs.pickup_enabled,
@@ -215,7 +162,7 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
   const skip = (page - 1) * limit;
   const hasLocation = lat != null && lng != null;
   const hasQuery = q && q.trim().length >= 2;
-  const RADIUS_LIMIT_KM = 20.0; // ◄ Hardcoded 20km limit
+  const RADIUS_LIMIT_KM = 20.0;
 
   const profileWhere = {
     is_live: true,
@@ -305,6 +252,24 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
     listingCounts.map((lc) => [lc.shop_id, lc._count.listing_id]),
   );
 
+  // ◄◄ CHANGED: Fetch holidays for all branches in this result set
+  const allBranchIds = profiles.flatMap((p) =>
+    p.branchSettings.map((bs) => bs.branch_id),
+  );
+  const shopToBranches = new Map();
+  for (const p of profiles) {
+    shopToBranches.set(
+      p.shop_id,
+      p.branchSettings.map((bs) => bs.branch_id),
+    );
+  }
+  const holidayMap = await buildBranchHolidayMap(
+    prisma,
+    allBranchIds,
+    shopIds,
+    shopToBranches,
+  );
+
   const shops = profiles
     .map((profile) => {
       const name = profile.storefront_name || profile.shop.business_name;
@@ -330,11 +295,13 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
             return a.dist - b.dist;
           });
 
+          const holidays = holidayMap.get(withDistance[0].bs.branch_id) || [];
           nearestBranch = shapeBranch(
             withDistance[0].bs,
             lat,
             lng,
             listedMedicineCount,
+            holidays,
           );
         } else {
           const sorted = [...profile.branchSettings].sort((a, b) =>
@@ -342,11 +309,13 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
               b.branch?.branch_name ?? "",
             ),
           );
+          const holidays = holidayMap.get(sorted[0].branch_id) || [];
           nearestBranch = shapeBranch(
             sorted[0],
             null,
             null,
             listedMedicineCount,
+            holidays,
           );
         }
       }
@@ -362,7 +331,6 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
         rating: null,
       };
     })
-    // ── Apply Hardcoded 20km Proximity Filter ───────────────────────
     .filter((shop) => {
       if (!hasLocation || !shop.nearestBranch) return true;
       return (
@@ -370,8 +338,12 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
         shop.nearestBranch.distanceKm <= RADIUS_LIMIT_KM
       );
     })
-    // ────────────────────────────────────────────────────────────────
+    // ◄◄ CHANGED: Open shops first, then by distance/count
     .sort((a, b) => {
+      const aOpen = a.nearestBranch?.isOpen ? 1 : 0;
+      const bOpen = b.nearestBranch?.isOpen ? 1 : 0;
+      if (aOpen !== bOpen) return bOpen - aOpen;
+
       if (hasLocation) {
         const dA = a.nearestBranch?.distanceKm ?? Infinity;
         const dB = b.nearestBranch?.distanceKm ?? Infinity;
@@ -399,7 +371,7 @@ export async function searchShops({ q, lat, lng, page = 1, limit = 20 }) {
 
 export async function getShopProfile(shopId, lat, lng) {
   const hasLocation = lat != null && lng != null;
-  const RADIUS_LIMIT_KM = 20.0; // ◄ Hardcoded 20km limit
+  const RADIUS_LIMIT_KM = 20.0;
 
   const profile = await prisma.marketplaceProfile.findUnique({
     where: { shop_id: shopId },
@@ -462,14 +434,25 @@ export async function getShopProfile(shopId, lat, lng) {
     branchListingCounts.map((blc) => [blc.branch_id, blc._count.listing_id]),
   );
 
+  // ◄◄ CHANGED: Fetch holidays for this shop's branches
+  const shopToBranches = new Map([[shopId, branchIds]]);
+  const holidayMap = await buildBranchHolidayMap(
+    prisma,
+    branchIds,
+    [shopId],
+    shopToBranches,
+  );
+
   const branches = profile.branchSettings
     .map((bs) => {
       const count = branchCountMap.get(bs.branch_id) ?? 0;
+      const holidays = holidayMap.get(bs.branch_id) || [];
       const shaped = shapeBranch(
         bs,
         hasLocation ? lat : null,
         hasLocation ? lng : null,
         count,
+        holidays,
       );
       return {
         ...shaped,
@@ -477,17 +460,20 @@ export async function getShopProfile(shopId, lat, lng) {
         isActive: bs.branch?.is_active ?? true,
       };
     })
-    // ── Apply Hardcoded 20km Proximity Filter on branches ────────────
     .filter((b) => {
       if (!hasLocation) return true;
       return b.distanceKm !== null && b.distanceKm <= RADIUS_LIMIT_KM;
     });
-  // ────────────────────────────────────────────────────────────────
 
+  // ◄◄ CHANGED: Open branches first, then by distance/name
   branches.sort((a, b) => {
     if (a.marketplaceEnabled !== b.marketplaceEnabled) {
       return a.marketplaceEnabled ? -1 : 1;
     }
+    const aOpen = a.isOpen ? 1 : 0;
+    const bOpen = b.isOpen ? 1 : 0;
+    if (aOpen !== bOpen) return bOpen - aOpen;
+
     if (hasLocation) {
       return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
     }

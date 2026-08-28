@@ -149,6 +149,7 @@ export interface MedicineShopListing {
   distanceKm: number | null;
 
   isOpen: boolean;
+  statusMessage: string;    // ◄◄ NEW
   is24Hours: boolean;
   openingTime: string | null;
   closingTime: string | null;

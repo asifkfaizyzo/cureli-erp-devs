@@ -12,39 +12,23 @@ import {
   branchSelectionSchema,
   branchConfigSchema,
   draftSchema,
+  bankingSchema, // <-- Imported
 } from "./marketplace.schema.js";
 
 const router = Router();
 
-// ─────────────────────────────────────────────
-// All marketplace routes require authentication
-// ─────────────────────────────────────────────
 router.use(requireAuth);
 
-// ─────────────────────────────────────────────
-// STATUS (any authenticated role)
-// ─────────────────────────────────────────────
 router.get("/status", Controller.getStatus);
-
-// ─────────────────────────────────────────────
-// PLACES PROXY (any authenticated role)
-// ─────────────────────────────────────────────
 router.get("/places/search", Controller.getPlacesSearch);
 router.get("/places/details", Controller.getPlaceDetails);
 
-// ─────────────────────────────────────────────
-// UPLOAD (super_admin only)
-// POST /api/marketplace/upload/:type
-// ─────────────────────────────────────────────
 router.post(
   "/upload/:type",
   requireRole("super_admin"),
   Controller.postUpload
 );
 
-// ─────────────────────────────────────────────
-// ONBOARDING ROUTES (super_admin only)
-// ─────────────────────────────────────────────
 router.post(
   "/onboarding/draft",
   requireRole("super_admin"),
@@ -57,13 +41,6 @@ router.post(
   requireRole("super_admin"),
   validate(storefrontSchema),
   Controller.postStorefront
-);
-
-// marketplace.routes.js
-router.post(
-  "/upload/:type",
-  requireRole("super_admin"),
-  Controller.postUpload
 );
 
 router.post(
@@ -80,15 +57,21 @@ router.post(
   Controller.postBranchConfig
 );
 
+// ── ADDED ONBOARDING BANKING ROUTE ────────────────────────
+router.post(
+  "/onboarding/banking",
+  requireRole("super_admin"),
+  validate(bankingSchema),
+  Controller.postBanking
+);
+
 router.post(
   "/onboarding/go-live",
   requireRole("super_admin"),
   Controller.postGoLive
 );
 
-// ─────────────────────────────────────────────
-// POST-ONBOARDING MANAGEMENT ROUTES
-// ─────────────────────────────────────────────
+// Post-onboarding settings
 router.get("/storefront", Controller.getStorefront);
 
 router.patch(
@@ -96,6 +79,14 @@ router.patch(
   requireRole("super_admin"),
   validate(storefrontSchema),
   Controller.patchStorefront
+);
+
+// ── ADDED EDIT BANKING ROUTE (Settings screen) ──────────────
+router.patch(
+  "/banking",
+  requireRole("super_admin"),
+  validate(bankingSchema),
+  Controller.patchBanking
 );
 
 router.get(
@@ -111,34 +102,11 @@ router.patch(
   Controller.patchBranch
 );
 
-router.post(
-  "/suspend",
-  requireRole("super_admin"),
-  Controller.postSuspend
-);
+router.post("/suspend", requireRole("super_admin"), Controller.postSuspend);
+router.post("/resume", requireRole("super_admin"), Controller.postResume);
 
-router.post(
-  "/resume",
-  requireRole("super_admin"),
-  Controller.postResume
-);
-
-router.get(
-  '/holidays',
-  requireRole('super_admin', 'branch_admin'),
-  HolidayController.getHolidays,
-);
-
-router.post(
-  '/holidays',
-  requireRole('super_admin', 'branch_admin'),
-  HolidayController.postHoliday,
-);
-
-router.delete(
-  '/holidays/:holiday_id',
-  requireRole('super_admin', 'branch_admin'),
-  HolidayController.deleteHolidayHandler,
-);
+router.get('/holidays', requireRole('super_admin', 'branch_admin'), HolidayController.getHolidays);
+router.post('/holidays', requireRole('super_admin', 'branch_admin'), HolidayController.postHoliday);
+router.delete('/holidays/:holiday_id', requireRole('super_admin', 'branch_admin'), HolidayController.deleteHolidayHandler);
 
 export default router;

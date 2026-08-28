@@ -1,4 +1,4 @@
-// src/api/marketplace.js
+// pharmacy-web/src/api/marketplace.js
 
 import API from "./axios";
 
@@ -25,6 +25,14 @@ export const saveBranchSelections = (branch_ids) =>
 
 export const saveBranchConfig = (branch_id, data) =>
   API.post(`/marketplace/onboarding/branch-config/${branch_id}`, data);
+
+// ── BANKING API EXPORTS ───────────────────────
+export const saveBanking = (data) =>
+  API.post("/marketplace/onboarding/banking", data);
+
+export const updateBankingDetails = (data) =>
+  API.patch("/marketplace/banking", data);
+// ─────────────────────────────────────────────
 
 export const goLive = () =>
   API.post("/marketplace/onboarding/go-live");
@@ -84,7 +92,9 @@ export const searchPlaces = (query) =>
 export const getPlaceDetails = (place_id) =>
   API.get("/marketplace/places/details", { params: { place_id } });
 
-
+// ─────────────────────────────────────────────
+// HOLIDAYS
+// ─────────────────────────────────────────────
 export const listHolidays = (branchId) =>
   API.get('/marketplace/holidays', { params: { branch_id: branchId } })
     .then((r) => r.data);

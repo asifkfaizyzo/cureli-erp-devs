@@ -1912,12 +1912,106 @@ model OtpDailyLimit {
 }
 
 model Ticket {
+  ticket_id          String           @id @default(uuid()) @db.Uuid
+  ticket_number      String           @unique @db.VarChar(30)
+
+  // Ownership
+  shop_id            String           @db.Uuid
+  branch_id          String?          @db.Uuid
+  created_by_user_id String           @db.Uuid
+
+  // Cancellation actor (nullable — only set when cancelled)
+  cancelled_by_user_id String?        @db.Uuid
+
+  // Reopen actor (nullable — only set when last reopened)
+  reopened_by_user_id  String?        @db.Uuid
+
+  // Content
+  contact_number     String           @db.VarChar(15)
+  category           TicketCategory
+  other_category_text String?         @db.VarChar(100)
+  subject            String           @db.VarChar(200)
+  description        String?
+  preferred_slot     String           @db.VarChar(20)
+
+  // State (managed ONLY by state machine)
+  status             TicketStatus     @default(PENDING)
+  reopen_count       Int              @default(0)
+
+  // Counters (denormalised for query speed)
+  attachment_count   Int              @default(0)
+  activity_count     Int              @default(0)
+
+  // Timestamps
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @updatedAt @db.Timestamptz(6)
+  resolved_at        DateTime?        @db.Timestamptz(6)
+  closed_at          DateTime?        @db.Timestamptz(6)
+  cancelled_at       DateTime?        @db.Timestamptz(6)
+
+  // Relations
+  shop               Shop             @relation("ShopTickets", fields: [shop_id], references: [shop_id])
+  branch             Branch?          @relation("BranchTickets", fields: [branch_id], references: [branch_id])
+  created_by         User             @relation("TicketCreator", fields: [created_by_user_id], references: [user_id])
+  cancelled_by       User?            @relation("TicketCanceller", fields: [cancelled_by_user_id], references: [user_id])
+  reopened_by        User?            @relation("TicketReopener", fields: [reopened_by_user_id], references: [user_id])
+  attachments        TicketAttachment[]
+  activities         TicketActivity[]
+
+  @@index([shop_id, status, created_at(sort: Desc)])
+  @@index([branch_id, status])
+  @@index([created_by_user_id])
+  @@index([status, created_at(sort: Desc)])
+  @@index([ticket_number])
+  @@index([cancelled_by_user_id])
+  @@index([reopened_by_user_id])
+  @@map("tickets")
 }
 
 model TicketActivity {
+  activity_id    String              @id @default(uuid()) @db.Uuid
+  ticket_id      String              @db.Uuid
+
+  // What happened
+  type           TicketActivityType
+  from_status    TicketStatus?       // null for COMMENT / CREATED
+  to_status      TicketStatus?       // null for COMMENT
+
+  // Who did it
+  actor_type     String              @db.VarChar(20)  // "ERP_USER" | "CADMIN" | "SYSTEM"
+  actor_id       String              @db.Uuid
+  actor_name     String              @db.VarChar(150)
+  actor_role     String?             @db.VarChar(50)
+
+  // The message/reason for this action (optional for pure status changes)
+  note           String?
+
+  // Visibility
+  is_internal    Boolean             @default(false)  // true = cadmin-only note
+
+  created_at     DateTime            @default(now()) @db.Timestamptz(6)
+
+  ticket         Ticket              @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id, created_at(sort: Asc)])
+  @@index([type])
+  @@index([actor_id])
+  @@map("ticket_activities")
 }
 
 model TicketAttachment {
+  attachment_id  String   @id @default(uuid()) @db.Uuid
+  ticket_id      String   @db.Uuid
+  storage_key    String
+  original_name  String   @db.VarChar(255)
+  mime_type      String   @db.VarChar(100)
+  file_size      Int
+  uploaded_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  ticket         Ticket   @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id])
+  @@map("ticket_attachments")
 }
 
 model Enquiry {

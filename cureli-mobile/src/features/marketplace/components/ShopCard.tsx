@@ -1,3 +1,5 @@
+//Q:\YourZeroesAndOnes\cureli\curely_erp\cureli-mobile\src\features\marketplace\components\ShopCard.tsx
+
 import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +18,7 @@ interface ShopCardProps {
 function ShopCardComponent({ shop, onPress }: ShopCardProps) {
   const { colors } = useTheme();
   const branch = shop.nearestBranch;
+  const isClosed = branch ? !branch.isOpen : false;
 
   return (
     <TouchableOpacity
@@ -26,17 +29,16 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         {
           backgroundColor: colors.background.card,
           borderColor: colors.border.subtle,
+          // ◄◄ CHANGED: Grey out closed shops
+          opacity: isClosed ? 0.6 : 1,
         },
       ]}
     >
-      {/* ── Top row: logo + name + open badge ── */}
+      {/* ── Top row: logo + name + status ── */}
       <View style={styles.topRow}>
         <RemoteImage
           uri={shop.logoUrl ?? null}
-          style={[
-            styles.logoCard,
-            
-          ]}
+          style={[styles.logoCard]}
           resizeMode="contain"
           mode="shop"
           fallbackIcon="storefront-outline"
@@ -84,11 +86,13 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
               style={[
                 styles.badgeText,
                 {
+                  // ◄◄ CHANGED: Rich status message
                   color: branch.isOpen ? colors.text.brand : colors.text.muted,
                 },
               ]}
+              numberOfLines={1}
             >
-              {branch.isOpen ? "Open" : "Closed"}
+              {branch.statusMessage}
             </Text>
           </View>
         ) : null}
@@ -143,7 +147,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         </View>
       ) : null}
 
-      {/* ── Bottom row: address + distance + rating + CTA ── */}
+      {/* ── Bottom row ── */}
       <View style={styles.bottomRow}>
         {branch?.address ? (
           <View style={styles.metaItem}>
@@ -187,7 +191,14 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
         <TouchableOpacity
           onPress={() => onPress(shop)}
           activeOpacity={0.8}
-          style={[styles.cta, { backgroundColor: colors.brand.primary }]}
+          style={[
+            styles.cta,
+            {
+              backgroundColor: isClosed
+                ? colors.text.muted
+                : colors.brand.primary,
+            },
+          ]}
         >
           <Text style={styles.ctaText}>View Shop</Text>
         </TouchableOpacity>
@@ -212,8 +223,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-
-  // Match ShopIdentity style: rounded square, no border, elevated
   logoCard: {
     width: 48,
     height: 48,
@@ -233,7 +242,6 @@ const styles = StyleSheet.create({
       },
     }),
   },
-
   nameBlock: {
     flex: 1,
     gap: 2,
@@ -252,16 +260,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: Radius.full,
     borderWidth: 1,
-    flexShrink: 0,
+    flexShrink: 1,
+    maxWidth: "45%",
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    flexShrink: 0,
   },
   badgeText: {
     ...Typography.caption,
     fontFamily: "Inter_600SemiBold",
+    flexShrink: 1,
   },
   description: {
     ...Typography.small,

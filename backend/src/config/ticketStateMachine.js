@@ -1,3 +1,4 @@
+//backend\src\config\ticketStateMachine.js
 /**
  * SINGLE SOURCE OF TRUTH for ticket state transitions.
  * Both user-side and cadmin-side services import from here.

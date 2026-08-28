@@ -1,55 +1,14 @@
 // src/modules/mobile/medicines/mobile.medicines.service.js
-//
-// PUBLIC mobile medicine discovery — service layer.
-//
-// FEED MODE
-// ─────────
-// MOBILE_SHOW_UNLISTED_MEDICINES=true  (demo / dev)
-//   → Queries MasterMedicineVariant directly.
-//     All catalog medicines are visible regardless of whether any shop
-//     has listed them. Pricing and availability are generated on the
-//     frontend by generateMarketplaceData().
-//
-// MOBILE_SHOW_UNLISTED_MEDICINES=false (production, safe default)
-//   → Queries MarketplaceListing with full visibility chain:
-//       listing.is_visible = true
-//       listing.stock_status = IN_STOCK
-//       branch.marketplaceSettings.marketplace_enabled = true
-//       branch.marketplaceSettings.marketplaceProfile.is_live = true
-//     Only medicines actively listed by a live branch appear in the feed.
-//     Output shape is IDENTICAL to demo mode — frontend is unaware of
-//     which path ran.
-//
-// FLAG IS READ ONCE AT MODULE LOAD — not per request.
-// Falsy default: if the variable is absent or misspelled, production
-// behavior is used. This is intentional — safe by default.
-//
-// IMAGE NOTE: image_status RAW means scraped images exist and are valid.
-// Only NONE means truly no image. We resolve the variant's images JSON
-// array directly; an empty resolved array signals the frontend to show
-// its branded placeholder.
-//
-// listMobileMedicines — categories[] param (new):
-//   Accepts an optional string[] of primary_category values.
-//   When present, filters with primary_category IN categories[].
-//   Cannot be combined with the single category param — the controller
-//   enforces this before calling the service.
-//   Used by the "English Medicine" top-level category on the home screen
-//   which bundles all DRUG-type primary_category values into one view.
-//
-// getMedicineShops:
-//   Returns all branches that have a visible, in-stock listing for a
-//   given variant. One row per branch. Sorted by distance if lat/lng
-//   provided, else by shop name. Uses the same Haversine + IST helpers
-//   already established in mobile.shops.service.js — copied here to
-//   avoid cross-module coupling. Marketplace assets resolved via
-//   resolveMarketplaceAsset (backend origin), medicine images via
-//   resolveAssetUrl (CloudFront).
-
 import prisma from "../../../config/prisma.js";
 import { resolveAssetUrl } from "../../../services/assetUrl.service.js";
 import { CURATED_CATEGORIES } from "./mobile.medicines.categories.js";
 import { getResolvedFeedSections } from "../../cadmin/app-config/cadmin.appConfig.service.js";
+// ◄◄ CHANGED: Import shared timing engine
+import {
+  computeBranchStatus,
+  buildBranchHolidayMap,
+} from "../../../utils/shopTiming.js";
+
 // ── Feed mode ─────────────────────────────────────────────────
 
 const SHOW_UNLISTED = process.env.MOBILE_SHOW_UNLISTED_MEDICINES === "true";
@@ -66,9 +25,6 @@ console.log(
 );
 
 // ── Marketplace asset resolver ────────────────────────────────
-// Mirrors the identical helper in mobile.shops.service.js.
-// Marketplace assets (logo, banner, branch image) are served by the
-// backend, NOT CloudFront. resolveAssetUrl would produce a 403.
 
 const PUBLIC_API_ORIGIN = process.env.PUBLIC_API_ORIGIN || null;
 
@@ -79,11 +35,6 @@ if (!PUBLIC_API_ORIGIN) {
   );
 }
 
-/**
- * Resolve a stored marketplace-asset path to a full backend URL.
- * @param {string|null} pathOrUrl
- * @returns {string|null}
- */
 function resolveMarketplaceAsset(pathOrUrl) {
   if (!pathOrUrl) return null;
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
@@ -97,40 +48,8 @@ function resolveMarketplaceAsset(pathOrUrl) {
   return `${origin}${suffix}`;
 }
 
-// ── IST helpers ───────────────────────────────────────────────
-// Mirrors mobile.shops.service.js — kept local to avoid coupling.
-
-function getNowIST() {
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
-  const istMs = utcMs + 5.5 * 60 * 60_000;
-  const ist = new Date(istMs);
-  return { hours: ist.getHours(), minutes: ist.getMinutes() };
-}
-
-function toMinutes(timeStr) {
-  if (!timeStr) return null;
-  const parts = timeStr.split(":");
-  if (parts.length !== 2) return null;
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (isNaN(h) || isNaN(m)) return null;
-  return h * 60 + m;
-}
-
-function computeIsOpen(is24Hours, openingTime, closingTime) {
-  if (is24Hours) return true;
-  const open = toMinutes(openingTime);
-  const close = toMinutes(closingTime);
-  if (open === null || close === null) return false;
-  const { hours, minutes } = getNowIST();
-  const nowMins = hours * 60 + minutes;
-  if (open <= close) {
-    return nowMins >= open && nowMins < close;
-  } else {
-    return nowMins >= open || nowMins < close;
-  }
-}
+// ◄◄ REMOVED: local getNowIST, toMinutes, computeIsOpen
+// ◄◄ Now imported from ../../../utils/shopTiming.js
 
 // ── Haversine distance ────────────────────────────────────────
 
@@ -532,13 +451,12 @@ export async function getMobileMedicine(idOrSku) {
 
 // ── getMedicineShops ──────────────────────────────────────────
 //
-// Returns all branches that have a visible listing for a given variant.
-// One row per branch — cart enforcement is at the branch level.
-// Sorted by distance asc if lat/lng provided, else by shop name asc.
+// ◄◄ CHANGED: Uses shared timing engine, adds open_days to select,
+// ◄◄ fetches holidays, sorts open-first, adds statusMessage.
 
 export async function getMedicineShops(variantId, lat, lng) {
   const hasLocation = lat != null && lng != null;
-  const RADIUS_LIMIT_KM = 20.0; // ◄ Hardcoded 20km limit
+  const RADIUS_LIMIT_KM = 20.0;
 
   const listings = await prisma.marketplaceListing.findMany({
     where: {
@@ -580,6 +498,7 @@ export async function getMedicineShops(variantId, lat, lng) {
               formatted_address: true,
               opening_time: true,
               closing_time: true,
+              open_days: true, // ◄◄ ADDED
               is_24_hours: true,
               pickup_enabled: true,
               delivery_enabled: true,
@@ -591,7 +510,7 @@ export async function getMedicineShops(variantId, lat, lng) {
     },
   });
 
-  // Deduplicate by branchId
+  // Deduplicate by branchId (keep lowest price)
   const byBranch = new Map();
   for (const l of listings) {
     const branchId = l.branch?.branch_id;
@@ -617,6 +536,27 @@ export async function getMedicineShops(variantId, lat, lng) {
 
   const deduped = Array.from(byBranch.values());
 
+  // ◄◄ CHANGED: Fetch holidays for all branches in result
+  const branchIds = deduped.map((l) => l.branch?.branch_id).filter(Boolean);
+  const shopIds = [
+    ...new Set(deduped.map((l) => l.shop?.shop_id).filter(Boolean)),
+  ];
+  const shopToBranches = new Map();
+  for (const l of deduped) {
+    const sId = l.shop?.shop_id;
+    const bId = l.branch?.branch_id;
+    if (sId && bId) {
+      if (!shopToBranches.has(sId)) shopToBranches.set(sId, []);
+      shopToBranches.get(sId).push(bId);
+    }
+  }
+  const holidayMap = await buildBranchHolidayMap(
+    prisma,
+    branchIds,
+    shopIds,
+    shopToBranches,
+  );
+
   const rows = deduped
     .map((l) => {
       const bs = l.branch?.marketplaceSettings;
@@ -627,6 +567,18 @@ export async function getMedicineShops(variantId, lat, lng) {
         l.shop?.marketplaceProfile?.storefront_name ||
         l.shop?.business_name ||
         "Unknown Shop";
+
+      // ◄◄ CHANGED: Use unified timing engine
+      const holidays = holidayMap.get(l.branch?.branch_id) || [];
+      const { isOpen, statusMessage } = computeBranchStatus(
+        {
+          is24Hours: bs?.is_24_hours ?? false,
+          openingTime: bs?.opening_time ?? null,
+          closingTime: bs?.closing_time ?? null,
+          openDays: bs?.open_days ?? [],
+        },
+        holidays,
+      );
 
       return {
         shopId: l.shop?.shop_id ?? null,
@@ -645,11 +597,8 @@ export async function getMedicineShops(variantId, lat, lng) {
           branchLat,
           branchLng,
         ),
-        isOpen: computeIsOpen(
-          bs?.is_24_hours ?? false,
-          bs?.opening_time ?? null,
-          bs?.closing_time ?? null,
-        ),
+        isOpen,
+        statusMessage, // ◄◄ NEW
         is24Hours: bs?.is_24_hours ?? false,
         openingTime: bs?.opening_time ?? null,
         closingTime: bs?.closing_time ?? null,
@@ -661,14 +610,17 @@ export async function getMedicineShops(variantId, lat, lng) {
         requiresPrescription: l.requires_prescription,
       };
     })
-    // ── Apply Hardcoded 20km Proximity Filter on branches ────────────
     .filter((row) => {
       if (!hasLocation) return true;
       return row.distanceKm !== null && row.distanceKm <= RADIUS_LIMIT_KM;
     });
-    // ────────────────────────────────────────────────────────────────
 
+  // ◄◄ CHANGED: Open branches first, then by distance/name
   rows.sort((a, b) => {
+    const aOpen = a.isOpen ? 1 : 0;
+    const bOpen = b.isOpen ? 1 : 0;
+    if (aOpen !== bOpen) return bOpen - aOpen;
+
     if (hasLocation) {
       const dA = a.distanceKm ?? Infinity;
       const dB = b.distanceKm ?? Infinity;

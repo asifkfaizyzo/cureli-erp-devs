@@ -45,13 +45,13 @@ const resolveImageUrl = (url) => {
 // DAY SELECTOR
 // ─────────────────────────────────────────────────────────────────
 const ALL_DAYS = [
-  { key: 'MON', label: 'M' },
-  { key: 'TUE', label: 'T' },
-  { key: 'WED', label: 'W' },
-  { key: 'THU', label: 'T' },
-  { key: 'FRI', label: 'F' },
-  { key: 'SAT', label: 'S' },
-  { key: 'SUN', label: 'S' },
+  { key: "MON", label: "M" },
+  { key: "TUE", label: "T" },
+  { key: "WED", label: "W" },
+  { key: "THU", label: "T" },
+  { key: "FRI", label: "F" },
+  { key: "SAT", label: "S" },
+  { key: "SUN", label: "S" },
 ];
 
 const DaySelector = ({ value = [], onChange, disabled = false }) => (
@@ -73,11 +73,12 @@ const DaySelector = ({ value = [], onChange, disabled = false }) => (
           title={day.key}
           className={`
             w-8 h-8 rounded-lg text-[10px] font-bold transition-all
-            ${active
-              ? 'bg-white/15 text-white border border-white/20'
-              : 'bg-white/[0.03] text-white/20 border border-white/[0.06] hover:border-white/15'
+            ${
+              active
+                ? "bg-white/15 text-white border border-white/20"
+                : "bg-white/[0.03] text-white/20 border border-white/[0.06] hover:border-white/15"
             }
-            ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
+            ${disabled ? "opacity-40 cursor-not-allowed" : ""}
           `}
         >
           {day.label}
@@ -196,15 +197,15 @@ const ToggleRow = ({
 // HOLIDAY SECTION
 // ─────────────────────────────────────────────────────────────────
 const HolidaySection = ({ branchId }) => {
-  const [holidays, setHolidays]       = useState([]);
-  const [isLoading, setIsLoading]     = useState(false);
-  const [isAdding, setIsAdding]       = useState(false);
-  const [newDate, setNewDate]         = useState('');
-  const [newReason, setNewReason]     = useState('');
+  const [holidays, setHolidays] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newDate, setNewDate] = useState("");
+  const [newReason, setNewReason] = useState("");
   const [applyToShop, setApplyToShop] = useState(false);
-  const [addError, setAddError]       = useState(null);
+  const [addError, setAddError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [deletingId, setDeletingId]   = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (!branchId) return;
@@ -216,27 +217,30 @@ const HolidaySection = ({ branchId }) => {
   }, [branchId]);
 
   const handleAdd = async () => {
-    if (!newDate) { setAddError('Select a date'); return; }
+    if (!newDate) {
+      setAddError("Select a date");
+      return;
+    }
     setIsAdding(true);
     setAddError(null);
     try {
       const res = await apiCreateHoliday({
-        branch_id:    branchId,
-        scope:        applyToShop ? 'SHOP' : 'BRANCH',
+        branch_id: branchId,
+        scope: applyToShop ? "SHOP" : "BRANCH",
         holiday_date: newDate,
-        reason:       newReason.trim() || undefined,
+        reason: newReason.trim() || undefined,
       });
       setHolidays((prev) =>
         [...prev, res.data.holiday].sort((a, b) =>
-          a.holiday_date.localeCompare(b.holiday_date)
-        )
+          a.holiday_date.localeCompare(b.holiday_date),
+        ),
       );
-      setNewDate('');
-      setNewReason('');
+      setNewDate("");
+      setNewReason("");
       setApplyToShop(false);
       setShowAddForm(false);
     } catch (err) {
-      setAddError(err.response?.data?.message ?? 'Failed to add holiday');
+      setAddError(err.response?.data?.message ?? "Failed to add holiday");
     } finally {
       setIsAdding(false);
     }
@@ -281,7 +285,7 @@ const HolidaySection = ({ branchId }) => {
         {showAddForm && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
+            animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.15 }}
             className="overflow-hidden"
@@ -293,7 +297,10 @@ const HolidaySection = ({ branchId }) => {
                   type="date"
                   min={todayStr}
                   value={newDate}
-                  onChange={(e) => { setNewDate(e.target.value); setAddError(null); }}
+                  onChange={(e) => {
+                    setNewDate(e.target.value);
+                    setAddError(null);
+                  }}
                   className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10
                     text-white text-xs focus:outline-none focus:ring-2 focus:ring-white/10
                     focus:border-white/20 transition-all [color-scheme:dark]"
@@ -321,14 +328,14 @@ const HolidaySection = ({ branchId }) => {
                   onClick={() => setApplyToShop((v) => !v)}
                   className={`
                     relative inline-flex h-4 w-7 items-center rounded-full transition-colors
-                    ${applyToShop ? 'bg-amber-500' : 'bg-white/10'}
+                    ${applyToShop ? "bg-amber-500" : "bg-white/10"}
                   `}
                 >
                   <span
                     className={`
                       inline-block h-3 w-3 rounded-full bg-white shadow
                       transform transition-transform
-                      ${applyToShop ? 'translate-x-3.5' : 'translate-x-0.5'}
+                      ${applyToShop ? "translate-x-3.5" : "translate-x-0.5"}
                     `}
                   />
                 </button>
@@ -346,7 +353,10 @@ const HolidaySection = ({ branchId }) => {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setShowAddForm(false); setAddError(null); }}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setAddError(null);
+                  }}
                   className="flex-1 py-2 rounded-lg text-[11px] font-medium
                     text-white/30 hover:text-white/50 border border-white/[0.06]
                     hover:border-white/15 transition-all"
@@ -362,9 +372,11 @@ const HolidaySection = ({ branchId }) => {
                     disabled:opacity-40 flex items-center justify-center gap-1.5"
                 >
                   {isAdding ? (
-                    <><Loader2 size={10} className="animate-spin" /> Adding...</>
+                    <>
+                      <Loader2 size={10} className="animate-spin" /> Adding...
+                    </>
                   ) : (
-                    'Add Holiday'
+                    "Add Holiday"
                   )}
                 </button>
               </div>
@@ -393,13 +405,20 @@ const HolidaySection = ({ branchId }) => {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-xs text-white/70 font-medium">
-                    {new Date(h.holiday_date + 'T00:00:00').toLocaleDateString('en-IN', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                    })}
+                    {new Date(h.holiday_date + "T00:00:00").toLocaleDateString(
+                      "en-IN",
+                      {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )}
                   </p>
-                  {h.scope === 'SHOP' && (
-                    <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold
-                      bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {h.scope === "SHOP" && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[8px] font-semibold
+                      bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    >
                       All branches
                     </span>
                   )}
@@ -418,10 +437,11 @@ const HolidaySection = ({ branchId }) => {
                   text-white/20 hover:text-red-400 hover:bg-red-500/10
                   transition-all disabled:opacity-40 flex-shrink-0 ml-2"
               >
-                {deletingId === h.holiday_id
-                  ? <Loader2 size={11} className="animate-spin" />
-                  : <Trash2 size={11} />
-                }
+                {deletingId === h.holiday_id ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Trash2 size={11} />
+                )}
               </button>
             </div>
           ))}
@@ -439,26 +459,27 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
 
   const [form, setForm] = useState({
     marketplace_enabled: false,
-    shop_image_url:      null,
-    latitude:            null,
-    longitude:           null,
-    google_place_id:     null,
-    formatted_address:   null,
-    opening_time:        null,
-    closing_time:        null,
-    is_24_hours:         false,
-    open_days:           ['MON','TUE','WED','THU','FRI','SAT','SUN'],
-    pickup_enabled:      false,
-    delivery_enabled:    false,
-    contact_override:    "",
+    shop_image_url: null,
+    latitude: null,
+    longitude: null,
+    google_place_id: null,
+    formatted_address: null,
+    opening_time: null,
+    closing_time: null,
+    is_24_hours: false,
+    open_days: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+    pickup_enabled: false,
+    delivery_enabled: false,
+    delivery_mode: "CURELI",
+    contact_override: "",
   });
 
-  const [errors, setErrors]                   = useState({});
-  const [isSaving, setIsSaving]               = useState(false);
-  const [submitErr, setSubmitErr]             = useState(null);
-  const [isImageUploading, setIsImageUploading]       = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [submitErr, setSubmitErr] = useState(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [imageUploadProgress, setImageUploadProgress] = useState(0);
-  const [imageUploadError, setImageUploadError]       = useState(null);
+  const [imageUploadError, setImageUploadError] = useState(null);
   const imageInputRef = useRef(null);
 
   // Seed form from branch on open
@@ -466,18 +487,27 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     if (!isOpen || !branch) return;
     setForm({
       marketplace_enabled: branch.marketplace_enabled ?? false,
-      shop_image_url:      branch.shop_image_url      ?? null,
-      latitude:            branch.latitude             ?? null,
-      longitude:           branch.longitude            ?? null,
-      google_place_id:     branch.google_place_id      ?? null,
-      formatted_address:   branch.formatted_address    ?? null,
-      opening_time:        branch.opening_time         ?? null,
-      closing_time:        branch.closing_time         ?? null,
-      is_24_hours:         branch.is_24_hours          ?? false,
-      open_days:           branch.open_days            ?? ['MON','TUE','WED','THU','FRI','SAT','SUN'],
-      pickup_enabled:      branch.pickup_enabled       ?? false,
-      delivery_enabled:    branch.delivery_enabled     ?? false,
-      contact_override:    branch.contact_override     ?? "",
+      shop_image_url: branch.shop_image_url ?? null,
+      latitude: branch.latitude ?? null,
+      longitude: branch.longitude ?? null,
+      google_place_id: branch.google_place_id ?? null,
+      formatted_address: branch.formatted_address ?? null,
+      opening_time: branch.opening_time ?? null,
+      closing_time: branch.closing_time ?? null,
+      is_24_hours: branch.is_24_hours ?? false,
+      open_days: branch.open_days ?? [
+        "MON",
+        "TUE",
+        "WED",
+        "THU",
+        "FRI",
+        "SAT",
+        "SUN",
+      ],
+      pickup_enabled: branch.pickup_enabled ?? false,
+      delivery_enabled: branch.delivery_enabled ?? false,
+      delivery_mode: branch.delivery_mode ?? "CURELI",
+      contact_override: branch.contact_override ?? "",
     });
     setErrors({});
     setSubmitErr(null);
@@ -487,17 +517,19 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
   // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen]);
 
   const patch = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     const errorKeyMap = {
-      pickup_enabled:   ["fulfillment"],
+      pickup_enabled: ["fulfillment"],
       delivery_enabled: ["fulfillment"],
-      opening_time:     ["opening_time"],
-      closing_time:     ["closing_time"],
-      is_24_hours:      ["opening_time", "closing_time"],
+      opening_time: ["opening_time"],
+      closing_time: ["closing_time"],
+      is_24_hours: ["opening_time", "closing_time"],
       contact_override: ["contact_override"],
     };
     const keys = errorKeyMap[key] ?? [key];
@@ -516,10 +548,8 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     setImageUploadProgress(0);
     setImageUploadError(null);
     try {
-      const res = await uploadMarketplaceAsset(
-        "branch_image",
-        file,
-        (pct) => setImageUploadProgress(pct),
+      const res = await uploadMarketplaceAsset("branch_image", file, (pct) =>
+        setImageUploadProgress(pct),
       );
       const url = res.data?.data?.url;
       if (!url) throw new Error("No URL returned");
@@ -537,21 +567,25 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
   const handleLocationChange = (locationData) => {
     setForm((prev) => ({
       ...prev,
-      latitude:          locationData.latitude          ?? null,
-      longitude:         locationData.longitude         ?? null,
-      google_place_id:   locationData.google_place_id   ?? null,
+      latitude: locationData.latitude ?? null,
+      longitude: locationData.longitude ?? null,
+      google_place_id: locationData.google_place_id ?? null,
       formatted_address: locationData.formatted_address ?? null,
     }));
     if (errors.location) {
-      setErrors((prev) => { const n = { ...prev }; delete n.location; return n; });
+      setErrors((prev) => {
+        const n = { ...prev };
+        delete n.location;
+        return n;
+      });
     }
   };
 
   const handleLocationUpdate = (_branchId, locationData) => {
     setForm((prev) => ({
       ...prev,
-      latitude:          locationData.latitude,
-      longitude:         locationData.longitude,
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
       formatted_address: locationData.formatted_address,
     }));
   };
@@ -560,16 +594,22 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     if (!isSuperAdmin || !form.latitude || !form.longitude) return [];
     return [
       {
-        branch_id:         branch?.branch_id     ?? "editing",
-        branch_name:       branch?.branch_name   ?? "Branch",
-        latitude:          form.latitude,
-        longitude:         form.longitude,
+        branch_id: branch?.branch_id ?? "editing",
+        branch_name: branch?.branch_name ?? "Branch",
+        latitude: form.latitude,
+        longitude: form.longitude,
         formatted_address: form.formatted_address,
-        isPersisted:       branch?.is_configured ?? false,
-        isActive:          true,
+        isPersisted: branch?.is_configured ?? false,
+        isActive: true,
       },
     ];
-  }, [isSuperAdmin, form.latitude, form.longitude, form.formatted_address, branch]);
+  }, [
+    isSuperAdmin,
+    form.latitude,
+    form.longitude,
+    form.formatted_address,
+    branch,
+  ]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -584,18 +624,19 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
     setIsSaving(true);
     const payload = {
       marketplace_enabled: form.marketplace_enabled,
-      shop_image_url:      form.shop_image_url,
-      latitude:            form.latitude,
-      longitude:           form.longitude,
-      google_place_id:     form.google_place_id,
-      formatted_address:   form.formatted_address,
-      opening_time:        form.is_24_hours ? null : form.opening_time,
-      closing_time:        form.is_24_hours ? null : form.closing_time,
-      is_24_hours:         form.is_24_hours,
-      open_days:           form.open_days,
-      pickup_enabled:      form.pickup_enabled,
-      delivery_enabled:    form.delivery_enabled,
-      contact_override:    form.contact_override?.trim(),
+      shop_image_url: form.shop_image_url,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      google_place_id: form.google_place_id,
+      formatted_address: form.formatted_address,
+      opening_time: form.is_24_hours ? null : form.opening_time,
+      closing_time: form.is_24_hours ? null : form.closing_time,
+      is_24_hours: form.is_24_hours,
+      open_days: form.open_days,
+      pickup_enabled: form.pickup_enabled,
+      delivery_enabled: form.delivery_enabled,
+      delivery_mode: form.delivery_mode,
+      contact_override: form.contact_override?.trim(),
     };
 
     const result = await onSave(branch.branch_id, payload);
@@ -719,7 +760,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                     hover:opacity-100 transition-opacity flex items-center
                                     justify-center z-10"
                                 >
-                                  <ImageIcon size={14} className="text-white/70" />
+                                  <ImageIcon
+                                    size={14}
+                                    className="text-white/70"
+                                  />
                                 </button>
                                 <button
                                   type="button"
@@ -738,7 +782,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                 className="absolute inset-0 bg-black/60 flex flex-col
                                   items-center justify-center gap-1.5 z-20"
                               >
-                                <Loader2 size={14} className="text-white/60 animate-spin" />
+                                <Loader2
+                                  size={14}
+                                  className="text-white/60 animate-spin"
+                                />
                                 <div className="w-14 h-1 rounded-full bg-white/10 overflow-hidden">
                                   <div
                                     className="h-full bg-white/40 rounded-full transition-all duration-300"
@@ -800,10 +847,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                           <div className="space-y-3">
                             <LocationPicker
                               value={{
-                                google_place_id:   form.google_place_id,
+                                google_place_id: form.google_place_id,
                                 formatted_address: form.formatted_address,
-                                latitude:          form.latitude,
-                                longitude:         form.longitude,
+                                latitude: form.latitude,
+                                longitude: form.longitude,
                               }}
                               onChange={handleLocationChange}
                               disabled={false}
@@ -831,7 +878,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                         ) : (
                           <div className="px-3 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                             <div className="flex items-start gap-2">
-                              <Lock size={12} className="text-white/20 mt-0.5 flex-shrink-0" />
+                              <Lock
+                                size={12}
+                                className="text-white/20 mt-0.5 flex-shrink-0"
+                              />
                               <div className="min-w-0">
                                 <p className="text-[10px] text-white/25 font-medium mb-1">
                                   Location (super admin only)
@@ -849,7 +899,8 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                   </div>
                                 ) : (
                                   <p className="text-xs text-amber-400/60">
-                                    Location not configured — contact your super admin
+                                    Location not configured — contact your super
+                                    admin
                                   </p>
                                 )}
                               </div>
@@ -875,6 +926,64 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             enabled={form.delivery_enabled}
                             onChange={(v) => patch("delivery_enabled", v)}
                           />
+
+                          {/* ── DELIVERY SERVICE PROVIDER TOGGLE ── */}
+                          <AnimatePresence initial={false}>
+                            {form.delivery_enabled && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-2 pl-1 space-y-2">
+                                  <p className="text-[10px] text-white/25 uppercase tracking-wider font-semibold">
+                                    Delivery Service Provider
+                                  </p>
+                                  <div className="flex gap-2">
+                                    {[
+                                      {
+                                        key: "CURELI",
+                                        label: "Cureli Riders",
+                                        desc: "Use Cureli's delivery network",
+                                      },
+                                      {
+                                        key: "SELF",
+                                        label: "Own Riders",
+                                        desc: "Use your pharmacy's delivery team",
+                                      },
+                                    ].map((mode) => {
+                                      const active =
+                                        form.delivery_mode === mode.key;
+                                      return (
+                                        <button
+                                          key={mode.key}
+                                          type="button"
+                                          onClick={() =>
+                                            patch("delivery_mode", mode.key)
+                                          }
+                                          className={`flex-1 p-2.5 rounded-xl border text-left transition-all ${
+                                            active
+                                              ? "bg-white/10 border-white/20 text-white"
+                                              : "bg-white/[0.02] border-white/[0.04] text-white/40 hover:border-white/10"
+                                          }`}
+                                        >
+                                          <p className="text-xs font-semibold">
+                                            {mode.label}
+                                          </p>
+                                          <p className="text-[10px] text-white/30 mt-0.5 leading-tight">
+                                            {mode.desc}
+                                          </p>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
                           {errors.fulfillment && (
                             <p className="text-[11px] text-red-400 flex items-center gap-1 px-1">
                               <AlertCircle size={10} /> {errors.fulfillment}
@@ -902,7 +1011,7 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                               </p>
                               <DaySelector
                                 value={form.open_days}
-                                onChange={(days) => patch('open_days', days)}
+                                onChange={(days) => patch("open_days", days)}
                               />
                             </div>
                           </div>
@@ -928,7 +1037,8 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                     />
                                     {errors.opening_time && (
                                       <p className="text-[11px] text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={10} /> {errors.opening_time}
+                                        <AlertCircle size={10} />{" "}
+                                        {errors.opening_time}
                                       </p>
                                     )}
                                   </div>
@@ -943,7 +1053,8 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                                     />
                                     {errors.closing_time && (
                                       <p className="text-[11px] text-red-400 flex items-center gap-1">
-                                        <AlertCircle size={10} /> {errors.closing_time}
+                                        <AlertCircle size={10} />{" "}
+                                        {errors.closing_time}
                                       </p>
                                     )}
                                   </div>
@@ -963,29 +1074,35 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                             </div>
                             <input
                               type="tel"
+                              inputMode="numeric"
                               value={form.contact_override}
-                              onChange={(e) => patch("contact_override", e.target.value)}
-                              placeholder="e.g. +91 98765 43210"
+                              onChange={(e) => {
+                                const digitsOnly = e.target.value
+                                  .replace(/\D/g, "")
+                                  .slice(0, 10);
+                                patch("contact_override", digitsOnly);
+                              }}
+                              placeholder="e.g. 9876543210"
                               maxLength={10}
-                              className={`
-                                w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-white/[0.04]
-                                border text-white placeholder-white/20
-                                focus:outline-none focus:ring-2 transition-all
-                                ${
-                                  errors.contact_override
-                                    ? "border-red-500/40 focus:ring-red-500/20"
-                                    : "border-white/10 focus:ring-white/10 focus:border-white/20"
-                                }
-                              `}
+                              className={` w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-white/[0.04]
+          border text-white placeholder-white/20
+          focus:outline-none focus:ring-2 transition-all
+          ${
+            errors.contact_override
+              ? "border-red-500/40 focus:ring-red-500/20"
+              : "border-white/10 focus:ring-white/10 focus:border-white/20"
+          } `}
                             />
                           </div>
                           {errors.contact_override ? (
                             <p className="text-[11px] text-red-400 flex items-center gap-1">
-                              <AlertCircle size={10} /> {errors.contact_override}
+                              <AlertCircle size={10} />{" "}
+                              {errors.contact_override}
                             </p>
                           ) : (
                             <p className="text-[10px] text-white/15">
-                              Required — customers will use this number to reach the branch
+                              Required — 10-digit mobile number for customer
+                              inquiries
                             </p>
                           )}
                         </div>
@@ -1002,7 +1119,10 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                 {/* Submit error */}
                 {submitErr && (
                   <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/[0.08] border border-red-500/20">
-                    <AlertCircle size={13} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <AlertCircle
+                      size={13}
+                      className="text-red-400 flex-shrink-0 mt-0.5"
+                    />
                     <p className="text-xs text-red-400">{submitErr}</p>
                   </div>
                 )}
@@ -1025,9 +1145,13 @@ const EditBranchModal = ({ isOpen, onClose, branch, isSuperAdmin, onSave }) => {
                   className="flex items-center gap-2 px-5 py-2 rounded-xl bg-white text-[#010015] text-sm font-semibold hover:bg-white/90 transition-all disabled:opacity-40"
                 >
                   {isSaving ? (
-                    <><Loader2 size={13} className="animate-spin" /> Saving...</>
+                    <>
+                      <Loader2 size={13} className="animate-spin" /> Saving...
+                    </>
                   ) : (
-                    <><Check size={13} /> Save Changes</>
+                    <>
+                      <Check size={13} /> Save Changes
+                    </>
                   )}
                 </button>
               </div>

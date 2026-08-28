@@ -137,7 +137,7 @@ export function BranchSelector({
                   { color: selected.isOpen ? "#16A34A" : colors.text.muted },
                 ]}
               >
-                {selected.isOpen ? "Open" : "Closed"}
+                {selected.statusMessage}
               </Text>
             </View>
           ) : null}
@@ -211,7 +211,7 @@ export function BranchSelector({
                         style={[styles.openDot, { backgroundColor: "#FFFFFF" }]}
                       />
                       <Text style={styles.previewBadgeText}>
-                        {draft.isOpen ? "Open now" : "Closed"}
+                        {draft.statusMessage}
                       </Text>
                     </View>
                     {draft.distanceKm != null ? (
@@ -417,7 +417,7 @@ export function BranchSelector({
                               },
                             ]}
                           >
-                            {branch.isOpen ? "Open" : "Closed"}
+                           {branch.statusMessage}
                           </Text>
                         </View>
                       )}

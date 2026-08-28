@@ -197,6 +197,28 @@ export const getPlaceDetails = async (req, res) => {
   }
 };
 
+// POST /api/marketplace/onboarding/banking
+export const postBanking = async (req, res) => {
+  try {
+    const data = await MarketplaceService.saveBanking(req.user.shop_id, req.body);
+    return success(res, data, "Banking details saved successfully");
+  } catch (error) {
+    console.error("[marketplace] postBanking error:", error);
+    return fail(res, error.message, 500);
+  }
+};
+
+// PATCH /api/marketplace/banking
+export const patchBanking = async (req, res) => {
+  try {
+    const data = await MarketplaceService.saveBanking(req.user.shop_id, req.body);
+    return success(res, data, "Banking details updated successfully");
+  } catch (error) {
+    console.error("[marketplace] patchBanking error:", error);
+    return fail(res, error.message, 500);
+  }
+};
+
 // POST /api/marketplace/upload/:type
 export const postUpload = (req, res) => {
   const { type } = req.params;

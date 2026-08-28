@@ -1,4 +1,4 @@
-// src/store/useMarketplaceStore.js
+// pharmacy-web/src/store/useMarketplaceStore.js
 
 import { create } from "zustand";
 import {
@@ -7,6 +7,7 @@ import {
   saveStorefront as apiSaveStorefront,
   saveBranchSelections as apiSaveBranchSelections,
   saveBranchConfig as apiSaveBranchConfig,
+  saveBanking as apiSaveBanking, // <-- Imported
   goLive as apiGoLive,
 } from "../api/marketplace";
 
@@ -42,6 +43,7 @@ function scheduleDraftSave(getState) {
         storefront: state.storefront,
         selectedBranchIds: state.selectedBranchIds,
         branchConfigs: cleanBranchConfigsForDraft(state.branchConfigs),
+        banking: state.banking, // <-- Added to draft save
       });
       getState().setLastSavedAt(new Date());
     } catch (err) {
@@ -53,14 +55,14 @@ function scheduleDraftSave(getState) {
 }
 
 export const useMarketplaceStore = create((set, get) => ({
-  // ── Status ────────────────────────────────
+  // Status
   marketplaceStatus: null,
   onboardingCompleted: false,
   isLive: false,
   isStatusLoaded: false,
   isStatusLoading: false,
 
-  // ── Onboarding wizard ─────────────────────
+  // Onboarding wizard
   currentStep: 1,
 
   storefront: {
@@ -71,32 +73,39 @@ export const useMarketplaceStore = create((set, get) => ({
     banner_url: null,
   },
 
+  // ── ADDED BANKING DEFAULT STATE ──────────────────────────
+  banking: {
+    bank_account_holder: "",
+    bank_name: "",
+    bank_branch_name: "",
+    bank_ifsc: "",
+    bank_account_number: "",
+    bank_mmid: "",
+    bank_vpa: "",
+  },
+  // ──────────────────────────────────────────────────────────
+
   selectedBranchIds: [],
   branchConfigs: {},
   allBranches: [],
   savedBranchSettings: [],
 
-  // ── Draft ─────────────────────────────────
+  // Draft
   isDraftSaving: false,
   lastSavedAt: null,
 
-  // ── Go-live ───────────────────────────────
+  // Go-live
   goLiveErrors: [],
   isGoingLive: false,
 
-  // ── Submission ────────────────────────────
+  // Submission
   isSubmitting: false,
   submitError: null,
 
-  // ─────────────────────────────────────────
-  // INTERNAL SETTERS
-  // ─────────────────────────────────────────
   setLastSavedAt: (time) => set({ lastSavedAt: time }),
   setDraftSaving: (val) => set({ isDraftSaving: val }),
 
-  // ─────────────────────────────────────────
   // LOAD STATUS
-  // ─────────────────────────────────────────
   loadStatus: async () => {
     if (get().isStatusLoading) return;
 
@@ -130,6 +139,10 @@ export const useMarketplaceStore = create((set, get) => ({
         if (draft.branchConfigs) {
           nextState.branchConfigs = draft.branchConfigs;
         }
+        // Restore banking draft
+        if (draft.banking) {
+          nextState.banking = { ...get().banking, ...draft.banking };
+        }
       }
 
       const savedBranchIds = new Set(
@@ -151,6 +164,7 @@ export const useMarketplaceStore = create((set, get) => ({
           open_days:           bs.open_days || ['MON','TUE','WED','THU','FRI','SAT','SUN'],
           pickup_enabled:      bs.pickup_enabled || false,
           delivery_enabled:    bs.delivery_enabled || false,
+          delivery_mode:       bs.delivery_mode || "CURELI", // <-- Map branch delivery mode
           contact_override:    bs.contact_override || null,
           _persisted:          true,
           _dirty:              false,
@@ -189,6 +203,19 @@ export const useMarketplaceStore = create((set, get) => ({
         };
       }
 
+      // Populate banking if not drafted
+      if (!draft?.banking) {
+        nextState.banking = {
+          bank_account_holder: data.bank_account_holder || "",
+          bank_name: data.bank_name || "",
+          bank_branch_name: data.bank_branch_name || "",
+          bank_ifsc: data.bank_ifsc || "",
+          bank_account_number: data.bank_account_number || "",
+          bank_mmid: data.bank_mmid || "",
+          bank_vpa: data.bank_vpa || "",
+        };
+      }
+
       set(nextState);
     } catch (err) {
       console.error("[marketplace] loadStatus error:", err);
@@ -196,17 +223,11 @@ export const useMarketplaceStore = create((set, get) => ({
     }
   },
 
-  // ─────────────────────────────────────────
-  // STEP NAVIGATION
-  // ─────────────────────────────────────────
   setStep: (step) => {
     set({ currentStep: step, isDraftSaving: true });
     scheduleDraftSave(get);
   },
 
-  // ─────────────────────────────────────────
-  // STOREFRONT UPDATES (Step 2)
-  // ─────────────────────────────────────────
   updateStorefront: (patch) => {
     set((state) => ({
       storefront: { ...state.storefront, ...patch },
@@ -215,9 +236,16 @@ export const useMarketplaceStore = create((set, get) => ({
     scheduleDraftSave(get);
   },
 
-  // ─────────────────────────────────────────
-  // BRANCH SELECTION (Step 3)
-  // ─────────────────────────────────────────
+  // ── ADDED UPDATE BANKING STATE ───────────────────────────
+  updateBanking: (patch) => {
+    set((state) => ({
+      banking: { ...state.banking, ...patch },
+      isDraftSaving: true,
+    }));
+    scheduleDraftSave(get);
+  },
+  // ──────────────────────────────────────────────────────────
+
   setSelectedBranches: (ids) => {
     set({ selectedBranchIds: ids, isDraftSaving: true });
     scheduleDraftSave(get);
@@ -232,9 +260,6 @@ export const useMarketplaceStore = create((set, get) => ({
     scheduleDraftSave(get);
   },
 
-  // ─────────────────────────────────────────
-  // BRANCH CONFIG (Step 4)
-  // ─────────────────────────────────────────
   updateBranchConfig: (branch_id, patch) => {
     set((state) => ({
       branchConfigs: {
@@ -269,6 +294,7 @@ export const useMarketplaceStore = create((set, get) => ({
           open_days:           ['MON','TUE','WED','THU','FRI','SAT','SUN'],
           pickup_enabled:      false,
           delivery_enabled:    false,
+          delivery_mode:       "CURELI", // <-- Default added here
           contact_override:    null,
           _persisted:          false,
           _dirty:              false,
@@ -277,9 +303,6 @@ export const useMarketplaceStore = create((set, get) => ({
     }));
   },
 
-  // ─────────────────────────────────────────
-  // STEP 2: SUBMIT STOREFRONT
-  // ─────────────────────────────────────────
   submitStorefront: async () => {
     set({ isSubmitting: true, submitError: null });
     try {
@@ -287,18 +310,12 @@ export const useMarketplaceStore = create((set, get) => ({
       set({ isSubmitting: false });
       return { success: true };
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to save storefront";
+      const message = err.response?.data?.message || err.message || "Failed to save storefront";
       set({ isSubmitting: false, submitError: message });
       return { success: false, error: message };
     }
   },
 
-  // ─────────────────────────────────────────
-  // STEP 3: SUBMIT BRANCH SELECTIONS
-  // ─────────────────────────────────────────
   submitBranchSelections: async () => {
     set({ isSubmitting: true, submitError: null });
     try {
@@ -306,18 +323,12 @@ export const useMarketplaceStore = create((set, get) => ({
       set({ isSubmitting: false });
       return { success: true };
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to save branch selections";
+      const message = err.response?.data?.message || err.message || "Failed to save branch selections";
       set({ isSubmitting: false, submitError: message });
       return { success: false, error: message };
     }
   },
 
-  // ─────────────────────────────────────────
-  // STEP 4: SUBMIT BRANCH CONFIG
-  // ─────────────────────────────────────────
   submitBranchConfig: async (branch_id) => {
     const config = get().branchConfigs[branch_id];
     if (!config) return { success: false, error: "Branch config not found" };
@@ -341,41 +352,41 @@ export const useMarketplaceStore = create((set, get) => ({
 
       return { success: true };
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to save branch config";
+      const message = err.response?.data?.message || err.message || "Failed to save branch config";
       set({ isSubmitting: false, submitError: message });
       return { success: false, error: message };
     }
   },
 
-  // ─────────────────────────────────────────
-  // STEP 6: GO LIVE
-  // ─────────────────────────────────────────
+  // ── ADDED SUBMIT BANKING METHOD ─────────────────────────
+  submitBanking: async () => {
+    set({ isSubmitting: true, submitError: null });
+    try {
+      await apiSaveBanking(get().banking);
+      set({ isSubmitting: false });
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || "Failed to save banking details";
+      set({ isSubmitting: false, submitError: message });
+      return { success: false, error: message };
+    }
+  },
+  // ──────────────────────────────────────────────────────────
 
-  // Phase 1 — API call only. Does NOT set isLive/marketplaceStatus.
-  // GoLiveStep calls this, waits for success, then shows the celebration.
   submitGoLive: async () => {
     set({ isGoingLive: true, goLiveErrors: [] });
     try {
       await apiGoLive();
-      // ← intentionally NOT setting isLive or marketplaceStatus here
-      //   so the navigate() effect in MarketplaceOnboardingPage doesn't
-      //   fire and kill the celebration before it renders.
       set({ isGoingLive: false });
       return { success: true };
     } catch (err) {
       const errors = err.response?.data?.errors || [];
-      const message =
-        err.response?.data?.message || err.message || "Go-live failed";
+      const message = err.response?.data?.message || err.message || "Go-live failed";
       set({ isGoingLive: false, goLiveErrors: errors });
       return { success: false, error: message, errors };
     }
   },
 
-  // Phase 2 — called by GoLiveStep AFTER the celebration finishes.
-  // NOW we flip the status flags which triggers the navigate() effect.
   confirmGoLive: () => {
     set({
       marketplaceStatus: "LIVE",
@@ -384,16 +395,10 @@ export const useMarketplaceStore = create((set, get) => ({
     });
   },
 
-  // ─────────────────────────────────────────
-  // INVALIDATE STATUS CACHE
-  // ─────────────────────────────────────────
   invalidateStatus: () => {
     set({ isStatusLoaded: false });
   },
 
-  // ─────────────────────────────────────────
-  // RESET (on logout)
-  // ─────────────────────────────────────────
   reset: () => {
     if (draftTimer) clearTimeout(draftTimer);
     set({
@@ -410,6 +415,15 @@ export const useMarketplaceStore = create((set, get) => ({
         logo_url: null,
         banner_url: null,
       },
+      banking: { // <-- Added to reset
+        bank_account_holder: "",
+        bank_name: "",
+        bank_branch_name: "",
+        bank_ifsc: "",
+        bank_account_number: "",
+        bank_mmid: "",
+        bank_vpa: "",
+      },
       selectedBranchIds: [],
       branchConfigs: {},
       allBranches: [],
@@ -424,9 +438,8 @@ export const useMarketplaceStore = create((set, get) => ({
   },
 }));
 
-// ─────────────────────────────────────────────
-// SELECTORS
-// ─────────────────────────────────────────────
+// Added Selectors
+export const selectBanking = (s) => s.banking;
 export const selectMarketplaceStatus = (s) => s.marketplaceStatus;
 export const selectIsLive = (s) => s.isLive;
 export const selectOnboardingCompleted = (s) => s.onboardingCompleted;

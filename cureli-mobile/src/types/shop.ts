@@ -15,23 +15,17 @@ export interface ShopBranch {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
-  /** Straight-line km from user. null if user location not provided. */
   distanceKm: number | null;
-  /** Computed server-side in IST from opening/closing times. */
   isOpen: boolean;
+  statusMessage: string;    // ◄◄ NEW — e.g. "Open until 9:30 PM", "Opens tomorrow at 9:00 AM"
   is24Hours: boolean;
   openingTime: string | null;
   closingTime: string | null;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   contact: string | null;
-  /** true = active, false = disabled by owner (show greyed in dropdown). */
   marketplaceEnabled: boolean;
   listedMedicineCount: number;
-  /**
-   * Reserved for future Google Maps Distance Matrix ETA.
-   * Always null currently. Do not remove — will be populated in future phase.
-   */
   deliveryTimeEstimate: string | null;
 }
 

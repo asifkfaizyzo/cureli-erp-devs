@@ -14,6 +14,7 @@ import {
   Phone,
   ImageIcon,
   X,
+  ShoppingBag,
 } from "lucide-react";
 import LocationPicker from "./LocationPicker";
 import TimePicker from "./TimePicker";
@@ -258,7 +259,6 @@ const BranchConfigCard = ({
                 done={!!config.shop_image_url}
               >
                 <div className="flex items-start gap-3">
-                  {/* Preview / upload zone */}
                   <div
                     className={`
                       relative w-24 h-24 rounded-xl border-2 border-dashed
@@ -270,7 +270,6 @@ const BranchConfigCard = ({
                       }
                     `}
                   >
-                    {/* Existing image */}
                     {config.shop_image_url && !isImageUploading && (
                       <>
                         <img
@@ -278,7 +277,6 @@ const BranchConfigCard = ({
                           alt="Branch"
                           className="absolute inset-0 w-full h-full object-cover"
                         />
-                        {/* Hover overlay — re-upload */}
                         <button
                           type="button"
                           onClick={() => imageInputRef.current?.click()}
@@ -288,7 +286,6 @@ const BranchConfigCard = ({
                         >
                           <ImageIcon size={14} className="text-white/70" />
                         </button>
-                        {/* Clear button */}
                         <button
                           type="button"
                           onClick={() => update({ shop_image_url: null })}
@@ -301,7 +298,6 @@ const BranchConfigCard = ({
                       </>
                     )}
 
-                    {/* Upload progress */}
                     {isImageUploading && (
                       <div
                         className="absolute inset-0 bg-black/60 flex flex-col
@@ -323,7 +319,6 @@ const BranchConfigCard = ({
                       </div>
                     )}
 
-                    {/* Empty state */}
                     {!config.shop_image_url && !isImageUploading && (
                       <button
                         type="button"
@@ -350,7 +345,6 @@ const BranchConfigCard = ({
                     />
                   </div>
 
-                  {/* Right-side hints */}
                   <div className="flex-1 pt-1 space-y-1">
                     <p className="text-[11px] text-white/30 leading-relaxed">
                       Shown on your branch's marketplace page. Helps customers
@@ -397,23 +391,64 @@ const BranchConfigCard = ({
                   required
                   done={!!isFulfillmentSet}
                 >
-                  <div className="grid grid-cols-2 gap-2">
-                    <ToggleChip
-                      icon={<Truck size={12} />}
-                      label="Pickup"
-                      active={config.pickup_enabled}
-                      onClick={() =>
-                        update({ pickup_enabled: !config.pickup_enabled })
-                      }
-                    />
-                    <ToggleChip
-                      icon={<Truck size={12} />}
-                      label="Delivery"
-                      active={config.delivery_enabled}
-                      onClick={() =>
-                        update({ delivery_enabled: !config.delivery_enabled })
-                      }
-                    />
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <ToggleChip
+                        icon={<ShoppingBag size={12} />}
+                        label="Pickup"
+                        active={config.pickup_enabled}
+                        onClick={() =>
+                          update({ pickup_enabled: !config.pickup_enabled })
+                        }
+                      />
+                      <ToggleChip
+                        icon={<Truck size={12} />}
+                        label="Delivery"
+                        active={config.delivery_enabled}
+                        onClick={() =>
+                          update({ delivery_enabled: !config.delivery_enabled })
+                        }
+                      />
+                    </div>
+
+                    {/* ── Delivery Provider Selector (Shown when delivery enabled) ── */}
+                    {config.delivery_enabled && (
+                      <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+                        <p className="text-[10px] text-white/30 uppercase font-semibold">
+                          Delivery Service Provider
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => update({ delivery_mode: "CURELI" })}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              (config.delivery_mode || "CURELI") === "CURELI"
+                                ? "bg-white/10 border-white/20 text-white"
+                                : "bg-white/[0.02] border-white/[0.04] text-white/30 hover:border-white/10"
+                            }`}
+                          >
+                            <p className="text-xs font-semibold">Cureli Riders</p>
+                            <p className="text-[9px] text-white/30 mt-0.5 leading-tight">
+                              Cureli delivery fleet
+                            </p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => update({ delivery_mode: "SELF" })}
+                            className={`p-2 rounded-lg border text-left transition-all ${
+                              config.delivery_mode === "SELF"
+                                ? "bg-white/10 border-white/20 text-white"
+                                : "bg-white/[0.02] border-white/[0.04] text-white/30 hover:border-white/10"
+                            }`}
+                          >
+                            <p className="text-xs font-semibold">Own Riders</p>
+                            <p className="text-[9px] text-white/30 mt-0.5 leading-tight">
+                              Pharmacy's delivery boys
+                            </p>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </Section>
 
@@ -448,7 +483,7 @@ const BranchConfigCard = ({
                       <span className="text-xs text-white/50">24 hours</span>
                     </div>
 
-                    {/* Open days — always shown regardless of 24h toggle */}
+                    {/* Open days */}
                     <div className="space-y-1">
                       <p className="text-[10px] text-white/25">Open days</p>
                       <DaySelector
@@ -457,7 +492,7 @@ const BranchConfigCard = ({
                       />
                     </div>
 
-                    {/* Time pickers — only when not 24h */}
+                    {/* Time pickers */}
                     {!config.is_24_hours && (
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -533,7 +568,7 @@ const BranchConfigCard = ({
                 </div>
               )}
 
-              {/* Save */}
+              {/* Save Button */}
               <button
                 type="button"
                 onClick={handleSave}

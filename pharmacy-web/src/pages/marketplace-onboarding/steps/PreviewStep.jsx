@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/steps/PreviewStep.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/steps/PreviewStep.jsx
 
 import {
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   Truck,
   Phone,
   Eye,
+  Landmark, // <-- Imported
 } from "lucide-react";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
 
@@ -22,6 +23,7 @@ const resolveImageUrl = (url) => {
 
 const PreviewStep = ({ onNext, onBack }) => {
   const storefront = useMarketplaceStore((s) => s.storefront);
+  const banking = useMarketplaceStore((s) => s.banking); // <-- Fetched
   const allBranches = useMarketplaceStore((s) => s.allBranches);
   const selectedBranchIds = useMarketplaceStore((s) => s.selectedBranchIds);
   const branchConfigs = useMarketplaceStore((s) => s.branchConfigs);
@@ -35,20 +37,12 @@ const PreviewStep = ({ onNext, onBack }) => {
   const logoSrc = resolveImageUrl(storefront.logo_url);
   const bannerSrc = resolveImageUrl(storefront.banner_url);
 
-  // Build checklist
+  // Expanded checklist tracking banking state
   const checks = [
     {
       label: "Storefront name",
       done: !!storefront.storefront_name?.trim(),
       value: storefront.storefront_name,
-    },
-    {
-      label: "Description",
-      done: !!storefront.storefront_description?.trim(),
-      value: storefront.storefront_description
-        ? storefront.storefront_description.slice(0, 60) +
-          (storefront.storefront_description.length > 60 ? "..." : "")
-        : null,
     },
     {
       label: "Support phone",
@@ -58,6 +52,11 @@ const PreviewStep = ({ onNext, onBack }) => {
     {
       label: "Logo uploaded",
       done: !!storefront.logo_url,
+    },
+    {
+      label: "Banking details", // <-- Added
+      done: !!(banking.bank_account_holder?.trim() && banking.bank_account_number?.trim() && banking.bank_ifsc?.trim()),
+      value: banking.bank_account_number ? `Acc: *${banking.bank_account_number.slice(-4)}` : "Missing Details",
     },
     {
       label: "Branches enabled",
@@ -82,10 +81,9 @@ const PreviewStep = ({ onNext, onBack }) => {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* ── Left: Storefront preview ───────────────────────────── */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* Storefront card visual preview */}
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
-            {/* Banner area */}
             <div className="relative h-32">
               {bannerSrc ? (
                 <img
@@ -100,7 +98,6 @@ const PreviewStep = ({ onNext, onBack }) => {
                 </div>
               )}
 
-              {/* Logo */}
               <div
                 className="absolute -bottom-6 left-5 w-14 h-14 rounded-2xl
                 bg-[#0d0a2e] border-2 border-white/[0.08] shadow-lg
@@ -118,7 +115,6 @@ const PreviewStep = ({ onNext, onBack }) => {
               </div>
             </div>
 
-            {/* Store info */}
             <div className="px-5 pt-9 pb-5">
               <h3 className="text-lg font-bold text-white leading-tight">
                 {storefront.storefront_name || (
@@ -140,7 +136,7 @@ const PreviewStep = ({ onNext, onBack }) => {
                 </div>
               )}
 
-              {/* Branches */}
+              {/* Branches (Lists configs with Delivery mode badge) */}
               {enabledBranches.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-white/[0.06]">
                   <p className="text-[10px] font-semibold text-white/25 uppercase tracking-wider mb-3">
@@ -180,8 +176,8 @@ const PreviewStep = ({ onNext, onBack }) => {
                                   </span>
                                 )}
                                 {cfg.delivery_enabled && (
-                                  <span className="text-[9px] text-white/25 px-1.5 py-0.5 rounded bg-white/[0.04]">
-                                    Delivery
+                                  <span className="text-[9px] text-white/25 px-1.5 py-0.5 rounded bg-white/[0.04] inline-flex items-center gap-1">
+                                    Delivery ({cfg.delivery_mode === "SELF" ? "Self" : "Cureli"})
                                   </span>
                                 )}
                               </div>
@@ -199,26 +195,44 @@ const PreviewStep = ({ onNext, onBack }) => {
                   </div>
                 </div>
               )}
-
-              {/* Mock CTA */}
-              <div className="mt-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.08]
-                flex items-center justify-center">
-                <span className="text-xs text-white/30 font-semibold">
-                  Order Now
-                </span>
-              </div>
             </div>
           </div>
 
-          <p className="text-[10px] text-white/15 text-center mt-2 flex items-center justify-center gap-1">
-            <Eye size={10} /> How customers will see your storefront
-          </p>
+          {/* ── ADDED BANKING SUMMARY CARD ────────────────────────── */}
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Landmark size={14} className="text-white/40" />
+              <p className="text-xs font-semibold text-white/60">Settlement Account details</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="text-white/20">Holder</p>
+                <p className="text-white/70 font-medium mt-0.5">{banking.bank_account_holder || "-"}</p>
+              </div>
+              <div>
+                <p className="text-white/20">Account Number</p>
+                <p className="text-white/70 font-mono mt-0.5">
+                  {banking.bank_account_number ? `•••• •••• ${banking.bank_account_number.slice(-4)}` : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-white/20">Bank Name</p>
+                <p className="text-white/70 font-medium mt-0.5">{banking.bank_name || "-"}</p>
+              </div>
+              <div>
+                <p className="text-white/20">IFSC & Branch</p>
+                <p className="text-white/70 font-mono mt-0.5 uppercase">
+                  {banking.bank_ifsc || "-"} ({banking.bank_branch_name || "-"})
+                </p>
+              </div>
+            </div>
+          </div>
+          {/* ────────────────────────────────────────────────────────── */}
         </div>
 
-        {/* ── Right: Checklist + nav ──────────────────────────────── */}
+        {/* Right column (Summary/checks + Actions) */}
         <div className="w-full lg:w-[280px] flex-shrink-0">
           <div className="lg:sticky lg:top-4 space-y-4">
-            {/* Checklist */}
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
               <p className="text-xs font-semibold text-white/50 mb-3">
                 Setup Checklist
@@ -266,39 +280,6 @@ const PreviewStep = ({ onNext, onBack }) => {
               )}
             </div>
 
-            {/* Summary stats */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Building2 size={11} className="text-white/20" />
-                  <span className="text-[10px] text-white/25">Branches</span>
-                </div>
-                <p className="text-sm font-bold text-white/60">
-                  {enabledBranches.length}
-                </p>
-              </div>
-              <div className="px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Truck size={11} className="text-white/20" />
-                  <span className="text-[10px] text-white/25">Fulfillment</span>
-                </div>
-                <p className="text-sm font-bold text-white/60">
-                  {[
-                    ...new Set(
-                      enabledBranches.flatMap((b) => {
-                        const cfg = branchConfigs[b.branch_id] || {};
-                        const modes = [];
-                        if (cfg.pickup_enabled) modes.push("Pickup");
-                        if (cfg.delivery_enabled) modes.push("Delivery");
-                        return modes;
-                      })
-                    ),
-                  ].join(", ") || "None"}
-                </p>
-              </div>
-            </div>
-
-            {/* Navigation */}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -313,9 +294,10 @@ const PreviewStep = ({ onNext, onBack }) => {
               <button
                 type="button"
                 onClick={onNext}
+                disabled={!allChecked}
                 className="flex-[2] py-2.5 bg-white text-[#010015] rounded-xl
-                  font-bold text-sm hover:bg-white/90 active:scale-[0.98]
-                  transition-all flex items-center justify-center gap-2"
+                  font-bold text-sm hover:bg-white/90 disabled:opacity-50
+                  disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >
                 Continue <ArrowRight size={14} />
               </button>

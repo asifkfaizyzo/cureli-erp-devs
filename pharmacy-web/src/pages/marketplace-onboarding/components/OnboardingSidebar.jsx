@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/components/OnboardingSidebar.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/components/OnboardingSidebar.jsx
 
 import {
   Check,
@@ -6,19 +6,22 @@ import {
   Store,
   Building2,
   Settings,
+  Landmark, // <-- Imported
   Eye,
   Rocket,
   ChevronRight,
 } from "lucide-react";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
 
+// Expanded Steps Schema
 const STEPS = [
   { id: 1, label: "Welcome", description: "Get started", icon: Sparkles },
   { id: 2, label: "Storefront", description: "Name, logo & contact", icon: Store },
   { id: 3, label: "Branches", description: "Select locations", icon: Building2 },
   { id: 4, label: "Configure", description: "Hours & fulfillment", icon: Settings },
-  { id: 5, label: "Preview", description: "Review storefront", icon: Eye },
-  { id: 6, label: "Go Live", description: "Launch marketplace", icon: Rocket },
+  { id: 5, label: "Banking", description: "Payment settlements", icon: Landmark }, // <-- New Step
+  { id: 6, label: "Preview", description: "Review storefront", icon: Eye },
+  { id: 7, label: "Go Live", description: "Launch marketplace", icon: Rocket },
 ];
 
 const OnboardingSidebar = ({ currentStep, onStepClick }) => {
@@ -40,7 +43,6 @@ const OnboardingSidebar = ({ currentStep, onStepClick }) => {
       className="hidden lg:flex flex-col w-[260px] flex-shrink-0
       h-full border-r border-white/[0.06] bg-white/[0.015]"
     >
-      {/* ── Brand header ──────────────────────────────────────── */}
       <div className="px-5 pt-5 pb-4 flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div
@@ -60,7 +62,6 @@ const OnboardingSidebar = ({ currentStep, onStepClick }) => {
 
       <div className="mx-5 h-px bg-white/[0.06] flex-shrink-0" />
 
-      {/* ── Step list — fills remaining space, scrolls if needed ── */}
       <nav className="flex-1 min-h-0 px-3 py-3 overflow-y-auto">
         <div className="space-y-0.5">
           {STEPS.map((step, index) => {
@@ -71,7 +72,6 @@ const OnboardingSidebar = ({ currentStep, onStepClick }) => {
 
             return (
               <div key={step.id} className="relative">
-                {/* Connector line */}
                 {index < STEPS.length - 1 && (
                   <div
                     className={`
@@ -155,28 +155,25 @@ const OnboardingSidebar = ({ currentStep, onStepClick }) => {
 
       <div className="mx-5 h-px bg-white/[0.06] flex-shrink-0" />
 
-      {/* ── Bottom: progress + save ────────────────────────────── */}
       <div className="px-5 py-3 flex-shrink-0 space-y-2.5">
-        {/* Progress bar */}
         <div>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-white/25 font-medium">
               Progress
             </span>
             <span className="text-[10px] text-white/35 font-semibold">
-              {Math.round(((currentStep - 1) / 5) * 100)}%
+              {Math.round(((currentStep - 1) / 6) * 100)}% {/* Adjusted percentage scaling */}
             </span>
           </div>
           <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500
                 transition-all duration-500 ease-out"
-              style={{ width: `${((currentStep - 1) / 5) * 100}%` }}
+              style={{ width: `${((currentStep - 1) / 6) * 100}%` }}
             />
           </div>
         </div>
 
-        {/* Save status */}
         <div className="flex items-center gap-1.5">
           {isDraftSaving ? (
             <>

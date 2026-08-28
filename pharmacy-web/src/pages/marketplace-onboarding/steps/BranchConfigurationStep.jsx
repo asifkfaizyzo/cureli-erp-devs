@@ -1,7 +1,7 @@
 // src/pages/marketplace-onboarding/steps/BranchConfigurationStep.jsx
 
 import { useState, useMemo, useCallback } from "react";
-import { ArrowRight, ArrowLeft, MapPin } from "lucide-react";
+import { ArrowRight, ArrowLeft, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
 import { useGoogleMaps } from "../../../hooks/useGoogleMaps";
 import BranchConfigCard from "../components/BranchConfigCard";
@@ -12,18 +12,23 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
   const selectedBranchIds = useMarketplaceStore((s) => s.selectedBranchIds);
   const branchConfigs = useMarketplaceStore((s) => s.branchConfigs);
   const updateBranchConfig = useMarketplaceStore((s) => s.updateBranchConfig);
+  const submitBranchConfig = useMarketplaceStore((s) => s.submitBranchConfig);
 
   const { isLoaded, loadError } = useGoogleMaps();
 
   const [activeBranchId, setActiveBranchId] = useState(null);
+  const [isSubmittingAll, setIsSubmittingAll] = useState(false);
+  const [submitAllError, setSubmitAllError] = useState(null);
 
   const selectedBranches = allBranches.filter((b) =>
     selectedBranchIds.includes(b.branch_id)
   );
 
-  const enabledCount = selectedBranches.filter(
+  const enabledBranches = selectedBranches.filter(
     (b) => branchConfigs[b.branch_id]?.marketplace_enabled
-  ).length;
+  );
+
+  const enabledCount = enabledBranches.length;
 
   const mappableBranches = useMemo(() => {
     return selectedBranches
@@ -64,6 +69,30 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
     },
     [branchConfigs, updateBranchConfig]
   );
+
+  // Auto-save all enabled branches to DB before advancing to Banking step
+  const handleContinue = async () => {
+    setSubmitAllError(null);
+    if (enabledCount === 0) return;
+
+    setIsSubmittingAll(true);
+
+    try {
+      for (const b of enabledBranches) {
+        const res = await submitBranchConfig(b.branch_id);
+        if (!res.success) {
+          throw new Error(
+            `${b.branch_name}: ${res.error || "Failed to save configuration"}`
+          );
+        }
+      }
+      onNext();
+    } catch (err) {
+      setSubmitAllError(err.message);
+    } finally {
+      setIsSubmittingAll(false);
+    }
+  };
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -115,28 +144,44 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
               </div>
             )}
 
+            {submitAllError && (
+              <div className="px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-2">
+                <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-400">{submitAllError}</p>
+              </div>
+            )}
+
             {/* Navigation — desktop only, sits under map */}
             <div className="hidden lg:flex gap-3">
               <button
                 type="button"
                 onClick={onBack}
+                disabled={isSubmittingAll}
                 className="flex-1 py-2.5 rounded-xl border border-white/10
                   text-white/50 text-sm font-medium hover:border-white/20
-                  hover:text-white/70 transition-all flex items-center
-                  justify-center gap-2"
+                  hover:text-white/70 disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-all flex items-center justify-center gap-2"
               >
                 <ArrowLeft size={14} /> Back
               </button>
               <button
                 type="button"
-                onClick={onNext}
-                disabled={enabledCount === 0}
+                onClick={handleContinue}
+                disabled={enabledCount === 0 || isSubmittingAll}
                 className="flex-[2] py-2.5 bg-white text-[#010015] rounded-xl
                   font-bold text-sm hover:bg-white/90 disabled:opacity-50
                   disabled:cursor-not-allowed transition-all flex items-center
                   justify-center gap-2"
               >
-                Continue to Preview <ArrowRight size={14} />
+                {isSubmittingAll ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Saving Branches...
+                  </>
+                ) : (
+                  <>
+                    Continue to Banking <ArrowRight size={14} />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -163,23 +208,32 @@ const BranchConfigurationStep = ({ onNext, onBack }) => {
         <button
           type="button"
           onClick={onBack}
+          disabled={isSubmittingAll}
           className="flex-1 py-3 rounded-xl border border-white/10
             text-white/50 text-sm font-medium hover:border-white/20
-            hover:text-white/70 transition-all flex items-center
-            justify-center gap-2"
+            hover:text-white/70 disabled:opacity-50 disabled:cursor-not-allowed
+            transition-all flex items-center justify-center gap-2"
         >
           <ArrowLeft size={14} /> Back
         </button>
         <button
           type="button"
-          onClick={onNext}
-          disabled={enabledCount === 0}
+          onClick={handleContinue}
+          disabled={enabledCount === 0 || isSubmittingAll}
           className="flex-[2] py-3 bg-white text-[#010015] rounded-xl
             font-bold text-sm hover:bg-white/90 disabled:opacity-50
             disabled:cursor-not-allowed transition-all flex items-center
             justify-center gap-2"
         >
-          Continue to Preview <ArrowRight size={14} />
+          {isSubmittingAll ? (
+            <>
+              <Loader2 size={14} className="animate-spin" /> Saving...
+            </>
+          ) : (
+            <>
+              Continue to Banking <ArrowRight size={14} />
+            </>
+          )}
         </button>
       </div>
     </div>

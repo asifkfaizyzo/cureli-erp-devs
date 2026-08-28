@@ -1,7 +1,8 @@
-// src/pages/marketplace/MarketplaceStorefrontPage.jsx
+// pharmacy-web/src/pages/marketplace-storefront/MarketplaceStorefrontPage.jsx
 
 import { useEffect, useState } from "react";
 import { AnimatePresence } from "framer-motion";
+import { Landmark, Edit3 } from "lucide-react"; // <-- Imported icons
 
 import { useStorefrontPage } from "../../hooks/marketplace/useStorefrontPage";
 import { usePermission } from "../../hooks/usePermission";
@@ -10,6 +11,8 @@ import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { PERMISSIONS } from "../../config/permissions";
 import EditBrandingModal from "./components/EditBrandingModal";
 import EditBranchModal from "./components/EditBranchModal";
+import EditBankingModal from "./components/EditBankingModal"; // <-- Imported new modal
+import { updateBankingDetails } from "../../api/marketplace"; // <-- Imported PATCH handler
 
 // Layout components
 import PageSkeleton from "./components/PageSkeleton";
@@ -58,12 +61,9 @@ const MarketplaceStorefrontPage = () => {
 
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: null });
   const [brandingModalOpen, setBrandingModalOpen] = useState(false);
+  const [bankingModalOpen, setBankingModalOpen] = useState(false); // <-- Modal state added
   const [branchModal, setBranchModal]             = useState({ open: false, branch: null });
 
-  // ── Load on mount / when role context changes ─────────────────
-  // No in-flight bail here — the hook's loadIdRef handles
-  // last-call-wins, so StrictMode's double-invoke is harmless:
-  // call #1 is stamped stale the moment call #2 increments loadIdRef.
   useEffect(() => {
     load({ isSuperAdmin, branchId });
   }, [load, isSuperAdmin, branchId]);
@@ -120,7 +120,20 @@ const MarketplaceStorefrontPage = () => {
     return result;
   };
 
-  // ── Render guards ─────────────────────────────────────────────
+  // ── ADDED BANKING SAVE HANDLER ───────────────────────────────
+  const handleBankingSave = async (data) => {
+    try {
+      await updateBankingDetails(data);
+      toast.success("Banking updated", "Settlement details have been updated.");
+      await refresh(); // Force refresh parent payload to update read values
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || "Failed to update banking details";
+      toast.error("Save failed", message);
+      return { success: false, error: message };
+    }
+  };
+  // ─────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -138,7 +151,6 @@ const MarketplaceStorefrontPage = () => {
     );
   }
 
-  // Not loading, no error, but no data — offer recovery instead of blank page.
   if (!storefront) {
     return (
       <div className="min-h-screen bg-[#010015]">
@@ -146,8 +158,6 @@ const MarketplaceStorefrontPage = () => {
       </div>
     );
   }
-
-  // ── Main render ───────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-[#010015]">
@@ -186,6 +196,74 @@ const MarketplaceStorefrontPage = () => {
           onEditBranding={() => setBrandingModalOpen(true)}
         />
 
+        {/* ── ADDED SETTLEMENT ACCOUNT CARD VIEW ─────────────────── */}
+        {isSuperAdmin && (
+          <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center">
+                  <Landmark size={15} className="text-white/50" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Settlement Account</h3>
+                  <p className="text-[11px] text-white/30 mt-0.5">
+                    Manual payouts are routed to this account
+                  </p>
+                </div>
+              </div>
+
+              {canManage && (
+                <button
+                  onClick={() => setBankingModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10
+                    text-white/50 text-xs font-medium hover:border-white/20 hover:text-white/70 transition-all"
+                >
+                  <Edit3 size={11} /> Edit Bank Account
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 text-xs">
+              <div className="px-3.5 py-3 bg-white/[0.015] border border-white/[0.03] rounded-xl">
+                <p className="text-white/20">Account Holder</p>
+                <p className="text-white/70 font-medium mt-1">
+                  {storefront.bank_account_holder || <span className="text-white/10">Not configured</span>}
+                </p>
+              </div>
+
+              <div className="px-3.5 py-3 bg-white/[0.015] border border-white/[0.03] rounded-xl">
+                <p className="text-white/20">Account Number</p>
+                <p className="text-white/70 font-mono mt-1">
+                  {storefront.bank_account_number ? (
+                    `•••• •••• ${storefront.bank_account_number.slice(-4)}`
+                  ) : (
+                    <span className="text-white/10">Not configured</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="px-3.5 py-3 bg-white/[0.015] border border-white/[0.03] rounded-xl">
+                <p className="text-white/20">Bank Name</p>
+                <p className="text-white/70 font-medium mt-1">
+                  {storefront.bank_name || <span className="text-white/10">Not configured</span>}
+                </p>
+              </div>
+
+              <div className="px-3.5 py-3 bg-white/[0.015] border border-white/[0.03] rounded-xl">
+                <p className="text-white/20">IFSC & Branch</p>
+                <p className="text-white/70 font-mono mt-1 uppercase">
+                  {storefront.bank_ifsc ? (
+                    `${storefront.bank_ifsc} (${storefront.bank_branch_name || "N/A"})`
+                  ) : (
+                    <span className="text-white/10">Not configured</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ───────────────────────────────────────────────────────── */}
+
         <BranchOperations
           branches={branches}
           branchesError={branchesError}
@@ -203,7 +281,7 @@ const MarketplaceStorefrontPage = () => {
         <div className="h-6" />
       </div>
 
-      {/* ── Modals & Dialogs ───────────────────────────────────── */}
+      {/* ── Modals & Dialogs ── */}
 
       <ConfirmDialog
         isOpen={confirmDialog.open}
@@ -234,6 +312,15 @@ const MarketplaceStorefrontPage = () => {
         isUploading={isUploading}
         uploadProgress={uploadProgress}
       />
+
+      {/* ── INJECTED BANKING MODAL RENDERING ────────────────────── */}
+      <EditBankingModal
+        isOpen={bankingModalOpen}
+        onClose={() => setBankingModalOpen(false)}
+        banking={storefront} // storefront contains banking fields
+        onSave={handleBankingSave}
+      />
+      {/* ───────────────────────────────────────────────────────── */}
 
       <EditBranchModal
         isOpen={branchModal.open}

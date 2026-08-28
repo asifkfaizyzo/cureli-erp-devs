@@ -1,4 +1,4 @@
-// src/pages/marketplace-onboarding/steps/GoLiveStep.jsx
+// pharmacy-web/src/pages/marketplace-onboarding/steps/GoLiveStep.jsx
 
 import { useState } from "react";
 import {
@@ -7,16 +7,11 @@ import {
   Rocket,
   AlertCircle,
   Check,
-  ExternalLink,
   ShieldCheck,
   Globe,
-  ArrowRight,
-  Eye,
 } from "lucide-react";
 import { useMarketplaceStore } from "../../../store/useMarketplaceStore";
 import GoLiveCelebration from "../components/GoLiveCelebration";
-
-const DEV_MODE = import.meta.env.DEV;
 
 const GoLiveStep = ({ onBack }) => {
   const submitGoLive = useMarketplaceStore((s) => s.submitGoLive);
@@ -29,7 +24,6 @@ const GoLiveStep = ({ onBack }) => {
   const branchConfigs = useMarketplaceStore((s) => s.branchConfigs);
 
   const [showCelebration, setShowCelebration] = useState(false);
-  const [devPreview, setDevPreview] = useState(false);
   const [submitError, setSubmitError] = useState(null);
 
   const enabledBranches = allBranches.filter(
@@ -50,32 +44,13 @@ const GoLiveStep = ({ onBack }) => {
       return;
     }
 
-    // API succeeded — show celebration.
-    // marketplaceStatus is still NOT "LIVE" at this point so the
-    // navigate() effect in MarketplaceOnboardingPage won't fire yet.
     setShowCelebration(true);
   };
 
   const handleCelebrationComplete = () => {
-    if (devPreview) {
-      // Dev preview — just close, don't flip live state
-      setShowCelebration(false);
-      setDevPreview(false);
-      return;
-    }
-
-    // Real go-live — NOW flip the status flags.
-    // This triggers the useEffect in MarketplaceOnboardingPage which
-    // navigates to /marketplace/dashboard.
     confirmGoLive();
   };
 
-  const handleDevPreview = () => {
-    setDevPreview(true);
-    setShowCelebration(true);
-  };
-
-  // ─── Celebration overlay ───────────────────────────────────────
   if (showCelebration) {
     return (
       <GoLiveCelebration
@@ -85,11 +60,25 @@ const GoLiveStep = ({ onBack }) => {
     );
   }
 
-  // ─── Pre-launch state ──────────────────────────────────────────
+  // Safely stringify error entries whether they are strings or {field, message} objects
+  const renderErrorText = (err) => {
+    if (!err) return "Unknown error";
+    if (typeof err === "string") return err;
+    if (typeof err === "object") {
+      if (err.message) return err.message;
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return "Unknown error";
+      }
+    }
+    return String(err);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Left — launch prompt */}
+        {/* Left column */}
         <div className="flex-1">
           <div
             className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center
@@ -107,7 +96,6 @@ const GoLiveStep = ({ onBack }) => {
             listing at any time.
           </p>
 
-          {/* What happens list */}
           <div className="space-y-3 mb-8">
             {[
               {
@@ -143,7 +131,6 @@ const GoLiveStep = ({ onBack }) => {
             ))}
           </div>
 
-          {/* Store-level go-live errors */}
           {goLiveErrors.length > 0 && (
             <div
               className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
@@ -158,14 +145,13 @@ const GoLiveStep = ({ onBack }) => {
               <ul className="ml-6 space-y-1">
                 {goLiveErrors.map((err, i) => (
                   <li key={i} className="text-xs text-red-400/80 list-disc">
-                    {err}
+                    {renderErrorText(err)}
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Top-level submit error */}
           {submitError && (
             <div
               className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border
@@ -176,7 +162,6 @@ const GoLiveStep = ({ onBack }) => {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3">
             <button
               type="button"
@@ -209,11 +194,9 @@ const GoLiveStep = ({ onBack }) => {
               )}
             </button>
           </div>
-
-          
         </div>
 
-        {/* Right — launch summary card */}
+        {/* Right column */}
         <div className="w-full lg:w-[280px] flex-shrink-0">
           <div className="lg:sticky lg:top-4 space-y-4">
             <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -274,7 +257,7 @@ const GoLiveStep = ({ onBack }) => {
                             )}
                             {cfg.delivery_enabled && (
                               <span className="text-[8px] text-white/20">
-                                Delivery
+                                Delivery ({cfg.delivery_mode === "SELF" ? "Self" : "Cureli"})
                               </span>
                             )}
                           </div>
@@ -288,20 +271,6 @@ const GoLiveStep = ({ onBack }) => {
                   })}
                 </div>
               </div>
-            </div>
-
-            <div
-              className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl
-              bg-white/[0.02] border border-white/[0.06]"
-            >
-              <ShieldCheck
-                size={14}
-                className="text-white/20 flex-shrink-0 mt-0.5"
-              />
-              <p className="text-[10px] text-white/25 leading-relaxed">
-                You can suspend your marketplace listing or edit any details at
-                any time from the dashboard.
-              </p>
             </div>
           </div>
         </div>

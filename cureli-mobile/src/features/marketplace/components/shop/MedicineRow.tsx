@@ -1,354 +1,262 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  Pressable,
-  StyleSheet,
-} from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
+// cureli-mobile/src/features/marketplace/components/shop/MedicineRow.tsx
+//
+// Individual medicine row on the mobile shop page.
+// Supports branch-closed states.
+
+import React, { useCallback } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Typography } from "../../../../theme/typography";
 import { Spacing } from "../../../../theme/spacing";
 import { Radius } from "../../../../theme/radius";
-import { getPlaceholder } from "../../../../utils/placeholderImage";
+import { RemoteImage } from "../../../../components/RemoteImage";
 import type { useTheme } from "../../../../theme/ThemeContext";
 import type { EnrichedBranchMedicine } from "../../hooks/useShopMedicines";
 
-interface MedicineRowProps {
+export interface MedicineRowProps {
   item: EnrichedBranchMedicine;
-  cartQuantity: number;
   onAdd: (item: EnrichedBranchMedicine) => void;
   onIncrement: (item: EnrichedBranchMedicine) => void;
   onDecrement: (item: EnrichedBranchMedicine) => void;
+  cartQuantity: number;
   colors: ReturnType<typeof useTheme>["colors"];
   isDark: boolean;
+  isBranchClosed?: boolean; // ◄◄ Explicitly declared optional prop
 }
 
 export function MedicineRow({
   item,
-  cartQuantity,
   onAdd,
   onIncrement,
   onDecrement,
+  cartQuantity,
   colors,
   isDark,
+  isBranchClosed = false,
 }: MedicineRowProps) {
-  const scale = useSharedValue(1);
-  const placeholder = getPlaceholder(isDark);
+  const handleAdd = useCallback(() => {
+    if (!isBranchClosed) onAdd(item);
+  }, [onAdd, item, isBranchClosed]);
 
-  const [imageReady, setImageReady] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const handleIncrement = useCallback(() => {
+    if (!isBranchClosed) onIncrement(item);
+  }, [onIncrement, item, isBranchClosed]);
 
-  useEffect(() => {
-    setImageReady(false);
-    setImageError(false);
-  }, [item.image]);
+  const handleDecrement = useCallback(() => {
+    if (!isBranchClosed) onDecrement(item);
+  }, [onDecrement, item, isBranchClosed]);
 
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = useCallback(() => {
-    scale.value = withTiming(0.98, { duration: 80 });
-  }, [scale]);
-
-  const handlePressOut = useCallback(() => {
-    scale.value = withTiming(1, { duration: 100 });
-  }, [scale]);
-
-  const handlePressCard = useCallback(() => {
-    router.push(`/product/${item.skuId}` as any);
-  }, [item.skuId]);
-
-  const handleAdd = useCallback(() => onAdd(item), [onAdd, item]);
-  const handleIncrement = useCallback(
-    () => onIncrement(item),
-    [onIncrement, item],
-  );
-  const handleDecrement = useCallback(
-    () => onDecrement(item),
-    [onDecrement, item],
-  );
-
-  const displayPrice = item.listingPrice ?? item.marketplace.startsAt;
-  const hasRealPrice = item.listingPrice != null;
   const inCart = cartQuantity > 0;
 
-  const showPlaceholder = !item.image || !imageReady || imageError;
-
   return (
-    <Animated.View style={animStyle}>
-      <Pressable
-        onPress={handlePressCard}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[
-          styles.row,
-          {
-            backgroundColor: colors.background.card,
-            borderColor: colors.border.default,
-          },
-        ]}
-      >
-        {/* ── Image ── */}
-        <View
-          style={[
-            styles.imageWrap,
-            {
-              backgroundColor: colors.background.elevated,
-              borderColor: colors.border.subtle,
-            },
-          ]}
+    <View
+      style={[
+        styles.row,
+        {
+          backgroundColor: colors.background.card,
+          borderBottomColor: colors.border.subtle,
+          // Visually dim item card if branch is offline
+          opacity: isBranchClosed ? 0.55 : 1,
+        },
+      ]}
+    >
+      <View style={styles.leftCol}>
+        <RemoteImage
+          uri={item.image ?? null}
+          style={[styles.thumbnail, { backgroundColor: colors.background.tint }]}
+          resizeMode="cover"
+          mode="medicine"
+          fallbackIcon="medical"
+          fallbackIconSize={24}
+          fallbackIconColor={colors.text.brand}
+        />
+      </View>
+
+      <View style={styles.midCol}>
+        <Text
+          style={[styles.name, { color: colors.text.primary }]}
+          numberOfLines={2}
         >
-          {/* Placeholder only while loading / on error / no image */}
-          {showPlaceholder ? (
-            <Image
-              source={placeholder}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          ) : null}
+          {item.name}
+        </Text>
 
-          {/* Real image */}
-          {item.image && !imageError ? (
-            <Image
-              source={{ uri: item.image }}
+        {item.brand ? (
+          <Text style={[styles.brand, { color: colors.text.secondary }]}>
+            {item.brand}
+          </Text>
+        ) : null}
+
+        {item.packSize ? (
+          <Text style={[styles.pack, { color: colors.text.muted }]}>
+            {item.packSize}
+          </Text>
+        ) : null}
+
+        <View style={styles.priceRow}>
+          <Text style={[styles.price, { color: colors.text.primary }]}>
+            ₹{item.listingPrice ?? item.marketplace.startsAt}
+          </Text>
+          {item.requiresPrescription ? (
+            <View
               style={[
-                styles.image,
-                styles.realImageOverlay,
-                { opacity: imageReady ? 1 : 0 },
+                styles.rxBadge,
+                {
+                  backgroundColor: colors.status.warningBg,
+                  borderColor: colors.status.warning,
+                },
               ]}
-              resizeMode="contain"
-              onLoad={() => setImageReady(true)}
-              onError={() => setImageError(true)}
-            />
-          ) : null}
-        </View>
-
-        {/* ── Details ── */}
-        <View style={styles.details}>
-          <View style={styles.nameRow}>
-            <Text
-              style={[styles.name, { color: colors.text.primary }]}
-              numberOfLines={2}
             >
-              {item.name}
-            </Text>
-            {item.prescriptionRequired ? (
-              <View
-                style={[
-                  styles.rxBadge,
-                  {
-                    backgroundColor: colors.status.warningBg,
-                    borderColor: colors.status.warning,
-                  },
-                ]}
-              >
-                <Text
-                  style={[styles.rxText, { color: colors.status.warning }]}
-                >
-                  Rx
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          {item.manufacturer ? (
-            <Text
-              style={[styles.mfr, { color: colors.text.faint }]}
-              numberOfLines={1}
-            >
-              {item.manufacturer}
-            </Text>
-          ) : null}
-
-          {item.packSize ? (
-            <Text
-              style={[styles.pack, { color: colors.text.muted }]}
-              numberOfLines={1}
-            >
-              {item.packSize}
-            </Text>
-          ) : null}
-
-          <View style={styles.bottom}>
-            <View>
-              <Text
-                style={[styles.priceLabel, { color: colors.text.faint }]}
-              >
-                {hasRealPrice ? "Price" : "Approx."}
-              </Text>
-              <Text style={[styles.price, { color: colors.text.primary }]}>
-                ₹{displayPrice}
+              <Text style={[styles.rxText, { color: colors.status.warning }]}>
+                Rx
               </Text>
             </View>
-
-            {inCart ? (
-              <View
-                style={[styles.stepper, { borderColor: colors.brand.primary }]}
-              >
-                <TouchableOpacity
-                  onPress={handleDecrement}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.stepperBtn,
-                    { backgroundColor: colors.brand.primary },
-                  ]}
-                  accessibilityLabel="Decrease quantity"
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons
-                    name="remove"
-                    size={14}
-                    color={colors.brand.primaryText}
-                  />
-                </TouchableOpacity>
-
-                <Text
-                  style={[
-                    styles.stepperCount,
-                    { color: colors.brand.primary },
-                  ]}
-                >
-                  {cartQuantity}
-                </Text>
-
-                <TouchableOpacity
-                  onPress={handleIncrement}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.stepperBtn,
-                    { backgroundColor: colors.brand.primary },
-                  ]}
-                  accessibilityLabel="Increase quantity"
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                >
-                  <Ionicons
-                    name="add"
-                    size={14}
-                    color={colors.brand.primaryText}
-                  />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={handleAdd}
-                activeOpacity={0.8}
-                style={[
-                  styles.addBtn,
-                  {
-                    borderColor: colors.brand.primary,
-                    backgroundColor: colors.background.card,
-                  },
-                ]}
-                accessibilityLabel={`Add ${item.name} to cart`}
-              >
-                <Text
-                  style={[styles.addBtnText, { color: colors.brand.primary }]}
-                >
-                  ADD
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          ) : null}
         </View>
-      </Pressable>
-    </Animated.View>
+      </View>
+
+      <View style={styles.rightCol}>
+        {isBranchClosed ? (
+          <View
+            style={[
+              styles.closedTag,
+              {
+                backgroundColor: colors.background.tint,
+                borderColor: colors.border.default,
+              },
+            ]}
+          >
+            <Text style={[styles.closedTagText, { color: colors.text.muted }]}>
+              CLOSED
+            </Text>
+          </View>
+        ) : inCart ? (
+          <View
+            style={[styles.stepper, { borderColor: colors.brand.primary }]}
+          >
+            <TouchableOpacity
+              onPress={handleDecrement}
+              activeOpacity={0.7}
+              style={[
+                styles.stepperBtn,
+                { backgroundColor: colors.brand.primary },
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            >
+              <Ionicons name="remove" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text
+              style={[styles.stepperCount, { color: colors.brand.primary }]}
+            >
+              {cartQuantity}
+            </Text>
+            <TouchableOpacity
+              onPress={handleIncrement}
+              activeOpacity={0.7}
+              style={[
+                styles.stepperBtn,
+                { backgroundColor: colors.brand.primary },
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            >
+              <Ionicons name="add" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handleAdd}
+            activeOpacity={0.8}
+            style={[styles.addBtn, { borderColor: colors.brand.primary }]}
+          >
+            <Text style={[styles.addBtnText, { color: colors.brand.primary }]}>
+              ADD
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    marginHorizontal: Spacing.base,
-    marginBottom: Spacing.sm,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    padding: Spacing.md,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
     gap: Spacing.md,
   },
-  imageWrap: {
-    width: 72,
-    height: 72,
+  leftCol: {
+    justifyContent: "flex-start",
+  },
+  thumbnail: {
+    width: 64,
+    height: 64,
     borderRadius: Radius.md,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
     overflow: "hidden",
   },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  realImageOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
-  details: {
+  midCol: {
     flex: 1,
-    minWidth: 0,
     gap: 3,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.sm,
   },
   name: {
     ...Typography.bodyMedium,
-    flex: 1,
-    lineHeight: 20,
+    lineHeight: 19,
   },
-  rxBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: Radius.xs,
-    borderWidth: 1,
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  rxText: {
-    ...Typography.smallBold,
-    fontSize: 10,
-  },
-  mfr: {
+  brand: {
     ...Typography.caption,
   },
   pack: {
-    ...Typography.caption,
+    ...Typography.small,
   },
-  bottom: {
+  priceRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: Spacing.sm,
-  },
-  priceLabel: {
-    ...Typography.caption,
-    fontSize: 10,
+    gap: Spacing.sm,
+    marginTop: 2,
   },
   price: {
-    ...Typography.h4,
+    ...Typography.bodySemiBold,
+  },
+  rxBadge: {
+    borderWidth: 1,
+    borderRadius: Radius.xs,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  rxText: {
+    ...Typography.caption,
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+  },
+  rightCol: {
+    justifyContent: "center",
+    alignItems: "flex-end",
+    minWidth: 80,
   },
   addBtn: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xs,
     borderRadius: Radius.sm,
     borderWidth: 1.5,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     minWidth: 64,
   },
   addBtnText: {
+    ...Typography.smallMedium,
+    letterSpacing: 0.8,
+  },
+  closedTag: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 70,
+  },
+  closedTagText: {
     ...Typography.smallMedium,
     letterSpacing: 0.8,
   },
@@ -358,11 +266,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     borderWidth: 1.5,
     overflow: "hidden",
-    minWidth: 96,
+    minWidth: 84,
   },
   stepperBtn: {
-    width: 30,
-    height: 30,
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -370,6 +278,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     ...Typography.bodyMedium,
-    fontSize: 14,
+    fontSize: 12,
   },
 });

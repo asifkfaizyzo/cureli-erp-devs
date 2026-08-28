@@ -1,5 +1,3 @@
-// src/features/marketplace/components/product/ShopListingRow.tsx
-
 import React, { useCallback } from "react";
 import {
   View,
@@ -42,6 +40,7 @@ export function ShopListingRow({
   const handleDecrement = useCallback(() => onDecrement(shop), [onDecrement, shop]);
 
   const inCart = cartQuantity > 0;
+  const isClosed = !shop.isOpen; // ◄◄ NEW
 
   return (
     <View
@@ -50,16 +49,13 @@ export function ShopListingRow({
         {
           backgroundColor: colors.background.card,
           borderColor: colors.border.default,
+          // ◄◄ CHANGED: Grey out closed shops
+          opacity: isClosed ? 0.55 : 1,
         },
       ]}
     >
       {/* ── Top: shop identity + distance ── */}
       <View style={styles.topRow}>
-        {/*
-          Shop logo — mode="shop" so storefront icon is used as fallback.
-          This is semantically correct: a shop logo placeholder should look
-          like a shop, not a medicine bottle.
-        */}
         <RemoteImage
           uri={shop.logoUrl ?? null}
           style={[
@@ -108,6 +104,7 @@ export function ShopListingRow({
       ) : null}
 
       <View style={styles.badgeRow}>
+        {/* ◄◄ CHANGED: Rich status message instead of static Open/Closed */}
         <View
           style={[
             styles.badge,
@@ -130,8 +127,9 @@ export function ShopListingRow({
                   : colors.status.error,
               },
             ]}
+            numberOfLines={1}
           >
-            {shop.is24Hours ? "24 hrs" : shop.isOpen ? "Open" : "Closed"}
+            {shop.statusMessage}
           </Text>
         </View>
 
@@ -223,7 +221,19 @@ export function ShopListingRow({
             </Text>
           </TouchableOpacity>
 
-          {inCart ? (
+          {/* ◄◄ CHANGED: Disable add/stepper when closed */}
+          {isClosed ? (
+            <View
+              style={[
+                styles.closedBtn,
+                { backgroundColor: colors.background.tint, borderColor: colors.border.default },
+              ]}
+            >
+              <Text style={[styles.closedBtnText, { color: colors.text.muted }]}>
+                CLOSED
+              </Text>
+            </View>
+          ) : inCart ? (
             <View style={[styles.stepper, { borderColor: colors.brand.primary }]}>
               <TouchableOpacity
                 onPress={handleDecrement}
@@ -279,7 +289,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
-  // RemoteImage fills this container
   logoWrap: {
     width: 40,
     height: 40,
@@ -364,6 +373,20 @@ const styles = StyleSheet.create({
     minWidth: 58,
   },
   addBtnText: {
+    ...Typography.smallMedium,
+    letterSpacing: 0.8,
+  },
+  // ◄◄ NEW: Closed button style
+  closedBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 70,
+  },
+  closedBtnText: {
     ...Typography.smallMedium,
     letterSpacing: 0.8,
   },
