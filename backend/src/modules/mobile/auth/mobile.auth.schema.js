@@ -42,6 +42,11 @@ const otpCode = z
   .length(6, { message: "OTP must be exactly 6 digits" })
   .regex(/^\d{6}$/, { message: "OTP must contain only digits" });
 
+const passwordSchema = z
+  .string()
+  .min(8, { message: "Password must be at least 8 characters" })
+  .max(128, { message: "Password must not exceed 128 characters" });
+
 // ── Device Info ───────────────────────────────────────────────
 
 const deviceInfo = z
@@ -71,4 +76,39 @@ export const refreshSchema = z.object({
     .string()
     .trim()
     .min(1, { message: "Refresh token required" }),
+});
+
+// ── Password Auth Schemas ─────────────────────────────────────
+
+export const registerSchema = z.object({
+  phone:       rawPhone,
+  password:    passwordSchema,
+  email:       z.string().trim().email({ message: "Invalid email address" }).optional().or(z.literal("")),
+  full_name:   z.string().trim().min(1, { message: "Name is required" }).optional(),
+  device_info: deviceInfo,
+});
+
+export const registerVerifySchema = z.object({
+  phone:       rawPhone,
+  password:    passwordSchema,
+  otp:         otpCode,
+  email:       z.string().trim().email({ message: "Invalid email address" }).optional().or(z.literal("")),
+  full_name:   z.string().trim().min(1, { message: "Name is required" }).optional(),
+  device_info: deviceInfo,
+});
+
+export const loginSchema = z.object({
+  identifier:  z.string().trim().min(1, { message: "Phone or email is required" }),
+  password:    z.string().min(1, { message: "Password is required" }),
+  device_info: deviceInfo,
+});
+
+export const sendResetOtpSchema = z.object({
+  phone: rawPhone,
+});
+
+export const resetPasswordSchema = z.object({
+  phone:        rawPhone,
+  otp:          otpCode,
+  new_password: passwordSchema,
 });

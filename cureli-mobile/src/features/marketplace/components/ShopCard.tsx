@@ -58,9 +58,9 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
             style={[styles.medicineCount, { color: colors.text.muted }]}
             numberOfLines={1}
           >
-            {shop.listedMedicineCount > 0
+            {/* {shop.listedMedicineCount > 0
               ? `${shop.listedMedicineCount} medicines listed`
-              : "No medicines listed yet"}
+              : "No medicines listed yet"} */}
           </Text>
         </View>
 
@@ -109,7 +109,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
       ) : null}
 
       {/* ── Capability pills ── */}
-      {branch ? (
+      {/* {branch ? (
         <View style={styles.pillRow}>
           {branch.pickupEnabled ? (
             <View
@@ -145,7 +145,7 @@ function ShopCardComponent({ shop, onPress }: ShopCardProps) {
             </View>
           ) : null}
         </View>
-      ) : null}
+      ) : null} */}
 
       {/* ── Bottom row ── */}
       <View style={styles.bottomRow}>

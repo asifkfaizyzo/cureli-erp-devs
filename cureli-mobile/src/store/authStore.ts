@@ -1,26 +1,9 @@
 // src/store/authStore.ts
-//
-// Global auth state for Cureli Mobile.
-// This is the single source of truth for:
-//   - Whether the user is logged in
-//   - Who the user is
-//   - The current access token (in memory, not just storage)
-//
-// MMKV (StorageService) = persistent storage (survives app close)
-// Zustand store = in-memory state (what the UI reads)
-//
-// On app start: initialize() reads MMKV → populates Zustand
-// On login: Zustand updates + MMKV updates simultaneously
-// On logout: both cleared
 
 import { create } from 'zustand';
 import { StorageService } from '../services/storage';
 import { authApi } from '../services/api';
-import type { AuthState, AuthStatus, MobileUser } from '../types/auth';
-
-// ── Lazy import to avoid circular dependency ──────────────────
-// cartStore imports nothing from authStore so this is safe.
-// We use getState() at call time, not at module load time.
+import type { AuthState, DeviceInfo, MobileUser } from '../types/auth';
 
 function getCartStore() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -28,17 +11,11 @@ function getCartStore() {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  // ── Initial State ─────────────────────────────────────────────
   status: 'unknown',
   user: null,
   accessToken: null,
 
-  // ── initialize ────────────────────────────────────────────────
-  // Called ONCE when the app opens (from _layout.tsx).
-  // Checks MMKV for stored tokens.
-  // If found: verifies with /me endpoint.
-  // If /me fails: attempts refresh.
-  // If refresh fails: clears everything → unauthenticated.
+  // ── initialize ──────────────────────────────────────────────
 
   initialize: async () => {
     set({ status: 'checking' });
@@ -47,18 +24,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const refreshToken = StorageService.getRefreshToken();
     const storedUser = StorageService.getUser<MobileUser>();
 
-    // No tokens at all → unauthenticated immediately
     if (!accessToken && !refreshToken) {
       set({ status: 'unauthenticated', user: null, accessToken: null });
       return;
     }
 
-    // Optimistically set stored user while we verify
     if (storedUser) {
       set({ user: storedUser, accessToken });
     }
 
-    // Verify the access token is still valid with /me
     try {
       const { data } = await authApi.me();
       const freshUser = data.data.user;
@@ -71,64 +45,128 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         accessToken,
       });
 
-      // Load the user's persisted cart
       getCartStore().initCart(freshUser.id);
-
     } catch {
-      // /me failed — fall through to unauthenticated
       StorageService.clearAuth();
       set({ status: 'unauthenticated', user: null, accessToken: null });
     }
   },
 
-  // ── sendOtp ───────────────────────────────────────────────────
+  // ── Legacy OTP auth ────────────────────────────────────────
 
-sendOtp: async (phone: string) => {
-  try {
+  sendOtp: async (phone: string) => {
     const { data } = await authApi.sendOtp(phone);
     return { expiresIn: data.data.expires_in };
-  } catch (err: any) {
-    
-    throw err;
-  }
-},
+  },
 
-  // ── login ─────────────────────────────────────────────────────
-
-  login: async (phone: string, otp: string, deviceInfo?) => {
+  login: async (phone: string, otp: string, deviceInfo?: DeviceInfo) => {
     const { data } = await authApi.verifyOtp(phone, otp, deviceInfo);
     const { access_token, refresh_token, user, is_new_user } = data.data;
 
-    // Persist to MMKV
     StorageService.setAuthData({
       accessToken: access_token,
       refreshToken: refresh_token,
       user,
     });
 
-    // Update Zustand state
     set({
       status: 'authenticated',
       user,
       accessToken: access_token,
     });
 
-    // Load this user's persisted cart
     getCartStore().initCart(user.id);
 
     return { isNewUser: is_new_user };
   },
 
-  // ── logout ────────────────────────────────────────────────────
+  // ── Registration with OTP ──────────────────────────────────
+
+  sendRegisterOtp: async (phone: string) => {
+    const { data } = await authApi.sendRegisterOtp(phone);
+    return { expiresIn: data.data.expires_in };
+  },
+
+  register: async (
+    phone: string,
+    password: string,
+    otp: string,
+    fullName?: string,
+    email?: string,
+    deviceInfo?: DeviceInfo,
+  ) => {
+    const { data } = await authApi.registerVerify(
+      phone,
+      password,
+      otp,
+      fullName,
+      email,
+      deviceInfo,
+    );
+    const { access_token, refresh_token, user, is_new_user } = data.data;
+
+    StorageService.setAuthData({
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      user,
+    });
+
+    set({
+      status: 'authenticated',
+      user,
+      accessToken: access_token,
+    });
+
+    getCartStore().initCart(user.id);
+
+    return { isNewUser: is_new_user };
+  },
+
+  // ── Password Login ─────────────────────────────────────────
+
+  loginWithPassword: async (
+    identifier: string,
+    password: string,
+    deviceInfo?: DeviceInfo,
+  ) => {
+    const { data } = await authApi.login(identifier, password, deviceInfo);
+    const { access_token, refresh_token, user, is_new_user } = data.data;
+
+    StorageService.setAuthData({
+      accessToken: access_token,
+      refreshToken: refresh_token,
+      user,
+    });
+
+    set({
+      status: 'authenticated',
+      user,
+      accessToken: access_token,
+    });
+
+    getCartStore().initCart(user.id);
+
+    return { isNewUser: is_new_user };
+  },
+
+  // ── Password Reset / Set ───────────────────────────────────
+
+  sendResetOtp: async (phone: string) => {
+    const { data } = await authApi.sendResetOtp(phone);
+    return { expiresIn: data.data.expires_in };
+  },
+
+  resetPassword: async (phone: string, otp: string, newPassword: string) => {
+    await authApi.resetPassword(phone, otp, newPassword);
+  },
+
+  // ── Session ────────────────────────────────────────────────
 
   logout: async () => {
-    // Get user ID before clearing state
     const userId = get().user?.id;
 
-    // Fire-and-forget backend call
     authApi.logout().catch(() => {});
 
-    // Clear this user's cart from memory + MMKV
     if (userId) {
       getCartStore().clearCartForUser(userId);
     }
@@ -137,14 +175,10 @@ sendOtp: async (phone: string) => {
     set({ status: 'unauthenticated', user: null, accessToken: null });
   },
 
-  // ── setUser ───────────────────────────────────────────────────
-
   setUser: (user: MobileUser) => {
     StorageService.setUser(user);
     set({ user });
   },
-
-  // ── setAccessToken ────────────────────────────────────────────
 
   setAccessToken: (token: string) => {
     set({ accessToken: token });

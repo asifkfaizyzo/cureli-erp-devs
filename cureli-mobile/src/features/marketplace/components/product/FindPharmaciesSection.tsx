@@ -81,10 +81,7 @@ export function FindPharmaciesSection({
           <TouchableOpacity
             onPress={onRetry}
             activeOpacity={0.75}
-            style={[
-              styles.retryBtn,
-              { borderColor: colors.status.error },
-            ]}
+            style={[styles.retryBtn, { borderColor: colors.status.error }]}
           >
             <Text style={[styles.retryText, { color: colors.status.error }]}>
               Retry
@@ -124,9 +121,7 @@ export function FindPharmaciesSection({
             />
           </View>
           <View style={styles.stateText}>
-            <Text
-              style={[styles.stateTitle, { color: colors.text.secondary }]}
-            >
+            <Text style={[styles.stateTitle, { color: colors.text.secondary }]}>
               No pharmacies nearby
             </Text>
             <Text style={[styles.stateSub, { color: colors.text.muted }]}>

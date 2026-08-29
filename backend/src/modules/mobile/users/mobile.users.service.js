@@ -297,6 +297,8 @@ export async function deleteMobileAddress(userId, addressId) {
   });
 }
 
+// ── Account Deletion ──────────────────────────────────────────
+
 export async function sendDeleteAccountOtp(userId) {
   const user = await prisma.cureliMobileUser.findUnique({
     where: { id: userId },
@@ -325,6 +327,12 @@ export async function sendDeleteAccountOtp(userId) {
     Date.now() + DELETE_OTP_EXPIRY_MINUTES * 60 * 1000,
   );
 
+  // 🔑 Development terminal log — always visible in console
+  console.log(`\n========================================`);
+  console.log(`🔑 [DELETE ACCOUNT OTP] User ID: ${userId}`);
+  console.log(`🔑 [OTP CODE]           : ${otp}`);
+  console.log(`========================================\n`);
+
   // Store OTP hash on user row
   await prisma.cureliMobileUser.update({
     where: { id: userId },
@@ -334,12 +342,37 @@ export async function sendDeleteAccountOtp(userId) {
     },
   });
 
-  const mobile = formatPhoneNumber(user.phone);
-  await msg91SendSms({
-    templateId: process.env.MSG91_ACC_DEL_TEMPLATE,
-    mobile,
-    variables: { number: otp },
-  });
+  const formattedNumber = formatPhoneNumber(user.phone, process.env.MC_COUNTRY || "91");
+  console.log(`📨 [MSG91] Dispatching deletion OTP to: "${formattedNumber}" using template: "${process.env.MSG91_ACC_DEL_TEMPLATE}"`);
+
+  try {
+    await msg91SendSms({
+      templateId: process.env.MSG91_ACC_DEL_TEMPLATE,
+      mobile: formattedNumber,
+      // Provide all common MSG91 template variable keys so it matches your DLT template
+      variables: {
+        number: otp,
+        otp:    otp,
+        OTP:    otp,
+        code:   otp,
+        var:    otp,
+        VAR1:   otp,
+      },
+    });
+  } catch (providerErr) {
+    // Clear stored hash if dispatch fails
+    await prisma.cureliMobileUser.update({
+      where: { id: userId },
+      data: {
+        delete_otp_hash: null,
+        delete_otp_expires: null,
+      },
+    });
+    console.error("❌ [DeleteAccountAuth] MSG91 send failed:", providerErr.message);
+    const err = new Error("Failed to send verification code. Please try again.");
+    err.code = "SMS_FAILED";
+    throw err;
+  }
 
   return { expiresIn: DELETE_OTP_EXPIRY_MINUTES * 60 };
 }

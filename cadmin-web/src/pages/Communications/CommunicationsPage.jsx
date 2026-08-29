@@ -1,4 +1,4 @@
-// src/pages/Communications/CommunicationsPage.jsx
+// cadmin-web/src/pages/Communications/CommunicationsPage.jsx
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -19,12 +19,10 @@ import { useMenuStore }               from "../../store/useMenuStore";
 import { useToast }                   from "../../components/common/Toast";
 import { useCAdminPermission }        from "../../hooks/useCAdminPermission";
 import { CADMIN_PERMISSIONS }         from "../../config/cadminPermissions";
-// ── NEW: badge store replaces local pending-count fetches ─────
 import { useCommunicationBadgeStore } from "../../store/useCommunicationBadgeStore";
-// ─────────────────────────────────────────────────────────────
 
 // ============================================
-// BROADCAST PERMISSIONS — any of these = show card
+// BROADCAST PERMISSIONS
 // ============================================
 const BROADCAST_ANY_PERMISSIONS = [
   CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
@@ -62,8 +60,7 @@ const StatItem = ({ icon: Icon, label, value, color }) => (
 );
 
 // ============================================
-// COMMUNICATION CARD COMPONENT
-// CHANGED: accepts hasBadge prop, renders red dot on icon
+// CARD COMPONENT
 // ============================================
 const CommunicationCard = ({
   title,
@@ -76,7 +73,7 @@ const CommunicationCard = ({
   stats,
   isLoading,
   isComingSoon,
-  hasBadge,       // ← NEW
+  hasBadge,
 }) => {
   const navigate       = useNavigate();
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
@@ -100,7 +97,6 @@ const CommunicationCard = ({
       `}
     >
       <div className="flex items-start justify-between mb-4">
-        {/* Icon wrapper — red dot sits on top-right corner of the icon box */}
         <div className="relative inline-flex">
           <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center`}>
             <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -158,40 +154,47 @@ const CommunicationCard = ({
 };
 
 // ============================================
-// MAIN PAGE
+// COMMUNICATIONS PAGE
 // ============================================
 const CommunicationsPage = () => {
   const toast = useToast();
   const { hasPermission, hasAnyPermission } = useCAdminPermission();
 
-  // ── Pending counts come from the badge store (already polling) ──
-  // AppLayout started polling when it mounted. Reading from the store
-  // here is zero-cost — no extra network call, no duplicate interval.
+  // Badges (pending counters)
   const pendingTickets   = useCommunicationBadgeStore((s) => s.pendingTickets);
   const pendingEnquiries = useCommunicationBadgeStore((s) => s.pendingEnquiries);
   const isLoadingBadge   = useCommunicationBadgeStore((s) => s.isLoading);
   const refreshBadge     = useCommunicationBadgeStore((s) => s.refresh);
 
-  // ── Totals are NOT in the badge store — fetch them separately ──
-  // The badge store only tracks pending counts (for the red dot).
-  // We still need grand totals for the summary bar.
+  // Communications totals states
   const [totalTickets,   setTotalTickets]   = useState(0);
   const [totalEnquiries, setTotalEnquiries] = useState(0);
+  
+  // New States: Customer Tickets (Mobile Users)
+  const [totalCustomerTickets, setTotalCustomerTickets] = useState(0);
+  const [pendingCustomerTickets, setPendingCustomerTickets] = useState(0);
+
   const [loadingTotals,  setLoadingTotals]  = useState(true);
 
   const fetchTotals = useCallback(async () => {
     try {
       setLoadingTotals(true);
 
-      // Dynamic imports — avoids bundling both APIs upfront
-      const [{ getAllTickets }, { getEnquiryStats }] = await Promise.all([
+      // Dynamic imports - load endpoints in parallel
+      const [
+        { getAllTickets },
+        { getEnquiryStats },
+        { getCustomerTicketStats },
+      ] = await Promise.all([
         import("../../api/cadminTickets"),
         import("../../api/cadminEnquiries"),
+        import("../../api/cadminCustomerTickets"),
       ]);
 
-      const [ticketsRes, enquiriesRes] = await Promise.allSettled([
+      const [ticketsRes, enquiriesRes, customerTicketsRes] = await Promise.allSettled([
         getAllTickets({ page: 1, limit: 1 }),
         getEnquiryStats(),
+        getCustomerTicketStats(),
       ]);
 
       if (ticketsRes.status === "fulfilled") {
@@ -206,8 +209,15 @@ const CommunicationsPage = () => {
           {};
         setTotalEnquiries(d.total ?? d.totalEnquiries ?? 0);
       }
-    } catch {
-      // silent — totals will show 0
+
+      if (customerTicketsRes.status === "fulfilled") {
+        const data = customerTicketsRes.value?.data?.data || {};
+        setTotalCustomerTickets(data.total ?? 0);
+        // "OPEN" and "IN_PROGRESS" both count as action-needed customer tickets
+        setPendingCustomerTickets((data.open ?? 0) + (data.in_progress ?? 0));
+      }
+    } catch (err) {
+      console.error("Communications failed to load totals:", err);
     } finally {
       setLoadingTotals(false);
     }
@@ -217,15 +227,15 @@ const CommunicationsPage = () => {
     fetchTotals();
   }, [fetchTotals]);
 
-  // Refresh button updates both: pending counts (badge store) + totals
   const handleRefresh = useCallback(() => {
     toast.info("Refreshing", "Loading latest data…");
-    refreshBadge(); // re-fetches pending counts → updates sidebar dot too
-    fetchTotals();  // re-fetches grand totals for summary bar
+    refreshBadge();
+    fetchTotals();
   }, [toast, refreshBadge, fetchTotals]);
 
-  const isLoading    = isLoadingBadge || loadingTotals;
-  const totalPending = pendingTickets + pendingEnquiries;
+  const isLoading = isLoadingBadge || loadingTotals;
+  // Combine traditional pending with customer ticket pending
+  const totalPending = pendingTickets + pendingEnquiries + pendingCustomerTickets;
 
   // ============================================
   // CHANNEL CARDS CONFIG
@@ -233,9 +243,26 @@ const CommunicationsPage = () => {
   const channels = useMemo(() => {
     const all = [
       {
+        id:          "customer-tickets",
+        title:       "Customer Tickets",
+        description: "Review and respond to post-order issues raised by mobile app customers",
+        icon:        Smartphone,
+        path:        "/communications/customer-tickets",
+        breadcrumbs: ["Communications", "Customer Tickets"],
+        iconBg:      "bg-amber-100",
+        iconColor:   "text-amber-600",
+        isLoading:   loadingTotals,
+        visible:     hasPermission(CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW),
+        hasBadge:    pendingCustomerTickets > 0,
+        stats: [
+          { icon: TrendingUp, label: "Total",   value: totalCustomerTickets,   color: "bg-amber-50 text-amber-600" },
+          { icon: Clock,      label: "Open/IP", value: pendingCustomerTickets, color: "bg-red-50 text-red-600" },
+        ],
+      },
+      {
         id:          "tickets",
-        title:       "Support Tickets",
-        description: "Manage customer support requests and track resolution progress",
+        title:       "Shop Tickets",
+        description: "Manage technical, billing, and profile issues raised by ERP shops",
         icon:        Ticket,
         path:        "/communications/tickets",
         breadcrumbs: ["Communications", "Tickets"],
@@ -243,7 +270,7 @@ const CommunicationsPage = () => {
         iconColor:   "text-blue-600",
         isLoading:   isLoadingBadge,
         visible:     hasPermission(CADMIN_PERMISSIONS.TICKETS_VIEW),
-        hasBadge:    pendingTickets > 0,   // red dot when pending tickets exist
+        hasBadge:    pendingTickets > 0,
         stats: [
           { icon: TrendingUp, label: "Total",   value: totalTickets,   color: "bg-blue-50 text-blue-600" },
           { icon: Clock,      label: "Pending", value: pendingTickets, color: "bg-amber-50 text-amber-600" },
@@ -260,7 +287,7 @@ const CommunicationsPage = () => {
         iconColor:   "text-emerald-600",
         isLoading:   isLoadingBadge,
         visible:     hasPermission(CADMIN_PERMISSIONS.ENQUIRIES_VIEW),
-        hasBadge:    pendingEnquiries > 0,  // red dot when pending enquiries exist
+        hasBadge:    pendingEnquiries > 0,
         stats: [
           { icon: TrendingUp, label: "Total",   value: totalEnquiries,   color: "bg-emerald-50 text-emerald-600" },
           { icon: Clock,      label: "Pending", value: pendingEnquiries, color: "bg-amber-50 text-amber-600" },
@@ -281,31 +308,14 @@ const CommunicationsPage = () => {
         hasBadge:    false,
         stats:       null,
       },
-      {
-        id:          "broadcast-mobile",
-        title:       "Mobile Push",
-        description: "Send push notifications directly to app users' devices",
-        icon:        Smartphone,
-        path:        "/communications/broadcast/mobile",
-        breadcrumbs: ["Communications", "Broadcast", "Mobile Push"],
-        iconBg:      "bg-sky-100",
-        iconColor:   "text-sky-600",
-        isLoading:   false,
-        isComingSoon: false,
-        visible:     hasAnyPermission(
-          CADMIN_PERMISSIONS.BROADCAST_MOBILE_SEND,
-          CADMIN_PERMISSIONS.BROADCAST_MOBILE_VIEW_HISTORY,
-          CADMIN_PERMISSIONS.BROADCAST_MOBILE_MANAGE_DRAFTS,
-          CADMIN_PERMISSIONS.BROADCAST_MOBILE_SCHEDULE,
-        ),
-        hasBadge:    false,
-        stats:       null,
-      },
     ];
 
     return all.filter((c) => c.visible);
   }, [
     isLoadingBadge,
+    loadingTotals,
+    pendingCustomerTickets,
+    totalCustomerTickets,
     pendingTickets,
     pendingEnquiries,
     totalTickets,
@@ -314,9 +324,6 @@ const CommunicationsPage = () => {
     hasAnyPermission,
   ]);
 
-  // ============================================
-  // RENDER
-  // ============================================
   return (
     <div className="w-full h-full min-w-0 flex flex-col gap-3 overflow-hidden">
       {/* Header */}
@@ -328,7 +335,7 @@ const CommunicationsPage = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900 truncate">Communications</h1>
-              <p className="text-sm text-gray-500">Manage customer interactions</p>
+              <p className="text-sm text-gray-500">Manage customer & pharmacy interactions</p>
             </div>
           </div>
 
@@ -346,7 +353,6 @@ const CommunicationsPage = () => {
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-auto space-y-4">
-
         {/* Summary bar */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-4">
@@ -356,7 +362,22 @@ const CommunicationsPage = () => {
             </div>
 
             <div className="flex items-center gap-6 flex-wrap">
-              {/* Tickets total */}
+              {/* Customer Tickets */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Smartphone className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-gray-900">
+                    {loadingTotals ? "…" : totalCustomerTickets}
+                  </p>
+                  <p className="text-xs text-gray-500">Cust Tickets</p>
+                </div>
+              </div>
+
+              <div className="w-px h-10 bg-gray-200 hidden sm:block" />
+
+              {/* Shop Tickets */}
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
                   <Ticket className="w-5 h-5 text-blue-600" />
@@ -365,7 +386,7 @@ const CommunicationsPage = () => {
                   <p className="text-xl font-bold text-gray-900">
                     {loadingTotals ? "…" : totalTickets}
                   </p>
-                  <p className="text-xs text-gray-500">Tickets</p>
+                  <p className="text-xs text-gray-500">Shop Tickets</p>
                 </div>
               </div>
 
@@ -386,19 +407,19 @@ const CommunicationsPage = () => {
 
               <div className="w-px h-10 bg-gray-200 hidden sm:block" />
 
-              {/* Pending total */}
+              {/* Action Needed pending total */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
                   <p className="text-xl font-bold text-gray-900">
                     {isLoading ? "…" : totalPending}
                   </p>
-                  <p className="text-xs text-gray-500">Pending</p>
+                  <p className="text-xs text-gray-500">Action Pending</p>
                 </div>
                 {!isLoading && totalPending > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+                  <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
                     Action needed
                   </span>
                 )}
@@ -426,7 +447,6 @@ const CommunicationsPage = () => {
             />
           ))}
         </div>
-
       </div>
     </div>
   );

@@ -15,19 +15,6 @@ import { determineAuthDestination } from "../../../utils/authRouting";
 // Constants
 const RESEND_TIMER_SECONDS = 60;
 
-/**
- * Clear all stale localStorage/sessionStorage data from previous sessions.
- *
- * FIX: This must be called AFTER resetSetup() and AFTER setAuth() writes
- * its initial Zustand state, because Zustand persist middleware re-writes
- * to localStorage synchronously on every set() call. The correct sequence is:
- *
- *   1. resetSetup()        — clears Zustand setup state in memory
- *   2. clearAllStaleData() — wipes localStorage including what persist just wrote
- *   3. setAuth()           — writes fresh auth data to Zustand + localStorage
- *
- * This ensures no stale keys from a previous user session survive.
- */
 const clearAllStaleData = () => {
   const keysToRemove = [
     "cureli-auth-storage",
@@ -76,6 +63,9 @@ const LoginOtpVerification = ({
 
   const inputsRef = useRef([]);
 
+  // ── FIX: Track last attempted code to prevent duplicate verify calls ──
+  const lastAttemptedCodeRef = useRef("");
+
   // Focus first input on mount
   useEffect(() => {
     const t = setTimeout(() => inputsRef.current[0]?.focus(), 100);
@@ -104,19 +94,6 @@ const LoginOtpVerification = ({
     setTimeout(() => setShake(false), 500);
   }, []);
 
-  /**
-   * FIX: handleVerify no longer takes otp from its closure.
-   * It only accepts otpCode as an explicit argument.
-   * This removes otp from the useCallback dependency array,
-   * preventing handleVerify from being recreated on every
-   * keystroke, which was causing the auto-verify useEffect
-   * to also re-run on every keystroke unnecessarily.
-   *
-   * determineDestination local copy also removed — replaced with
-   * the shared determineAuthDestination imported from authRouting.js.
-   * It is a stable module-level function, not a hook or reactive value,
-   * so it does not appear in the dependency array.
-   */
   const handleVerify = useCallback(
     async (otpCode) => {
       if (!otpCode || otpCode.length !== 4 || loading || success) return;
@@ -147,22 +124,6 @@ const LoginOtpVerification = ({
         setSuccess(true);
         toast.success("Verified!", "Logging you in...");
 
-        /**
-         * FIX: Correct order for clearing stale data.
-         *
-         * BEFORE (wrong):
-         *   clearAllStaleData() → resetSetup() → setAuth()
-         *   Problem: resetSetup() calls Zustand set(), which persist
-         *   middleware immediately re-writes cureli-setup-storage to
-         *   localStorage, undoing the clear for that key.
-         *
-         * AFTER (correct):
-         *   resetSetup() → clearAllStaleData() → setAuth()
-         *   resetSetup() resets in-memory Zustand state.
-         *   clearAllStaleData() then wipes localStorage including
-         *   whatever persist just wrote.
-         *   setAuth() writes fresh auth data.
-         */
         resetSetup();
         clearAllStaleData();
         setAuth({
@@ -179,7 +140,6 @@ const LoginOtpVerification = ({
 
         setTimeout(async () => {
           if (next_step === -1) {
-            // Use shared routing utility instead of local determineDestination
             const destination = await determineAuthDestination(role);
             navigate(destination, { replace: true });
             return;
@@ -209,15 +169,14 @@ const LoginOtpVerification = ({
 
         setTimeout(() => {
           setOtp(["", "", "", ""]);
+          // ── FIX: Clear the ref so the next code the user types can be verified ──
+          lastAttemptedCodeRef.current = "";
           inputsRef.current[0]?.focus();
         }, 300);
 
         setLoading(false);
       }
     },
-    // determineAuthDestination intentionally omitted — it is a stable
-    // module-level function, not a reactive value. Adding it would be
-    // incorrect and would cause unnecessary re-creation of handleVerify.
     [
       loading,
       success,
@@ -237,8 +196,10 @@ const LoginOtpVerification = ({
       code.length === 4 &&
       otp.every((d) => d !== "") &&
       !loading &&
-      !success
+      !success &&
+      code !== lastAttemptedCodeRef.current // ── FIX: prevent re-verify of same code
     ) {
+      lastAttemptedCodeRef.current = code; // ── FIX: mark as attempted
       handleVerify(code);
     }
   }, [otp, loading, success, handleVerify]);
@@ -252,6 +213,9 @@ const LoginOtpVerification = ({
     setOtp(updated);
     setError("");
     setResendSuccess(false);
+
+    // ── FIX: Reset attempted ref when user starts typing a new code ──
+    lastAttemptedCodeRef.current = "";
 
     if (value && index < 3) {
       inputsRef.current[index + 1]?.focus();
@@ -268,6 +232,7 @@ const LoginOtpVerification = ({
     if (e.key === "Enter") {
       const code = otp.join("");
       if (code.length === 4) {
+        lastAttemptedCodeRef.current = code;
         handleVerify(code);
       }
     }
@@ -281,6 +246,7 @@ const LoginOtpVerification = ({
     if (/^\d{4}$/.test(data)) {
       const digits = data.split("");
       setOtp(digits);
+      lastAttemptedCodeRef.current = ""; // ── FIX: allow auto-verify of pasted code
       inputsRef.current[3]?.focus();
     }
   };
@@ -293,6 +259,7 @@ const LoginOtpVerification = ({
     setOtp(["", "", "", ""]);
     setSuccess(false);
     setResendSuccess(false);
+    lastAttemptedCodeRef.current = ""; // ── FIX: reset on resend
 
     try {
       const res = await resendLoginOtp({
@@ -339,8 +306,6 @@ const LoginOtpVerification = ({
         setError(msg);
         toast.warning("Too Many Requests", msg);
 
-        // Use waitTime from backend if provided, otherwise
-        // try to parse from message, then fall back to default
         if (waitTime && waitTime > 0) {
           setTimer(waitTime);
         } else {
@@ -470,9 +435,13 @@ const LoginOtpVerification = ({
             )}
           </div>
 
-          {/* Manual verify button — always passes otp as explicit arg */}
+          {/* Manual verify button */}
           <button
-            onClick={() => handleVerify(otp.join(""))}
+            onClick={() => {
+              const code = otp.join("");
+              lastAttemptedCodeRef.current = code;
+              handleVerify(code);
+            }}
             disabled={
               loading || otp.join("").length !== 4 || success || resending
             }

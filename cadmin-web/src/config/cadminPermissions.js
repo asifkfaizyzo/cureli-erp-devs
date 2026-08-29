@@ -105,6 +105,11 @@ export const CADMIN_PERMISSIONS = {
   COUPONS_EDIT: "coupons.edit",
   COUPONS_TOGGLE_ACTIVE: "coupons.toggle_active",
   COUPONS_DELETE: "coupons.delete",
+
+  CUSTOMER_TICKETS_VIEW: "customer_tickets.view",
+  CUSTOMER_TICKETS_VIEW_DETAIL: "customer_tickets.view_detail",
+  CUSTOMER_TICKETS_UPDATE_STATUS: "customer_tickets.update_status",
+  CUSTOMER_TICKETS_REPLY: "customer_tickets.reply",
 };
 
 export const CADMIN_PERMISSION_GROUPS = [
@@ -435,6 +440,32 @@ export const CADMIN_PERMISSION_GROUPS = [
         key: CADMIN_PERMISSIONS.AUDIT_EXPORT,
         label: "Export Audit Logs",
         description: "Download audit logs as CSV",
+      },
+    ],
+  },
+    {
+    module: "Customer Support",
+    key: "customer_tickets",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW,
+        label: "View Customer Tickets",
+        description: "List all support tickets from mobile customers",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW_DETAIL,
+        label: "View Ticket Detail",
+        description: "Open customer ticket timeline, order context, and attachments",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_UPDATE_STATUS,
+        label: "Update Ticket Status",
+        description: "Change status (In Progress, Resolved, Closed)",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_REPLY,
+        label: "Reply to Customer Ticket",
+        description: "Send customer responses and add internal notes",
       },
     ],
   },

@@ -103,6 +103,11 @@ export const CADMIN_PERMISSIONS = {
   COUPONS_EDIT: "coupons.edit",
   COUPONS_TOGGLE_ACTIVE: "coupons.toggle_active",
   COUPONS_DELETE: "coupons.delete",
+
+  CUSTOMER_TICKETS_VIEW: "customer_tickets.view",
+  CUSTOMER_TICKETS_VIEW_DETAIL: "customer_tickets.view_detail",
+  CUSTOMER_TICKETS_UPDATE_STATUS: "customer_tickets.update_status",
+  CUSTOMER_TICKETS_REPLY: "customer_tickets.reply",
 };
 
 export const CADMIN_PERMISSION_GROUPS = [
@@ -175,6 +180,32 @@ export const CADMIN_PERMISSION_GROUPS = [
         key: CADMIN_PERMISSIONS.USERS_DELETE,
         label: "Delete User",
         description: "Permanently anonymise a user account. Frees email/username for reuse. Cannot be undone.",
+      },
+    ],
+  },
+    {
+    module: "Customer Support Tickets",
+    key: "customer_tickets",
+    permissions: [
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW,
+        label: "View Customer Tickets",
+        description: "List all support tickets submitted by mobile customers",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW_DETAIL,
+        label: "View Customer Ticket Detail",
+        description: "Open customer ticket details, order context, and conversation timeline",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_UPDATE_STATUS,
+        label: "Update Customer Ticket Status",
+        description: "Change status (In Progress, Resolved, Closed)",
+      },
+      {
+        key: CADMIN_PERMISSIONS.CUSTOMER_TICKETS_REPLY,
+        label: "Reply to Customer Ticket",
+        description: "Send customer-facing responses and add internal notes",
       },
     ],
   },

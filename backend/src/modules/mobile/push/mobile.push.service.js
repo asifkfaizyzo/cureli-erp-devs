@@ -581,7 +581,7 @@ export const MobilePush = {
   orderPlacedConfirmation: (userId, orderId, orderNumber) =>
     sendPushToUser({
       userId,
-      title: 'Order Placed! 🎉',
+      title: 'Order Placed!',
       body:  `Your order ${orderNumber} has been placed. We'll notify you when the pharmacy accepts it.`,
       category: 'order_updates',
       data: {
@@ -595,7 +595,7 @@ export const MobilePush = {
   prescriptionVerified: (userId) =>
     sendPushToUser({
       userId,
-      title: 'Prescription Verified ✅',
+      title: 'Prescription Verified',
       body:  'Your prescription has been verified. You can now complete your order.',
       category: 'prescription_updates',
       data: { screen: 'home' },
@@ -640,7 +640,7 @@ export const MobilePush = {
   cartAbandonment: (userId, itemCount) =>
     sendPushToUser({
       userId,
-      title: 'Items waiting in your cart 🛒',
+      title: 'Items waiting in your cart',
       body:  `You have ${itemCount} item${itemCount !== 1 ? 's' : ''} in your cart. Complete your order before they run out!`,
       category: 'cart_abandonment',
       data: { screen: 'cart' },
@@ -657,4 +657,45 @@ export const MobilePush = {
       data:       { screen: tapScreen, ...tapParams },
       campaignId,
     }),
+
+    ticketStatusUpdated: (userId, ticketId, ticketNumber, newStatus) => {
+    const statusLabels = {
+      IN_PROGRESS: 'Support Ticket In Progress',
+      RESOLVED:    'Support Ticket Resolved',
+      CLOSED:      'Support Ticket Closed',
+    };
+
+    const statusBodies = {
+      IN_PROGRESS: `Our support team is now reviewing your ticket #${ticketNumber}.`,
+      RESOLVED:    `Your ticket #${ticketNumber} has been marked as resolved. Tap to view details.`,
+      CLOSED:      `Your ticket #${ticketNumber} has been closed.`,
+    };
+
+    const title = statusLabels[newStatus] || 'Ticket Update';
+    const body  = statusBodies[newStatus] || `Your ticket #${ticketNumber} status changed to ${newStatus}.`;
+
+    return sendPushToUser({
+      userId,
+      title,
+      body,
+      category: 'order_updates',
+      data: {
+        screen: 'ticket_detail',
+        ticketId,
+      },
+    });
+  },
+
+  ticketReplyReceived: (userId, ticketId, ticketNumber, snippet) =>
+    sendPushToUser({
+      userId,
+      title: `Reply on Ticket #${ticketNumber}`,
+      body:  snippet || 'Support team sent you a response. Tap to view.',
+      category: 'order_updates',
+      data: {
+        screen: 'ticket_detail',
+        ticketId,
+      },
+    }),
+
 };

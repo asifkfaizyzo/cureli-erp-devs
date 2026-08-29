@@ -35,6 +35,7 @@ const ALLOWED_FOLDERS = [
   "email_attachments",
   "tickets",
   "marketplace_assets",
+   "customer_tickets",
   "order_prescriptions",
   "prescription_requests",
   "order_invoices",
@@ -50,6 +51,7 @@ const MAX_FILE_SIZES = {
   email_attachments: 10 * 1024 * 1024, // 10MB
   tickets: 5 * 1024 * 1024, // 5MB
   marketplace_assets: 5 * 1024 * 1024,
+   customer_tickets: 5 * 1024 * 1024,
   order_prescriptions: 10 * 1024 * 1024,
   prescription_requests: 10 * 1024 * 1024,
   order_invoices: 10 * 1024 * 1024,
@@ -61,6 +63,7 @@ const MAX_FILE_SIZES = {
 // Allowed MIME types per folder
 const ALLOWED_MIME_TYPES = {
   shop_files: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
+  customer_tickets: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
   broadcast_attachments: [
     // Images
     "image/jpeg",

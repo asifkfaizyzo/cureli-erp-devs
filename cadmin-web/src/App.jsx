@@ -22,6 +22,7 @@ import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
+import CustomerTicketsPage from "./pages/Communications/pages/CustomerTickets/CustomerTicketsPage"; 
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
@@ -206,6 +207,7 @@ function App() {
               <PermissionGuard
                 permissions={[
                   CADMIN_PERMISSIONS.TICKETS_VIEW,
+                  CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW, // ◄ Added Customer Tickets view to Group permissions
                   CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
                   CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
                   CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
@@ -222,6 +224,17 @@ function App() {
               </PermissionGuard>
             }
           />
+          
+          {/* ── Customer Tickets Route ── */}
+          <Route
+            path="/communications/customer-tickets"
+            element={
+              <PermissionGuard permission={CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW}>
+                <CustomerTicketsPage />
+              </PermissionGuard>
+            }
+          />
+
           <Route
             path="/communications/tickets"
             element={

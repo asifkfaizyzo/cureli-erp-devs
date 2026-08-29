@@ -8,7 +8,8 @@ import jwt from "jsonwebtoken";
 
 const ACCESS_TOKEN_SECRET = process.env.MOBILE_JWT_SECRET;
 const ACCESS_TOKEN_EXPIRY = "15m";
-const REFRESH_TOKEN_EXPIRY_DAYS = 90;
+// Set to 3650 days (10 years) to effectively persist sessions unless user uninstalls/clears storage.
+const REFRESH_TOKEN_EXPIRY_DAYS = 3650;
 
 if (!ACCESS_TOKEN_SECRET) {
   throw new Error("MOBILE_JWT_SECRET is not set in environment variables");
@@ -35,8 +36,6 @@ export function signMobileAccessToken({ userId, sessionId }) {
     ACCESS_TOKEN_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
-  console.log("Accesstoken:",ACCESS_TOKEN_SECRET);
-  
 }
 
 /**

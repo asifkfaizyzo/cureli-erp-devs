@@ -12,6 +12,10 @@ import {
   hashOtp,
   verifyOtp,
 } from "../../../utils/otp.js";
+import {
+  hashPassword,
+  comparePassword,
+} from "../../../utils/hash.js";
 import { checkSmsOtpLimit } from "../../../utils/otpLimiter.js";
 import {
   msg91SendSms,
@@ -31,6 +35,7 @@ const RESEND_COOLDOWN_SECONDS = 30;
 const MAX_ATTEMPTS_PER_OTP    = 5;
 const MAX_FAILED_CYCLES       = 3;
 const LOCKOUT_DURATION_MS     = 60 * 60 * 1000;
+const MAX_PASSWORD_ATTEMPTS   = 5;
 
 // ── Review guard ──────────────────────────────────────────────
 function isReviewPhone(phone) {
@@ -67,11 +72,298 @@ function formatUserForResponse(user) {
   };
 }
 
+// ── registerMobile ────────────────────────────────────────────
+
+export async function registerMobile({ phone, password, email, full_name, deviceInfo = {}, requestMeta = {} }) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  // 1. Check if user already exists
+  const existingUser = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (existingUser) {
+    if (existingUser.password_hash) {
+      const err = new Error("Mobile number already registered. Please log in.");
+      err.code = "ALREADY_REGISTERED";
+      throw err;
+    } else {
+      // Self-healing flow: Profile exists but no password is set (legacy OTP user)
+      const err = new Error("Account exists without a password. Please set your password.");
+      err.code = "PASSWORD_NOT_SET";
+      throw err;
+    }
+  }
+
+  // 2. Validate email uniqueness
+  if (email) {
+    const existingEmail = await prisma.cureliMobileUser.findUnique({
+      where: {
+        email: email.toLowerCase().trim(),
+        deleted_at: null,
+      },
+    });
+    if (existingEmail) {
+      const err = new Error("Email already registered. Please log in or use another email.");
+      err.code = "EMAIL_ALREADY_REGISTERED";
+      throw err;
+    }
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const user = await prisma.cureliMobileUser.create({
+    data: {
+      phone,
+      phone_verified:     true,
+      phone_verified_at:  new Date(),
+      password_hash:      hashedPassword,
+      login_provider:     "password",
+      email:              email ? email.toLowerCase().trim() : null,
+      full_name:          full_name || null,
+      status:             "active",
+    },
+  });
+
+  return await _completeVerification(user, deviceInfo, requestMeta);
+}
+
+// ── loginMobileWithPassword ───────────────────────────────────
+
+export async function loginMobileWithPassword({ identifier, password, deviceInfo = {}, requestMeta = {} }) {
+  const normalizedIdentifier = identifier.trim();
+  const isEmail = normalizedIdentifier.includes("@");
+  let user;
+
+  // 1. Fetch user by email or normalized phone variants
+  if (isEmail) {
+    user = await prisma.cureliMobileUser.findUnique({
+      where: {
+        email: normalizedIdentifier.toLowerCase(),
+        deleted_at: null,
+      },
+    });
+  } else {
+    const raw10 = normalizedIdentifier.replace(/^\+?91/, "").replace(/\s+/g, "");
+    const phoneVariants = [
+      normalizedIdentifier,
+      `+91 ${raw10}`,
+      `91${raw10}`,
+      raw10,
+    ];
+    user = await prisma.cureliMobileUser.findFirst({
+      where: {
+        phone: { in: phoneVariants },
+        deleted_at: null,
+      },
+    });
+  }
+
+  if (!user) {
+    const err = new Error("Invalid phone/email or password.");
+    err.code = "INVALID_CREDENTIALS";
+    throw err;
+  }
+
+  // 2. Account state checks
+  if (user.status === "suspended") {
+    const err = new Error("Your account has been suspended. Please contact support.");
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  // 3. Brute force lock check
+  if (user.password_locked_until && new Date(user.password_locked_until) > new Date()) {
+    const minutesRemaining = Math.ceil(
+      (new Date(user.password_locked_until) - new Date()) / 60000
+    );
+    const err = new Error(`Too many failed attempts. Try again in ${minutesRemaining} minutes.`);
+    err.code = "PASSWORD_LOCKED";
+    throw err;
+  }
+
+  // 4. Old OTP session fallback check
+  if (!user.password_hash) {
+    const err = new Error("This account is not fully migrated. Please set up a password first.");
+    err.code = "PASSWORD_NOT_SET";
+    throw err;
+  }
+
+  // 5. Compare credentials
+  const isValid = await comparePassword(password, user.password_hash);
+
+  if (!isValid) {
+    const newAttempts = user.password_attempts + 1;
+    const shouldLock = newAttempts >= MAX_PASSWORD_ATTEMPTS;
+
+    await prisma.cureliMobileUser.update({
+      where: { id: user.id },
+      data: {
+        password_attempts: newAttempts,
+        ...(shouldLock && {
+          password_locked_until: new Date(Date.now() + LOCKOUT_DURATION_MS),
+        }),
+      },
+    });
+
+    if (shouldLock) {
+      const err = new Error("Too many failed login attempts. Account locked for 1 hour.");
+      err.code = "PASSWORD_LOCKED";
+      throw err;
+    }
+
+    const err = new Error("Invalid phone/email or password.");
+    err.code = "INVALID_CREDENTIALS";
+    throw err;
+  }
+
+  // Clear tracking columns on success
+  await prisma.cureliMobileUser.update({
+    where: { id: user.id },
+    data: {
+      password_attempts:     0,
+      password_locked_until: null,
+    },
+  });
+
+  return await _completeVerification(user, deviceInfo, requestMeta);
+}
+
+// ── sendMobileResetOtp ────────────────────────────────────────
+
+export async function sendMobileResetOtp(phone) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("No account found with this phone number.");
+    err.code = "ACCOUNT_NOT_FOUND";
+    throw err;
+  }
+
+  if (user.status === "suspended") {
+    const err = new Error("Your account has been suspended. Please contact support.");
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  // Redirect internally to core send OTP logic to utilize all rate limits & SMS configurations
+  return await sendMobileOtp(phone);
+}
+
+// ── resetMobilePassword ───────────────────────────────────────
+
+export async function resetMobilePassword(phone, otp, newPassword) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User not found.");
+    err.code = "ACCOUNT_NOT_FOUND";
+    throw err;
+  }
+
+  // 1. Check OTP existence & validity
+  if (!user.login_otp_hash || !user.login_otp_expires) {
+    const err = new Error("No OTP found. Please request a new one.");
+    err.code = "NO_OTP";
+    throw err;
+  }
+
+  if (new Date() > new Date(user.login_otp_expires)) {
+    const err = new Error("OTP has expired. Please request a new one.");
+    err.code = "OTP_EXPIRED";
+    throw err;
+  }
+
+  if (user.login_otp_attempts >= MAX_ATTEMPTS_PER_OTP) {
+    const err = new Error("Too many failed attempts. Please request a new OTP.");
+    err.code = "TOO_MANY_ATTEMPTS";
+    throw err;
+  }
+
+  // 2. Validate OTP
+  let isValid = false;
+  if (otp === "000000" && process.env.NODE_ENV === "development") {
+    isValid = true;
+  } else if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
+    isValid = true;
+  } else {
+    isValid = await verifyOtp(otp, user.login_otp_hash);
+  }
+
+  if (!isValid) {
+    const newAttempts = user.login_otp_attempts + 1;
+    await prisma.cureliMobileUser.update({
+      where: { id: user.id },
+      data: { login_otp_attempts: newAttempts },
+    });
+
+    const remaining = MAX_ATTEMPTS_PER_OTP - newAttempts;
+    const err = new Error(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
+    err.code = "INVALID_OTP";
+    throw err;
+  }
+
+  // 3. Clear OTP states, securely update the password with SALT, and issue logout all
+  const hashedPassword = await hashPassword(newPassword);
+
+  await prisma.cureliMobileUser.update({
+    where: { id: user.id },
+    data: {
+      password_hash:         hashedPassword,
+      login_provider:        "password",
+      phone_verified:        true,
+      login_otp_hash:        null,
+      login_otp_expires:     null,
+      login_otp_attempts:    0,
+      otp_cycle_failures:    0,
+      otp_locked_until:      null,
+      password_attempts:     0,
+      password_locked_until: null,
+      logout_all_issued_at:  new Date(), // Terminate any other open sessions
+    },
+  });
+
+  return { success: true };
+}
+
 // ── sendMobileOtp ─────────────────────────────────────────────
 
 export async function sendMobileOtp(phone) {
-  
-
   // ── 1. Daily SMS limit ──────────────────────────────────
   if (!isReviewPhone(phone)) {
     const limitCheck = await checkSmsOtpLimit(`mobile:${phone}`);
@@ -528,4 +820,149 @@ export async function getMobileMe(userId) {
     last_seen_at:      user.last_seen_at,
     address_count:     user._count.addresses,
   };
+}
+
+// ── sendMobileRegisterOtp ─────────────────────────────────────
+
+export async function sendMobileRegisterOtp(phone) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (user) {
+    if (user.password_hash) {
+      const err = new Error("Mobile number already registered. Please log in.");
+      err.code = "ALREADY_REGISTERED";
+      throw err;
+    }
+    if (user.status === "suspended") {
+      const err = new Error("Your account has been suspended. Please contact support.");
+      err.code = "ACCOUNT_SUSPENDED";
+      throw err;
+    }
+  }
+
+  // Reuse core OTP generator (handles Daily SMS limits, MSG91 template sends, and lockout states)
+  return await sendMobileOtp(phone);
+}
+
+// ── registerMobileVerify ──────────────────────────────────────
+
+export async function registerMobileVerify({ phone, password, email, full_name, otp, deviceInfo = {}, requestMeta = {} }) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  // 1. Fetch the OTP-staged user row created by the previous step
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (!user) {
+    const err = new Error("No pending registration found for this number. Please request OTP first.");
+    err.code = "NO_OTP";
+    throw err;
+  }
+
+  if (user.password_hash) {
+    const err = new Error("Mobile number already registered. Please log in.");
+    err.code = "ALREADY_REGISTERED";
+    throw err;
+  }
+
+  // 2. Validate OTP
+  if (!user.login_otp_hash || !user.login_otp_expires) {
+    const err = new Error("No registration OTP found. Please try again.");
+    err.code = "NO_OTP";
+    throw err;
+  }
+
+  if (new Date() > new Date(user.login_otp_expires)) {
+    const err = new Error("OTP has expired. Please request a new one.");
+    err.code = "OTP_EXPIRED";
+    throw err;
+  }
+
+  if (user.login_otp_attempts >= MAX_ATTEMPTS_PER_OTP) {
+    const err = new Error("Too many failed attempts. Please restart registration.");
+    err.code = "TOO_MANY_ATTEMPTS";
+    throw err;
+  }
+
+  let isValid = false;
+  if (otp === "000000" && process.env.NODE_ENV === "development") {
+    isValid = true;
+  } else if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
+    isValid = true;
+  } else {
+    isValid = await verifyOtp(otp, user.login_otp_hash);
+  }
+
+  if (!isValid) {
+    const newAttempts = user.login_otp_attempts + 1;
+    await prisma.cureliMobileUser.update({
+      where: { id: user.id },
+      data: { login_otp_attempts: newAttempts },
+    });
+
+    const remaining = MAX_ATTEMPTS_PER_OTP - newAttempts;
+    const err = new Error(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
+    err.code = "INVALID_OTP";
+    throw err;
+  }
+
+  // 3. Email unique validation
+  if (email) {
+    const existingEmail = await prisma.cureliMobileUser.findUnique({
+      where: {
+        email: email.toLowerCase().trim(),
+        deleted_at: null,
+      },
+    });
+    if (existingEmail) {
+      const err = new Error("Email already registered. Please use another email.");
+      err.code = "EMAIL_ALREADY_REGISTERED";
+      throw err;
+    }
+  }
+
+  // 4. Verification completed — hash password & update account securely
+  const hashedPassword = await hashPassword(password);
+
+  const updatedUser = await prisma.cureliMobileUser.update({
+    where: { id: user.id },
+    data: {
+      password_hash:      hashedPassword,
+      login_provider:     "password",
+      email:              email ? email.toLowerCase().trim() : null,
+      full_name:          full_name || null,
+      phone_verified:     true,
+      phone_verified_at:  new Date(),
+      login_otp_hash:     null,
+      login_otp_expires:  null,
+      login_otp_attempts: 0,
+      otp_cycle_failures: 0,
+      otp_locked_until:   null,
+    },
+  });
+
+  return await _completeVerification(updatedUser, deviceInfo, requestMeta);
 }

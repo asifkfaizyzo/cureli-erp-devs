@@ -263,7 +263,7 @@ export default function ProductDetailScreen() {
             <Text style={[styles.medicineName, { color: colors.text.primary }]}>
               {variant.name}
             </Text>
-            {variant.prescriptionRequired && (
+            {/* {variant.prescriptionRequired && (
               <View
                 style={[
                   styles.rxBadge,
@@ -277,7 +277,7 @@ export default function ProductDetailScreen() {
                   Rx
                 </Text>
               </View>
-            )}
+            )} */}
           </View>
 
           {variant.form ? (
@@ -442,7 +442,7 @@ export default function ProductDetailScreen() {
           </View>
         ) : null}
 
-        {/* Rx disclaimer */}
+        {/* Rx disclaimer
         {variant.prescriptionRequired ? (
           <View
             style={[
@@ -465,7 +465,7 @@ export default function ProductDetailScreen() {
               doctor.
             </Text>
           </View>
-        ) : null}
+        ) : null} */}
       </ScrollView>
 
       {/* Shops bottom sheet */}

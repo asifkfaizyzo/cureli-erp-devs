@@ -1,6 +1,6 @@
 // src/features/onboarding/screens/OnboardingEmailScreen.tsx
 
-import { useState } from 'react';
+import { useState } from "react";
 import {
   View,
   Text,
@@ -11,40 +11,38 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useUpdateProfile } from '../../profile/hooks/useUpdateProfile';
-import { StorageService } from '../../../services/storage';
-import { useTheme } from '../../../theme/ThemeContext';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useUpdateProfile } from "../../profile/hooks/useUpdateProfile";
+import { useTheme } from "../../../theme/ThemeContext";
 
-function isValidEmail(email: string): boolean {
+function isValidEmailFormat(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 export function OnboardingEmailScreen() {
   const { colors, isDark } = useTheme();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+
   const { updateProfile, isPending } = useUpdateProfile({
     redirectOnSuccess: false,
   });
 
+  const isEmailValid = isValidEmailFormat(email);
+  const isButtonDisabled = !isEmailValid || isPending;
+
   function finishOnboarding() {
-    router.replace('/(tabs)/home');
+    router.replace("/(tabs)/home");
   }
 
   async function handleFinish() {
     const trimmed = email.trim();
 
-    if (!trimmed) {
-      finishOnboarding();
-      return;
-    }
-
-    if (!isValidEmail(trimmed)) {
-      setError('Please enter a valid email address');
+    if (!isValidEmailFormat(trimmed)) {
+      setError("Please enter a valid email address");
       return;
     }
 
@@ -66,11 +64,11 @@ export function OnboardingEmailScreen() {
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background.page }]}
-      edges={['top', 'bottom']}
+      edges={["top", "bottom"]}
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           contentContainerStyle={styles.content}
@@ -82,13 +80,21 @@ export function OnboardingEmailScreen() {
             <View
               style={[
                 styles.progressBar,
-                { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+                {
+                  backgroundColor: isDark
+                    ? colors.brand.accent
+                    : colors.brand.primary,
+                },
               ]}
             />
             <View
               style={[
                 styles.progressBar,
-                { backgroundColor: isDark ? colors.brand.accent : colors.brand.primary },
+                {
+                  backgroundColor: isDark
+                    ? colors.brand.accent
+                    : colors.brand.primary,
+                },
               ]}
             />
           </View>
@@ -110,7 +116,7 @@ export function OnboardingEmailScreen() {
           {/* Input */}
           <View style={styles.inputBlock}>
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
-              Email address{' '}
+              Email address{" "}
               <Text style={{ color: colors.text.faint }}>(optional)</Text>
             </Text>
             <TextInput
@@ -137,7 +143,7 @@ export function OnboardingEmailScreen() {
               autoFocus
               maxLength={255}
               returnKeyType="done"
-              onSubmitEditing={handleFinish}
+              onSubmitEditing={isButtonDisabled ? undefined : handleFinish}
             />
             {error ? (
               <Text style={[styles.fieldError, { color: colors.status.error }]}>
@@ -146,7 +152,7 @@ export function OnboardingEmailScreen() {
             ) : null}
           </View>
 
-          {/* Finish button */}
+          {/* Action button */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -155,35 +161,33 @@ export function OnboardingEmailScreen() {
                   ? colors.brand.accent
                   : colors.brand.primary,
               },
-              isPending && styles.buttonDisabled,
+              isButtonDisabled && styles.buttonDisabled,
             ]}
             onPress={handleFinish}
-            disabled={isPending}
+            disabled={isButtonDisabled}
             activeOpacity={0.85}
           >
             {isPending ? (
               <ActivityIndicator size={18} color="#ffffff" />
-            ) : null}
-            <Text style={styles.buttonText}>
-              {isPending
-                ? 'Saving…'
-                : email.trim()
-                ? 'Finish Setup'
-                : 'Skip for now'}
-            </Text>
-            {!isPending && (
-              <MaterialIcons name="check" size={18} color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.buttonText}>Continue</Text>
+                <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
+              </>
             )}
           </TouchableOpacity>
 
           {/* Skip link */}
-          {email.trim().length === 0 && (
-            <TouchableOpacity onPress={handleSkip} style={styles.skipLink}>
-              <Text style={[styles.skipText, { color: colors.text.faint }]}>
-                I'll add this later from my profile
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={handleSkip}
+            style={styles.skipLink}
+            disabled={isPending}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.skipText, { color: colors.text.faint }]}>
+              I'll add this later from my profile
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -205,7 +209,7 @@ const styles = StyleSheet.create({
     gap: 32,
   },
   progressRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   progressBar: {
@@ -218,18 +222,18 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-    textTransform: 'uppercase',
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
   title: {
     fontSize: 30,
-    fontFamily: 'Inter_700Bold',
+    fontFamily: "Inter_700Bold",
     lineHeight: 38,
   },
   subtitle: {
     fontSize: 15,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: "Inter_400Regular",
     lineHeight: 23,
   },
   inputBlock: {
@@ -237,7 +241,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: "Inter_600SemiBold",
   },
   input: {
     borderWidth: 1.5,
@@ -245,16 +249,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 15,
     fontSize: 17,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: "Inter_400Regular",
   },
   fieldError: {
     fontSize: 12,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: "Inter_500Medium",
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingVertical: 16,
     borderRadius: 14,
@@ -264,16 +268,16 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    color: '#ffffff',
+    fontFamily: "Inter_700Bold",
+    color: "#ffffff",
   },
   skipLink: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 4,
   },
   skipText: {
     fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    textDecorationLine: 'underline',
+    fontFamily: "Inter_400Regular",
+    textDecorationLine: "underline",
   },
 });

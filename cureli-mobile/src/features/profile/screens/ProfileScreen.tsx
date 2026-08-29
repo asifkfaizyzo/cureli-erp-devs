@@ -1,3 +1,4 @@
+//cureli-mobile\src\features\profile\screens\ProfileScreen.tsx
 import React, { useState } from "react";
 import {
   ScrollView,
@@ -285,19 +286,19 @@ export function ProfileScreen() {
           <ProfileMenuItem
             icon="privacy-tip"
             label="Privacy Policy"
-            onPress={() => {}}
+            onPress={() => router.push("/profile/privacy" as any)}
             showSeparator
           />
           <ProfileMenuItem
             icon="description"
             label="Terms of Service"
-            onPress={() => {}}
+            onPress={() => router.push("/profile/terms" as any)}
             showSeparator
           />
           <ProfileMenuItem
             icon="support-agent"
-            label="Contact Support"
-            onPress={() => {}}
+            label="Support & Tickets"
+            onPress={() => router.push("/support/tickets" as any)}
             showSeparator={false}
           />
         </ProfileSection>

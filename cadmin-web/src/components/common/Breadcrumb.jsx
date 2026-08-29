@@ -1,4 +1,4 @@
-// src/components/common/Breadcrumb.jsx
+// cadmin-web/src/components/common/Breadcrumb.jsx
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +20,7 @@ const BREADCRUMB_PATHS = {
   // ── Communications ────────────────────────────────────────────────────────
   Communications: "/communications",
   Tickets: "/communications/tickets",
+  "Customer Tickets": "/communications/customer-tickets", // ◄ Added Customer Tickets mapping
   Enquiries: "/communications/enquiries",
   Broadcast: "/communications/broadcast",
   "In-App": "/communications/broadcast/in-app",

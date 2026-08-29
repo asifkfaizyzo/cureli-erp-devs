@@ -96,7 +96,7 @@ export function MedicineRow({
           <Text style={[styles.price, { color: colors.text.primary }]}>
             ₹{item.listingPrice ?? item.marketplace.startsAt}
           </Text>
-          {item.requiresPrescription ? (
+          {/* {item.requiresPrescription ? (
             <View
               style={[
                 styles.rxBadge,
@@ -110,7 +110,7 @@ export function MedicineRow({
                 Rx
               </Text>
             </View>
-          ) : null}
+          ) : null} */}
         </View>
       </View>
 

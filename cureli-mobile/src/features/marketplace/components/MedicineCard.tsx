@@ -130,7 +130,7 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
             >
               {medicine.name}
             </Text>
-            {medicine.prescriptionRequired ? (
+            {/* {medicine.prescriptionRequired ? (
               <View
                 style={[
                   styles.rxBadge,
@@ -144,7 +144,7 @@ function MedicineCardBase({ medicine, onPress }: MedicineCardProps) {
                   Rx
                 </Text>
               </View>
-            ) : null}
+            ) : null} */}
           </View>
 
           {/* Composition */}

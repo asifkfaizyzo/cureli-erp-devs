@@ -1,7 +1,6 @@
 // src/features/orders/screens/OrderDetailScreen.tsx
 // Updated: Added "Download Invoice" button for READY_FOR_PICKUP and COMPLETED orders.
-// All other code is unchanged from your original.
-// Only the stickyBar section and one import are modified.
+// Updated: Added "Need help with this order?" support ticket button for COMPLETED orders.
 
 import React, {
   useCallback,
@@ -1223,14 +1222,41 @@ export function OrderDetailScreen({ orderId }: OrderDetailScreenProps) {
                 Reorder
               </Text>
             </TouchableOpacity>
-            <Text
+
+            {/* ── Support Ticket Button ── */}
+            <TouchableOpacity
               style={[
-                styles.actionNote,
-                { color: colors.text.faint, fontFamily: "Inter_400Regular" },
+                styles.invoiceButton,
+                { borderColor: colors.border.default, marginTop: 4 },
               ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/support/raise" as any,
+                  params: {
+                    orderId: order.order_id,
+                    orderNumber: order.order_number,
+                  },
+                })
+              }
+              activeOpacity={0.7}
             >
-              Items will be added to your cart for review
-            </Text>
+              <Ionicons
+                name="help-circle-outline"
+                size={16}
+                color={colors.text.secondary}
+              />
+              <Text
+                style={[
+                  styles.invoiceButtonText,
+                  {
+                    color: colors.text.secondary,
+                    fontFamily: "Inter_600SemiBold",
+                  },
+                ]}
+              >
+                Need help with this order?
+              </Text>
+            </TouchableOpacity>
           </>
         ) : (
           <View style={styles.statusInfoBar}>
@@ -1409,7 +1435,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  // ── NEW: Invoice download button ──────────────────────────────────────────
+  // ── Invoice download button ──────────────────────────────────────────
   invoiceButton: {
     flexDirection: "row",
     alignItems: "center",

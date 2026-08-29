@@ -24,24 +24,34 @@ import {
   REVIEW_OTP,
 } from '../../src/constants/config';
 
-const OTP_LENGTH     = 6;
+const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
 
 export default function OtpScreen() {
-  const { phone }          = useLocalSearchParams<{ phone: string }>();
-  const { login, sendOtp } = useAuthStore();
-  const { colors }         = useTheme();
+  const params = useLocalSearchParams<{
+    phone: string;
+    mode?: string;
+    password?: string;
+    fullName?: string;
+    email?: string;
+  }>();
+  
+  const phone = params.phone ?? '';
+  const mode = params.mode ?? 'reset';
+  const password = params.password ?? '';
+  const fullName = params.fullName ?? '';
+  const email = params.email ?? '';
 
-  // ── Pre-fill OTP for App Store / Play Store reviewers ─────
-  // Only pre-fills when review mode is on AND the phone that
-  // arrived via params matches the review phone exactly.
+  const { sendResetOtp, sendRegisterOtp, register } = useAuthStore();
+  const { colors } = useTheme();
+
   const isReviewSession = REVIEW_MODE && phone === REVIEW_PHONE;
 
-  const [otp, setOtp]                 = useState(isReviewSession ? REVIEW_OTP : '');
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
+  const [otp, setOtp]                     = useState(isReviewSession ? REVIEW_OTP : '');
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
-  const [resending, setResending]     = useState(false);
+  const [resending, setResending]         = useState(false);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -51,50 +61,60 @@ export default function OtpScreen() {
     if (resendCooldown <= 0) return;
     const timer = setInterval(() => {
       setResendCooldown((prev) => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // ── Auto-submit ───────────────────────────────────────────
-  // Runs on mount when OTP is pre-filled (review session),
-  // and also runs normally when the user finishes typing.
+  // ── Auto-submit and navigate/finalize ───────────────────
 
   useEffect(() => {
     if (otp.length === OTP_LENGTH) {
+      Keyboard.dismiss();
       handleVerify(otp);
     }
   }, [otp]);
 
-  // ── Verify OTP ────────────────────────────────────────────
+  // ── Verify Core Action ────────────────────────────────────
 
   async function handleVerify(code: string) {
-    if (!phone) {
-      setError('Phone number missing. Please go back and try again.');
-      return;
-    }
-    if (code.length !== OTP_LENGTH) return;
-
     setError(null);
     setLoading(true);
-    Keyboard.dismiss();
 
     try {
-      await login(phone, code);
-      const user = useAuthStore.getState().user;
+      const normalizedPhone = `+91${phone}`;
 
-      if (!user?.profile_complete) {
-        router.replace('/onboarding/profile' as any);
+      if (mode === 'register') {
+        await register(
+          normalizedPhone,
+          password,
+          code,
+          fullName || undefined,
+          email || undefined,
+        );
+
+        const user = useAuthStore.getState().user;
+        if (!user?.profile_complete) {
+          router.replace('/onboarding/profile' as any);
+        } else {
+          router.replace('/(tabs)/home');
+        }
       } else {
-        router.replace('/(tabs)/home');
+        setLoading(false);
+        router.push({
+          pathname: '/(auth)/new-password',
+          params: { phone, otp: code, mode },
+        });
       }
     } catch (err: unknown) {
       setOtp('');
       setError(extractErrorMessage(err));
       setTimeout(() => inputRef.current?.focus(), 100);
-    } finally {
       setLoading(false);
     }
   }
@@ -108,7 +128,12 @@ export default function OtpScreen() {
     setOtp('');
 
     try {
-      await sendOtp(phone);
+      const normalized = `+91${phone}`;
+      if (mode === 'register') {
+        await sendRegisterOtp(normalized);
+      } else {
+        await sendResetOtp(normalized);
+      }
       setResendCooldown(RESEND_COOLDOWN);
     } catch (err: unknown) {
       setError(extractErrorMessage(err));
@@ -116,8 +141,6 @@ export default function OtpScreen() {
       setResending(false);
     }
   }
-
-  // ── OTP Input Handler ─────────────────────────────────────
 
   function handleOtpChange(text: string) {
     const digits = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
@@ -131,9 +154,9 @@ export default function OtpScreen() {
     return (
       <View style={styles.otpBoxRow}>
         {Array.from({ length: OTP_LENGTH }).map((_, index) => {
-          const char      = otp[index] ?? '';
+          const char = otp[index] ?? '';
           const isCurrent = index === otp.length && !loading;
-          const isFilled  = index < otp.length;
+          const isFilled = index < otp.length;
 
           return (
             <TouchableOpacity
@@ -142,20 +165,20 @@ export default function OtpScreen() {
                 styles.otpBox,
                 {
                   backgroundColor: colors.background.input,
-                  borderColor:     colors.border.input,
+                  borderColor: colors.border.input,
                 },
                 isFilled && {
-                  borderColor:     colors.brand.accent,
+                  borderColor: colors.brand.accent,
                   backgroundColor: colors.background.tint,
                 },
                 isCurrent && {
-                  borderColor:     colors.brand.accent,
-                  borderWidth:     2,
+                  borderColor: colors.brand.accent,
+                  borderWidth: 2,
                   backgroundColor: colors.background.card,
                 },
                 error
                   ? {
-                      borderColor:     colors.status.error,
+                      borderColor: colors.status.error,
                       backgroundColor: colors.status.errorBg,
                     }
                   : null,
@@ -168,7 +191,10 @@ export default function OtpScreen() {
               </Text>
               {isCurrent && (
                 <View
-                  style={[styles.cursor, { backgroundColor: colors.brand.accent }]}
+                  style={[
+                    styles.cursor,
+                    { backgroundColor: colors.brand.accent },
+                  ]}
                 />
               )}
             </TouchableOpacity>
@@ -185,13 +211,16 @@ export default function OtpScreen() {
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <ScrollView
+          style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           bounces={false}
+          automaticallyAdjustKeyboardInsets={true}
         >
           {/* Back button */}
           <TouchableOpacity
@@ -199,9 +228,13 @@ export default function OtpScreen() {
             onPress={() => router.back()}
             disabled={loading}
           >
-            <MaterialIcons name="arrow-back" size={20} color={colors.text.muted} />
+            <MaterialIcons
+              name="arrow-back"
+              size={20}
+              color={colors.text.muted}
+            />
             <Text style={[styles.backText, { color: colors.text.muted }]}>
-              Change number
+              Back
             </Text>
           </TouchableOpacity>
 
@@ -214,7 +247,7 @@ export default function OtpScreen() {
               ]}
             >
               <MaterialIcons
-                name="lock-outline"
+                name="sms"
                 size={28}
                 color={colors.brand.accent}
               />
@@ -226,7 +259,10 @@ export default function OtpScreen() {
             <Text style={[styles.subtitle, { color: colors.text.muted }]}>
               We sent a 6-digit code to{'\n'}
               <Text
-                style={[styles.phoneHighlight, { color: colors.text.primary }]}
+                style={[
+                  styles.phoneHighlight,
+                  { color: colors.text.primary },
+                ]}
               >
                 +91 {phone}
               </Text>
@@ -249,13 +285,13 @@ export default function OtpScreen() {
             {renderOtpBoxes()}
           </View>
 
-          {/* Status slot */}
+          {/* Status */}
           <View style={styles.statusSlot}>
             {loading ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator color={colors.brand.accent} size="small" />
                 <Text style={[styles.loadingText, { color: colors.brand.accent }]}>
-                  Verifying…
+                  Completing Registration…
                 </Text>
               </View>
             ) : error ? (
@@ -265,7 +301,9 @@ export default function OtpScreen() {
                   size={14}
                   color={colors.status.error}
                 />
-                <Text style={[styles.errorText, { color: colors.status.error }]}>
+                <Text
+                  style={[styles.errorText, { color: colors.status.error }]}
+                >
                   {error}
                 </Text>
               </View>
@@ -284,14 +322,27 @@ export default function OtpScreen() {
               disabled={resendCooldown > 0 || resending || loading}
             >
               {resending ? (
-                <ActivityIndicator color={colors.brand.accent} size="small" />
+                <ActivityIndicator
+                  color={colors.brand.accent}
+                  size="small"
+                />
               ) : resendCooldown > 0 ? (
-                <Text style={[styles.resendCooldown, { color: colors.text.faint }]}>
+                <Text
+                  style={[
+                    styles.resendCooldown,
+                    { color: colors.text.faint },
+                  ]}
+                >
                   Resend in {resendCooldown}s
                 </Text>
               ) : (
-                <Text style={[styles.resendActive, { color: colors.brand.accent }]}>
-                  Resend OTP
+                <Text
+                  style={[
+                    styles.resendActive,
+                    { color: colors.brand.accent },
+                  ]}
+                >
+                  Resend code
                 </Text>
               )}
             </TouchableOpacity>
@@ -307,23 +358,21 @@ function extractErrorMessage(err: unknown): string {
     const axiosErr = err as {
       response?: { data?: { message?: string }; status?: number };
     };
-    const status  = axiosErr.response?.status;
     const message = axiosErr.response?.data?.message;
-    if (status === 429) return message ?? 'Too many attempts. Please wait.';
-    if (status === 403) return message ?? 'Account suspended. Contact support.';
     if (message) return message;
   }
-  return 'Verification failed. Please try again.';
+  return 'Failed to verify OTP. Please try again.';
 }
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1 },
-  flex:          { flex: 1 },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
     gap: 24,
+    paddingBottom: 40,
   },
 
   backButton: {
@@ -344,13 +393,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  title:          { fontSize: 26, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  subtitle:       { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 22 },
+  title: {
+    fontSize: 26,
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   phoneHighlight: { fontFamily: 'Inter_600SemiBold' },
 
   otpSection: { alignItems: 'center', position: 'relative', marginTop: 8 },
   hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
-  otpBoxRow:  { flexDirection: 'row', gap: 10 },
+  otpBoxRow: { flexDirection: 'row', gap: 10 },
   otpBox: {
     width: 48,
     height: 58,
@@ -375,13 +433,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginVertical: -8,
   },
-  errorRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  errorText:   { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  loadingRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  errorText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   loadingText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
 
-  resendRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center', paddingBottom: 32 },
-  resendLabel:   { fontSize: 14, fontFamily: 'Inter_400Regular' },
-  resendCooldown:{ fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  resendActive:  { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  resendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    paddingBottom: 32,
+  },
+  resendLabel: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  resendCooldown: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  resendActive: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 });

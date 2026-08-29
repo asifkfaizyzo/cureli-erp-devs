@@ -290,6 +290,8 @@ model Shop {
   inventoryImportJobs     InventoryImportJob[] @relation("ShopInventoryImportJobs")
   // ── ADDED ─────────────────────────────────────────────────
   prescriptionRecipients  PrescriptionRequestRecipient[] @relation("ShopPrescriptionRecipients")
+  customerSupportTickets CustomerSupportTicket[] @relation("ShopCustomerSupportTickets")
+
   // ──────────────────────────────────────────────────────────
 
   @@map("shops")
@@ -1243,6 +1245,7 @@ model MarketplaceOrder {
   salesInvoice              SalesInvoice?                   @relation("MarketplaceSalesInvoice", fields: [sales_invoice_id], references: [invoice_id])
   couponUsages              CouponUsage[]                   @relation("OrderCouponUsages")
   loyaltyTransactions       LoyaltyTransaction[]            @relation("OrderLoyaltyTransactions")
+  customerSupportTickets CustomerSupportTicket[] @relation("OrderCustomerSupportTickets")
 
   @@index([shop_id, status])
   @@index([customer_id, placed_at(sort: Desc)])
@@ -1493,6 +1496,13 @@ model CureliMobileUser {
   phone_verified         Boolean                     @default(false)
   phone_verified_at      DateTime?                   @db.Timestamptz(6)
 
+  // ── NEW: Password auth fields ───────────────────────────────
+  password_hash          String?                     @db.VarChar(500)
+  login_provider         String                      @default("otp") @db.VarChar(20)
+  password_attempts      Int                         @default(0)
+  password_locked_until  DateTime?                   @db.Timestamptz(6)
+  // ────────────────────────────────────────────────────────────
+
   email                  String?                     @unique @db.VarChar(255)
   full_name              String?                     @db.VarChar(200)
   profile_image_key      String?                     @db.VarChar(500)
@@ -1541,7 +1551,7 @@ model CureliMobileUser {
   loyalty_points_balance Int                         @default(0)
   loyaltyTransactions    LoyaltyTransaction[]        @relation("CustomerLoyaltyTransactions")
   couponUsages           CouponUsage[]               @relation("CustomerCouponUsages")
-
+  customerSupportTickets CustomerSupportTicket[] @relation("CustomerSupportTickets")
   @@index([phone])
   @@index([status])
   @@index([deleted_at])
@@ -3376,6 +3386,89 @@ model TicketAttachment {
   @@map("ticket_attachments")
 }
 
+model CustomerSupportTicket {
+  ticket_id           String                     @id @default(uuid()) @db.Uuid
+  ticket_number       String                     @unique @db.VarChar(30)
+
+  // Ownership & Context
+  customer_id         String                     @db.Uuid
+  order_id            String                     @db.Uuid
+  shop_id             String                     @db.Uuid
+
+  // Content
+  category            CustomerTicketCategory
+  other_category_text String?                    @db.VarChar(150)
+  subject             String                     @db.VarChar(200)
+  description         String                     @db.Text
+
+  // State
+  status              CustomerTicketStatus       @default(OPEN)
+  attachment_count    Int                        @default(0)
+  activity_count      Int                        @default(0)
+
+  // Timestamps
+  created_at          DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                   @updatedAt @db.Timestamptz(6)
+  resolved_at         DateTime?                  @db.Timestamptz(6)
+  closed_at           DateTime?                  @db.Timestamptz(6)
+
+  // Relations
+  customer            CureliMobileUser           @relation("CustomerSupportTickets", fields: [customer_id], references: [id], onDelete: Restrict)
+  order               MarketplaceOrder           @relation("OrderCustomerSupportTickets", fields: [order_id], references: [order_id], onDelete: Restrict)
+  shop                Shop                       @relation("ShopCustomerSupportTickets", fields: [shop_id], references: [shop_id], onDelete: Restrict)
+  attachments         CustomerSupportTicketAttachment[]
+  activities          CustomerSupportTicketActivity[]
+
+  @@index([customer_id, created_at(sort: Desc)])
+  @@index([order_id])
+  @@index([shop_id, status])
+  @@index([status, created_at(sort: Desc)])
+  @@index([ticket_number])
+  @@map("customer_support_tickets")
+}
+
+model CustomerSupportTicketAttachment {
+  attachment_id       String                     @id @default(uuid()) @db.Uuid
+  ticket_id           String                     @db.Uuid
+  storage_key         String                     @db.VarChar(500)
+  original_name       String                     @db.VarChar(255)
+  mime_type           String                     @db.VarChar(100)
+  file_size           Int
+  uploaded_at         DateTime                   @default(now()) @db.Timestamptz(6)
+
+  ticket              CustomerSupportTicket      @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id])
+  @@map("customer_support_ticket_attachments")
+}
+
+model CustomerSupportTicketActivity {
+  activity_id         String                     @id @default(uuid()) @db.Uuid
+  ticket_id           String                     @db.Uuid
+
+  type                CustomerTicketActivityType
+  from_status         CustomerTicketStatus?
+  to_status           CustomerTicketStatus?
+
+  actor_type          String                     @db.VarChar(20) // "CUSTOMER" | "CADMIN" | "SYSTEM"
+  actor_id            String                     @db.Uuid
+  actor_name          String                     @db.VarChar(150)
+
+  message             String?                    @db.Text
+  is_internal         Boolean                    @default(false)
+
+  created_at          DateTime                   @default(now()) @db.Timestamptz(6)
+
+  ticket              CustomerSupportTicket      @relation(fields: [ticket_id], references: [ticket_id], onDelete: Cascade)
+
+  @@index([ticket_id, created_at(sort: Asc)])
+  @@index([type])
+  @@map("customer_support_ticket_activities")
+}
+
+
+
+
 model Enquiry {
   enquiry_id     String         @id @default(uuid()) @db.Uuid
   enquiry_number String         @unique @db.VarChar(30)
@@ -3917,4 +4010,29 @@ enum CouponType {
 enum DeliveryMode {
   CURELI
   SELF
+}
+
+enum CustomerTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum CustomerTicketCategory {
+  WRONG_ITEM
+  DAMAGED_PRODUCT
+  DELIVERY_ISSUE
+  QUALITY_ISSUE
+  MISSING_ITEM
+  REFUND_REQUEST
+  OTHER
+}
+
+enum CustomerTicketActivityType {
+  CREATED
+  STATUS_CHANGED
+  CUSTOMER_REPLY
+  CADMIN_REPLY
+  INTERNAL_NOTE
 }

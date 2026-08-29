@@ -88,6 +88,7 @@ import cadminEnquiriesRoutes from "./src/modules/cadmin/enquiries/cadminEnquirie
 import cadminAppConfigRoutes from "./src/modules/cadmin/app-config/cadmin.appConfig.routes.js";
 import cadminRiderRoutes from "./src/modules/cadmin/delivery/cadminRiders.routes.js";
 import cadminCouponRoutes from "./src/modules/cadmin/coupons/cadminCoupon.routes.js";
+import cadminCustomerSupportRoutes from "./src/modules/cadmin/customer-support/cadmin.customerSupport.routes.js";
 
 // ============================================
 // MOBILE ROUTES
@@ -105,6 +106,7 @@ import mobileCheckoutRoutes from "./src/modules/mobile/checkout/mobile.checkout.
 import mobileAppConfigRoutes from "./src/modules/mobile/app-config/mobile.appConfig.routes.js";
 import mobileLoyaltyRoutes from "./src/modules/mobile/loyalty/mobile.loyalty.routes.js";
 import mobileCouponRoutes from "./src/modules/mobile/coupons/mobile.coupon.routes.js";
+import mobileSupportRoutes from "./src/modules/mobile/support/mobile.support.routes.js";
 
 // ============================================
 // RIDER ROUTES
@@ -303,6 +305,7 @@ app.use("/cadmin", cadminPricingRoutes);
 app.use("/cadmin", cadminAppConfigRoutes);
 app.use("/cadmin", cadminRiderRoutes);
 app.use("/cadmin/coupons", cadminCouponRoutes);
+app.use("/cadmin", cadminCustomerSupportRoutes);
 
 // ============================================
 // MOBILE ROUTES
@@ -321,6 +324,7 @@ app.use("/mobile/prescription-requests", prescriptionRequestsMobileRouter);
 app.use("/mobile/app-config", mobileAppConfigRoutes);
 app.use("/mobile/loyalty", mobileLoyaltyRoutes);
 app.use("/mobile/coupons", mobileCouponRoutes);
+app.use("/mobile/support", mobileSupportRoutes);
 
 // ============================================
 // RIDER ROUTES

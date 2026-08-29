@@ -18,11 +18,39 @@ export interface MobileUser {
   last_seen_at: string | null;
 }
 
+export interface DeviceInfo {
+  device_id?: string;
+  device_name?: string;
+  device_platform?: 'ios' | 'android';
+  device_os_version?: string;
+  app_version?: string;
+}
+
+// ── Response shapes ──────────────────────────────────────────
+
 export interface SendOtpResponse {
   expires_in: number;
 }
 
 export interface VerifyOtpResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: 'Bearer';
+  is_new_user: boolean;
+  user: MobileUser;
+}
+
+export interface RegisterResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: 'Bearer';
+  is_new_user: boolean;
+  user: MobileUser;
+}
+
+export interface LoginResponse {
   access_token: string;
   refresh_token: string;
   expires_in: number;
@@ -43,6 +71,12 @@ export interface MeResponse {
   };
 }
 
+export interface SendResetOtpResponse {
+  expires_in: number;
+}
+
+// ── Auth state ───────────────────────────────────────────────
+
 export type AuthStatus =
   | 'unknown'
   | 'checking'
@@ -55,19 +89,40 @@ export interface AuthState {
   accessToken: string | null;
 
   initialize: () => Promise<void>;
+
+  // Legacy OTP auth
   login: (phone: string, otp: string, deviceInfo?: DeviceInfo) => Promise<{ isNewUser: boolean }>;
   sendOtp: (phone: string) => Promise<{ expiresIn: number }>;
+
+  // Password Registration with OTP
+  sendRegisterOtp: (phone: string) => Promise<{ expiresIn: number }>;
+  register: (
+    phone: string,
+    password: string,
+    otp: string,
+    fullName?: string,
+    email?: string,
+    deviceInfo?: DeviceInfo,
+  ) => Promise<{ isNewUser: boolean }>;
+
+  // Password Login
+  loginWithPassword: (
+    identifier: string,
+    password: string,
+    deviceInfo?: DeviceInfo,
+  ) => Promise<{ isNewUser: boolean }>;
+
+  // Password Reset / Set
+  sendResetOtp: (phone: string) => Promise<{ expiresIn: number }>;
+  resetPassword: (
+    phone: string,
+    otp: string,
+    newPassword: string,
+  ) => Promise<void>;
+
   logout: () => Promise<void>;
   setUser: (user: MobileUser) => void;
   setAccessToken: (token: string) => void;
-}
-
-export interface DeviceInfo {
-  device_id?: string;
-  device_name?: string;
-  device_platform?: 'ios' | 'android';
-  device_os_version?: string;
-  app_version?: string;
 }
 
 // ── Family Members ────────────────────────────────────────────
@@ -76,7 +131,7 @@ export interface FamilyMember {
   id: string;
   name: string;
   date_of_birth: string;   // "YYYY-MM-DD"
-  age: number;             // computed by backend at response time
+  age: number;
   sex: UserSex;
   phone: string | null;
   created_at: string;
