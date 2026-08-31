@@ -1,6 +1,15 @@
-//backend\src\middleware\rateLimiter.js
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import jwt from "jsonwebtoken";
+
+// ============================================
+// HELPER — Check if limiter should be bypassed via .env
+// ============================================
+const shouldSkip = (specificEnvVar) => () => {
+  // Master kill-switch or specific limiter flag
+  if (process.env.DISABLE_ALL_RATE_LIMITERS === "true") return true;
+  if (process.env[specificEnvVar] === "true") return true;
+  return false;
+};
 
 // ============================================
 // KEY GENERATOR — per-user or per-IP fallback
@@ -18,7 +27,7 @@ const userOrIpKey = (req) => {
   } catch {
     // decode failed — fall through to IP
   }
-  return `ip:${ipKeyGenerator(req)}`; // ← only change, wraps req.ip with IPv6 normalization
+  return `ip:${ipKeyGenerator(req)}`;
 };
 
 // ============================================
@@ -28,6 +37,7 @@ export const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 200,
   keyGenerator: userOrIpKey,
+  skip: shouldSkip("DISABLE_GLOBAL_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -43,6 +53,7 @@ export const relaxedLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 600,
   keyGenerator: userOrIpKey,
+  skip: shouldSkip("DISABLE_RELAXED_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -58,6 +69,7 @@ export const cadminLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 300,
   keyGenerator: userOrIpKey,
+  skip: shouldSkip("DISABLE_CADMIN_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -72,6 +84,7 @@ export const cadminLimiter = rateLimit({
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
+  skip: shouldSkip("DISABLE_AUTH_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -86,6 +99,7 @@ export const authLimiter = rateLimit({
 export const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
+  skip: shouldSkip("DISABLE_OTP_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -100,6 +114,7 @@ export const otpLimiter = rateLimit({
 export const signupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  skip: shouldSkip("DISABLE_SIGNUP_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -107,13 +122,15 @@ export const signupLimiter = rateLimit({
     message: "Too many signup attempts. Please try again later.",
   },
 });
+
 // ============================================
 // MOBILE API LIMITER — for /mobile/* (customer app)
 // ============================================
 export const mobileLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 200, // was 120, bumped for normal app usage
+  max: 200,
   keyGenerator: userOrIpKey,
+  skip: shouldSkip("DISABLE_MOBILE_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -124,12 +141,12 @@ export const mobileLimiter = rateLimit({
 
 // ============================================
 // MOBILE AUTH LIMITER — OTP send + verify only
-// Tighter window, IP-keyed using the same safe helper
 // ============================================
 export const mobileAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   keyGenerator: (req) => `ip:${ipKeyGenerator(req)}`,
+  skip: shouldSkip("DISABLE_MOBILE_AUTH_LIMITER"),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
