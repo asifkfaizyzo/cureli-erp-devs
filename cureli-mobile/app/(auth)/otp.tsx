@@ -18,11 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 import { useTheme } from '../../src/theme/ThemeContext';
-import {
-  REVIEW_MODE,
-  REVIEW_PHONE,
-  REVIEW_OTP,
-} from '../../src/constants/config';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 30;
@@ -45,17 +40,14 @@ export default function OtpScreen() {
   const { sendResetOtp, sendRegisterOtp, register } = useAuthStore();
   const { colors } = useTheme();
 
-  const isReviewSession = REVIEW_MODE && phone === REVIEW_PHONE;
-
-  const [otp, setOtp]                     = useState(isReviewSession ? REVIEW_OTP : '');
+  // Clean empty initial state. No auto-fill occurs.
+  const [otp, setOtp]                     = useState('');
   const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const [resending, setResending]         = useState(false);
 
   const inputRef = useRef<TextInput>(null);
-
-  // ── Cooldown Timer ────────────────────────────────────────
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -71,16 +63,12 @@ export default function OtpScreen() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // ── Auto-submit and navigate/finalize ───────────────────
-
   useEffect(() => {
     if (otp.length === OTP_LENGTH) {
       Keyboard.dismiss();
       handleVerify(otp);
     }
   }, [otp]);
-
-  // ── Verify Core Action ────────────────────────────────────
 
   async function handleVerify(code: string) {
     setError(null);
@@ -119,8 +107,6 @@ export default function OtpScreen() {
     }
   }
 
-  // ── Resend OTP ────────────────────────────────────────────
-
   async function handleResend() {
     if (resendCooldown > 0 || !phone) return;
     setResending(true);
@@ -147,8 +133,6 @@ export default function OtpScreen() {
     setOtp(digits);
     if (error) setError(null);
   }
-
-  // ── OTP Boxes ─────────────────────────────────────────────
 
   function renderOtpBoxes() {
     return (
@@ -222,7 +206,6 @@ export default function OtpScreen() {
           bounces={false}
           automaticallyAdjustKeyboardInsets={true}
         >
-          {/* Back button */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -238,7 +221,6 @@ export default function OtpScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.header}>
             <View
               style={[
@@ -269,7 +251,6 @@ export default function OtpScreen() {
             </Text>
           </View>
 
-          {/* OTP Input */}
           <View style={styles.otpSection}>
             <TextInput
               ref={inputRef}
@@ -285,7 +266,6 @@ export default function OtpScreen() {
             {renderOtpBoxes()}
           </View>
 
-          {/* Status */}
           <View style={styles.statusSlot}>
             {loading ? (
               <View style={styles.loadingRow}>
@@ -312,7 +292,6 @@ export default function OtpScreen() {
             )}
           </View>
 
-          {/* Resend */}
           <View style={styles.resendRow}>
             <Text style={[styles.resendLabel, { color: colors.text.muted }]}>
               Didn't receive the code?

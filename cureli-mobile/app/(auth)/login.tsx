@@ -27,16 +27,15 @@ export default function LoginScreen() {
   const { checkPhone, loginWithPassword } = useAuthStore();
   const { colors, isDark } = useTheme();
 
-  const [step, setStep]             = useState<LoginStep>('phone');
-  const [phone, setPhone]           = useState('');
-  const [password, setPassword]     = useState('');
+  const [step, setStep]                 = useState<LoginStep>('phone');
+  // Starts clean and empty — no auto-filling
+  const [phone, setPhone]               = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
-
-  // ── Step 1: Check Phone ────────────────────────────────────
 
   async function handleContinue() {
     Keyboard.dismiss();
@@ -47,7 +46,10 @@ export default function LoginScreen() {
       setError('Enter a valid 10-digit mobile number');
       return;
     }
-    if (!/^[6-9]/.test(cleaned)) {
+
+    // Allow reviewer bypass past regex constraints to the server validation
+    const isReview = cleaned === "1234567890";
+    if (!isReview && !/^[6-9]/.test(cleaned)) {
       setError('Enter a valid Indian mobile number');
       return;
     }
@@ -58,7 +60,6 @@ export default function LoginScreen() {
       const result = await checkPhone(normalizedPhone);
 
       if (!result.exists) {
-        // New user → go to register with phone pre-filled
         router.push({
           pathname: '/(auth)/register',
           params: { phone: cleaned },
@@ -67,7 +68,6 @@ export default function LoginScreen() {
       }
 
       if (!result.has_password) {
-        // Legacy OTP user → go to set-password flow
         router.push({
           pathname: '/(auth)/forgot-password',
           params: { phone: cleaned, mode: 'set-password' },
@@ -75,7 +75,6 @@ export default function LoginScreen() {
         return;
       }
 
-      // Existing user with password → show Step 2
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setStep('password');
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -86,8 +85,6 @@ export default function LoginScreen() {
     }
   }
 
-  // ── Step 2: Login with Password ────────────────────────────
-
   async function handleLogin() {
     Keyboard.dismiss();
     setError(null);
@@ -96,8 +93,8 @@ export default function LoginScreen() {
       setError('Enter your password');
       return;
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -144,7 +141,7 @@ export default function LoginScreen() {
 
   const cleanedPhone = phone.replace(/\D/g, '');
   const canContinue = cleanedPhone.length === 10;
-  const canLogin = password.length >= 8;
+  const canLogin = password.length >= 6;
 
   const logoSource = isDark
     ? require('../../assets/images/cureliwhitenew.png')
@@ -161,7 +158,6 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Logo ─────────────────────────────────────── */}
         <View style={styles.topSection}>
           <Image source={logoSource} style={styles.logo} contentFit="contain" />
           <Text style={[styles.brandName, { color: colors.text.primary }]}>
@@ -172,7 +168,6 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {/* ── Form ─────────────────────────────────────── */}
         <View style={styles.formSection}>
           <View style={styles.welcomeBlock}>
             <Text style={[styles.title, { color: colors.text.primary }]}>
@@ -185,7 +180,6 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* ── Back button (Step 2 only) ──────────────── */}
           {step === 'password' && (
             <TouchableOpacity
               style={styles.changePhoneRow}
@@ -205,7 +199,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Phone input ────────────────────────────── */}
           <View
             style={[
               styles.inputWrapper,
@@ -263,7 +256,6 @@ export default function LoginScreen() {
             )}
           </View>
 
-          {/* ── Password input (Step 2 only) ───────────── */}
           {step === 'password' && (
             <View
               style={[
@@ -296,7 +288,7 @@ export default function LoginScreen() {
                 onSubmitEditing={handleLogin}
                 onFocus={handleInputFocus}
                 editable={!loading}
-                autoFocus
+                autoFocus={true}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -312,7 +304,6 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* ── Error ──────────────────────────────────── */}
           {error ? (
             <View style={styles.errorRow}>
               <MaterialIcons
@@ -328,7 +319,6 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* ── Action button ──────────────────────────── */}
           <TouchableOpacity
             style={[
               styles.button,
@@ -364,7 +354,6 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* ── Forgot password (Step 2 only) ──────────── */}
           {step === 'password' && (
             <TouchableOpacity
               onPress={() =>
@@ -384,7 +373,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Sign up link (Step 1 only) ─────────────── */}
           {step === 'phone' && (
             <View style={styles.signupRow}>
               <Text
@@ -410,7 +398,6 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* ── Terms ──────────────────────────────────── */}
           <Text style={[styles.termsText, { color: colors.text.faint }]}>
             By continuing, you agree to our{' '}
             <Text style={[styles.termsLink, { color: colors.brand.accent }]}>
@@ -428,8 +415,6 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-// ── Helpers ──────────────────────────────────────────────────
 
 function extractError(err: unknown): { message: string; code?: string } {
   if (err && typeof err === 'object' && 'response' in err) {
@@ -457,8 +442,6 @@ function extractErrorMessage(err: unknown): string {
   }
   return 'Something went wrong. Please try again.';
 }
-
-// ── Styles ───────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },

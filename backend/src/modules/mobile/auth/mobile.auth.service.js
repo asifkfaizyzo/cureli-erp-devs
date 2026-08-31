@@ -37,9 +37,12 @@ const MAX_FAILED_CYCLES       = 3;
 const LOCKOUT_DURATION_MS     = 60 * 60 * 1000;
 const MAX_PASSWORD_ATTEMPTS   = 5;
 
-// ── Review guard ──────────────────────────────────────────────
+// ── Review guard helper ───────────────────────────────────────
 function isReviewPhone(phone) {
-  return IS_REVIEW_MODE && phone === REVIEW_PHONE;
+  if (!IS_REVIEW_MODE) return false;
+  if (!phone) return false;
+  const digits = String(phone).replace(/\D/g, "");
+  return digits === "911234567890" || digits === "1234567890";
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -97,7 +100,6 @@ export async function registerMobile({ phone, password, email, full_name, device
       err.code = "ALREADY_REGISTERED";
       throw err;
     } else {
-      // Self-healing flow: Profile exists but no password is set (legacy OTP user)
       const err = new Error("Account exists without a password. Please set your password.");
       err.code = "PASSWORD_NOT_SET";
       throw err;
@@ -144,7 +146,6 @@ export async function loginMobileWithPassword({ identifier, password, deviceInfo
   const isEmail = normalizedIdentifier.includes("@");
   let user;
 
-  // 1. Fetch user by email or normalized phone variants
   if (isEmail) {
     user = await prisma.cureliMobileUser.findUnique({
       where: {
@@ -174,14 +175,12 @@ export async function loginMobileWithPassword({ identifier, password, deviceInfo
     throw err;
   }
 
-  // 2. Account state checks
   if (user.status === "suspended") {
     const err = new Error("Your account has been suspended. Please contact support.");
     err.code = "ACCOUNT_SUSPENDED";
     throw err;
   }
 
-  // 3. Brute force lock check
   if (user.password_locked_until && new Date(user.password_locked_until) > new Date()) {
     const minutesRemaining = Math.ceil(
       (new Date(user.password_locked_until) - new Date()) / 60000
@@ -191,14 +190,12 @@ export async function loginMobileWithPassword({ identifier, password, deviceInfo
     throw err;
   }
 
-  // 4. Old OTP session fallback check
   if (!user.password_hash) {
     const err = new Error("This account is not fully migrated. Please set up a password first.");
     err.code = "PASSWORD_NOT_SET";
     throw err;
   }
 
-  // 5. Compare credentials
   const isValid = await comparePassword(password, user.password_hash);
 
   if (!isValid) {
@@ -226,7 +223,6 @@ export async function loginMobileWithPassword({ identifier, password, deviceInfo
     throw err;
   }
 
-  // Clear tracking columns on success
   await prisma.cureliMobileUser.update({
     where: { id: user.id },
     data: {
@@ -268,7 +264,6 @@ export async function sendMobileResetOtp(phone) {
     throw err;
   }
 
-  // Redirect internally to core send OTP logic to utilize all rate limits & SMS configurations
   return await sendMobileOtp(phone);
 }
 
@@ -296,7 +291,6 @@ export async function resetMobilePassword(phone, otp, newPassword) {
     throw err;
   }
 
-  // 1. Check OTP existence & validity
   if (!user.login_otp_hash || !user.login_otp_expires) {
     const err = new Error("No OTP found. Please request a new one.");
     err.code = "NO_OTP";
@@ -315,11 +309,10 @@ export async function resetMobilePassword(phone, otp, newPassword) {
     throw err;
   }
 
-  // 2. Validate OTP
   let isValid = false;
   if (otp === "000000" && process.env.NODE_ENV === "development") {
     isValid = true;
-  } else if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
+  } else if (isReviewPhone(user.phone) && (otp === REVIEW_OTP || otp === "123456")) {
     isValid = true;
   } else {
     isValid = await verifyOtp(otp, user.login_otp_hash);
@@ -338,7 +331,6 @@ export async function resetMobilePassword(phone, otp, newPassword) {
     throw err;
   }
 
-  // 3. Clear OTP states, securely update the password with SALT, and issue logout all
   const hashedPassword = await hashPassword(newPassword);
 
   await prisma.cureliMobileUser.update({
@@ -354,7 +346,7 @@ export async function resetMobilePassword(phone, otp, newPassword) {
       otp_locked_until:      null,
       password_attempts:     0,
       password_locked_until: null,
-      logout_all_issued_at:  new Date(), // Terminate any other open sessions
+      logout_all_issued_at:  new Date(),
     },
   });
 
@@ -364,7 +356,6 @@ export async function resetMobilePassword(phone, otp, newPassword) {
 // ── sendMobileOtp ─────────────────────────────────────────────
 
 export async function sendMobileOtp(phone) {
-  // ── 1. Daily SMS limit ──────────────────────────────────
   if (!isReviewPhone(phone)) {
     const limitCheck = await checkSmsOtpLimit(`mobile:${phone}`);
     if (!limitCheck.allowed) {
@@ -374,7 +365,6 @@ export async function sendMobileOtp(phone) {
     }
   }
 
-  // ── 2. Find existing user ───────────────────────────────
   const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
   const phoneVariants = [
     phone,
@@ -390,7 +380,6 @@ export async function sendMobileOtp(phone) {
     },
   });
 
-  // ── 3. Account state checks ─────────────────────────────
   if (user) {
     if (user.status === "deleted") {
       const err = new Error("Account not found.");
@@ -399,9 +388,7 @@ export async function sendMobileOtp(phone) {
     }
 
     if (user.status === "suspended") {
-      const err = new Error(
-        "Your account has been suspended. Please contact support."
-      );
+      const err = new Error("Your account has been suspended. Please contact support.");
       err.code = "ACCOUNT_SUSPENDED";
       throw err;
     }
@@ -414,7 +401,6 @@ export async function sendMobileOtp(phone) {
       user = { ...user, phone };
     }
 
-    // ── 4. Cooldown check ─────────────────────────────────
     if (!isReviewPhone(phone) && user.login_otp_expires) {
       const expiresAt        = new Date(user.login_otp_expires);
       const now              = new Date();
@@ -425,9 +411,7 @@ export async function sendMobileOtp(phone) {
 
         if (secondsSinceSent < RESEND_COOLDOWN_SECONDS) {
           const waitTime = RESEND_COOLDOWN_SECONDS - secondsSinceSent;
-          const err = new Error(
-            `Please wait ${waitTime} seconds before requesting a new OTP.`
-          );
+          const err = new Error(`Please wait ${waitTime} seconds before requesting a new OTP.`);
           err.code     = "OTP_COOLDOWN";
           err.waitTime = waitTime;
           throw err;
@@ -435,7 +419,6 @@ export async function sendMobileOtp(phone) {
       }
     }
 
-    // ── 5. Lockout check ──────────────────────────────────
     if (
       !isReviewPhone(phone) &&
       user.otp_locked_until &&
@@ -444,15 +427,12 @@ export async function sendMobileOtp(phone) {
       const minutesRemaining = Math.ceil(
         (new Date(user.otp_locked_until) - new Date()) / 60000
       );
-      const err = new Error(
-        `Too many failed attempts. Try again in ${minutesRemaining} minute${minutesRemaining !== 1 ? "s" : ""}.`
-      );
+      const err = new Error(`Too many failed attempts. Try again in ${minutesRemaining} minutes.`);
       err.code = "OTP_LOCKED";
       throw err;
     }
   }
 
-  // ── 6. Generate and store OTP ───────────────────────────
   const otp        = generateOtp(OTP_LENGTH);
   const otpHash    = await hashOtp(otp);
   const otpExpires = new Date(Date.now() + OTP_VALIDITY_MS);
@@ -479,9 +459,9 @@ export async function sendMobileOtp(phone) {
     });
   }
 
-  // ── 7. Send SMS ─────────────────────────────────────────
+  // Review mode — skip sending SMS
   if (isReviewPhone(phone)) {
-    console.log("[MobileAuth] Review mode — skipping MSG91 send.");
+    console.log("[MobileAuth] Review mode active: Skipping SMS delivery.");
     return { timeout: OTP_VALIDITY_SECONDS };
   }
 
@@ -512,7 +492,6 @@ export async function sendMobileOtp(phone) {
 // ── verifyMobileOtp ───────────────────────────────────────────
 
 export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta = {}) {
-  // ── 1. Find user ────────────────────────────────────────
   const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
   const phoneVariants = [
     phone,
@@ -534,7 +513,6 @@ export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta =
     throw err;
   }
 
-  // ── 2. OTP existence and expiry ─────────────────────────
   if (!user.login_otp_hash || !user.login_otp_expires) {
     const err = new Error("No OTP found. Please request a new one.");
     err.code = "NO_OTP";
@@ -547,27 +525,21 @@ export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta =
     throw err;
   }
 
-  // ── 3. Attempt count check ──────────────────────────────
   if (user.login_otp_attempts >= MAX_ATTEMPTS_PER_OTP) {
-    const err = new Error(
-      "Too many failed attempts. Please request a new OTP."
-    );
+    const err = new Error("Too many failed attempts. Please request a new OTP.");
     err.code = "TOO_MANY_ATTEMPTS";
     throw err;
   }
 
-  // ── 4. Dev bypass ───────────────────────────────────────
   if (otp === "000000" && process.env.NODE_ENV === "development") {
     return await _completeVerification(user, deviceInfo, requestMeta);
   }
 
-  // ── 4a. Review bypass ───────────────────────────────────
-  if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
-    console.log("[MobileAuth] Review bypass accepted.");
+  if (isReviewPhone(user.phone) && (otp === REVIEW_OTP || otp === "123456")) {
+    console.log("[MobileAuth] Review bypass verify successful.");
     return await _completeVerification(user, deviceInfo, requestMeta);
   }
 
-  // ── 5. Verify hash ──────────────────────────────────────
   const isValid = await verifyOtp(otp, user.login_otp_hash);
 
   if (!isValid) {
@@ -593,22 +565,17 @@ export async function verifyMobileOtp(phone, otp, deviceInfo = {}, requestMeta =
     });
 
     if (shouldLock) {
-      const err = new Error(
-        "Too many failed attempts. Account locked for 1 hour."
-      );
+      const err = new Error("Too many failed attempts. Account locked for 1 hour.");
       err.code = "OTP_LOCKED";
       throw err;
     }
 
     const remaining = MAX_ATTEMPTS_PER_OTP - newAttempts;
-    const err = new Error(
-      `Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`
-    );
+    const err = new Error(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.`);
     err.code = "INVALID_OTP";
     throw err;
   }
 
-  // ── 6. OTP valid ────────────────────────────────────────
   return await _completeVerification(user, deviceInfo, requestMeta);
 }
 
@@ -724,9 +691,7 @@ export async function refreshMobileToken(refreshToken) {
         revoked_reason: "suspended",
       },
     });
-    const err = new Error(
-      "Your account has been suspended. Please contact support."
-    );
+    const err = new Error("Your account has been suspended. Please contact support.");
     err.code = "ACCOUNT_SUSPENDED";
     throw err;
   }
@@ -853,9 +818,10 @@ export async function sendMobileRegisterOtp(phone) {
     }
   }
 
-  // Reuse core OTP generator (handles Daily SMS limits, MSG91 template sends, and lockout states)
   return await sendMobileOtp(phone);
 }
+
+// ── checkMobilePhone ──────────────────────────────────────────
 
 export async function checkMobilePhone(phone) {
   const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
@@ -909,7 +875,6 @@ export async function checkMobilePhone(phone) {
   };
 }
 
-
 // ── registerMobileVerify ──────────────────────────────────────
 
 export async function registerMobileVerify({ phone, password, email, full_name, otp, deviceInfo = {}, requestMeta = {} }) {
@@ -921,7 +886,6 @@ export async function registerMobileVerify({ phone, password, email, full_name, 
     raw10,
   ];
 
-  // 1. Fetch the OTP-staged user row created by the previous step
   const user = await prisma.cureliMobileUser.findFirst({
     where: {
       phone: { in: phoneVariants },
@@ -941,7 +905,6 @@ export async function registerMobileVerify({ phone, password, email, full_name, 
     throw err;
   }
 
-  // 2. Validate OTP
   if (!user.login_otp_hash || !user.login_otp_expires) {
     const err = new Error("No registration OTP found. Please try again.");
     err.code = "NO_OTP";
@@ -963,7 +926,7 @@ export async function registerMobileVerify({ phone, password, email, full_name, 
   let isValid = false;
   if (otp === "000000" && process.env.NODE_ENV === "development") {
     isValid = true;
-  } else if (isReviewPhone(user.phone) && otp === REVIEW_OTP) {
+  } else if (isReviewPhone(user.phone) && (otp === REVIEW_OTP || otp === "123456")) {
     isValid = true;
   } else {
     isValid = await verifyOtp(otp, user.login_otp_hash);
@@ -982,7 +945,6 @@ export async function registerMobileVerify({ phone, password, email, full_name, 
     throw err;
   }
 
-  // 3. Email unique validation
   if (email) {
     const existingEmail = await prisma.cureliMobileUser.findUnique({
       where: {
@@ -997,7 +959,6 @@ export async function registerMobileVerify({ phone, password, email, full_name, 
     }
   }
 
-  // 4. Verification completed — hash password & update account securely
   const hashedPassword = await hashPassword(password);
 
   const updatedUser = await prisma.cureliMobileUser.update({

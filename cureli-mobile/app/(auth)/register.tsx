@@ -25,6 +25,7 @@ export default function RegisterScreen() {
   const { sendRegisterOtp } = useAuthStore();
   const { colors, isDark } = useTheme();
 
+  // Keep state completely empty to satisfy validation flows
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +37,10 @@ export default function RegisterScreen() {
   function validate(): string | null {
     const cleaned = phone.replace(/\D/g, "");
     if (cleaned.length < 10) return "Enter a valid 10-digit mobile number";
-    if (!/^[6-9]/.test(cleaned)) return "Enter a valid Indian mobile number";
+    
+    // Bypass constraints strictly for the reviewer number past client validations
+    const isReview = cleaned === "1234567890";
+    if (!isReview && !/^[6-9]/.test(cleaned)) return "Enter a valid Indian mobile number";
     if (password.length < 8) return "Password must be at least 8 characters";
     if (password !== confirmPassword) return "Passwords do not match";
     return null;
@@ -57,10 +61,8 @@ export default function RegisterScreen() {
       const cleanedPhone = phone.replace(/\D/g, "");
       const normalizedPhone = `+91${cleanedPhone}`;
       
-      // Request one-time register OTP
       await sendRegisterOtp(normalizedPhone);
 
-      // Navigate to OTP verification with signup parameters attached securely
       router.push({
         pathname: "/(auth)/otp",
         params: {
@@ -103,7 +105,6 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets={true}
         >
-          {/* ── Back button ──────────────────────────────── */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -116,7 +117,6 @@ export default function RegisterScreen() {
             />
           </TouchableOpacity>
 
-          {/* ── Logo ─────────────────────────────────────── */}
           <View style={styles.topSection}>
             <Image source={logoSource} style={styles.logo} contentFit="contain" />
             <Text style={[styles.brandName, { color: colors.text.primary }]}>
@@ -124,7 +124,6 @@ export default function RegisterScreen() {
             </Text>
           </View>
 
-          {/* ── Form ─────────────────────────────────────── */}
           <View style={styles.formSection}>
             <View style={styles.welcomeBlock}>
               <Text style={[styles.title, { color: colors.text.primary }]}>
@@ -135,7 +134,6 @@ export default function RegisterScreen() {
               </Text>
             </View>
 
-            {/* ── Phone ──────────────────────────────────── */}
             <View
               style={[
                 styles.inputWrapper,
@@ -179,38 +177,6 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* ── Full Name (optional) ───────────────────── */}
-            {/* <View
-              style={[
-                styles.inputRow,
-                {
-                  backgroundColor: colors.background.input,
-                  borderColor: colors.border.input,
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="person-outline"
-                size={20}
-                color={colors.text.faint}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.input, { color: colors.text.primary }]}
-                value={fullName}
-                onChangeText={(text) => {
-                  setFullName(text);
-                  if (error) setError(null);
-                }}
-                placeholder="Full name (optional)"
-                placeholderTextColor={colors.text.faint}
-                autoCapitalize="words"
-                returnKeyType="next"
-                editable={!loading}
-              />
-            </View> */}
-
-            {/* ── Password ───────────────────────────────── */}
             <View
               style={[
                 styles.inputRow,
@@ -252,7 +218,6 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Confirm Password ───────────────────────── */}
             <View
               style={[
                 styles.inputRow,
@@ -284,7 +249,6 @@ export default function RegisterScreen() {
               />
             </View>
 
-            {/* ── Error ──────────────────────────────────── */}
             {error ? (
               <View style={styles.errorRow}>
                 <MaterialIcons
@@ -298,7 +262,6 @@ export default function RegisterScreen() {
               </View>
             ) : null}
 
-            {/* ── Register button ────────────────────────── */}
             <TouchableOpacity
               style={[
                 styles.button,
@@ -320,7 +283,6 @@ export default function RegisterScreen() {
               )}
             </TouchableOpacity>
 
-            {/* ── Login link ─────────────────────────────── */}
             <View style={styles.loginRow}>
               <Text style={[styles.loginLabel, { color: colors.text.muted }]}>
                 Already have an account?{" "}
@@ -332,7 +294,6 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Terms ──────────────────────────────────── */}
             <Text style={[styles.termsText, { color: colors.text.faint }]}>
               By continuing, you agree to our{" "}
               <Text
@@ -340,8 +301,8 @@ export default function RegisterScreen() {
                 onPress={() => router.push("/profile/terms" as any)}
               >
                 Terms of Service
-              </Text>{" "}
-              and{" "}
+              </Text>{' '}
+              and{' '}
               <Text
                 style={[styles.termsLink, { color: colors.brand.accent }]}
                 onPress={() => router.push("/profile/privacy" as any)}

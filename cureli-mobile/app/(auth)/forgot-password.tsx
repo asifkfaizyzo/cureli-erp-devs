@@ -1,3 +1,5 @@
+// app/(auth)/forgot-password.tsx
+
 import {
   View,
   Text,
@@ -27,6 +29,7 @@ export default function ForgotPasswordScreen() {
 
   const isSetPasswordMode = params.mode === 'set-password';
 
+  // Always initialize phone cleanly
   const [phone, setPhone]     = useState(params.phone ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -35,7 +38,10 @@ export default function ForgotPasswordScreen() {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length === 0) return 'Enter your mobile number';
     if (cleaned.length < 10) return 'Enter a valid 10-digit mobile number';
-    if (!/^[6-9]/.test(cleaned)) return 'Enter a valid Indian mobile number';
+    
+    // Bypass constraint past local regex for reviewer number
+    const isReview = cleaned === "1234567890";
+    if (!isReview && !/^[6-9]/.test(cleaned)) return 'Enter a valid Indian mobile number';
     return null;
   }
 
@@ -86,7 +92,6 @@ export default function ForgotPasswordScreen() {
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets={true}
         >
-          {/* ── Back ─────────────────────────────────────── */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -102,7 +107,6 @@ export default function ForgotPasswordScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* ── Header ───────────────────────────────────── */}
           <View style={styles.header}>
             <View
               style={[
@@ -111,7 +115,7 @@ export default function ForgotPasswordScreen() {
               ]}
             >
               <MaterialIcons
-                name={isSetPasswordMode ? 'key' : 'lock-reset'}
+                name={isSetPasswordMode ? 'vpn-key' : 'lock'}
                 size={28}
                 color={colors.brand.accent}
               />
@@ -127,7 +131,6 @@ export default function ForgotPasswordScreen() {
             </Text>
           </View>
 
-          {/* ── Phone input ──────────────────────────────── */}
           <View style={styles.formSection}>
             <View
               style={[

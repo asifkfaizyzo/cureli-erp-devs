@@ -11,8 +11,8 @@ import { IS_REVIEW_MODE, REVIEW_PHONE } from "../../../config/reviewCredentials.
 //   - Accept with or without +91 / 91 prefix
 //   - Always normalized to +91XXXXXXXXXX before storage and SMS
 //
-// Exception: when REVIEW_MODE=true the review phone passes through
-// as-is without normalization so the service can match it exactly.
+// Exception: when IS_REVIEW_MODE is true, the reviewer phone '1234567890' 
+// bypasses the starting digit constraints and is normalized to +911234567890.
 
 const rawPhone = z
   .string()
@@ -20,18 +20,18 @@ const rawPhone = z
   .transform((val) => val.replace(/\s+/g, ""))
   .refine(
     (val) => {
-      // Let the review number through when review mode is active
-      if (IS_REVIEW_MODE && val === REVIEW_PHONE) return true;
-
       const stripped = val.replace(/^\+?91/, "");
+      
+      // Allow review number ONLY if backend review mode is globally active
+      if (IS_REVIEW_MODE && stripped === REVIEW_PHONE) {
+        return true;
+      }
+
       return /^[6-9]\d{9}$/.test(stripped);
     },
     { message: "Invalid Indian mobile number" }
   )
   .transform((val) => {
-    // Do NOT normalize the review number — service compares it as-is
-    if (IS_REVIEW_MODE && val === REVIEW_PHONE) return val;
-
     const stripped = val.replace(/^\+?91/, "");
     return `+91${stripped}`;
   });
@@ -112,8 +112,6 @@ export const resetPasswordSchema = z.object({
   otp:          otpCode,
   new_password: passwordSchema,
 });
-
-// ── Check Phone ───────────────────────────────────────────────
 
 export const checkPhoneSchema = z.object({
   phone: rawPhone,
