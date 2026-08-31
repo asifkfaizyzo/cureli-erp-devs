@@ -1,35 +1,26 @@
 // src/modules/mobile/auth/mobile.auth.schema.js
 
 import { z } from "zod";
-import { IS_REVIEW_MODE, REVIEW_PHONE } from "../../../config/reviewCredentials.js";
+import { isReviewMode, REVIEW_PHONE } from "../../../config/reviewCredentials.js";
 
 // ── Shared ────────────────────────────────────────────────────
-//
-// Indian mobile numbers:
-//   - Must start with 6, 7, 8, or 9
-//   - Exactly 10 digits after stripping country code
-//   - Accept with or without +91 / 91 prefix
-//   - Always normalized to +91XXXXXXXXXX before storage and SMS
-//
-// Exception: when IS_REVIEW_MODE is true, the reviewer phone '1234567890' 
-// bypasses the starting digit constraints and is normalized to +911234567890.
 
 const rawPhone = z
-  .string()
+  .string({ required_error: "Mobile number is required" })
   .trim()
   .transform((val) => val.replace(/\s+/g, ""))
   .refine(
     (val) => {
       const stripped = val.replace(/^\+?91/, "");
       
-      // Allow review number ONLY if backend review mode is globally active
-      if (IS_REVIEW_MODE && stripped === REVIEW_PHONE) {
+      // Let review phone pass when review mode is enabled
+      if (isReviewMode() && stripped === REVIEW_PHONE) {
         return true;
       }
 
       return /^[6-9]\d{9}$/.test(stripped);
     },
-    { message: "Invalid Indian mobile number" }
+    { message: "Enter a valid 10-digit Indian mobile number" }
   )
   .transform((val) => {
     const stripped = val.replace(/^\+?91/, "");
@@ -37,14 +28,14 @@ const rawPhone = z
   });
 
 const otpCode = z
-  .string()
+  .string({ required_error: "OTP is required" })
   .trim()
   .length(6, { message: "OTP must be exactly 6 digits" })
   .regex(/^\d{6}$/, { message: "OTP must contain only digits" });
 
 const passwordSchema = z
-  .string()
-  .min(8, { message: "Password must be at least 8 characters" })
+  .string({ required_error: "Password is required" })
+  .min(6, { message: "Password must be at least 6 characters" })
   .max(128, { message: "Password must not exceed 128 characters" });
 
 // ── Device Info ───────────────────────────────────────────────
@@ -60,6 +51,10 @@ const deviceInfo = z
   .optional();
 
 // ── Schemas ───────────────────────────────────────────────────
+
+export const checkPhoneSchema = z.object({
+  phone: rawPhone,
+});
 
 export const sendOtpSchema = z.object({
   phone: rawPhone,
@@ -78,25 +73,6 @@ export const refreshSchema = z.object({
     .min(1, { message: "Refresh token required" }),
 });
 
-// ── Password Auth Schemas ─────────────────────────────────────
-
-export const registerSchema = z.object({
-  phone:       rawPhone,
-  password:    passwordSchema,
-  email:       z.string().trim().email({ message: "Invalid email address" }).optional().or(z.literal("")),
-  full_name:   z.string().trim().min(1, { message: "Name is required" }).optional(),
-  device_info: deviceInfo,
-});
-
-export const registerVerifySchema = z.object({
-  phone:       rawPhone,
-  password:    passwordSchema,
-  otp:         otpCode,
-  email:       z.string().trim().email({ message: "Invalid email address" }).optional().or(z.literal("")),
-  full_name:   z.string().trim().min(1, { message: "Name is required" }).optional(),
-  device_info: deviceInfo,
-});
-
 export const loginSchema = z.object({
   identifier:  z.string().trim().min(1, { message: "Phone or email is required" }),
   password:    z.string().min(1, { message: "Password is required" }),
@@ -113,6 +89,19 @@ export const resetPasswordSchema = z.object({
   new_password: passwordSchema,
 });
 
-export const checkPhoneSchema = z.object({
-  phone: rawPhone,
+export const registerSchema = z.object({
+  phone:       rawPhone,
+  password:    passwordSchema,
+  email:       z.union([z.string().trim().email({ message: "Invalid email address" }), z.literal(""), z.null()]).optional(),
+  full_name:   z.union([z.string().trim().min(1), z.literal(""), z.null()]).optional(),
+  device_info: deviceInfo,
+});
+
+export const registerVerifySchema = z.object({
+  phone:       rawPhone,
+  password:    passwordSchema,
+  otp:         otpCode,
+  email:       z.union([z.string().trim().email({ message: "Invalid email address" }), z.literal(""), z.null()]).optional(),
+  full_name:   z.union([z.string().trim().min(1), z.literal(""), z.null()]).optional(),
+  device_info: deviceInfo,
 });

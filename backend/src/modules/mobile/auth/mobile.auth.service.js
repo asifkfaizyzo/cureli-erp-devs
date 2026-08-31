@@ -22,7 +22,7 @@ import {
   formatPhoneNumber,
 } from "../../../providers/msg91/sendSms.js";
 import {
-  IS_REVIEW_MODE,
+  isReviewMode,
   REVIEW_PHONE,
   REVIEW_OTP,
 } from "../../../config/reviewCredentials.js";
@@ -39,10 +39,10 @@ const MAX_PASSWORD_ATTEMPTS   = 5;
 
 // ── Review guard helper ───────────────────────────────────────
 function isReviewPhone(phone) {
-  if (!IS_REVIEW_MODE) return false;
+  if (!isReviewMode()) return false;
   if (!phone) return false;
   const digits = String(phone).replace(/\D/g, "");
-  return digits === "911234567890" || digits === "1234567890";
+  return digits === `91${REVIEW_PHONE}` || digits === REVIEW_PHONE;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
