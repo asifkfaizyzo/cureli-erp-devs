@@ -12,6 +12,7 @@ import {
   loginSchema,
   sendResetOtpSchema,
   resetPasswordSchema,
+  checkPhoneSchema,
 } from "./mobile.auth.schema.js";
 import {
   handleSendOtp,
@@ -26,11 +27,19 @@ import {
   handleResetPassword,
   handleSendRegisterOtp,
   handleRegisterVerify,
+  handleCheckPhone,
 } from "./mobile.auth.controller.js";
 
 const router = Router();
 
 // ── Public routes ─────────────────────────────────────────────
+
+// Two-step login: Step 1 — check if phone exists and has password
+router.post(
+  "/check-phone",
+  validate(checkPhoneSchema),
+  handleCheckPhone
+);
 
 // Direct registration (legacy — kept for backward compat / admin flows)
 router.post(

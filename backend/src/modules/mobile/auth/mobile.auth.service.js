@@ -857,6 +857,59 @@ export async function sendMobileRegisterOtp(phone) {
   return await sendMobileOtp(phone);
 }
 
+export async function checkMobilePhone(phone) {
+  const raw10 = phone.replace(/^\+?91/, "").replace(/\s+/g, "");
+  const phoneVariants = [
+    phone,
+    `+91 ${raw10}`,
+    `91${raw10}`,
+    raw10,
+  ];
+
+  const user = await prisma.cureliMobileUser.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+    select: {
+      id: true,
+      phone: true,
+      password_hash: true,
+      login_provider: true,
+      status: true,
+    },
+  });
+
+  if (!user) {
+    return {
+      exists: false,
+      has_password: false,
+      login_provider: null,
+    };
+  }
+
+  if (user.status === "suspended") {
+    const err = new Error("Your account has been suspended. Please contact support.");
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  if (user.status === "deleted") {
+    return {
+      exists: false,
+      has_password: false,
+      login_provider: null,
+    };
+  }
+
+  return {
+    exists: true,
+    has_password: !!user.password_hash,
+    login_provider: user.login_provider,
+  };
+}
+
+
 // ── registerMobileVerify ──────────────────────────────────────
 
 export async function registerMobileVerify({ phone, password, email, full_name, otp, deviceInfo = {}, requestMeta = {} }) {

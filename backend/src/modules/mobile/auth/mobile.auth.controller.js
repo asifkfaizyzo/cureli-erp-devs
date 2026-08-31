@@ -14,7 +14,81 @@ import {
   resetMobilePassword,
   registerMobileVerify,
   sendMobileRegisterOtp,
+  checkMobilePhone,
 } from "./mobile.auth.service.js";
+
+/**
+ * POST /mobile/auth/send-otp
+ * Body: { phone }
+ */
+export async function handleSendOtp(req, res) {
+  try {
+    const { phone } = req.body;
+    const result = await sendMobileOtp(phone);
+
+    return success(
+      res,
+      { expires_in: result.timeout },
+      "OTP sent successfully"
+    );
+  } catch (err) {
+    const statusMap = {
+      OTP_COOLDOWN:      429,
+      OTP_LOCKED:        429,
+      OTP_DAILY_LIMIT:   429,
+      ACCOUNT_SUSPENDED: 403,
+      ACCOUNT_DELETED:   404,
+      SMS_FAILED:        502,
+    };
+
+    const status = statusMap[err.code] || 400;
+    const data = err.waitTime ? { wait_seconds: err.waitTime } : {};
+    return fail(res, err.message, status, data);
+  }
+}
+
+/**
+ * POST /mobile/auth/verify-otp
+ * Body: { phone, otp, device_info? }
+ */
+export async function handleVerifyOtp(req, res) {
+  try {
+    const { phone, otp, device_info } = req.body;
+
+    const requestMeta = {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"] ?? null,
+    };
+
+    const result = await verifyMobileOtp(phone, otp, device_info, requestMeta);
+
+    return success(
+      res,
+      {
+        access_token:  result.accessToken,
+        refresh_token: result.refreshToken,
+        expires_in:    result.expiresIn,
+        token_type:    "Bearer",
+        is_new_user:   result.isNewUser,
+        user:          result.user,
+      },
+      result.isNewUser ? "Welcome to Cureli!" : "Login successful"
+    );
+  } catch (err) {
+    const statusMap = {
+      NO_OTP:            400,
+      OTP_EXPIRED:       400,
+      INVALID_OTP:       400,
+      TOO_MANY_ATTEMPTS: 429,
+      OTP_LOCKED:        429,
+      ACCOUNT_SUSPENDED: 403,
+      ACCOUNT_DELETED:   404,
+    };
+
+    const status = statusMap[err.code] || 400;
+    return fail(res, err.message, status);
+  }
+}
 
 /**
  * POST /mobile/auth/register
@@ -106,6 +180,27 @@ export async function handleLogin(req, res) {
 }
 
 /**
+ * POST /mobile/auth/check-phone
+ * Body: { phone }
+ * Returns whether the phone exists and has a password set.
+ * Used by the two-step login flow on mobile.
+ */
+export async function handleCheckPhone(req, res) {
+  try {
+    const { phone } = req.body;
+    const result = await checkMobilePhone(phone);
+
+    return success(res, result, "Phone checked");
+  } catch (err) {
+    const statusMap = {
+      ACCOUNT_SUSPENDED: 403,
+    };
+    const status = statusMap[err.code] || 400;
+    return fail(res, err.message, status, { code: err.code });
+  }
+}
+
+/**
  * POST /mobile/auth/send-reset-otp
  * Body: { phone }
  */
@@ -152,79 +247,6 @@ export async function handleResetPassword(req, res) {
       INVALID_OTP:       400,
       TOO_MANY_ATTEMPTS: 429,
     };
-    const status = statusMap[err.code] || 400;
-    return fail(res, err.message, status);
-  }
-}
-
-/**
- * POST /mobile/auth/send-otp
- * Body: { phone }
- */
-export async function handleSendOtp(req, res) {
-  try {
-    const { phone } = req.body;
-    const result = await sendMobileOtp(phone);
-
-    return success(
-      res,
-      { expires_in: result.timeout },
-      "OTP sent successfully"
-    );
-  } catch (err) {
-    const statusMap = {
-      OTP_COOLDOWN:      429,
-      OTP_LOCKED:        429,
-      OTP_DAILY_LIMIT:   429,
-      ACCOUNT_SUSPENDED: 403,
-      ACCOUNT_DELETED:   404,
-      SMS_FAILED:        502,
-    };
-
-    const status = statusMap[err.code] || 400;
-    const data = err.waitTime ? { wait_seconds: err.waitTime } : {};
-    return fail(res, err.message, status, data);
-  }
-}
-
-/**
- * POST /mobile/auth/verify-otp
- * Body: { phone, otp, device_info? }
- */
-export async function handleVerifyOtp(req, res) {
-  try {
-    const { phone, otp, device_info } = req.body;
-
-    const requestMeta = {
-      ip: req.ip,
-      userAgent: req.headers["user-agent"] ?? null,
-    };
-
-    const result = await verifyMobileOtp(phone, otp, device_info, requestMeta);
-
-    return success(
-      res,
-      {
-        access_token:  result.accessToken,
-        refresh_token: result.refreshToken,
-        expires_in:    result.expiresIn,
-        token_type:    "Bearer",
-        is_new_user:   result.isNewUser,
-        user:          result.user,
-      },
-      result.isNewUser ? "Welcome to Cureli!" : "Login successful"
-    );
-  } catch (err) {
-    const statusMap = {
-      NO_OTP:            400,
-      OTP_EXPIRED:       400,
-      INVALID_OTP:       400,
-      TOO_MANY_ATTEMPTS: 429,
-      OTP_LOCKED:        429,
-      ACCOUNT_SUSPENDED: 403,
-      ACCOUNT_DELETED:   404,
-    };
-
     const status = statusMap[err.code] || 400;
     return fail(res, err.message, status);
   }

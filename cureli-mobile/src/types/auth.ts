@@ -8,7 +8,7 @@ export interface MobileUser {
   phone_verified: boolean;
   full_name: string | null;
   email: string | null;
-  date_of_birth: string | null;   // "YYYY-MM-DD"
+  date_of_birth: string | null; // "YYYY-MM-DD"
   sex: UserSex | null;
   profile_complete: boolean;
   profile_image_key: string | null;
@@ -27,6 +27,12 @@ export interface DeviceInfo {
 }
 
 // ── Response shapes ──────────────────────────────────────────
+
+export interface CheckPhoneResponse {
+  exists: boolean;
+  has_password: boolean;
+  login_provider: string | null;
+}
 
 export interface SendOtpResponse {
   expires_in: number;
@@ -90,6 +96,9 @@ export interface AuthState {
 
   initialize: () => Promise<void>;
 
+  // Two-step login
+  checkPhone: (phone: string) => Promise<CheckPhoneResponse>;
+
   // Legacy OTP auth
   login: (phone: string, otp: string, deviceInfo?: DeviceInfo) => Promise<{ isNewUser: boolean }>;
   sendOtp: (phone: string) => Promise<{ expiresIn: number }>;
@@ -130,7 +139,7 @@ export interface AuthState {
 export interface FamilyMember {
   id: string;
   name: string;
-  date_of_birth: string;   // "YYYY-MM-DD"
+  date_of_birth: string; // "YYYY-MM-DD"
   age: number;
   sex: UserSex;
   phone: string | null;

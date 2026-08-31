@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { StorageService } from '../services/storage';
 import { authApi } from '../services/api';
-import type { AuthState, DeviceInfo, MobileUser } from '../types/auth';
+import type { AuthState, CheckPhoneResponse, DeviceInfo, MobileUser } from '../types/auth';
 
 function getCartStore() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -50,6 +50,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       StorageService.clearAuth();
       set({ status: 'unauthenticated', user: null, accessToken: null });
     }
+  },
+
+  // ── Two-step login: Step 1 ─────────────────────────────────
+
+  checkPhone: async (phone: string): Promise<CheckPhoneResponse> => {
+    const { data } = await authApi.checkPhone(phone);
+    return data.data;
   },
 
   // ── Legacy OTP auth ────────────────────────────────────────

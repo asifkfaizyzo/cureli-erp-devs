@@ -112,3 +112,9 @@ export const resetPasswordSchema = z.object({
   otp:          otpCode,
   new_password: passwordSchema,
 });
+
+// ── Check Phone ───────────────────────────────────────────────
+
+export const checkPhoneSchema = z.object({
+  phone: rawPhone,
+});

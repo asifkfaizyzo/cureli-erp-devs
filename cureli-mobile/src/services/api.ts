@@ -75,7 +75,8 @@ api.interceptors.response.use(
       url.includes("/mobile/auth/refresh") ||
       url.includes("/mobile/auth/send-otp") ||
       url.includes("/mobile/auth/send-reset-otp") ||
-      url.includes("/mobile/auth/reset-password");
+      url.includes("/mobile/auth/reset-password") ||
+      url.includes("/mobile/auth/check-phone");
 
     // Only handle 401 on protected app endpoints
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
@@ -171,6 +172,13 @@ interface ApiSuccessResponse<T> {
 }
 
 export const authApi = {
+  // ── Two-step login: Step 1 ──────────────────────────────
+
+  checkPhone: (phone: string) =>
+    api.post<
+      ApiSuccessResponse<import("../types/auth").CheckPhoneResponse>
+    >("/mobile/auth/check-phone", { phone }),
+
   // ── Registration OTP-verified Auth ───────────────────────
 
   sendRegisterOtp: (phone: string) =>
