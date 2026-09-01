@@ -1,0 +1,243 @@
+// ERP Purchase — Suppliers, purchase invoices, payments, credits
+
+model Supplier {
+  supplier_id      String            @id @default(uuid()) @db.Uuid
+  name             String            @db.VarChar(200)
+  supplier_code    String?           @db.VarChar(50)
+  contact_person   String?           @db.VarChar(100)
+  office_phone     String?           @db.VarChar(20)
+  personal_phone   String?           @db.VarChar(20)
+  email            String?           @db.VarChar(100)
+  address_line_1   String?
+  address_line_2   String?
+  city             String?           @db.VarChar(100)
+  state            String?           @db.VarChar(100)
+  pincode          String?           @db.VarChar(10)
+  gst_number       String?           @db.VarChar(15)
+  pan_number       String?           @db.VarChar(10)
+  drug_license_no  String?           @db.VarChar(50)
+  credit_days      Int               @default(0)
+  credit_limit     Decimal?          @db.Decimal(12, 2)
+  bank_name        String?           @db.VarChar(100)
+  account_number   String?           @db.VarChar(50)
+  ifsc_code        String?           @db.VarChar(20)
+  is_active        Boolean           @default(true)
+  shop_id          String            @db.Uuid
+  created_by       String            @db.Uuid
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @updatedAt @db.Timestamptz(6)
+  
+  //  ADD THIS LINE
+  branches         SupplierBranch[]  @relation("SupplierBranches")
+  
+  purchaseInvoices PurchaseInvoice[] @relation("SupplierPurchaseInvoices")
+  payments         PurchasePayment[] @relation("SupplierPayments")
+  credits          SupplierCredit[]  @relation("SupplierCredits")
+  creator          User              @relation("SupplierCreator", fields: [created_by], references: [user_id])
+  shop             Shop              @relation("ShopSuppliers", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+
+  @@unique([shop_id, name])
+  @@unique([shop_id, gst_number])
+  @@index([shop_id, is_active])
+  @@index([shop_id, name])
+  @@index([gst_number])
+  @@map("suppliers")
+}
+
+model SupplierBranch {
+  id          String   @id @default(uuid()) @db.Uuid
+  supplier_id String   @db.Uuid
+  branch_id   String   @db.Uuid
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  created_by  String?  @db.Uuid
+
+  // Relations
+  supplier Supplier @relation("SupplierBranches", fields: [supplier_id], references: [supplier_id], onDelete: Cascade)
+  branch   Branch   @relation("BranchSuppliers", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+
+  @@unique([supplier_id, branch_id])
+  @@index([branch_id])
+  @@index([supplier_id])
+  @@index([is_active])
+  @@map("supplier_branches")
+}
+
+model PurchaseInvoice {
+  invoice_id             String                 @id @default(uuid()) @db.Uuid
+  invoice_number         String                 @db.VarChar(50)
+  supplier_invoice_no    String?                @db.VarChar(50)
+  shop_id                String                 @db.Uuid
+  branch_id              String?                @db.Uuid
+  supplier_id            String                 @db.Uuid
+  created_by             String                 @db.Uuid
+  confirmed_by           String?                @db.Uuid
+  parent_invoice_id      String?                @db.Uuid
+  invoice_date           DateTime               @db.Date
+  due_date               DateTime?              @db.Date
+  received_date          DateTime?              @db.Date
+  confirmed_at           DateTime?              @db.Timestamptz(6)
+  subtotal               Decimal                @default(0) @db.Decimal(12, 2)
+  discount_amount        Decimal                @default(0) @db.Decimal(12, 2)
+  taxable_amount         Decimal                @default(0) @db.Decimal(12, 2)
+  cgst_amount            Decimal                @default(0) @db.Decimal(12, 2)
+  sgst_amount            Decimal                @default(0) @db.Decimal(12, 2)
+  igst_amount            Decimal                @default(0) @db.Decimal(12, 2)
+  total_tax              Decimal                @default(0) @db.Decimal(12, 2)
+  round_off              Decimal                @default(0) @db.Decimal(5, 2)
+  net_amount             Decimal                @default(0) @db.Decimal(12, 2)
+  payment_status         String                 @default("UNPAID")
+  paid_amount            Decimal                @default(0) @db.Decimal(12, 2)
+  balance_amount         Decimal                @default(0) @db.Decimal(12, 2)
+  payment_mode           String?                @db.VarChar(50)
+  status                 String                 @default("DRAFT")
+  is_return              Boolean                @default(false)
+  remarks                String?
+  transport_charges      Decimal?               @db.Decimal(10, 2)
+  other_charges          Decimal?               @db.Decimal(10, 2)
+  created_at             DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime               @updatedAt @db.Timestamptz(6)
+  adjustment_type        PaymentAdjustmentType?
+  approved_at            DateTime?              @db.Timestamptz(6)
+  approved_by            String?                @db.Uuid
+  credit_note_number     String?                @db.VarChar(50)
+  refund_amount          Decimal?               @db.Decimal(12, 2)
+  refund_notes           String?
+  rejected_at            DateTime?              @db.Timestamptz(6)
+  rejected_by            String?                @db.Uuid
+  rejection_reason       String?
+  return_approval_status ReturnApprovalStatus?
+  return_reason          ReturnReason?
+  return_reason_notes    String?
+  creditApplications     CreditApplication[]    @relation("CreditApplicationsToInvoice")
+  lineItems              PurchaseInvoiceItem[]  @relation("InvoiceLineItems")
+  approver               User?                  @relation("ReturnApprover", fields: [approved_by], references: [user_id])
+  branch                 Branch?                @relation("BranchPurchaseInvoices", fields: [branch_id], references: [branch_id])
+  confirmer              User?                  @relation("PurchaseInvoiceConfirmer", fields: [confirmed_by], references: [user_id])
+  creator                User                   @relation("PurchaseInvoiceCreator", fields: [created_by], references: [user_id])
+  parentInvoice          PurchaseInvoice?       @relation("PurchaseReturns", fields: [parent_invoice_id], references: [invoice_id])
+  returnInvoices         PurchaseInvoice[]      @relation("PurchaseReturns")
+  rejecter               User?                  @relation("ReturnRejecter", fields: [rejected_by], references: [user_id])
+  shop                   Shop                   @relation("ShopPurchaseInvoices", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  supplier               Supplier               @relation("SupplierPurchaseInvoices", fields: [supplier_id], references: [supplier_id])
+  payments               PurchasePayment[]      @relation("InvoicePayments")
+  supplierCredits        SupplierCredit[]       @relation("ReturnCredits")
+
+  @@unique([shop_id, invoice_number])
+  @@index([shop_id, invoice_date])
+  @@index([supplier_id, invoice_date])
+  @@index([shop_id, status])
+  @@index([shop_id, payment_status])
+  @@index([branch_id])
+  @@index([created_at])
+  @@map("purchase_invoices")
+}
+
+model SupplierCredit {
+  credit_id          String              @id @default(uuid()) @db.Uuid
+  shop_id            String              @db.Uuid
+  supplier_id        String              @db.Uuid
+  return_invoice_id  String              @db.Uuid
+  credit_note_number String              @unique @db.VarChar(50)
+  credit_amount      Decimal             @db.Decimal(12, 2)
+  utilized_amount    Decimal             @default(0) @db.Decimal(12, 2)
+  balance_amount     Decimal             @db.Decimal(12, 2)
+  status             String              @default("ACTIVE") @db.VarChar(20)
+  issued_date        DateTime            @db.Date
+  expiry_date        DateTime            @db.Date
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime            @updatedAt @db.Timestamptz(6)
+  applications       CreditApplication[] @relation("CreditApplications")
+  returnInvoice      PurchaseInvoice     @relation("ReturnCredits", fields: [return_invoice_id], references: [invoice_id], onDelete: Cascade)
+  shop               Shop                @relation("ShopSupplierCredits", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  supplier           Supplier            @relation("SupplierCredits", fields: [supplier_id], references: [supplier_id], onDelete: Cascade)
+
+  @@index([shop_id, supplier_id, status])
+  @@index([expiry_date])
+  @@map("supplier_credits")
+}
+
+model CreditApplication {
+  application_id        String          @id @default(uuid()) @db.Uuid
+  credit_id             String          @db.Uuid
+  applied_to_invoice_id String          @db.Uuid
+  applied_amount        Decimal         @db.Decimal(12, 2)
+  applied_date          DateTime        @db.Date
+  applied_by            String          @db.Uuid
+  notes                 String?
+  created_at            DateTime        @default(now()) @db.Timestamptz(6)
+  appliedBy             User            @relation("CreditApplicationsBy", fields: [applied_by], references: [user_id], onDelete: SetNull)
+  appliedInvoice        PurchaseInvoice @relation("CreditApplicationsToInvoice", fields: [applied_to_invoice_id], references: [invoice_id], onDelete: Cascade)
+  credit                SupplierCredit  @relation("CreditApplications", fields: [credit_id], references: [credit_id], onDelete: Cascade)
+
+  @@index([credit_id])
+  @@index([applied_to_invoice_id])
+  @@map("credit_applications")
+}
+
+model PurchaseInvoiceItem {
+  item_id            String          @id @default(uuid()) @db.Uuid
+  invoice_id         String          @db.Uuid
+  medicine_id        String          @db.Uuid
+  batch_number       String          @db.VarChar(50)
+  expiry_date        DateTime        @db.Date
+  manufacturing_date DateTime?       @db.Date
+  quantity           Decimal         @db.Decimal(10, 2)
+  free_quantity      Decimal         @default(0) @db.Decimal(10, 2)
+  pack_size          String?         @db.VarChar(50)
+  unit_of_measure    String          @default("UNIT")
+  purchase_rate      Decimal         @db.Decimal(10, 2)
+  mrp                Decimal         @db.Decimal(10, 2)
+  scheme_discount    Decimal         @default(0) @db.Decimal(5, 2)
+  trade_discount     Decimal         @default(0) @db.Decimal(5, 2)
+  discount_amount    Decimal         @default(0) @db.Decimal(10, 2)
+  taxable_amount     Decimal         @default(0) @db.Decimal(12, 2)
+  cgst_percent       Decimal         @default(0) @db.Decimal(5, 2)
+  cgst_amount        Decimal         @default(0) @db.Decimal(10, 2)
+  sgst_percent       Decimal         @default(0) @db.Decimal(5, 2)
+  sgst_amount        Decimal         @default(0) @db.Decimal(10, 2)
+  igst_percent       Decimal         @default(0) @db.Decimal(5, 2)
+  igst_amount        Decimal         @default(0) @db.Decimal(10, 2)
+  line_total         Decimal         @default(0) @db.Decimal(12, 2)
+  selling_rate       Decimal?        @db.Decimal(10, 2)
+  margin_percent     Decimal?        @db.Decimal(5, 2)
+  rack_no            String?         @db.VarChar(20)
+  created_at         DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime        @updatedAt @db.Timestamptz(6)
+  inventory_id       String?         @db.Uuid
+  inventory          Inventory?      @relation("PurchaseItemInventory", fields: [inventory_id], references: [inventory_id])
+  invoice            PurchaseInvoice @relation("InvoiceLineItems", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
+  medicine           Medicine        @relation("PurchaseLineItems", fields: [medicine_id], references: [medicine_id])
+
+  @@index([invoice_id])
+  @@index([medicine_id])
+  @@index([batch_number])
+  @@index([expiry_date])
+  @@map("purchase_invoice_items")
+}
+
+model PurchasePayment {
+  payment_id       String          @id @default(uuid()) @db.Uuid
+  invoice_id       String          @db.Uuid
+  shop_id          String          @db.Uuid
+  supplier_id      String          @db.Uuid
+  payment_date     DateTime        @db.Date
+  amount           Decimal         @db.Decimal(12, 2)
+  payment_mode     String          @db.VarChar(50)
+  reference_number String?         @db.VarChar(100)
+  bank_name        String?         @db.VarChar(100)
+  status           String          @default("COMPLETED")
+  remarks          String?
+  created_by       String          @db.Uuid
+  created_at       DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime        @updatedAt @db.Timestamptz(6)
+  creator          User            @relation("PaymentCreator", fields: [created_by], references: [user_id])
+  invoice          PurchaseInvoice @relation("InvoicePayments", fields: [invoice_id], references: [invoice_id], onDelete: Cascade)
+  shop             Shop            @relation("ShopPurchasePayments", fields: [shop_id], references: [shop_id])
+  supplier         Supplier        @relation("SupplierPayments", fields: [supplier_id], references: [supplier_id])
+
+  @@index([invoice_id])
+  @@index([shop_id, payment_date])
+  @@index([supplier_id])
+  @@map("purchase_payments")
+}

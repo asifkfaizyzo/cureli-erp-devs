@@ -1,0 +1,278 @@
+// Marketplace — Profiles, listings, checkout, pricing, branch settings
+
+model MarketplaceProfile {
+  marketplace_profile_id String            @id @default(uuid()) @db.Uuid
+  shop_id                String            @unique @db.Uuid
+  
+  // Storefront Identity
+  storefront_name        String?           @db.VarChar(200)
+  storefront_description String?           @db.Text
+  support_phone          String?           @db.VarChar(20)
+  logo_url               String?           @db.VarChar(500)
+  banner_url             String?           @db.VarChar(500)
+
+  // ── ADDED BANKING FIELDS ─────────────────────────────────
+  bank_account_holder   String?           @db.VarChar(200)
+  bank_name             String?           @db.VarChar(200)
+  bank_branch_name      String?           @db.VarChar(200)
+  bank_ifsc             String?           @db.VarChar(11)
+  bank_account_number   String?           @db.VarChar(30)
+  bank_mmid             String?           @db.VarChar(20)
+  bank_vpa              String?           @db.VarChar(100)
+  // ──────────────────────────────────────────────────────────
+
+  // Lifecycle
+  marketplace_status     MarketplaceStatus @default(NOT_STARTED)
+  onboarding_completed   Boolean           @default(false)
+  is_live                Boolean           @default(false)
+  
+  // Draft Persistence
+  onboarding_draft       Json?             // { currentStep, storefrontData, branchSelection }
+
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime          @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  shop                   Shop              @relation(fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branchSettings         BranchMarketplaceSettings[]
+
+  @@index([shop_id])
+  @@index([marketplace_status])
+  @@map("marketplace_profiles")
+}
+
+model BranchMarketplaceSettings {
+  branch_marketplace_id  String   @id @default(uuid()) @db.Uuid
+  branch_id              String   @unique @db.Uuid
+  marketplace_profile_id String   @db.Uuid
+
+  marketplace_enabled    Boolean  @default(false)
+  shop_image_url         String?  @db.VarChar(500)
+
+  // Geolocation
+  latitude               Decimal? @db.Decimal(10, 8)
+  longitude              Decimal? @db.Decimal(11, 8)
+  google_place_id        String?  @db.VarChar(500)
+  formatted_address      String?  @db.VarChar(500)
+
+  // Timings
+  opening_time           String?  @db.VarChar(5) // "09:00"
+  closing_time           String?  @db.VarChar(5) // "21:00"
+  is_24_hours            Boolean  @default(false)
+
+  // Fulfillment
+  pickup_enabled         Boolean  @default(false)
+  delivery_enabled       Boolean  @default(false)
+  
+  // ── ADDED DELIVERY MODE ──────────────────────────────────
+  delivery_mode         DeliveryMode @default(CURELI)
+  // ──────────────────────────────────────────────────────────
+  
+  contact_override       String?  @db.VarChar(20)
+
+  open_days              String[] @default([])
+  last_auto_opened_date  String?  @db.VarChar(10)
+
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relations
+  branch                 Branch             @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  marketplaceProfile     MarketplaceProfile @relation(fields: [marketplace_profile_id], references: [marketplace_profile_id], onDelete: Cascade)
+  holidays               BranchHoliday[]
+
+  @@index([marketplace_profile_id])
+  @@index([branch_id])
+  @@map("branch_marketplace_settings")
+}
+
+model BranchHoliday {
+  holiday_id             String             @id @default(uuid()) @db.Uuid
+
+  // Scope: BRANCH = only this branch, SHOP = all branches of this shop
+  scope                  BranchHolidayScope @default(BRANCH)
+
+  // branch_id is always set — even for SHOP scope it records which branch
+  // the holiday was created from (for audit). The cron queries by shop_id
+  // for SHOP-scope holidays.
+  branch_id              String             @db.Uuid
+  shop_id                String             @db.Uuid
+
+  // The date this branch/shop is closed (date only, no time component)
+  holiday_date           DateTime           @db.Date
+
+  // Optional note e.g. "Diwali", "Emergency closure"
+  reason                 String?            @db.VarChar(200)
+
+  // Who created this holiday override
+  created_by             String             @db.Uuid
+
+  created_at             DateTime           @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  branch                 BranchMarketplaceSettings @relation(fields: [branch_id], references: [branch_id], onDelete: Cascade)
+
+  @@unique([branch_id, holiday_date, scope])
+  @@index([branch_id, holiday_date])
+  @@index([shop_id, holiday_date])
+  @@index([holiday_date])
+  @@map("branch_holidays")
+}
+
+model MarketplaceListing {
+  listing_id            String                 @id @default(uuid()) @db.Uuid
+  shop_id               String                 @db.Uuid
+  branch_id             String                 @db.Uuid
+  medicine_id           String                 @db.Uuid
+  linked_variant_id     String                 @db.Uuid
+
+  is_visible            Boolean                @default(false)
+  stock_status          MarketplaceStockStatus @default(IN_STOCK)
+  marketplace_price     Decimal?               @db.Decimal(10, 2)
+  requires_prescription Boolean                @default(false)
+
+  created_at            DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime               @updatedAt @db.Timestamptz(6)
+
+  shop                  Shop                   @relation("ShopMarketplaceListings", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+  branch                Branch                 @relation("BranchMarketplaceListings", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  medicine              Medicine               @relation("MedicineMarketplaceListing", fields: [medicine_id], references: [medicine_id], onDelete: Cascade)
+  linkedVariant         MasterMedicineVariant  @relation("VariantMarketplaceListings", fields: [linked_variant_id], references: [variant_id])
+  orderItems            MarketplaceOrderItem[] @relation("ListingOrderItems")
+  // ── ADDED ─────────────────────────────────────────────────
+  quoteItems            PrescriptionQuoteItem[] @relation("ListingQuoteItems")
+  // ──────────────────────────────────────────────────────────
+
+  @@unique([medicine_id, branch_id])
+  @@index([shop_id, branch_id])
+  @@index([branch_id, is_visible])
+  @@index([linked_variant_id])
+  @@index([shop_id, branch_id, is_visible, stock_status])
+  @@map("marketplace_listings")
+}
+
+model BranchCategoryVisibility {
+  id            String   @id @default(uuid()) @db.Uuid
+  branch_id     String   @db.Uuid
+  shop_id       String   @db.Uuid
+  category_name String   @db.VarChar(150)
+  is_enabled    Boolean  @default(true)
+
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  branch        Branch   @relation("BranchCategoryVisibility", fields: [branch_id], references: [branch_id], onDelete: Cascade)
+  shop          Shop     @relation("ShopCategoryVisibility", fields: [shop_id], references: [shop_id], onDelete: Cascade)
+
+  @@unique([branch_id, category_name])
+  @@index([branch_id])
+  @@index([shop_id, branch_id])
+  @@map("branch_category_visibility")
+}
+
+model CheckoutSession {
+  session_id                 String    @id @default(uuid()) @db.Uuid
+  customer_id                String    @db.Uuid
+  branch_id                  String    @db.Uuid
+
+  razorpay_order_id          String    @unique @db.VarChar(100)
+
+  cart_snapshot              Json
+  delivery_address_id        String?   @db.Uuid
+  delivery_address_snapshot  Json
+
+  subtotal                   Decimal   @db.Decimal(10, 2)
+  service_charge             Decimal   @db.Decimal(10, 2)
+  delivery_fee               Decimal   @db.Decimal(10, 2)
+  km_surcharge               Decimal   @db.Decimal(10, 2)
+  tip                        Decimal   @default(0) @db.Decimal(10, 2)
+  grand_total                Decimal   @db.Decimal(10, 2)
+  distance_km                Decimal   @db.Decimal(10, 2)
+
+  prescription_files         Json      @default("[]")
+
+  patient_is_self            Boolean   @default(true)
+  patient_name_snapshot      String?   @db.VarChar(200)
+  patient_age_snapshot       Int?
+  patient_sex_snapshot       String?   @db.VarChar(10)
+
+  prescription_request_id    String?   @db.Uuid
+  prescription_recipient_id  String?   @db.Uuid
+
+  coupon_code                String?   @db.VarChar(50)
+  coupon_discount_amount     Decimal?  @default(0) @db.Decimal(10, 2)
+  loyalty_points_redeemed    Int?      @default(0)
+  loyalty_discount_amount    Decimal?  @default(0) @db.Decimal(10, 2)
+
+  status                     String    @default("created") @db.VarChar(20)
+  expires_at                 DateTime  @db.Timestamptz(6)
+  created_at                 DateTime  @default(now()) @db.Timestamptz(6)
+  paid_at                    DateTime? @db.Timestamptz(6)
+
+  order_id                   String?   @unique @db.Uuid
+
+  customer                   CureliMobileUser   @relation("CustomerCheckoutSessions", fields: [customer_id], references: [id], onDelete: Restrict)
+  branch                     Branch             @relation("BranchCheckoutSessions", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  order                      MarketplaceOrder?  @relation("SessionOrder", fields: [order_id], references: [order_id], onDelete: SetNull)
+
+  @@index([customer_id, status])
+  @@index([razorpay_order_id])
+  @@index([status, expires_at])
+  @@map("checkout_sessions")
+}
+
+model DeliveryPricingConfig {
+  config_id   String   @id @default(uuid()) @db.Uuid
+  version     Int      @default(1)
+
+  service_tier_1_max    Decimal  @default(999.99)  @db.Decimal(10, 2)
+  service_tier_1_charge Decimal  @default(20)      @db.Decimal(10, 2)
+  service_tier_2_max    Decimal  @default(1999.99) @db.Decimal(10, 2)
+  service_tier_2_charge Decimal  @default(15)      @db.Decimal(10, 2)
+  service_tier_3_charge Decimal  @default(0)       @db.Decimal(10, 2)
+
+  delivery_tier_1_max    Decimal @default(299.99)  @db.Decimal(10, 2)
+  delivery_tier_1_charge Decimal @default(60)      @db.Decimal(10, 2)
+  delivery_tier_2_max    Decimal @default(999.99)  @db.Decimal(10, 2)
+  delivery_tier_2_charge Decimal @default(50)      @db.Decimal(10, 2)
+  delivery_tier_3_max    Decimal @default(1999.99) @db.Decimal(10, 2)
+  delivery_tier_3_charge Decimal @default(40)      @db.Decimal(10, 2)
+  delivery_tier_4_charge Decimal @default(30)      @db.Decimal(10, 2)
+
+  free_km_radius      Decimal  @default(3.0)    @db.Decimal(10, 2)
+  per_km_tier_1_max   Decimal  @default(999.99) @db.Decimal(10, 2)
+  per_km_tier_1_rate  Decimal  @default(15)     @db.Decimal(10, 2)
+  per_km_tier_2_rate  Decimal  @default(10)     @db.Decimal(10, 2)
+
+  max_delivery_km     Decimal? @db.Decimal(10, 2)
+  tip_enabled         Boolean  @default(true)
+
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  updated_by  String?  @db.Uuid
+
+  @@map("delivery_pricing_config")
+}
+
+model MarketplaceCategoryDisplayOverride {
+  id                   String   @id @default(uuid()) @db.Uuid
+  category_key         String   @unique @db.VarChar(150)
+
+  // Image override — all null when no image uploaded
+  image_storage_key    String?  @db.VarChar(500)
+  image_original_name  String?  @db.VarChar(255)
+  image_mime_type      String?  @db.VarChar(100)
+  image_file_size      Int?
+
+  // Visibility — false = visible (default), true = hidden from mobile
+  is_hidden            Boolean  @default(false)
+
+  // Audit snapshot — no FK, same pattern as broadcast campaigns
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category_key])
+  @@map("marketplace_category_display_overrides")
+}

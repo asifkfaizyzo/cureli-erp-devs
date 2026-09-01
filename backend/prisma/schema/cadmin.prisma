@@ -1,0 +1,83 @@
+// CAdmin — Cureli admin panel users, roles, activity logs
+
+model CAdmin {
+  cadmin_id           String              @id @default(uuid()) @db.Uuid
+  username            String              @unique
+  email               String?             @unique
+  phone_number        String
+  password_hash       String
+  is_active           Boolean             @default(true)
+  is_super_cadmin     Boolean             @default(false)    //  NEW
+  verification_id     String?
+  otp_expires         DateTime?
+  last_login_at       DateTime?
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @updatedAt @db.Timestamptz(6)
+  reset_token         String?             @db.VarChar(500)
+  reset_token_expires DateTime?           @db.Timestamptz(6)
+  name                String
+  
+  // Relations
+  roleAssignments     CAdminRoleAssignment[]               //  NEW
+  
+  broadcastCampaigns  BroadcastCampaign[] @relation("BroadcastCampaigns")
+  broadcastSegments   BroadcastSegment[]  @relation("BroadcastSegments")
+  broadcastTemplates  BroadcastTemplate[] @relation("BroadcastTemplates")
+  activityLogs        CAdminActivityLog[] @relation("CAdminActivityLogs")
+  enquiryReplies      EnquiryReply[]      @relation("EnquiryRepliedBy")
+  notifications       Notification[]      @relation("CAdminNotifications")
+  planActivities      PlanActivityLog[]   @relation("PlanActivityByCAdmin")
+  createdPlans        Plan[]              @relation("PlanCreator")
+  emailBroadcastCampaigns EmailBroadcastCampaign[] @relation("EmailBroadcastCampaigns")
+  mobileBroadcastCampaigns CureliMobileBroadcastCampaign[] @relation("MobileBroadcastCampaigns")
+
+  @@map("cadmins")
+}
+
+model CAdminCustomRole {
+  role_id      String   @id @default(uuid()) @db.Uuid
+  name         String   @unique
+  description  String?
+  permissions  String[] // Array of strings e.g. ["shops.view"]
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @updatedAt @db.Timestamptz(6)
+
+  assignments  CAdminRoleAssignment[]
+
+  @@map("cadmin_custom_roles")
+}
+
+model CAdminRoleAssignment {
+  id          String           @id @default(uuid()) @db.Uuid
+  cadmin_id   String           @db.Uuid
+  role_id     String           @db.Uuid
+  is_primary  Boolean          @default(false)
+  assigned_at DateTime         @default(now()) @db.Timestamptz(6)
+  assigned_by String?          @db.Uuid
+
+  cadmin      CAdmin           @relation(fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+  role        CAdminCustomRole @relation(fields: [role_id], references: [role_id], onDelete: Restrict)
+
+  @@unique([cadmin_id, role_id])
+  @@map("cadmin_role_assignments")
+}
+
+model CAdminActivityLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  cadmin_id       String   @db.Uuid
+  performed_by_id String?  @db.Uuid
+  action          String   @db.VarChar(50)
+  description     String?
+  changes         Json?
+  meta            Json?
+  ip_address      String?
+  user_agent      String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  cadmin          CAdmin   @relation("CAdminActivityLogs", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+
+  @@index([cadmin_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("cadmin_activity_logs")
+}

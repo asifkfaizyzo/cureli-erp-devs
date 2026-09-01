@@ -1,0 +1,96 @@
+// App Config — Home banners, feed sections, screen config
+
+model HomeBannerSlide {
+  slide_id             String            @id @default(uuid()) @db.Uuid
+  position             Int               @default(0)
+  title                String            @db.VarChar(200)
+  subtitle             String?           @db.VarChar(300)
+  image_storage_key    String?           @db.VarChar(500)
+  image_original_name  String?           @db.VarChar(255)
+  image_mime_type      String?           @db.VarChar(100)
+  image_file_size      Int?
+  cta_label            String?           @db.VarChar(80)
+  cta_action           BannerCtaAction   @default(NONE)
+  cta_action_value     String?           @db.VarChar(500)
+  is_active            Boolean           @default(true)
+  gradient_index       Int               @default(0)
+
+  // ── Custom gradient — when set, overrides gradient_index on mobile ──────────
+  gradient_color_1     String?           @db.VarChar(20)   // e.g. "#05015A"
+  gradient_color_2     String?           @db.VarChar(20)   // e.g. "#3b2fd4"
+  gradient_angle       Int?                                 // 0-360, CSS/mobile degrees
+
+  placeholder_icon     String            @default("medkit-outline") @db.VarChar(100)
+  updated_by_cadmin_id String?           @db.Uuid
+  updated_by_name      String?           @db.VarChar(200)
+  layout_mode          String            @default("TEXT_WITH_IMAGE") @db.VarChar(20)
+  created_at           DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime          @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active, position])
+  @@index([position])
+  @@map("home_banner_slides")
+}
+
+model HomeStripBanner {
+  strip_id             String          @id @default(uuid()) @db.Uuid
+
+  // Ordering — drag to reorder in admin
+  position             Int             @default(0)
+
+  // Image
+  image_storage_key    String?         @db.VarChar(500)
+  image_original_name  String?         @db.VarChar(255)
+  image_mime_type      String?         @db.VarChar(100)
+  image_file_size      Int?
+
+  // CTA
+  cta_action           BannerCtaAction @default(NONE)
+  cta_action_value     String?         @db.VarChar(500)
+
+  // Visibility
+  is_active            Boolean         @default(true)
+
+  // Audit
+  updated_by_cadmin_id String?         @db.Uuid
+  updated_by_name      String?         @db.VarChar(200)
+
+  created_at           DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@index([is_active, position])
+  @@index([position])
+  @@map("home_strip_banners")
+}
+
+model HomeFeedSectionOverride {
+  id                   String   @id @default(uuid()) @db.Uuid
+  category_key         String   @unique @db.VarChar(150)
+
+  label_override       String?  @db.VarChar(100)
+  position             Int?
+  is_hidden            Boolean  @default(false)
+
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category_key])
+  @@map("home_feed_section_overrides")
+}
+
+model HomeScreenConfig {
+  config_id            String   @id @default(uuid()) @db.Uuid
+  config_key           String   @unique @db.VarChar(100)
+  config_value         String   @db.Text
+
+  updated_by_cadmin_id String?  @db.Uuid
+  updated_by_name      String?  @db.VarChar(100)
+
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([config_key])
+  @@map("home_screen_config")
+}

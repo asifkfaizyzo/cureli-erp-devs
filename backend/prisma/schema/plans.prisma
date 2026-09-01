@@ -1,0 +1,84 @@
+// Plans — Subscription plans, payment transactions
+
+model Plan {
+  plan_id              String             @id @default(uuid()) @db.Uuid
+  plan_code            String             @unique @db.VarChar(20)   // e.g. PLAN-0001
+  name                 String             @db.VarChar(100)          // ← @unique REMOVED
+  max_branches         Int
+  max_users            Int
+  price                BigInt
+  is_customizable      Boolean            @default(false)
+  created_at           DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime           @updatedAt @db.Timestamptz(6)
+  activated_at         DateTime?          @db.Timestamptz(6)
+  created_by           String?            @db.Uuid
+  deleted_at           DateTime?          @db.Timestamptz(6)
+  description          String?
+  status               PlanStatus         @default(ACTIVE)
+  suspended_at         DateTime?          @db.Timestamptz(6)
+  created_for_shop_id  String?            @db.Uuid
+  type                 PlanType           @default(PRE_MADE)
+  billing_cycle_months Int                @default(12)
+  bonus_months         Int                @default(0)
+  compare_at_price     BigInt?
+  is_featured          Boolean            @default(false)
+  promo_free_until     DateTime?          @db.Timestamptz(6)
+
+  // ── TWO-PHASE PRICING ─────────────────────────────
+  intro_price          BigInt?
+  intro_trigger_type   String?            @db.VarChar(10)           // "duration" | "date"
+  intro_duration_years Int?                                          // how many yearly renewals at intro price
+  intro_end_date       DateTime?          @db.Timestamptz(6)        // used when trigger = "date"
+  // ──────────────────────────────────────────────────
+
+  activityLogs         PlanActivityLog[]
+  creator              CAdmin?            @relation("PlanCreator", fields: [created_by], references: [cadmin_id])
+  createdForShop       Shop?              @relation("CustomPlanShop", fields: [created_for_shop_id], references: [shop_id])
+  subscriptions        ShopSubscription[]
+
+  @@index([status])
+  @@index([type])
+  @@index([deleted_at])
+  @@index([created_for_shop_id])
+  @@index([name])                                                    // index for search, not unique
+  @@map("plans")
+}
+
+model PaymentTransaction {
+  transaction_id      String            @id @default(uuid()) @db.Uuid
+  shop_id             String            @db.Uuid
+  subscription_id     String?           @db.Uuid
+  provider            String
+  provider_order_id   String?           @unique
+  provider_payment_id String?           @unique
+  amount              BigInt
+  currency            String            @default("INR")
+  status              String
+  meta                Json?
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime          @updatedAt @db.Timestamptz(6)
+  shop                Shop              @relation("ShopPayments", fields: [shop_id], references: [shop_id])
+  subscription        ShopSubscription? @relation("SubscriptionPayments", fields: [subscription_id], references: [subscription_id])
+
+  @@map("payment_transactions")
+}
+
+model PlanActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  plan_id     String   @db.Uuid
+  cadmin_id   String?  @db.Uuid
+  action      String   @db.VarChar(50)
+  from_status String?  @db.VarChar(20)
+  to_status   String?  @db.VarChar(20)
+  changes     Json?
+  meta        Json?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  cadmin      CAdmin?  @relation("PlanActivityByCAdmin", fields: [cadmin_id], references: [cadmin_id])
+  plan        Plan     @relation(fields: [plan_id], references: [plan_id])
+
+  @@index([plan_id])
+  @@index([cadmin_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("plan_activity_logs")
+}

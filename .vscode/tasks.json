@@ -8,7 +8,7 @@
         "cAdmin",
         "ERP",
         "Landing",
-        "Prisma",
+        "Prisma tree",
         "Backend tree",
         "Landing tree",
         "ERP tree",
@@ -33,6 +33,18 @@
       "label": "Backend tree",
       "type": "shell",
       "command": "ls; cd src; tree /f; powershell",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Prisma tree",
+      "type": "shell",
+      "command": "tree prisma\\schema /f; Write-Host ''; Write-Host 'prisma\\ (root files)' -ForegroundColor Cyan; Get-ChildItem prisma -File | Select-Object Name; Write-Host ''; Write-Host 'prisma\\migrations\\ (contents hidden)' -ForegroundColor Yellow; Write-Host ''; tree prisma\\seeds /f; powershell",
       "isBackground": true,
       "options": {
         "cwd": "${workspaceFolder}/backend"
@@ -107,18 +119,6 @@
       "command": "npm run dev",
       "options": {
         "cwd": "${workspaceFolder}/landing-web"
-      },
-      "isBackground": true,
-      "presentation": {
-        "panel": "new"
-      }
-    },
-    {
-      "label": "Prisma",
-      "type": "shell",
-      "command": "powershell",
-      "options": {
-        "cwd": "${workspaceFolder}/backend"
       },
       "isBackground": true,
       "presentation": {

@@ -1,0 +1,134 @@
+// ERP Auth — Pending users, ERP users, sessions
+
+model PendingUser {
+  pending_id          String    @id @default(uuid()) @db.Uuid
+  first_name          String
+  last_name           String
+  email               String    @unique
+  password_hash       String?
+  google_id           String?   @unique
+  login_provider      String    @default("password")
+  
+  // Email OTP (unchanged - already using hash)
+  email_otp_hash      String?
+  email_otp_expires   DateTime?
+  email_otp_attempts  Int       @default(0)
+  email_verified      Boolean   @default(false)
+  
+  // Phone / SMS OTP (UPDATED - removed MessageCentral fields)
+  phone               String?
+  sms_otp_hash        String?                        // NEW - replaces sms_verification_id
+  sms_otp_expires     DateTime? @db.Timestamptz(6)
+  sms_otp_attempts    Int       @default(0)
+  sms_verified        Boolean   @default(false)
+  
+  
+  username            String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@map("pending_users")
+}
+
+model User {
+  user_id                        String                      @id @default(uuid()) @db.Uuid
+  shop_id                        String?                     @db.Uuid
+  branch_id                      String?                     @db.Uuid
+  first_name                     String
+  last_name                      String
+  full_name                      String
+  username                       String?                     @unique
+  email                          String?                     @unique
+  phone_number                   String?
+  password_hash                  String?
+  google_id                      String?                     @unique
+  login_provider                 String
+  role                           String
+  is_active                      Boolean                     @default(true)
+  last_login_at                  DateTime?                   @db.Timestamptz(6)
+  created_at                     DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime                    @updatedAt @db.Timestamptz(6)
+  status                         String                      @default("pending_setup")
+  first_login_after_verification Boolean                     @default(false)
+  onboarding_step                Int                         @default(4)
+  reset_token                    String?                     @db.VarChar(500)
+  reset_token_expires            DateTime?                   @db.Timestamptz(6)
+  deleted_at                     DateTime?                   @db.Timestamptz(6)
+  
+  // Login OTP fields
+  login_otp_hash                 String?                     // ← ADD THIS LINE
+  login_otp_expires              DateTime?                   @db.Timestamptz(6)
+  login_otp_attempts             Int                         @default(0)
+  
+  first_verified_at              DateTime?                   @db.Timestamptz(6)
+  
+  // Email change fields
+  email_change_expires           DateTime?                   @db.Timestamptz(6)
+  email_change_new_email         String?
+  email_change_otp_hash          String?
+  
+  // Phone change fields
+  phone_change_expires           DateTime?                   @db.Timestamptz(6)
+  phone_change_new_number        String?
+  phone_change_old_verified      Boolean                     @default(false)
+  phone_change_otp_hash          String?
+
+  // OTP security
+  otp_cycle_failures             Int                         @default(0)
+  otp_locked_until               DateTime?
+  otp_trusted_until              DateTime?                   @db.Timestamptz(6)  
+  // Relations
+  activityLogs                   ActivityLog[]
+  creditApplications             CreditApplication[]         @relation("CreditApplicationsBy")
+  customerCreditApplications     CustomerCreditApplication[] @relation("CustomerCreditApplicationsBy")
+  customersCreated               Customer[]                  @relation("CustomerCreator")
+  medicinesCreated               Medicine[]                  @relation("MedicineCreator")
+  notifications                  Notification[]              @relation("UserNotifications")
+  returnsApproved                PurchaseInvoice[]           @relation("ReturnApprover")
+  purchaseInvoicesConfirmed      PurchaseInvoice[]           @relation("PurchaseInvoiceConfirmer")
+  purchaseInvoicesCreated        PurchaseInvoice[]           @relation("PurchaseInvoiceCreator")
+  returnsRejected                PurchaseInvoice[]           @relation("ReturnRejecter")
+  purchasePayments               PurchasePayment[]           @relation("PaymentCreator")
+  salesReturnsApproved           SalesInvoice[]              @relation("SalesReturnApprover")
+  salesInvoicesCancelled         SalesInvoice[]              @relation("SalesInvoiceCanceller")
+  salesInvoicesConfirmed         SalesInvoice[]              @relation("SalesInvoiceConfirmer")
+  salesInvoicesCreated           SalesInvoice[]              @relation("SalesInvoiceCreator")
+  salesReturnsRejected           SalesInvoice[]              @relation("SalesReturnRejecter")
+  salesPaymentsCreated           SalesPayment[]              @relation("SalesPaymentCreator")
+  shopFiles                      ShopFile[]
+  shops_owned                    Shop[]                      @relation("OwnerOfShop")
+  adjustmentsApproved            StockAdjustment[]           @relation("AdjustmentApprover")
+  adjustmentsCreated             StockAdjustment[]           @relation("AdjustmentCreator")
+  stockLedgerEntries             StockLedger[]               @relation("StockLedgerCreator")
+  suppliersCreated               Supplier[]                  @relation("SupplierCreator")
+  ticketsCancelled               Ticket[]                    @relation("TicketCanceller")
+  ticketsCreated                 Ticket[]                    @relation("TicketCreator")
+  ticketsReopened                Ticket[]                    @relation("TicketReopener")
+  sessions                       UserSession[]
+  branch                         Branch?                     @relation(fields: [branch_id], references: [branch_id])
+  shop                           Shop?                       @relation("UsersInShop", fields: [shop_id], references: [shop_id])
+  inventoryImportsCreated InventoryImportJob[] @relation("InventoryImportCreator")
+
+  @@map("users")
+}
+
+model UserSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String    @db.Uuid
+  session_token  String    @unique
+  device_info    String?
+  ip_address     String?
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  last_active_at DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at     DateTime  @db.Timestamptz(6)
+  ended_at       DateTime? @db.Timestamptz(6)
+  ended_reason   String?
+  user           User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([session_token])
+  @@index([is_active])
+  @@index([expires_at])
+  @@map("user_sessions")
+}

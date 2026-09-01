@@ -1,0 +1,109 @@
+// Prescription Requests — Customer prescription marketplace flow
+
+model PrescriptionRequest {
+  request_id                String                         @id @default(uuid()) @db.Uuid
+  request_number            String                         @unique @db.VarChar(20)
+  customer_id               String                         @db.Uuid
+  delivery_address_id       String?                        @db.Uuid
+  delivery_address_snapshot Json
+  search_latitude           Decimal?                       @db.Decimal(10, 8)
+  search_longitude          Decimal?                       @db.Decimal(11, 8)
+  status                    PrescriptionRequestStatus      @default(PENDING)
+  created_at                DateTime                       @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                       @updatedAt @db.Timestamptz(6)
+  expires_at                DateTime?                      @db.Timestamptz(6)
+  cancelled_at              DateTime?                      @db.Timestamptz(6)
+  completed_at              DateTime?                      @db.Timestamptz(6)
+
+  customer                  CureliMobileUser               @relation("CustomerPrescriptionRequests", fields: [customer_id], references: [id], onDelete: Restrict)
+  deliveryAddress           CureliMobileAddress?           @relation("RequestDeliveryAddress", fields: [delivery_address_id], references: [id], onDelete: SetNull)
+  files                     PrescriptionRequestFile[]      @relation("RequestFiles")
+  recipients                PrescriptionRequestRecipient[] @relation("RequestRecipients")
+
+  @@index([customer_id, status])
+  @@index([customer_id, created_at(sort: Desc)])
+  @@index([status, created_at(sort: Desc)])
+  @@index([status, expires_at])
+  @@map("prescription_requests")
+}
+
+model PrescriptionRequestFile {
+  file_id       String              @id @default(uuid()) @db.Uuid
+  request_id    String              @db.Uuid
+  storage_key   String              @db.VarChar(500)
+  original_name String              @db.VarChar(255)
+  mime_type     String              @db.VarChar(100)
+  file_size     Int
+  sequence      Int                 @default(0)
+  deleted_at    DateTime?           @db.Timestamptz(6)
+  uploaded_at   DateTime            @default(now()) @db.Timestamptz(6)
+
+  request       PrescriptionRequest @relation("RequestFiles", fields: [request_id], references: [request_id], onDelete: Cascade)
+
+  @@index([request_id])
+  @@index([deleted_at])
+  @@index([uploaded_at, deleted_at])
+  @@map("prescription_request_files")
+}
+
+model PrescriptionRequestRecipient {
+  recipient_id          String                      @id @default(uuid()) @db.Uuid
+  request_id            String                      @db.Uuid
+  shop_id               String                      @db.Uuid
+  branch_id             String                      @db.Uuid
+  branch_name_snapshot  String                      @db.VarChar(200)
+  shop_name_snapshot    String                      @db.VarChar(200)
+  branch_distance_km    Decimal?                    @db.Decimal(10, 2)
+  status                PrescriptionRecipientStatus @default(SENT)
+  sent_at               DateTime                    @default(now()) @db.Timestamptz(6)
+  quote_sent_at         DateTime?                   @db.Timestamptz(6)
+  quote_expires_at      DateTime?                   @db.Timestamptz(6)
+  accepted_at           DateTime?                   @db.Timestamptz(6)
+  converted_at          DateTime?                   @db.Timestamptz(6)
+  declined_at           DateTime?                   @db.Timestamptz(6)
+  expired_at            DateTime?                   @db.Timestamptz(6)
+  decline_reason        String?                     @db.VarChar(300)
+  converted_order_id    String?                     @db.Uuid
+
+  request               PrescriptionRequest         @relation("RequestRecipients", fields: [request_id], references: [request_id], onDelete: Cascade)
+  shop                  Shop                        @relation("ShopPrescriptionRecipients", fields: [shop_id], references: [shop_id], onDelete: Restrict)
+  branch                Branch                      @relation("BranchPrescriptionRecipients", fields: [branch_id], references: [branch_id], onDelete: Restrict)
+  quoteItems            PrescriptionQuoteItem[]     @relation("RecipientQuoteItems")
+
+  @@unique([request_id, branch_id])
+  @@index([request_id, status])
+  @@index([shop_id, status])
+  @@index([branch_id, status])
+  @@index([status, quote_expires_at])
+  @@map("prescription_request_recipients")
+}
+
+model PrescriptionQuoteItem {
+  quote_item_id                  String                       @id @default(uuid()) @db.Uuid
+  recipient_id                   String                       @db.Uuid
+  listing_id                     String                       @db.Uuid
+  medicine_id                    String                       @db.Uuid
+  variant_id                     String                       @db.Uuid
+  medicine_name_snapshot         String                       @db.VarChar(500)
+  variant_sku_snapshot           String                       @db.VarChar(50)
+  brand_snapshot                 String?                      @db.VarChar(350)
+  pack_size_snapshot             String?                      @db.VarChar(100)
+  unit_price_snapshot            Decimal                      @db.Decimal(10, 2)
+  mrp_snapshot                   Decimal                      @db.Decimal(10, 2)
+  requires_prescription_snapshot Boolean
+  quantity                       Int
+  line_total                     Decimal                      @db.Decimal(10, 2)
+  is_available                   Boolean                      @default(true)
+  is_substitute                  Boolean                      @default(false)
+  substitute_note                String?                      @db.VarChar(300)
+  created_at                     DateTime                     @default(now()) @db.Timestamptz(6)
+
+  recipient                      PrescriptionRequestRecipient @relation("RecipientQuoteItems", fields: [recipient_id], references: [recipient_id], onDelete: Cascade)
+  listing                        MarketplaceListing           @relation("ListingQuoteItems", fields: [listing_id], references: [listing_id], onDelete: Restrict)
+  medicine                       Medicine                     @relation("MedicineQuoteItems", fields: [medicine_id], references: [medicine_id], onDelete: Restrict)
+  variant                        MasterMedicineVariant        @relation("VariantQuoteItems", fields: [variant_id], references: [variant_id], onDelete: Restrict)
+
+  @@index([recipient_id])
+  @@index([listing_id])
+  @@map("prescription_quote_items")
+}

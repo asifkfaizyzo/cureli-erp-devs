@@ -1,0 +1,428 @@
+// All enum definitions used across the schema
+
+enum LinkStatus {
+  PENDING       // Not yet matched
+  AUTO_LINKED   // Auto-matched with high confidence
+  SUGGESTED     // Needs manual confirmation
+  MANUAL_LINKED // Manually confirmed by user
+  UNLINKED      // Intentionally kept separate
+}
+
+enum MarketplaceStatus {
+  NOT_STARTED
+  DRAFT
+  LIVE
+  SUSPENDED
+}
+
+enum EmailAttachmentType {
+  INLINE
+  ATTACHMENT
+}
+
+enum MedicineType {
+  DRUG
+  OTC
+}
+
+enum ImageType {
+  PRIMARY
+  GALLERY
+}
+
+enum ImageSource {
+  SCRAPED
+  UPLOADED
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  SUSPENDED
+}
+
+enum PlanType {
+  PRE_MADE
+  CUSTOM
+}
+
+enum EnquiryStatus {
+  PENDING
+  IN_PROGRESS
+  REPLIED
+  CLOSED
+}
+
+enum StockMovementType {
+  PURCHASE
+  PURCHASE_RETURN
+  SALE
+  SALE_RETURN
+  OPENING_STOCK
+  STOCK_ADJUSTMENT
+  DAMAGED
+  EXPIRED
+  TRANSFER_IN
+  TRANSFER_OUT
+  INVENTORY_IMPORT    
+}
+
+enum ImportJobStatus {
+  PENDING
+  PARSING
+  AWAITING_REVIEW
+  CONFIRMING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum InventorySource {
+  MANUAL
+  PURCHASE
+  IMPORT
+}
+
+enum AdjustmentReason {
+  PHYSICAL_COUNT_VARIANCE
+  DAMAGED_GOODS
+  EXPIRED_GOODS
+  SYSTEM_CORRECTION
+  THEFT_LOSS
+  OTHER
+}
+
+enum ReturnReason {
+  DAMAGED_GOODS
+  EXPIRED_GOODS
+  WRONG_ITEM_RECEIVED
+  QUALITY_ISSUE
+  EXCESS_STOCK
+  PRICE_DIFFERENCE
+  OTHER
+}
+
+enum BroadcastAttachmentType {
+  IMAGE
+  VIDEO
+  LINK
+}
+
+enum PaymentAdjustmentType {
+  CASH_REFUND
+  CREDIT_NOTE
+  OFFSET_NEXT_PURCHASE
+}
+
+enum ReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalesReturnReason {
+  EXPIRED_PRODUCT
+  DAMAGED_PRODUCT
+  WRONG_PRODUCT
+  CUSTOMER_REQUEST
+  QUALITY_ISSUE
+  PRICE_DISPUTE
+  OTHER
+}
+
+enum SalesReturnApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalesRefundMode {
+  CASH
+  CREDIT
+  ADJUST_NEXT
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  PAUSED
+  SENT
+  PARTIAL_FAILURE
+  FAILED
+  CANCELLED
+}
+
+enum EmailRecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+}
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketCategory {
+  TECHNICAL_ISSUE
+  BILLING_ISSUE
+  FEATURE_REQUEST
+  ACCOUNT_ISSUE
+  OTHER
+}
+
+enum TicketActivityType {
+  CREATED          // ticket first created
+  STATUS_CHANGED   // any status transition
+  COMMENT          // note without status change (admin internal or user-visible)
+  REOPENED         // convenience alias (also sets status back to PENDING)
+  CANCELLED        // user or admin cancelled
+  ATTACHMENT_ADDED // file uploaded post-creation
+}
+
+enum MarketplaceStockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+}
+
+enum MarketplaceOrderStatus {
+  PLACED
+  ACCEPTED
+  READY_FOR_PICKUP
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum UserSex {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum BranchHolidayScope {
+  BRANCH
+  SHOP
+}
+
+enum PrescriptionRequestStatus {
+  PENDING
+  PARTIALLY_RESPONDED
+  FULLY_RESPONDED
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum PrescriptionRecipientStatus {
+  SENT
+  QUOTE_SENT
+  DECLINED
+  ACCEPTED
+  CONVERTED
+  EXPIRED
+}
+
+enum RiderStatus {
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  REJECTED
+}
+
+enum RiderDocumentType {
+  PROFILE_PHOTO
+  AADHAAR_FRONT
+  AADHAAR_BACK
+  PAN_FRONT
+  DRIVING_LICENSE_FRONT
+  DRIVING_LICENSE_BACK
+  VEHICLE_RC
+}
+
+enum RiderDocumentStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum DeliveryStatus {
+  PENDING_ASSIGNMENT
+  RIDER_NOTIFIED
+  ACCEPTED
+  ARRIVED_AT_PHARMACY
+  PHARMACY_CONFIRMED
+  PICKED_UP
+  EN_ROUTE
+  ARRIVED_AT_CUSTOMER
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum AssignmentAction {
+  NOTIFIED
+  ACCEPTED
+  REJECTED
+  TIMEOUT
+}
+
+enum DeliveryFailureReason {
+  CUSTOMER_UNAVAILABLE
+  CUSTOMER_REFUSED
+  WRONG_ADDRESS
+  SAFETY_CONCERN
+  OTHER
+}
+
+enum EarningType {
+  BASE_FEE
+  DISTANCE_FEE
+  SURGE_BONUS
+  SHIFT_BONUS
+  STREAK_BONUS
+  WEEKLY_CHALLENGE
+  REFERRAL_BONUS
+  MANUAL_ADJUSTMENT
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutMethod {
+  MANUAL
+  RAZORPAY_X
+}
+
+enum IncidentType {
+  ROAD_ACCIDENT
+  BIKE_BREAKDOWN
+  THEFT_ROBBERY
+  MEDICAL_EMERGENCY
+  SOS
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ZoneChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiderTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum RiderTicketCategory {
+  EARNINGS_PAYOUT
+  ORDER_ISSUE
+  APP_TECHNICAL
+  DOCUMENT_ACCOUNT
+  SAFETY_INCIDENT
+  OTHER
+}
+
+enum ChatSenderType {
+  RIDER
+  CUSTOMER
+}
+
+enum TrainingContentType {
+  ONBOARDING_SLIDE
+  FAQ
+  ANNOUNCEMENT
+}
+
+enum IncentivePeriod {
+  DAILY
+  WEEKLY
+}
+
+enum IncentiveType {
+  DAILY_STREAK
+  WEEKLY_CHALLENGE
+}
+
+enum BannerCtaAction {
+  NONE
+  ROUTE
+  CATEGORY
+  EXTERNAL_URL
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  ADMIN_ADJUST
+}
+
+enum CouponType {
+  FLAT
+  PERCENTAGE
+}
+
+enum DeliveryMode {
+  CURELI
+  SELF
+}
+
+enum CustomerTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum CustomerTicketCategory {
+  WRONG_ITEM
+  DAMAGED_PRODUCT
+  DELIVERY_ISSUE
+  QUALITY_ISSUE
+  MISSING_ITEM
+  REFUND_REQUEST
+  OTHER
+}
+
+enum CustomerTicketActivityType {
+  CREATED
+  STATUS_CHANGED
+  CUSTOMER_REPLY
+  CADMIN_REPLY
+  INTERNAL_NOTE
+}

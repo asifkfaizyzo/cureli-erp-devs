@@ -1,0 +1,260 @@
+// Notifications — In-app, broadcast, email campaigns, unsubscribe
+
+model Notification {
+  notification_id String    @id @default(uuid()) @db.Uuid
+  user_id         String?   @db.Uuid
+  event_type      String    @db.VarChar(100)
+  title           String    @db.VarChar(200)
+  message         String
+  context         Json?
+  shop_id         String?   @db.Uuid
+  branch_id       String?   @db.Uuid
+  dedup_key       String?   @db.VarChar(255)
+  priority        String    @default("normal") @db.VarChar(20)
+  is_read         Boolean   @default(false)
+  read_at         DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  cadmin_id       String?   @db.Uuid
+  cadmin          CAdmin?   @relation("CAdminNotifications", fields: [cadmin_id], references: [cadmin_id], onDelete: Cascade)
+  user            User?     @relation("UserNotifications", fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([cadmin_id, is_read, created_at(sort: Desc)])
+  @@index([cadmin_id, created_at(sort: Desc)])
+  @@index([shop_id, event_type])
+  @@index([dedup_key])
+  @@index([created_at(sort: Desc)])
+  @@map("notifications")
+}
+
+model BroadcastCampaign {
+  campaign_id       String    @id @default(uuid()) @db.Uuid
+  title             String    @db.VarChar(200)
+  message           String
+  priority          String    @default("normal") @db.VarChar(20)
+  target_filters    Json
+  recipient_count   Int?
+  status            String    @default("draft") @db.VarChar(20)
+  scheduled_for     DateTime? @db.Timestamptz(6)
+  sent_at           DateTime? @db.Timestamptz(6)
+  delivered_count   Int?
+  read_count        Int?
+  attachmentFiles   BroadcastAttachment[] @relation("CampaignAttachments")
+  created_by_cadmin String    @db.Uuid
+  cadmin_name       String    @db.VarChar(100)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime  @updatedAt @db.Timestamptz(6)
+  action_label      String?   @db.VarChar(100)
+  action_url        String?   @db.VarChar(500)
+  attachments       Json?
+  expires_at        DateTime? @db.Timestamptz(6)
+  target_cadmins    Boolean   @default(false)
+  target_users      Boolean   @default(true)
+  cadmin            CAdmin    @relation("BroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
+
+  @@index([status, scheduled_for])
+  @@index([created_by_cadmin])
+  @@index([created_at(sort: Desc)])
+  @@map("broadcast_campaigns")
+}
+
+model EmailBroadcastAttachment {
+  attachment_id String   @id @default(uuid()) @db.Uuid
+  campaign_id   String   @db.Uuid
+  
+  // File info
+  file_type     EmailAttachmentType  // "INLINE" or "ATTACHMENT"
+  storage_key   String               // Just filename (e.g., "email-123.jpg")
+  original_name String   @db.VarChar(255)
+  mime_type     String   @db.VarChar(100)
+  file_size     Int
+  
+  // Optional metadata
+  content_id    String?  @db.VarChar(100)  // For inline images (cid:xxx)
+  
+  uploaded_at   DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  campaign      EmailBroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
+  
+  @@index([campaign_id])
+  @@index([file_type])
+  @@map("email_broadcast_attachments")
+}
+
+model BroadcastAttachment {
+  attachment_id String   @id @default(uuid()) @db.Uuid
+  campaign_id   String   @db.Uuid
+  
+  // File info
+  attachment_type BroadcastAttachmentType  // "IMAGE", "VIDEO", "LINK"
+  storage_key     String?              // Filename (null for links)
+  original_name   String?  @db.VarChar(255)
+  mime_type       String?  @db.VarChar(100)
+  file_size       Int?
+  
+  // Link metadata (for type=LINK)
+  link_url        String?  @db.VarChar(500)
+  link_label      String?  @db.VarChar(100)
+  
+  uploaded_at     DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  campaign        BroadcastCampaign @relation("CampaignAttachments", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
+  
+  @@index([campaign_id])
+  @@index([attachment_type])
+  @@map("broadcast_attachments")
+}
+
+model BroadcastSegment {
+  segment_id        String   @id @default(uuid()) @db.Uuid
+  name              String   @db.VarChar(100)
+  description       String?
+  filters           Json
+  created_by_cadmin String   @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @updatedAt @db.Timestamptz(6)
+  cadmin            CAdmin   @relation("BroadcastSegments", fields: [created_by_cadmin], references: [cadmin_id])
+
+  @@index([created_by_cadmin])
+  @@map("broadcast_segments")
+}
+
+model BroadcastTemplate {
+  template_id       String   @id @default(uuid()) @db.Uuid
+  name              String   @db.VarChar(100)
+  title             String   @db.VarChar(200)
+  message           String
+  priority          String   @default("normal") @db.VarChar(20)
+  attachments       Json?
+  usage_count       Int      @default(0)
+  created_by_cadmin String   @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @updatedAt @db.Timestamptz(6)
+  cadmin            CAdmin   @relation("BroadcastTemplates", fields: [created_by_cadmin], references: [cadmin_id])
+
+  @@index([created_by_cadmin])
+  @@index([usage_count(sort: Desc)])
+  @@map("broadcast_templates")
+}
+
+model EmailBroadcastCampaign {
+  campaign_id         String    @id @default(uuid()) @db.Uuid
+  subject             String    @db.VarChar(300)
+  body_html           String
+  body_text           String?
+  from_name           String    @db.VarChar(100)
+  from_email          String    @db.VarChar(100)
+  reply_to            String?   @db.VarChar(100)
+  
+  // Targeting
+  target_filters      Json
+  target_users        Boolean   @default(true)    //  ADD THIS
+  target_cadmins      Boolean   @default(false)   //  ADD THIS
+  recipient_count     Int       @default(0)
+  
+  // Content
+  inline_image        Json?
+  attachments         Json?
+  action_url          String?   @db.VarChar(500)  //  ADD THIS
+  action_label        String?   @db.VarChar(100)  //  ADD THIS
+
+  attachmentFiles     EmailBroadcastAttachment[] @relation("CampaignAttachments")
+  
+  // Scheduling & Status
+  status              EmailCampaignStatus @default(DRAFT)
+  scheduled_for       DateTime?           @db.Timestamptz(6)
+  
+  // Processing
+  processing          Boolean   @default(false)
+  processing_started_at DateTime? @db.Timestamptz(6)
+  last_processed_index Int      @default(0)
+  
+  // Results
+  delivered_count     Int       @default(0)
+  failed_count        Int       @default(0)
+  bounced_count       Int       @default(0)
+  opened_count        Int       @default(0)
+  clicked_count       Int       @default(0)
+  unsubscribed_count  Int       @default(0)
+  
+  // Metadata
+  sent_at             DateTime? @db.Timestamptz(6)
+  completed_at        DateTime? @db.Timestamptz(6)
+  last_error          String?
+  
+  // Audit
+  created_by_cadmin   String    @db.Uuid
+  cadmin_name         String    @db.VarChar(100)
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  cadmin              CAdmin    @relation("EmailBroadcastCampaigns", fields: [created_by_cadmin], references: [cadmin_id])
+  recipients          EmailBroadcastRecipient[] @relation("CampaignRecipients")
+  
+  @@index([status, scheduled_for])
+  @@index([created_by_cadmin])
+  @@index([created_at(sort: Desc)])
+  @@index([processing, status])
+  @@map("email_broadcast_campaigns")
+}
+
+model EmailBroadcastRecipient {
+  recipient_id  String   @id @default(uuid()) @db.Uuid
+  campaign_id   String   @db.Uuid
+  
+  // Recipient info
+  email         String   @db.VarChar(255)
+  name          String?  @db.VarChar(200)
+  user_id       String?  @db.Uuid
+  shop_id       String?  @db.Uuid
+  
+  // Delivery status
+  status        EmailRecipientStatus @default(PENDING)
+  sent_at       DateTime?            @db.Timestamptz(6)
+  delivered_at  DateTime?            @db.Timestamptz(6)
+  opened_at     DateTime?            @db.Timestamptz(6)
+  clicked_at    DateTime?            @db.Timestamptz(6)
+  bounced_at    DateTime?            @db.Timestamptz(6)
+  failed_at     DateTime?            @db.Timestamptz(6)
+  
+  // Provider details
+  provider_message_id String? @db.VarChar(255)
+  error_message       String?
+  bounce_reason       String?
+  
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  
+  campaign      EmailBroadcastCampaign @relation("CampaignRecipients", fields: [campaign_id], references: [campaign_id], onDelete: Cascade)
+  
+  @@index([campaign_id, status])
+  @@index([email])
+  @@index([status])
+  @@map("email_broadcast_recipients")
+}
+
+model DailySendQuota {
+  date       String   @id @db.VarChar(10) // YYYY-MM-DD format
+  sent_count Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+  
+  @@index([date])
+  @@map("daily_send_quota")
+}
+
+model EmailUnsubscribe {
+  unsubscribe_id  String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  token           String?  @db.VarChar(255)  // ← ADD THIS
+  user_id         String?  @db.Uuid
+  cadmin_id       String?  @db.Uuid          // ← RENAME from shop_id
+  reason          String?  @db.VarChar(500)  // ← increase length for longer reasons
+  unsubscribed_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email])
+  @@map("email_unsubscribes")
+}

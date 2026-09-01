@@ -1,0 +1,185 @@
+// Mobile Users — Cureli customer accounts, sessions, addresses
+
+model CureliMobileUser {
+  id                     String                      @id @default(uuid()) @db.Uuid
+
+  phone                  String                      @unique @db.VarChar(15)
+  phone_verified         Boolean                     @default(false)
+  phone_verified_at      DateTime?                   @db.Timestamptz(6)
+
+  // ── NEW: Password auth fields ───────────────────────────────
+  password_hash          String?                     @db.VarChar(500)
+  login_provider         String                      @default("otp") @db.VarChar(20)
+  password_attempts      Int                         @default(0)
+  password_locked_until  DateTime?                   @db.Timestamptz(6)
+  // ────────────────────────────────────────────────────────────
+
+  email                  String?                     @unique @db.VarChar(255)
+  full_name              String?                     @db.VarChar(200)
+  profile_image_key      String?                     @db.VarChar(500)
+  date_of_birth          DateTime?                   @db.Date
+  sex                    UserSex?
+  profile_complete       Boolean                     @default(false)
+
+  status                 String                      @default("active") @db.VarChar(20)
+  suspended_at           DateTime?                   @db.Timestamptz(6)
+  suspension_reason      String?                     @db.VarChar(500)
+  suspended_by           String?                     @db.VarChar(100)
+
+  deleted_at             DateTime?                   @db.Timestamptz(6)
+  deletion_reason        String?                     @db.VarChar(500)
+
+  delete_otp_hash        String?
+  delete_otp_expires     DateTime?                   @db.Timestamptz(6)
+
+  login_otp_hash         String?
+  login_otp_expires      DateTime?                   @db.Timestamptz(6)
+  login_otp_attempts     Int                         @default(0)
+  otp_cycle_failures     Int                         @default(0)
+  otp_locked_until       DateTime?                   @db.Timestamptz(6)
+
+  phone_change_new       String?                     @db.VarChar(15)
+  phone_change_otp_hash  String?
+  phone_change_expires   DateTime?                   @db.Timestamptz(6)
+
+  logout_all_issued_at   DateTime?                   @db.Timestamptz(6)
+
+  referral_code          String?                     @unique @db.VarChar(20)
+  referred_by_code       String?                     @db.VarChar(20)
+
+  created_at             DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                    @updatedAt @db.Timestamptz(6)
+  last_seen_at           DateTime?                   @db.Timestamptz(6)
+
+  sessions               CureliMobileSession[]
+  addresses              CureliMobileAddress[]
+  marketplaceOrders      MarketplaceOrder[]          @relation("CustomerMarketplaceOrders")
+  pushPreference         CureliMobilePushPreference?
+  mobileNotifications    CureliMobileNotification[]
+  checkoutSessions       CheckoutSession[]           @relation("CustomerCheckoutSessions")
+  familyMembers          CureliMobileFamilyMember[]
+  prescriptionRequests   PrescriptionRequest[]       @relation("CustomerPrescriptionRequests")
+  loyalty_points_balance Int                         @default(0)
+  loyaltyTransactions    LoyaltyTransaction[]        @relation("CustomerLoyaltyTransactions")
+  couponUsages           CouponUsage[]               @relation("CustomerCouponUsages")
+  customerSupportTickets CustomerSupportTicket[] @relation("CustomerSupportTickets")
+  @@index([phone])
+  @@index([status])
+  @@index([deleted_at])
+  @@index([created_at(sort: Desc)])
+  @@map("cureli_mobile_users")
+}
+
+model CureliMobileFamilyMember {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String    @db.Uuid
+  name           String    @db.VarChar(200)
+  date_of_birth  DateTime  @db.Date
+  sex            UserSex
+  phone          String?   @db.VarChar(15)
+  deleted_at     DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @updatedAt @db.Timestamptz(6)
+
+  user           CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_id, deleted_at])
+  @@map("cureli_mobile_family_members")
+}
+
+model CureliMobileSession {
+  id                    String    @id @default(uuid()) @db.Uuid
+  user_id               String    @db.Uuid
+  refresh_token_hash    String    @unique @db.VarChar(500)
+  device_id             String?   @db.VarChar(255)
+  device_name           String?   @db.VarChar(200)
+  device_platform       String?   @db.VarChar(20)
+  device_os_version     String?   @db.VarChar(50)
+  app_version           String?   @db.VarChar(20)
+  push_token            String?   @db.VarChar(500)
+  push_token_type       String?   @db.VarChar(20)
+  push_token_updated_at DateTime? @db.Timestamptz(6)
+  ip_address            String?   @db.VarChar(45)
+  user_agent            String?   @db.VarChar(500)
+  is_active             Boolean   @default(true)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  last_active_at        DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime  @db.Timestamptz(6)
+  revoked_at            DateTime? @db.Timestamptz(6)
+  revoked_reason        String?   @db.VarChar(50)
+
+  // ── Relations ─────────────────────────────────────────────
+  user                  CureliMobileUser @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([refresh_token_hash])
+  @@index([user_id, is_active])
+  @@index([expires_at])
+  @@index([device_id])
+  @@map("cureli_mobile_sessions")
+}
+
+model CureliMobileAddress {
+  id               String    @id @default(uuid()) @db.Uuid
+  user_id          String    @db.Uuid
+  label            String    @db.VarChar(50)
+  custom_label     String?   @db.VarChar(100)
+  recipient_name   String?   @db.VarChar(200)
+  recipient_phone  String?   @db.VarChar(15)
+  address_line_1   String    @db.VarChar(300)
+  address_line_2   String?   @db.VarChar(300)
+  landmark         String?   @db.VarChar(200)
+  city             String    @db.VarChar(100)
+  state            String    @db.VarChar(100)
+  pincode          String    @db.VarChar(10)
+  latitude         Decimal?  @db.Decimal(10, 8)
+  longitude        Decimal?  @db.Decimal(11, 8)
+  is_default       Boolean   @default(false)
+  deleted_at       DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(6)
+
+  user             CureliMobileUser   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  orders           MarketplaceOrder[] @relation("OrderDeliveryAddress")
+  // ── ADDED ─────────────────────────────────────────────────
+  prescriptionRequests PrescriptionRequest[] @relation("RequestDeliveryAddress")
+  // ──────────────────────────────────────────────────────────
+
+  @@index([user_id])
+  @@index([user_id, is_default])
+  @@index([deleted_at])
+  @@map("cureli_mobile_addresses")
+}
+
+model CureliMobileDeletedAccount {
+  id                   String    @id @default(uuid()) @db.Uuid
+
+  // ── Original identity ─────────────────────────────────────
+  // original_user_id is preserved for linking future order/transaction data.
+  // It is NOT a foreign key — the user row no longer exists.
+  original_user_id     String    @db.Uuid
+
+  // Phone is SHA-256 hashed — NOT plaintext.
+  // Reason: the same phone can register again as a fresh account.
+  // We need to know "a deleted account existed for this phone"
+  // without creating a collision risk with a new live user.
+  // SHA-256 (not bcrypt) because we need to hash-and-lookup,
+  // not hash-and-verify. Deterministic hash is required here.
+  phone_hash           String    @db.VarChar(64)
+
+  // Profile snapshot at time of deletion — kept for order context.
+  full_name            String?   @db.VarChar(200)
+  email                String?   @db.VarChar(255)
+
+  // Metadata
+  deletion_reason      String    @default("user_requested") @db.VarChar(50)
+  account_created_at   DateTime  @db.Timestamptz(6)
+  address_count        Int       @default(0)
+  deleted_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([original_user_id])
+  @@index([phone_hash])
+  @@index([deleted_at])
+  @@map("cureli_mobile_deleted_accounts")
+}
