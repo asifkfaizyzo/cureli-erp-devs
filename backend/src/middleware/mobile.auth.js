@@ -1,73 +1,114 @@
-// src/config/mobile_jwt.js
+// src/middleware/mobile.auth.js
 //
-// JWT configuration for Cureli Mobile customer auth.
-// Completely isolated from ERP JWT (jwt.js) and CAdmin JWT (cadmin_jwt.js).
-// Mobile tokens carry { sub, sessionId, type: "mobile" } — nothing else.
+// Authentication middleware for Cureli Mobile API endpoints.
+// Verifies mobile JWT access tokens ONLY.
+//
+// Attaches to req:
+//   req.mobileUser    — CureliMobileUser row (fresh from DB)
+//   req.mobileSession — CureliMobileSession row
+//
+// Uses req.mobileUser / req.mobileSession intentionally (not req.user)
+// to prevent any accidental mixing with ERP auth context.
 
-import jwt from "jsonwebtoken";
+import { verifyMobileAccessToken } from "../config/mobile_jwt.js";
+import prisma from "../config/prisma.js";
+import { fail } from "../utils/response.js";
 
-const ACCESS_TOKEN_SECRET = process.env.MOBILE_JWT_SECRET;
-const ACCESS_TOKEN_EXPIRY = "30d";
-// Set to 3650 days (10 years) to effectively persist sessions unless user uninstalls/clears storage.
-const REFRESH_TOKEN_EXPIRY_DAYS = 3650;
+// ── 1. Named Export (supports: import { mobileAuth } from '...') ──
+export async function mobileAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
 
-if (!ACCESS_TOKEN_SECRET) {
-  throw new Error("MOBILE_JWT_SECRET is not set in environment variables");
-}
-
-/**
- * Sign a mobile access token.
- *
- * Payload is intentionally minimal — no role, no phone, no PII.
- * The middleware fetches fresh user data from DB on each request.
- *
- * @param {Object} params
- * @param {string} params.userId       - CureliMobileUser.id
- * @param {string} params.sessionId    - CureliMobileSession.id
- * @returns {string} Signed JWT
- */
-export function signMobileAccessToken({ userId, sessionId }) {
-  return jwt.sign(
-    {
-      sub: userId,
-      sessionId,
-      type: "mobile",
-    },
-    ACCESS_TOKEN_SECRET,
-    { expiresIn: ACCESS_TOKEN_EXPIRY }
-  );
-}
-
-/**
- * Verify a mobile access token.
- * Throws JsonWebTokenError or TokenExpiredError on failure.
- *
- * @param {string} token
- * @returns {{ sub: string, sessionId: string, type: string }}
- */
-export function verifyMobileAccessToken(token) {
-  const payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
-
-  // Guard: reject tokens that are not mobile type.
-  // Prevents ERP tokens from being used on mobile endpoints.
-  if (payload.type !== "mobile") {
-    const err = new Error("Invalid token type");
-    err.code = "INVALID_TOKEN_TYPE";
-    throw err;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return fail(res, "Authentication required", 401);
   }
 
-  return payload;
+  const token = authHeader.split(" ")[1];
+
+  // ── Step 1: Verify JWT signature and expiry ──────────────
+  let payload;
+  try {
+    payload = verifyMobileAccessToken(token);
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return fail(res, "Access token expired", 401);
+    }
+    if (err.name === "JsonWebTokenError" || err.code === "INVALID_TOKEN_TYPE") {
+      return fail(res, "Invalid token", 401);
+    }
+    return fail(res, "Authentication failed", 401);
+  }
+
+  const { sub: userId, sessionId } = payload;
+
+  // ── Step 2: Load session from DB ─────────────────────────
+  // We check the session exists, is active, not expired, and not revoked.
+  // We also load the user via the session relation to keep it one query.
+  let session;
+  try {
+    session = await prisma.cureliMobileSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        user: true,
+      },
+    });
+  } catch {
+    return fail(res, "Authentication failed", 401);
+  }
+
+  if (!session) {
+    return fail(res, "Session not found", 401);
+  }
+
+  // ── Step 3: Session validity checks ──────────────────────
+
+  // Session must belong to the token's subject
+  if (session.user_id !== userId) {
+    return fail(res, "Invalid session", 401);
+  }
+
+  // Session must not be explicitly revoked
+  if (!session.is_active || session.revoked_at) {
+    return fail(res, "Session has been revoked", 401);
+  }
+
+  // Session must not be expired
+  if (new Date() > new Date(session.expires_at)) {
+    return fail(res, "Session expired", 401);
+  }
+
+  const user = session.user;
+
+  // ── Step 4: Logout-all check ─────────────────────────────
+  // If the user triggered logout-all, any session created before that
+  // moment is invalid — even if the session row looks active.
+  if (
+    user.logout_all_issued_at &&
+    new Date(session.created_at) < new Date(user.logout_all_issued_at)
+  ) {
+    return fail(res, "Session invalidated. Please log in again.", 401);
+  }
+
+  // ── Step 5: Account state checks ─────────────────────────
+
+  if (user.deleted_at || user.status === "deleted") {
+    return fail(res, "Account not found", 404);
+  }
+
+  if (user.status === "suspended") {
+    return fail(
+      res,
+      "Your account has been suspended. Please contact support.",
+      403
+    );
+  }
+
+  // ── Step 6: Attach to request ────────────────────────────
+  req.mobileUser = user;
+  req.mobileSession = session;
+
+  next();
 }
 
-/**
- * Refresh token expiry in milliseconds.
- * Used when computing CureliMobileSession.expires_at.
- */
-export const REFRESH_TOKEN_EXPIRY_MS =
-  REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
-/**
- * Access token expiry in seconds.
- * Sent to client as expires_in so it knows when to refresh.
- */
-export const ACCESS_TOKEN_EXPIRY_SECONDS = 30 * 24 * 60 * 60; // 2592000 (30 days)
+// ── 2. Default Export (supports: import mobileAuth from '...') ──
+// This ensures any legacy or third-party router integrations do not break
+export default mobileAuth;
