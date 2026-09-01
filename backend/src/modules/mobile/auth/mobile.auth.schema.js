@@ -1,7 +1,10 @@
 // src/modules/mobile/auth/mobile.auth.schema.js
 
 import { z } from "zod";
-import { isReviewMode, REVIEW_PHONE } from "../../../config/reviewCredentials.js";
+import {
+  isReviewMode,
+  REVIEW_PHONE,
+} from "../../../config/reviewCredentials.js";
 
 // ── Shared ────────────────────────────────────────────────────
 
@@ -12,7 +15,7 @@ const rawPhone = z
   .refine(
     (val) => {
       const stripped = val.replace(/^\+?91/, "");
-      
+
       // Let review phone pass when review mode is enabled
       if (isReviewMode() && stripped === REVIEW_PHONE) {
         return true;
@@ -20,7 +23,7 @@ const rawPhone = z
 
       return /^[6-9]\d{9}$/.test(stripped);
     },
-    { message: "Enter a valid 10-digit Indian mobile number" }
+    { message: "Enter a valid 10-digit Indian mobile number" },
   )
   .transform((val) => {
     const stripped = val.replace(/^\+?91/, "");
@@ -42,11 +45,11 @@ const passwordSchema = z
 
 const deviceInfo = z
   .object({
-    device_id:         z.string().max(255).optional(),
-    device_name:       z.string().max(200).optional(),
-    device_platform:   z.enum(["ios", "android"]).optional(),
+    device_id: z.string().max(255).optional(),
+    device_name: z.string().max(200).optional(),
+    device_platform: z.enum(["ios", "android"]).optional(),
     device_os_version: z.string().max(50).optional(),
-    app_version:       z.string().max(20).optional(),
+    app_version: z.string().max(20).optional(),
   })
   .optional();
 
@@ -61,8 +64,8 @@ export const sendOtpSchema = z.object({
 });
 
 export const verifyOtpSchema = z.object({
-  phone:       rawPhone,
-  otp:         otpCode,
+  phone: rawPhone,
+  otp: otpCode,
   device_info: deviceInfo,
 });
 
@@ -74,8 +77,11 @@ export const refreshSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  identifier:  z.string().trim().min(1, { message: "Phone or email is required" }),
-  password:    z.string().min(1, { message: "Password is required" }),
+  identifier: z
+    .string()
+    .trim()
+    .min(1, { message: "Phone or email is required" }),
+  password: z.string().min(1, { message: "Password is required" }),
   device_info: deviceInfo,
 });
 
@@ -84,24 +90,40 @@ export const sendResetOtpSchema = z.object({
 });
 
 export const resetPasswordSchema = z.object({
-  phone:        rawPhone,
-  otp:          otpCode,
+  phone: rawPhone,
+  otp: otpCode,
   new_password: passwordSchema,
 });
 
 export const registerSchema = z.object({
-  phone:       rawPhone,
-  password:    passwordSchema,
-  email:       z.union([z.string().trim().email({ message: "Invalid email address" }), z.literal(""), z.null()]).optional(),
-  full_name:   z.union([z.string().trim().min(1), z.literal(""), z.null()]).optional(),
+  phone: rawPhone,
+  password: passwordSchema,
+  email: z
+    .union([
+      z.string().trim().email({ message: "Invalid email address" }),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional(),
+  full_name: z
+    .union([z.string().trim().min(1), z.literal(""), z.null()])
+    .optional(),
   device_info: deviceInfo,
 });
 
 export const registerVerifySchema = z.object({
-  phone:       rawPhone,
-  password:    passwordSchema,
-  otp:         otpCode,
-  email:       z.union([z.string().trim().email({ message: "Invalid email address" }), z.literal(""), z.null()]).optional(),
-  full_name:   z.union([z.string().trim().min(1), z.literal(""), z.null()]).optional(),
+  phone: rawPhone,
+  password: passwordSchema,
+  otp: otpCode,
+  email: z
+    .union([
+      z.string().trim().email({ message: "Invalid email address" }),
+      z.literal(""),
+      z.null(),
+    ])
+    .optional(),
+  full_name: z
+    .union([z.string().trim().min(1), z.literal(""), z.null()])
+    .optional(),
   device_info: deviceInfo,
 });

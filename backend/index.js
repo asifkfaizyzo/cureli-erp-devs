@@ -1,3 +1,5 @@
+// index.js
+
 import "./env.js";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -140,7 +142,6 @@ const corsOptions = {
 // GLOBAL MIDDLEWARE
 // ============================================
 
-// 1. Helmet first (security headers)
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
@@ -149,13 +150,9 @@ app.use(
   }),
 );
 
-// 2. Preflight — must be before cors() and everything else
 app.options("/{*path}", cors(corsOptions));
-
-// 3. CORS for all actual requests
 app.use(cors(corsOptions));
 
-// 4. Razorpay webhook — needs raw body, MUST be before express.json()
 app.use(
   "/mobile/checkout/webhook",
   express.raw({ type: "application/json" }),
@@ -172,7 +169,6 @@ app.use(
   },
 );
 
-// 5. Body parsing + cookies (after webhook raw handler)
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
@@ -180,20 +176,15 @@ app.use(cookieParser());
 // MAINTENANCE + RATE LIMITING
 // ============================================
 app.use(maintenanceMiddleware);
-
 app.use("/api/maintenance", maintenanceRoutes);
 
-// ── SSE stream bypass — must come BEFORE rate limiter registration ─────────
 app.use("/api/notifications/stream", (req, res, next) => next());
 app.use("/rider/sse/stream", (req, res, next) => next());
-// ──────────────────────────────────────────────────────────────────────────
 
-// Relaxed limits for high-frequency polling endpoints
 app.use("/api/notifications/unread-count", relaxedLimiter);
 app.use("/api/notifications/recent", relaxedLimiter);
 app.use("/api/purchase/returns", relaxedLimiter);
 
-// Route-group rate limiters
 app.use("/api", (req, res, next) => {
   if (req.method === "OPTIONS") return next();
   return globalLimiter(req, res, next);
@@ -209,7 +200,6 @@ app.use("/mobile", (req, res, next) => {
   return mobileLimiter(req, res, next);
 });
 
-// Rider reuses mobile limiter
 app.use("/rider", (req, res, next) => {
   if (req.method === "OPTIONS") return next();
   return mobileLimiter(req, res, next);
@@ -383,6 +373,14 @@ function printStartupBanner(port) {
 (async () => {
   console.log("\n🔍 Checking performance indexes...");
   await ensureIndexes();
+
+  // Print review mode status at server startup
+  try {
+    const { isReviewMode } = await import("./src/config/reviewCredentials.js");
+    console.log(`🛡️  Review Mode Status: [ ${isReviewMode() ? "ACTIVE (Bypasses Enabled)" : "DISABLED"} ]`);
+  } catch (err) {
+    console.warn("⚠️  Could not read Review Mode status:", err.message);
+  }
 
   app.listen(PORT, () => {
     printStartupBanner(PORT);
