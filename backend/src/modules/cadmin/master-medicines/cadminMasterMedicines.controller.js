@@ -283,8 +283,8 @@ export async function listUnmappedMedicines(req, res) {
       type,
       page,
       limit,
-      sort,
-      order,
+      sort: sort || "occurrenceCount",
+      order: order || "desc",
       shopIds: parsedShopIds,
       dateFrom: dateFrom || "",
       dateTo: dateTo || "",
@@ -305,7 +305,7 @@ export async function listUnmappedMedicines(req, res) {
 
 export async function listNeedsReview(req, res) {
   try {
-    const { search, confidenceFilter, page, limit, shopIds, dateFrom, dateTo } =
+    const { search, confidenceFilter, page, limit, shopIds, dateFrom, dateTo, sort, order } =
       req.query;
     const parsedShopIds = shopIds
       ? shopIds.split(",").map((s) => s.trim()).filter(Boolean)
@@ -318,6 +318,8 @@ export async function listNeedsReview(req, res) {
       shopIds: parsedShopIds,
       dateFrom: dateFrom || "",
       dateTo: dateTo || "",
+      sort: sort || "confidenceScore",
+      order: order || "desc",
     });
     return res.status(200).json({ success: true, data: result });
   } catch (error) {

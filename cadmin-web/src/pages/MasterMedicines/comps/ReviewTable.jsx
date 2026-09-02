@@ -60,6 +60,7 @@ const ReviewTable = ({
     setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
   };
 
+  // Local debounced search filters
   const [localSearch, setLocalSearch] = useState(filters.search || "");
 
   useEffect(() => {
@@ -98,11 +99,16 @@ const ReviewTable = ({
     };
   }, [resizing]);
 
+  // Dynamic sort triggers with logs for troubleshooting
   const handleSort = (key) => {
     const isAsc = filters.sort === key && filters.order === "asc";
+    const nextOrder = isAsc ? "desc" : "asc";
+    
+    console.log(`[ReviewTable] Trigger sort. Key: "${key}", Order: "${nextOrder}"`);
+    
     onFiltersChange({
       sort: key,
-      order: isAsc ? "desc" : "asc",
+      order: nextOrder,
       page: 1,
     });
   };
@@ -146,7 +152,7 @@ const ReviewTable = ({
         className={`flex items-center gap-1 h-full
                     ${styles.header.cell}
                     ${align === "center" ? "justify-center" : "justify-start"}
-                    ${sortKey ? "cursor-pointer select-none" : ""}`}
+                    ${sortKey ? "cursor-pointer select-none hover:text-white" : ""}`}
         onClick={() => sortKey && handleSort(sortKey)}
       >
         <span className="text-sm font-semibold text-white whitespace-nowrap">

@@ -30,11 +30,11 @@ async function syncImageStatus(masterMedicineId) {
 
   let newStatus;
   if (images.length === 0) {
-    newStatus = 'NONE';
-  } else if (images.some(img => img.source === 'UPLOADED')) {
-    newStatus = 'VERIFIED';
+    newStatus = "NONE";
+  } else if (images.some((img) => img.source === "UPLOADED")) {
+    newStatus = "VERIFIED";
   } else {
-    newStatus = 'RAW';
+    newStatus = "RAW";
   }
 
   await prisma.masterMedicine.update({
@@ -869,15 +869,25 @@ export async function getUnmappedMedicinesAggregated({
     results = results.filter((item) => item.type === type);
   }
 
-  const sortField =
-    sort === "occurrence_count"
-      ? "occurrenceCount"
-      : sort === "shop_count"
-        ? "shopCount"
-        : "occurrenceCount";
+  const validSortMap = {
+    normalizedName: "normalizedName",
+    occurrenceCount: "occurrenceCount",
+    shopCount: "shopCount",
+  };
+  const sortField = validSortMap[sort] || "occurrenceCount";
+
   results.sort((a, b) => {
-    if (order === "asc") return a[sortField] - b[sortField];
-    return b[sortField] - a[sortField];
+    if (order === "asc") {
+      if (typeof a[sortField] === "string") {
+        return a[sortField].localeCompare(b[sortField]);
+      }
+      return a[sortField] - b[sortField];
+    } else {
+      if (typeof a[sortField] === "string") {
+        return b[sortField].localeCompare(a[sortField]);
+      }
+      return b[sortField] - a[sortField];
+    }
   });
 
   const total = results.length;
@@ -906,6 +916,8 @@ export async function getNeedsReviewMedicines({
   shopIds = [],
   dateFrom = "",
   dateTo = "",
+  sort = "confidenceScore",
+  order = "desc",
 }) {
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
@@ -945,6 +957,16 @@ export async function getNeedsReviewMedicines({
     if (dateTo) where.created_at.lte = new Date(dateTo + "T23:59:59.999Z");
   }
 
+   // Dynamic sorting configuration mapping
+  const validSortMap = {
+    rawName: "name",
+    confidenceScore: "link_confidence_score",
+    suggestedMaster: "suggested_master_id", // Maps Suggested Match column directly
+    firstSeenAt: "created_at",
+  };
+  const dbSortField = validSortMap[sort] || "link_confidence_score";
+  const dbSortOrder = order === "asc" ? "asc" : "desc";
+
   const [medicines, total] = await Promise.all([
     prisma.medicine.findMany({
       where,
@@ -973,7 +995,7 @@ export async function getNeedsReviewMedicines({
           select: { branch_id: true, branch_name: true },
         },
       },
-      orderBy: { link_confidence_score: "desc" },
+      orderBy: { [dbSortField]: dbSortOrder },
       skip,
       take: limitNum,
     }),
@@ -1552,9 +1574,9 @@ export async function uploadMasterImage(
 
   await s3Client.send(
     new PutObjectCommand({
-      Bucket:      S3_BUCKET,
-      Key:         s3Key,
-      Body:        buffer,
+      Bucket: S3_BUCKET,
+      Key: s3Key,
+      Body: buffer,
       ContentType: mimetype,
     }),
   );
@@ -1577,28 +1599,28 @@ export async function uploadMasterImage(
   const image = await prisma.masterMedicineImage.create({
     data: {
       master_medicine_id: masterMedicineId,
-      sku_id:             effectiveSkuId,
-      url:                s3Key,
+      sku_id: effectiveSkuId,
+      url: s3Key,
       type,
-      source:             "UPLOADED",
-      sequence:           (maxSeq._max.sequence || 0) + 1,
-      uploaded_by:        cadminName,
+      source: "UPLOADED",
+      sequence: (maxSeq._max.sequence || 0) + 1,
+      uploaded_by: cadminName,
     },
   });
 
   await syncImageStatus(masterMedicineId);
 
   await audit.log({
-    action:      audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
+    action: audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
     entity_type: audit.EntityType.MASTER_MEDICINE_IMAGE,
-    entity_id:   image.image_id,
+    entity_id: image.image_id,
     ...auditContext,
     reason_code: audit.AuditReasonCode.ADMIN_ACTION,
     metadata: {
       master_medicine_id: masterMedicineId,
-      sku_id:             effectiveSkuId,
-      image_type:         type,
-      s3_key:             s3Key,
+      sku_id: effectiveSkuId,
+      image_type: type,
+      s3_key: s3Key,
       uploaded_by_cadmin: cadminName,
     },
   });
