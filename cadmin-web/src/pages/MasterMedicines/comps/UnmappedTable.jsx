@@ -1,9 +1,5 @@
-// cadmin/src/pages/MasterMedicines/comps/UnmappedTable.jsx
-
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Search,
-  X,
   Link2,
   Plus,
   Ban,
@@ -18,12 +14,17 @@ import Pagination from "../../../components/common/Pagination";
 import TableEmptyState from "../../../components/common/TableEmptyState";
 import TableSkeleton from "../../../components/common/TableSkeleton";
 import StyledSelect from "../../../components/common/StyledSelect";
+import ShopMultiSelect from "./ShopMultiSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 import { TABLE_CONFIG, getRowBgClass } from "../../../config/tableConfig";
 
 const { styles, heights } = TABLE_CONFIG;
 
 const UnmappedTable = ({
   data = [],
+  meta = {},
+  filters = {},
+  onFiltersChange,
   selectedIds = [],
   onSelectionChange,
   onMatch,
@@ -33,14 +34,6 @@ const UnmappedTable = ({
   onBulkIgnore,
   loading = false,
 }) => {
-  const [searchText, setSearchText] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({
-    key: "occurrenceCount",
-    order: "desc",
-  });
-
   const defaultWidths = {
     checkbox: 48,
     name: 210,
@@ -59,6 +52,21 @@ const UnmappedTable = ({
     e.stopPropagation();
     setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
   };
+
+  const [localSearch, setLocalSearch] = useState(filters.search || "");
+
+  useEffect(() => {
+    setLocalSearch(filters.search || "");
+  }, [filters.search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearch !== (filters.search || "")) {
+        onFiltersChange({ search: localSearch, page: 1 });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
 
   const handleMouseMove = (e) => {
     if (!resizing) return;
@@ -83,91 +91,21 @@ const UnmappedTable = ({
     };
   }, [resizing]);
 
-  const rowsPerPage = 10;
-
-  const filteredData = useMemo(() => {
-    let result = [...data];
-
-    if (searchText.trim()) {
-      const s = searchText.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.normalizedName.toLowerCase().includes(s) ||
-          item.sampleNames?.some((n) => n.toLowerCase().includes(s)) ||
-          item.manufacturers?.some((m) => m.toLowerCase().includes(s)),
-      );
-    }
-
-    if (typeFilter) {
-      result = result.filter((item) => item.type === typeFilter);
-    }
-
-    result.sort((a, b) => {
-      const av = a[sortConfig.key];
-      const bv = b[sortConfig.key];
-
-      if (typeof av === "number" && typeof bv === "number") {
-        return sortConfig.order === "asc" ? av - bv : bv - av;
-      }
-
-      const as = String(av ?? "").toLowerCase();
-      const bs = String(bv ?? "").toLowerCase();
-      if (sortConfig.order === "asc") return as < bs ? -1 : as > bs ? 1 : 0;
-      return as > bs ? -1 : as < bs ? 1 : 0;
-    });
-
-    return result;
-  }, [data, searchText, typeFilter, sortConfig]);
-
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
-  }, [filteredData, currentPage]);
-
-  const totalItems = filteredData.length;
-
-  const allSelected =
-    paginatedData.length > 0 &&
-    paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) =>
-    selectedIds.includes(item.id),
-  );
-
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      onSelectionChange(
-        selectedIds.filter((id) => !paginatedData.find((i) => i.id === id)),
-      );
-    } else {
-      onSelectionChange([
-        ...new Set([...selectedIds, ...paginatedData.map((i) => i.id)]),
-      ]);
-    }
-  };
-
-  const toggleSelect = (id) => {
-    if (selectedIds.includes(id)) {
-      onSelectionChange(selectedIds.filter((i) => i !== id));
-    } else {
-      onSelectionChange([...selectedIds, id]);
-    }
-  };
-
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      order: prev.key === key && prev.order === "desc" ? "asc" : "desc",
-    }));
-    setCurrentPage(1);
+    const isAsc = filters.sort === key && filters.order === "asc";
+    onFiltersChange({
+      sort: key,
+      order: isAsc ? "desc" : "asc",
+      page: 1,
+    });
   };
 
-  //  Uses config sortIcon colors
   const SortIcon = ({ sortKey }) => {
     if (!sortKey) return null;
-    const isActive = sortConfig.key === sortKey;
+    const isActive = filters.sort === sortKey;
 
     if (isActive) {
-      return sortConfig.order === "asc" ? (
+      return filters.order === "asc" ? (
         <ChevronUp
           size={14}
           className={`${styles.header.sortIcon.active} flex-shrink-0`}
@@ -188,7 +126,6 @@ const UnmappedTable = ({
     );
   };
 
-  //  Uses config heights.headerRow + config header.cell styles
   const ResizableTh = ({ col, children, align = "left", sortKey }) => (
     <th
       style={{
@@ -217,10 +154,33 @@ const UnmappedTable = ({
     </th>
   );
 
+  const allSelected =
+    data.length > 0 && data.every((item) => selectedIds.includes(item.id));
+  const someSelected = data.some((item) => selectedIds.includes(item.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      onSelectionChange(
+        selectedIds.filter((id) => !data.find((i) => i.id === id)),
+      );
+    } else {
+      onSelectionChange([
+        ...new Set([...selectedIds, ...data.map((i) => i.id)]),
+      ]);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      onSelectionChange(selectedIds.filter((i) => i !== id));
+    } else {
+      onSelectionChange([...selectedIds, id]);
+    }
+  };
+
   const tableHeader = (
     <thead className="sticky top-0 z-10">
       <tr className={styles.header.row}>
-        {/* Checkbox */}
         <th
           style={{
             width: columnWidths.checkbox,
@@ -248,7 +208,6 @@ const UnmappedTable = ({
             className={styles.header.resizeHandle}
           />
         </th>
-
         <ResizableTh col="name" sortKey="normalizedName">
           Normalized Name
         </ResizableTh>
@@ -272,69 +231,90 @@ const UnmappedTable = ({
 
   return (
     <div className="flex flex-col h-full gap-0">
-      {/* ── Filter Section ── */}
-      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Search name, manufacturer..."
-            value={searchText}
-            onChange={(e) => {
-              setSearchText(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
-                       focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          />
-          {searchText && (
+      {/* Filters Grid */}
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* Search */}
+          <div className="col-span-1 md:col-span-2 relative">
+            <label className="text-xs text-gray-500 font-medium mb-1 block">
+              Search Medicine
+            </label>
+            <input
+              type="text"
+              placeholder="Search name, manufacturer..."
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <StyledSelect
+              label="Medicine Type"
+              value={filters.type || ""}
+              onChange={(v) => onFiltersChange({ type: v, page: 1 })}
+              options={[
+                { value: "", label: "All Types" },
+                { value: "DRUG", label: "Drug" },
+                { value: "OTC", label: "OTC" },
+              ]}
+            />
+          </div>
+
+          {/* Shop Multi Select */}
+          <div>
+            <ShopMultiSelect
+              label="Filter by Shop"
+              context="unmapped"
+              value={filters.selectedShops || []}
+              onChange={(selected) =>
+                onFiltersChange({
+                  selectedShops: selected,
+                  shopIds: selected.map((s) => s.id).join(","),
+                  page: 1,
+                })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Second row: Dates & Bulk Actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="w-48">
+            <StyledDateFilter
+              label="From Date"
+              date={filters.dateFrom || ""}
+              setDate={(date) => onFiltersChange({ dateFrom: date, page: 1 })}
+            />
+          </div>
+          <div className="w-48">
+            <StyledDateFilter
+              label="To Date"
+              date={filters.dateTo || ""}
+              setDate={(date) => onFiltersChange({ dateTo: date, page: 1 })}
+            />
+          </div>
+
+          <div className="flex-1" />
+
+          <span className="text-xs text-gray-400">
+            {meta.total || 0} item{meta.total !== 1 ? "s" : ""}
+          </span>
+
+          {selectedIds.length > 0 && (
             <button
-              onClick={() => setSearchText("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={onBulkIgnore}
+              className="h-10 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-200"
             >
-              <X size={13} />
+              <Trash2 size={14} />
+              Ignore ({selectedIds.length})
             </button>
           )}
         </div>
-
-        <div className="w-36">
-          <StyledSelect
-            value={typeFilter}
-            onChange={(v) => {
-              setTypeFilter(v);
-              setCurrentPage(1);
-            }}
-            options={[
-              { value: "", label: "All Types" },
-              { value: "DRUG", label: "Drug" },
-              { value: "OTC", label: "OTC" },
-            ]}
-            placeholder="All Types"
-          />
-        </div>
-
-        <div className="flex-1" />
-
-        <span className="text-xs text-gray-400">
-          {totalItems} item{totalItems !== 1 ? "s" : ""}
-        </span>
-
-        {selectedIds.length > 0 && (
-          <button
-            onClick={onBulkIgnore}
-            className="h-9 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium
-                       flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-200"
-          >
-            <Trash2 size={14} />
-            Ignore ({selectedIds.length})
-          </button>
-        )}
       </div>
 
-      {/* ── Table Card — uses config container ── */}
+      {/* Table grid wrapper */}
       <div className={styles.container.wrapper}>
         <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
@@ -344,17 +324,17 @@ const UnmappedTable = ({
             >
               {tableHeader}
               <tbody>
-                <TableSkeleton rows={rowsPerPage} columns={8} />
+                <TableSkeleton rows={filters.limit || 10} columns={8} />
               </tbody>
             </table>
-          ) : paginatedData.length === 0 ? (
+          ) : data.length === 0 ? (
             <TableEmptyState
               icon={Link2}
               title="No unmapped medicines"
               subtitle={
-                searchText
-                  ? "No results match your search"
-                  : "All medicines have been mapped to the master catalog"
+                filters.search || filters.shopIds || filters.dateFrom
+                  ? "No matches found for active filters"
+                  : "All medicines are currently mapped"
               }
             />
           ) : (
@@ -364,7 +344,7 @@ const UnmappedTable = ({
             >
               {tableHeader}
               <tbody>
-                {paginatedData.map((item, index) => {
+                {data.map((item, index) => {
                   const isSelected = selectedIds.includes(item.id);
                   const topManufacturer = item.manufacturers?.[0];
                   const extraManufacturers =
@@ -374,12 +354,9 @@ const UnmappedTable = ({
                     <tr
                       key={item.id}
                       onClick={() => onViewDetail(item)}
-                      className={`${
-                        isSelected ? "bg-indigo-50/80" : getRowBgClass(index)
-                      } ${styles.row.clickable}`}
+                      className={`${isSelected ? "bg-indigo-50/80" : getRowBgClass(index)} ${styles.row.clickable}`}
                       style={{ height: `${heights.bodyRow}px` }}
                     >
-                      {/* Checkbox */}
                       <td
                         className={styles.cell.base}
                         onClick={(e) => e.stopPropagation()}
@@ -398,8 +375,6 @@ const UnmappedTable = ({
                           )}
                         </button>
                       </td>
-
-                      {/* Normalized name */}
                       <td className={styles.cell.base}>
                         <span
                           className={`${styles.cell.primary} truncate block max-w-[200px]`}
@@ -407,13 +382,9 @@ const UnmappedTable = ({
                           {item.normalizedName}
                         </span>
                       </td>
-
-                      {/* Sample names */}
                       <td className={styles.cell.base}>
                         <SampleNamesCell names={item.sampleNames} />
                       </td>
-
-                      {/* Manufacturer */}
                       <td className={styles.cell.base}>
                         {topManufacturer ? (
                           <div>
@@ -438,37 +409,25 @@ const UnmappedTable = ({
                           </span>
                         )}
                       </td>
-
-                      {/* Type */}
                       <td
                         className={`${styles.cell.base} ${styles.cell.center}`}
                       >
                         <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            item.type === "DRUG"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${item.type === "DRUG" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}
                         >
                           {item.type}
                         </span>
                       </td>
-
-                      {/* Count */}
                       <td
                         className={`${styles.cell.base} ${styles.cell.center} ${styles.cell.primary}`}
                       >
                         {item.occurrenceCount}
                       </td>
-
-                      {/* Shops */}
                       <td
                         className={`${styles.cell.base} ${styles.cell.center} ${styles.cell.primary}`}
                       >
                         {item.shopCount}
                       </td>
-
-                      {/* Actions */}
                       <td
                         className={styles.cell.base}
                         onClick={(e) => e.stopPropagation()}
@@ -484,7 +443,7 @@ const UnmappedTable = ({
                           <button
                             onClick={() => onCreate(item)}
                             className={`${styles.actions.button.base} ${styles.actions.button.activate}`}
-                            title="Create New Master"
+                            title="Create New"
                           >
                             <Plus size={14} />
                           </button>
@@ -505,14 +464,13 @@ const UnmappedTable = ({
           )}
         </div>
 
-        {/*  Uses config pagination wrapper */}
-        {totalItems > 0 && !loading && (
+        {meta.total > 0 && !loading && (
           <div className={styles.pagination.wrapper}>
             <Pagination
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              totalItems={totalItems}
-              rowsPerPage={rowsPerPage}
+              currentPage={filters.page || 1}
+              setCurrentPage={(page) => onFiltersChange({ page })}
+              totalItems={meta.total}
+              rowsPerPage={filters.limit || 10}
             />
           </div>
         )}

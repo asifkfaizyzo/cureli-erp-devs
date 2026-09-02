@@ -12,6 +12,7 @@ import {
   getMasterMedicinesStats,
   getFilters,
   autocomplete,
+  listShops,
   listUnmappedMedicines,
   listNeedsReview,
   listLinkedMedicines,
@@ -63,6 +64,11 @@ router.get(
   "/master-medicines/autocomplete",
   requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
   autocomplete
+);
+router.get(
+  "/master-medicines/shops",
+  requireCAdminPermission(CADMIN_PERMISSIONS.MASTER_MEDICINES_VIEW),
+  listShops
 );
 router.get(
   "/master-medicines/variants/:skuId",

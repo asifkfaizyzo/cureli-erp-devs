@@ -485,7 +485,6 @@ export async function getMasterMedicineStats() {
         created_at: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
     }),
-    // ── REMOVED: allMasters findMany (was loading 175k rows into memory) ──
     prisma.medicine.count({
       where: {
         master_medicine_id: null,
@@ -511,15 +510,6 @@ export async function getMasterMedicineStats() {
       },
     }),
   ]);
-
-  // ── Image status counts — single SQL aggregate, no memory load ────────────
-  //
-  // Old approach: findMany of all 175k masters + images → compute in JS
-  // New approach: COUNT with subquery existence checks → pure SQL, instant
-  //
-  // A master is VERIFIED if it has at least one image with source = UPLOADED
-  // A master is RAW if it has images but none are UPLOADED
-  // A master is NONE if it has no images at all
 
   const imageStatusCounts = await prisma.$queryRaw`
     SELECT
@@ -722,18 +712,33 @@ export async function getUnmappedMedicinesAggregated({
   limit = 20,
   sort = "occurrence_count",
   order = "desc",
+  shopIds = [],
+  dateFrom = "",
+  dateTo = "",
 }) {
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
 
+  const where = {
+    master_medicine_id: null,
+    linked_variant_id: null,
+    link_status: { in: ["PENDING", "UNLINKED"] },
+    link_rejected: false,
+    is_active: true,
+  };
+
+  if (shopIds.length > 0) {
+    where.shop_id = { in: shopIds };
+  }
+
+  if (dateFrom || dateTo) {
+    where.created_at = {};
+    if (dateFrom) where.created_at.gte = new Date(dateFrom + "T00:00:00.000Z");
+    if (dateTo) where.created_at.lte = new Date(dateTo + "T23:59:59.999Z");
+  }
+
   const rawMedicines = await prisma.medicine.findMany({
-    where: {
-      master_medicine_id: null,
-      linked_variant_id: null,
-      link_status: { in: ["PENDING", "UNLINKED"] },
-      link_rejected: false,
-      is_active: true,
-    },
+    where,
     select: {
       medicine_id: true,
       name: true,
@@ -898,6 +903,9 @@ export async function getNeedsReviewMedicines({
   confidenceFilter = "",
   page = 1,
   limit = 20,
+  shopIds = [],
+  dateFrom = "",
+  dateTo = "",
 }) {
   const pageNum = Math.max(1, parseInt(page) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
@@ -925,6 +933,16 @@ export async function getNeedsReviewMedicines({
     where.link_confidence_score = { gte: 70, lt: 90 };
   } else if (confidenceFilter === "low") {
     where.link_confidence_score = { lt: 70 };
+  }
+
+  if (shopIds.length > 0) {
+    where.shop_id = { in: shopIds };
+  }
+
+  if (dateFrom || dateTo) {
+    where.created_at = {};
+    if (dateFrom) where.created_at.gte = new Date(dateFrom + "T00:00:00.000Z");
+    if (dateTo) where.created_at.lte = new Date(dateTo + "T23:59:59.999Z");
   }
 
   const [medicines, total] = await Promise.all([
@@ -1511,7 +1529,6 @@ export async function uploadMasterImage(
 ) {
   const { buffer, mimetype, originalname, type = "PRIMARY", skuId } = imageData;
 
-  // ── 1. Validate the master exists ────────────────────────────────────────
   const master = await prisma.masterMedicine.findUnique({
     where: { master_medicine_id: masterMedicineId },
     include: {
@@ -1523,9 +1540,6 @@ export async function uploadMasterImage(
 
   const effectiveSkuId = skuId || master.variants[0]?.sku_id || "master";
 
-  // ── 2. Build S3 key ───────────────────────────────────────────────────────
-  // Format: medicine_images/{skuId}/verified_{timestamp}.{ext}
-  // Matches existing scraped image key format — same bucket, same folder
   const ext = originalname
     ? "." + originalname.split(".").pop().toLowerCase()
     : mimetype === "image/png"
@@ -1536,7 +1550,6 @@ export async function uploadMasterImage(
 
   const s3Key = `medicine_images/${effectiveSkuId}/verified_${Date.now()}${ext}`;
 
-  // ── 3. Upload buffer to S3 ────────────────────────────────────────────────
   await s3Client.send(
     new PutObjectCommand({
       Bucket:      S3_BUCKET,
@@ -1546,7 +1559,6 @@ export async function uploadMasterImage(
     }),
   );
 
-  // ── 4. If new PRIMARY, demote existing PRIMARY to GALLERY ─────────────────
   if (type === "PRIMARY") {
     await prisma.masterMedicineImage.updateMany({
       where: {
@@ -1557,18 +1569,16 @@ export async function uploadMasterImage(
     });
   }
 
-  // ── 5. Get next sequence number ───────────────────────────────────────────
   const maxSeq = await prisma.masterMedicineImage.aggregate({
     where: { master_medicine_id: masterMedicineId },
     _max: { sequence: true },
   });
 
-  // ── 6. Save S3 key in DB (NOT a full URL — resolveAssetUrl handles that) ──
   const image = await prisma.masterMedicineImage.create({
     data: {
       master_medicine_id: masterMedicineId,
       sku_id:             effectiveSkuId,
-      url:                s3Key,           // ← S3 key only, same as scraped images
+      url:                s3Key,
       type,
       source:             "UPLOADED",
       sequence:           (maxSeq._max.sequence || 0) + 1,
@@ -1576,10 +1586,8 @@ export async function uploadMasterImage(
     },
   });
 
-  // ── 7. Sync image_status column ───────────────────────────────────────────
   await syncImageStatus(masterMedicineId);
 
-  // ── 8. Audit log ──────────────────────────────────────────────────────────
   await audit.log({
     action:      audit.AuditAction.MASTER_MEDICINE_IMAGE_UPLOADED,
     entity_type: audit.EntityType.MASTER_MEDICINE_IMAGE,
@@ -1629,6 +1637,66 @@ export async function deleteMasterImage(imageId, auditContext = {}) {
   });
 
   return { success: true, deletedImage: image };
+}
+
+// ══════════════════════════════════════════════════════════════
+// GET DISTINCT SHOPS FOR MAPPING FILTER DROPDOWN
+// ══════════════════════════════════════════════════════════════
+
+export async function getDistinctShops({
+  context = "unmapped",
+  search = "",
+  page = 1,
+  limit = 10,
+}) {
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 10));
+  const offset = (pageNum - 1) * limitNum;
+
+  // Build the medicine-level filter based on context
+  const medicineWhere =
+    context === "review"
+      ? {
+          link_status: "SUGGESTED",
+          suggested_master_id: { not: null },
+          link_rejected: false,
+          is_active: true,
+        }
+      : {
+          link_status: { in: ["PENDING", "UNLINKED"] },
+          linked_variant_id: null,
+          master_medicine_id: null,
+          link_rejected: false,
+          is_active: true,
+        };
+
+  const shopWhere = {
+    medicines: { some: medicineWhere },
+    ...(search?.trim()
+      ? { business_name: { contains: search.trim(), mode: "insensitive" } }
+      : {}),
+  };
+
+  const [shops, total] = await Promise.all([
+    prisma.shop.findMany({
+      where: shopWhere,
+      select: { shop_id: true, business_name: true },
+      orderBy: { business_name: "asc" },
+      skip: offset,
+      take: limitNum,
+    }),
+    prisma.shop.count({ where: shopWhere }),
+  ]);
+
+  return {
+    shops: shops.map((s) => ({ id: s.shop_id, name: s.business_name })),
+    meta: {
+      total,
+      page: pageNum,
+      limit: limitNum,
+      hasMore: offset + limitNum < total,
+    },
+  };
 }
 
 export { computeImageStatus };

@@ -1,8 +1,5 @@
-// cadmin/src/pages/MasterMedicines/comps/ReviewTable.jsx
-
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Search,
   X,
   Check,
   RefreshCw,
@@ -24,12 +21,17 @@ import TableEmptyState from "../../../components/common/TableEmptyState";
 import TableSkeleton from "../../../components/common/TableSkeleton";
 import { getConfidenceColorClasses } from "../../../api/cadminMasterMedicines";
 import StyledSelect from "../../../components/common/StyledSelect";
+import ShopMultiSelect from "./ShopMultiSelect";
+import StyledDateFilter from "../../../components/common/StyledDateFilter";
 import { TABLE_CONFIG, getRowBgClass } from "../../../config/tableConfig";
 
 const { styles, heights } = TABLE_CONFIG;
 
 const ReviewTable = ({
   data = [],
+  meta = {},
+  filters = {},
+  onFiltersChange,
   selectedIds = [],
   onSelectionChange,
   onAccept,
@@ -40,14 +42,6 @@ const ReviewTable = ({
   onViewDetail,
   loading = false,
 }) => {
-  const [searchText, setSearchText] = useState("");
-  const [confidenceFilter, setConfidenceFilter] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({
-    key: "confidenceScore",
-    order: "desc",
-  });
-
   const defaultWidths = {
     checkbox: 48,
     shopMed: 210,
@@ -65,13 +59,33 @@ const ReviewTable = ({
     e.stopPropagation();
     setResizing({ col, startX: e.clientX, startWidth: columnWidths[col] });
   };
+
+  const [localSearch, setLocalSearch] = useState(filters.search || "");
+
+  useEffect(() => {
+    setLocalSearch(filters.search || "");
+  }, [filters.search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearch !== (filters.search || "")) {
+        onFiltersChange({ search: localSearch, page: 1 });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   const handleMouseMove = (e) => {
     if (!resizing) return;
     setColumnWidths((p) => ({
       ...p,
-      [resizing.col]: Math.max(50, resizing.startWidth + (e.clientX - resizing.startX)),
+      [resizing.col]: Math.max(
+        50,
+        resizing.startWidth + (e.clientX - resizing.startX),
+      ),
     }));
   };
+
   const handleMouseUp = () => setResizing(null);
 
   useEffect(() => {
@@ -84,108 +98,38 @@ const ReviewTable = ({
     };
   }, [resizing]);
 
-  const rowsPerPage = 10;
-
-  const filteredData = useMemo(() => {
-    let result = [...data];
-    if (searchText.trim()) {
-      const s = searchText.toLowerCase();
-      result = result.filter(
-        (item) =>
-          item.rawName.toLowerCase().includes(s) ||
-          item.suggestedMaster?.name?.toLowerCase().includes(s) ||
-          (item.shopMedicine?.manufacturer || "").toLowerCase().includes(s) ||
-          (item.suggestedMaster?.manufacturer || "").toLowerCase().includes(s)
-      );
-    }
-    if (confidenceFilter) {
-      result = result.filter((item) => {
-        if (confidenceFilter === "high") return item.confidenceScore >= 90;
-        if (confidenceFilter === "medium")
-          return item.confidenceScore >= 70 && item.confidenceScore < 90;
-        if (confidenceFilter === "low") return item.confidenceScore < 70;
-        return true;
-      });
-    }
-
-    result.sort((a, b) => {
-      let av = a[sortConfig.key];
-      let bv = b[sortConfig.key];
-
-      if (sortConfig.key === "suggestedMaster") {
-        av = a.suggestedMaster?.name || "";
-        bv = b.suggestedMaster?.name || "";
-      }
-
-      if (typeof av === "number" && typeof bv === "number") {
-        return sortConfig.order === "asc" ? av - bv : bv - av;
-      }
-
-      const as = String(av ?? "").toLowerCase();
-      const bs = String(bv ?? "").toLowerCase();
-      if (sortConfig.order === "asc") return as < bs ? -1 : as > bs ? 1 : 0;
-      return as > bs ? -1 : as < bs ? 1 : 0;
-    });
-
-    return result;
-  }, [data, searchText, confidenceFilter, sortConfig]);
-
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
-  }, [filteredData, currentPage]);
-
-  const totalItems = filteredData.length;
-
-  const allSelected =
-    paginatedData.length > 0 &&
-    paginatedData.every((item) => selectedIds.includes(item.id));
-  const someSelected = paginatedData.some((item) =>
-    selectedIds.includes(item.id)
-  );
-
-  const toggleSelectAll = () => {
-    if (allSelected) {
-      onSelectionChange(
-        selectedIds.filter((id) => !paginatedData.find((i) => i.id === id))
-      );
-    } else {
-      onSelectionChange([
-        ...new Set([...selectedIds, ...paginatedData.map((i) => i.id)]),
-      ]);
-    }
-  };
-
-  const toggleSelect = (id) => {
-    if (selectedIds.includes(id)) {
-      onSelectionChange(selectedIds.filter((i) => i !== id));
-    } else {
-      onSelectionChange([...selectedIds, id]);
-    }
-  };
-
   const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      order: prev.key === key && prev.order === "desc" ? "asc" : "desc",
-    }));
-    setCurrentPage(1);
+    const isAsc = filters.sort === key && filters.order === "asc";
+    onFiltersChange({
+      sort: key,
+      order: isAsc ? "desc" : "asc",
+      page: 1,
+    });
   };
 
   const SortIcon = ({ sortKey }) => {
     if (!sortKey) return null;
-    const isActive = sortConfig.key === sortKey;
+    const isActive = filters.sort === sortKey;
 
     if (isActive) {
-      return sortConfig.order === "asc" ? (
-        <ChevronUp size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+      return filters.order === "asc" ? (
+        <ChevronUp
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       ) : (
-        <ChevronDown size={14} className={`${styles.header.sortIcon.active} flex-shrink-0`} />
+        <ChevronDown
+          size={14}
+          className={`${styles.header.sortIcon.active} flex-shrink-0`}
+        />
       );
     }
 
     return (
-      <ChevronsUpDown size={14} className={`${styles.header.sortIcon.inactive} flex-shrink-0`} />
+      <ChevronsUpDown
+        size={14}
+        className={`${styles.header.sortIcon.inactive} flex-shrink-0`}
+      />
     );
   };
 
@@ -217,10 +161,33 @@ const ReviewTable = ({
     </th>
   );
 
+  const allSelected =
+    data.length > 0 && data.every((item) => selectedIds.includes(item.id));
+  const someSelected = data.some((item) => selectedIds.includes(item.id));
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      onSelectionChange(
+        selectedIds.filter((id) => !data.find((i) => i.id === id)),
+      );
+    } else {
+      onSelectionChange([
+        ...new Set([...selectedIds, ...data.map((i) => i.id)]),
+      ]);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      onSelectionChange(selectedIds.filter((i) => i !== id));
+    } else {
+      onSelectionChange([...selectedIds, id]);
+    }
+  };
+
   const tableHeader = (
     <thead className="sticky top-0 z-10">
       <tr className={styles.header.row}>
-        {/* Checkbox */}
         <th
           style={{
             width: columnWidths.checkbox,
@@ -248,107 +215,159 @@ const ReviewTable = ({
             className={styles.header.resizeHandle}
           />
         </th>
-
-        <ResizableTh col="shopMed" sortKey="rawName">Shop Medicine</ResizableTh>
-        {/* Arrow spacer */}
+        <ResizableTh col="shopMed" sortKey="rawName">
+          Shop Medicine
+        </ResizableTh>
         <th
           style={{ width: 36, minWidth: 36, height: `${heights.headerRow}px` }}
-          className={styles.header.row.includes("bg-") ? "" : ""}
         />
-        <ResizableTh col="match" sortKey="suggestedMaster">Suggested Match</ResizableTh>
-        <ResizableTh col="confidence" align="center" sortKey="confidenceScore">Confidence</ResizableTh>
-        <ResizableTh col="source" align="center">Source</ResizableTh>
-        <ResizableTh col="actions" align="center">Actions</ResizableTh>
+        <ResizableTh col="match" sortKey="suggestedMaster">
+          Suggested Match
+        </ResizableTh>
+        <ResizableTh col="confidence" align="center" sortKey="confidenceScore">
+          Confidence
+        </ResizableTh>
+        <ResizableTh col="source" align="center">
+          Source
+        </ResizableTh>
+        <ResizableTh col="actions" align="center">
+          Actions
+        </ResizableTh>
       </tr>
     </thead>
   );
 
   return (
     <div className="flex flex-col h-full gap-0">
-      {/* ── Filter Section ── */}
-      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by name, manufacturer..."
-            value={searchText}
-            onChange={(e) => { setSearchText(e.target.value); setCurrentPage(1); }}
-            className="w-full h-9 pl-9 pr-8 border border-gray-300 rounded-lg text-sm
-                       focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          />
-          {searchText && (
-            <button
-              onClick={() => setSearchText("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={13} />
-            </button>
+      {/* Filters Grid */}
+      <div className="flex-shrink-0 bg-white rounded-xl border border-gray-200 px-4 py-3 mb-2 flex flex-col gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* Search Box */}
+          <div className="col-span-1 md:col-span-2 relative">
+            <label className="text-xs text-gray-500 font-medium mb-1 block">
+              Search Medicine
+            </label>
+            <input
+              type="text"
+              placeholder="Search by name, manufacturer..."
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
+
+          {/* Confidence Dropdown */}
+          <div>
+            <StyledSelect
+              label="Match Confidence"
+              value={filters.confidenceFilter || ""}
+              onChange={(v) =>
+                onFiltersChange({ confidenceFilter: v, page: 1 })
+              }
+              options={[
+                { value: "", label: "All Confidence" },
+                { value: "high", label: "High (90%+)" },
+                { value: "medium", label: "Medium (70-89%)" },
+                { value: "low", label: "Low (<70%)" },
+              ]}
+            />
+          </div>
+
+          {/* Shop Selector */}
+          <div>
+            <ShopMultiSelect
+              label="Filter by Shop"
+              context="review"
+              value={filters.selectedShops || []}
+              onChange={(selected) =>
+                onFiltersChange({
+                  selectedShops: selected,
+                  shopIds: selected.map((s) => s.id).join(","),
+                  page: 1,
+                })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Second row: Dates & Bulk Actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="w-48">
+            <StyledDateFilter
+              label="From Date"
+              date={filters.dateFrom || ""}
+              setDate={(date) => onFiltersChange({ dateFrom: date, page: 1 })}
+            />
+          </div>
+          <div className="w-48">
+            <StyledDateFilter
+              label="To Date"
+              date={filters.dateTo || ""}
+              setDate={(date) => onFiltersChange({ dateTo: date, page: 1 })}
+            />
+          </div>
+
+          <div className="flex-1" />
+
+          <span className="text-xs text-gray-400">
+            {meta.total || 0} item{meta.total !== 1 ? "s" : ""}
+          </span>
+
+          {selectedIds.length > 0 && (
+            <>
+              <button
+                onClick={onBulkAccept}
+                className="h-10 px-4 bg-green-50 text-green-600 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-green-100 transition-colors border border-green-200"
+              >
+                <CheckCircle2 size={14} />
+                Accept ({selectedIds.length})
+              </button>
+              <button
+                onClick={onBulkReject}
+                className="h-10 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-200"
+              >
+                <Trash2 size={14} />
+                Reject ({selectedIds.length})
+              </button>
+            </>
           )}
         </div>
-
-        <div className="w-52">
-          <StyledSelect
-            value={confidenceFilter}
-            onChange={(v) => { setConfidenceFilter(v); setCurrentPage(1); }}
-            options={[
-              { value: "", label: "All Confidence" },
-              { value: "high", label: "High (90%+)" },
-              { value: "medium", label: "Medium (70-89%)" },
-              { value: "low", label: "Low (<70%)" },
-            ]}
-            placeholder="All Confidence"
-          />
-        </div>
-
-        <div className="flex-1" />
-
-        <span className="text-xs text-gray-400">{totalItems} item{totalItems !== 1 ? "s" : ""}</span>
-
-        {selectedIds.length > 0 && (
-          <>
-            <button
-              onClick={onBulkAccept}
-              className="h-9 px-4 bg-green-50 text-green-600 rounded-lg text-sm font-medium
-                         flex items-center gap-2 hover:bg-green-100 transition-colors border border-green-200"
-            >
-              <CheckCircle2 size={14} />
-              Accept ({selectedIds.length})
-            </button>
-            <button
-              onClick={onBulkReject}
-              className="h-9 px-4 bg-red-50 text-red-600 rounded-lg text-sm font-medium
-                         flex items-center gap-2 hover:bg-red-100 transition-colors border border-red-200"
-            >
-              <Trash2 size={14} />
-              Reject ({selectedIds.length})
-            </button>
-          </>
-        )}
       </div>
 
-      {/* ── Table Card ── */}
+      {/* Table grid wrapper */}
       <div className={styles.container.wrapper}>
         <div className="flex-1 min-h-0 overflow-auto">
           {loading ? (
-            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
               {tableHeader}
               <tbody>
-                <TableSkeleton rows={rowsPerPage} columns={7} />
+                <TableSkeleton rows={filters.limit || 10} columns={7} />
               </tbody>
             </table>
-          ) : paginatedData.length === 0 ? (
+          ) : data.length === 0 ? (
             <TableEmptyState
               icon={Check}
               title="No items need review"
-              subtitle="All auto-suggested matches have been processed"
+              subtitle={
+                filters.search || filters.shopIds || filters.dateFrom
+                  ? "No matches found for active filters"
+                  : "All suggested matches have been verified"
+              }
             />
           ) : (
-            <table className="w-full border-collapse text-sm" style={{ minWidth: 900 }}>
+            <table
+              className="w-full border-collapse text-sm"
+              style={{ minWidth: 900 }}
+            >
               {tableHeader}
               <tbody>
-                {paginatedData.map((item, index) => {
-                  const colors = getConfidenceColorClasses(item.confidenceScore);
+                {data.map((item, index) => {
+                  const colors = getConfidenceColorClasses(
+                    item.confidenceScore,
+                  );
                   const shopMed = item.shopMedicine || {};
                   const isSelected = selectedIds.includes(item.id);
 
@@ -356,32 +375,33 @@ const ReviewTable = ({
                     <tr
                       key={item.id}
                       onClick={() => onViewDetail?.(item)}
-                      className={`${
-                        isSelected
-                          ? "bg-indigo-50/80"
-                          : getRowBgClass(index)
-                      } ${styles.row.clickable}`}
+                      className={`${isSelected ? "bg-indigo-50/80" : getRowBgClass(index)} ${styles.row.clickable}`}
                       style={{ height: `${heights.bodyRow}px` }}
                     >
-                      {/* Checkbox */}
-                      <td className={styles.cell.base} onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className={styles.cell.base}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => toggleSelect(item.id)}
                           className="text-gray-400 hover:text-gray-600"
                         >
                           {isSelected ? (
-                            <CheckSquare size={17} className="text-indigo-600" />
+                            <CheckSquare
+                              size={17}
+                              className="text-indigo-600"
+                            />
                           ) : (
                             <Square size={17} />
                           )}
                         </button>
                       </td>
-
-                      {/* Shop medicine */}
                       <td className={styles.cell.base}>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className={`${styles.cell.primary} truncate max-w-[170px]`}>
+                            <span
+                              className={`${styles.cell.primary} truncate max-w-[170px]`}
+                            >
                               {item.rawName}
                             </span>
                             <span
@@ -395,26 +415,27 @@ const ReviewTable = ({
                             </span>
                           </div>
                           {shopMed.manufacturer && (
-                            <p className={`text-xs ${styles.cell.muted} mt-0.5 flex items-center gap-1`}>
+                            <p
+                              className={`text-xs ${styles.cell.muted} mt-0.5 flex items-center gap-1`}
+                            >
                               <Building2 size={10} />
-                              <span className="truncate max-w-[160px]">{shopMed.manufacturer}</span>
+                              <span className="truncate max-w-[160px]">
+                                {shopMed.manufacturer}
+                              </span>
                             </p>
                           )}
                         </div>
                       </td>
-
-                      {/* Arrow */}
                       <td className={styles.cell.base}>
-                        <ArrowRight size={15} className="text-gray-300 mx-auto" />
+                        <ArrowRight
+                          size={15}
+                          className="text-gray-300 mx-auto"
+                        />
                       </td>
-
-                      {/* Suggested match */}
                       <td className={styles.cell.base}>
                         <div className="flex items-center gap-2">
                           <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                              item.suggestedMaster?.hasImage ? "bg-green-100" : "bg-red-50"
-                            }`}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.suggestedMaster?.hasImage ? "bg-green-100" : "bg-red-50"}`}
                           >
                             {item.suggestedMaster?.hasImage ? (
                               <Image size={13} className="text-green-600" />
@@ -423,10 +444,14 @@ const ReviewTable = ({
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className={`${styles.cell.primary} truncate max-w-[160px]`}>
+                            <p
+                              className={`${styles.cell.primary} truncate max-w-[160px]`}
+                            >
                               {item.suggestedMaster?.name}
                             </p>
-                            <p className={`text-xs ${styles.cell.muted} truncate max-w-[160px]`}>
+                            <p
+                              className={`text-xs ${styles.cell.muted} truncate max-w-[160px]`}
+                            >
                               {item.suggestedMaster?.manufacturer ||
                                 item.suggestedMaster?.form ||
                                 item.suggestedMaster?.primaryCategory ||
@@ -435,11 +460,13 @@ const ReviewTable = ({
                           </div>
                         </div>
                       </td>
-
-                      {/* Confidence */}
-                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center}`}
+                      >
                         <div className="flex flex-col items-center gap-1">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-bold ${colors.badge}`}
+                          >
                             {item.confidenceScore}%
                           </span>
                           <div className="w-14 h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -448,43 +475,40 @@ const ReviewTable = ({
                               style={{ width: `${item.confidenceScore}%` }}
                             />
                           </div>
-                          {item.confidenceReason && (
-                            <span
-                              className={`text-[10px] ${styles.cell.muted} truncate max-w-[120px]`}
-                              title={item.confidenceReason}
-                            >
-                              {item.confidenceReason}
-                            </span>
-                          )}
                         </div>
                       </td>
-
-                      {/* Source */}
-                      <td className={`${styles.cell.base} ${styles.cell.center}`}>
-                        <p className={`text-sm ${styles.cell.primary} truncate max-w-[120px] mx-auto`}>
+                      <td
+                        className={`${styles.cell.base} ${styles.cell.center}`}
+                      >
+                        <p
+                          className={`text-sm ${styles.cell.primary} truncate max-w-[120px] mx-auto`}
+                        >
                           {item.shopName}
                         </p>
                         {item.branchName && (
-                          <p className={`text-xs ${styles.cell.muted} truncate max-w-[120px] mx-auto`}>
+                          <p
+                            className={`text-xs ${styles.cell.muted} truncate max-w-[120px] mx-auto`}
+                          >
                             {item.branchName}
                           </p>
                         )}
                       </td>
-
-                      {/* Actions */}
-                      <td className={styles.cell.base} onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className={styles.cell.base}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className={styles.actions.container}>
                           <button
                             onClick={() => onAccept(item)}
                             className={`${styles.actions.button.base} ${styles.actions.button.activate}`}
-                            title="Accept Match"
+                            title="Accept"
                           >
                             <Check size={14} />
                           </button>
                           <button
                             onClick={() => onChange(item)}
                             className={`${styles.actions.button.base} ${styles.actions.button.edit}`}
-                            title="Change Variant"
+                            title="Change"
                           >
                             <RefreshCw size={14} />
                           </button>
@@ -505,13 +529,13 @@ const ReviewTable = ({
           )}
         </div>
 
-        {totalItems > 0 && !loading && (
+        {meta.total > 0 && !loading && (
           <div className={styles.pagination.wrapper}>
             <Pagination
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              totalItems={totalItems}
-              rowsPerPage={rowsPerPage}
+              currentPage={filters.page || 1}
+              setCurrentPage={(page) => onFiltersChange({ page })}
+              totalItems={meta.total}
+              rowsPerPage={filters.limit || 10}
             />
           </div>
         )}

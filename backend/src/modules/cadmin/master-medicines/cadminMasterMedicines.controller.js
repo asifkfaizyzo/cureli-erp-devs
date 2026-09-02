@@ -14,6 +14,7 @@ import {
   getMasterMedicineStats,
   getFilterOptions,
   autocompleteSearch,
+  getDistinctShops,
   getUnmappedMedicinesAggregated,
   getNeedsReviewMedicines,
   getLinkedMedicines,
@@ -244,12 +245,39 @@ export async function autocomplete(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// DISTINCT SHOPS FOR MAPPING FILTERS
+// ══════════════════════════════════════════════════════════════
+
+export async function listShops(req, res) {
+  try {
+    const { context, search, page, limit } = req.query;
+    const result = await getDistinctShops({
+      context: context || "unmapped",
+      search: search || "",
+      page,
+      limit,
+    });
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("Error listing shops:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch shops",
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // UNMAPPED MEDICINES
 // ══════════════════════════════════════════════════════════════
 
 export async function listUnmappedMedicines(req, res) {
   try {
-    const { search, type, page, limit, sort, order } = req.query;
+    const { search, type, page, limit, sort, order, shopIds, dateFrom, dateTo } =
+      req.query;
+    const parsedShopIds = shopIds
+      ? shopIds.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
     const result = await getUnmappedMedicinesAggregated({
       search,
       type,
@@ -257,6 +285,9 @@ export async function listUnmappedMedicines(req, res) {
       limit,
       sort,
       order,
+      shopIds: parsedShopIds,
+      dateFrom: dateFrom || "",
+      dateTo: dateTo || "",
     });
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
@@ -274,12 +305,19 @@ export async function listUnmappedMedicines(req, res) {
 
 export async function listNeedsReview(req, res) {
   try {
-    const { search, confidenceFilter, page, limit } = req.query;
+    const { search, confidenceFilter, page, limit, shopIds, dateFrom, dateTo } =
+      req.query;
+    const parsedShopIds = shopIds
+      ? shopIds.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
     const result = await getNeedsReviewMedicines({
       search,
       confidenceFilter,
       page,
       limit,
+      shopIds: parsedShopIds,
+      dateFrom: dateFrom || "",
+      dateTo: dateTo || "",
     });
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
@@ -501,9 +539,9 @@ export async function handleImageUpload(req, res) {
     const image = await uploadMasterImage(
       id,
       {
-        buffer:       req.file.buffer,       // ← memory buffer from multer
-        mimetype:     req.file.mimetype,     // ← "image/jpeg" etc
-        originalname: req.file.originalname, // ← original filename for ext
+        buffer:       req.file.buffer,       // memory buffer from multer
+        mimetype:     req.file.mimetype,     // "image/jpeg" etc
+        originalname: req.file.originalname, // original filename for ext
         type:         req.body.type || "PRIMARY",
         skuId:        req.body.skuId,
       },
@@ -517,6 +555,7 @@ export async function handleImageUpload(req, res) {
     return res.status(500).json({ success: false, message: error.message });
   }
 }
+
 // ══════════════════════════════════════════════════════════════
 // IMAGE DELETE
 // ══════════════════════════════════════════════════════════════

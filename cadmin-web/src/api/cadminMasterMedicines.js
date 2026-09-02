@@ -55,6 +55,16 @@ export function matchToVariant(medicineIds, variantId) {
   });
 }
 
+// ══════════════════════════════════════════════════════════════
+// DISTINCT SHOPS API
+// ══════════════════════════════════════════════════════════════
+
+export function getDistinctShops(params = {}) {
+  return CAdminAPI.get("/master-medicines/shops", { params });
+}
+
+
+
 // Keep old name as alias during transition so nothing breaks immediately
 export const matchToMaster = matchToVariant;
 
