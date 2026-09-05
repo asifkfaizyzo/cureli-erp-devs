@@ -1,18 +1,13 @@
-// src/store/useAdminModeStore.js
-
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 const useAdminModeStore = create(
   persist(
-    (set, get) => ({
-      activeModule: "admin", // "admin" | "marketplace"
-
+    (set) => ({
+      activeModule: "admin", // "admin" | "marketplace" | "fleet"
       setActiveModule: (moduleId) => set({ activeModule: moduleId }),
     }),
-    {
-      name: "cadmin-active-module",
-    }
+    { name: "cadmin-active-module" }
   )
 );
 
@@ -25,6 +20,7 @@ export const useAdminMode = () => {
     setActiveModule,
     isAdmin: activeModule === "admin",
     isMarketplace: activeModule === "marketplace",
+    isFleet: activeModule === "fleet",
   };
 };
 

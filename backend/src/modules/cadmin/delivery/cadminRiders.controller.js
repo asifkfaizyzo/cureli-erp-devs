@@ -10,6 +10,7 @@ import {
   suspendRider,
   reactivateRider,
   createRiderByAdmin,
+  getPendingReviews as listPendingReviews,
   listZones,
   createZone,
   updateZone,
@@ -44,7 +45,7 @@ export async function reviewRiderDocument(req, res) {
       req.params.documentId,
       action,
       rejection_reason,
-      req.cadmin.cadmin_id
+      req.cadmin.cadmin_id,
     );
     return success(res, "Document reviewed", result);
   } catch (err) {
@@ -66,7 +67,11 @@ export async function approveRiderApplication(req, res) {
 export async function rejectRiderApplication(req, res) {
   const { reason } = req.body;
   try {
-    const result = await rejectRider(req.params.riderId, reason, req.cadmin.cadmin_id);
+    const result = await rejectRider(
+      req.params.riderId,
+      reason,
+      req.cadmin.cadmin_id,
+    );
     return success(res, "Rider application rejected", result);
   } catch (err) {
     const map = { REASON_REQUIRED: 400, NOT_FOUND: 404 };
@@ -77,7 +82,11 @@ export async function rejectRiderApplication(req, res) {
 export async function suspendRiderAccount(req, res) {
   const { reason } = req.body;
   try {
-    const result = await suspendRider(req.params.riderId, reason, req.cadmin.cadmin_id);
+    const result = await suspendRider(
+      req.params.riderId,
+      reason,
+      req.cadmin.cadmin_id,
+    );
     return success(res, "Rider suspended", result);
   } catch (err) {
     const map = { REASON_REQUIRED: 400, NOT_FOUND: 404 };
@@ -96,14 +105,33 @@ export async function reactivateRiderAccount(req, res) {
 }
 
 export async function createRider(req, res) {
-  const { phone } = req.body;
-  if (!phone) return fail(res, "Phone number is required", 400);
+  const { phone, initial_password } = req.body;
+
+  if (!phone) {
+    return fail(res, "Phone number is required", 400);
+  }
+  if (!initial_password || initial_password.length < 8) {
+    return fail(res, "Initial password must be at least 8 characters", 400);
+  }
+
   try {
-    const rider = await createRiderByAdmin(phone, req.cadmin.cadmin_id);
-    return success(res, "Rider created", rider, 201);
+    const rider = await createRiderByAdmin(
+      req.body,
+      req.files || {},
+      req.cadmin.cadmin_id,
+    );
+    return success(
+      res,
+      "Team rider created and pre-approved successfully",
+      rider,
+      201,
+    );
   } catch (err) {
-    if (err.code === "ALREADY_EXISTS") return fail(res, err.message, 409);
-    return fail(res, "Failed to create rider", 500);
+    if (err.code === "ALREADY_EXISTS") {
+      return fail(res, err.message, 409);
+    }
+    console.error("[CadminRiders] Create Rider failed:", err);
+    return fail(res, err.message || "Failed to create rider", 500);
   }
 }
 
@@ -120,7 +148,8 @@ export async function getZones(req, res) {
 
 export async function addZone(req, res) {
   const { name, city, state } = req.body;
-  if (!name || !city || !state) return fail(res, "Name, city, and state are required", 400);
+  if (!name || !city || !state)
+    return fail(res, "Name, city, and state are required", 400);
   try {
     const zone = await createZone({ name, city, state }, req.cadmin.cadmin_id);
     return success(res, "Zone created", zone, 201);
@@ -136,5 +165,14 @@ export async function editZone(req, res) {
   } catch (err) {
     if (err.code === "NOT_FOUND") return fail(res, err.message, 404);
     return fail(res, "Failed to update zone", 500);
+  }
+}
+
+export async function getPendingReviews(req, res) {
+  try {
+    const result = await listPendingReviews(req.query);
+    return success(res, "Pending reviews retrieved", result);
+  } catch {
+    return fail(res, "Failed to fetch pending reviews", 500);
   }
 }

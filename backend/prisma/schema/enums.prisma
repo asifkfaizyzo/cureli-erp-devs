@@ -426,3 +426,8 @@ enum CustomerTicketActivityType {
   CADMIN_REPLY
   INTERNAL_NOTE
 }
+
+enum RiderType {
+  INDEPENDENT
+  TEAM
+}

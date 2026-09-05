@@ -1,19 +1,41 @@
-// backend/src/modules/rider/auth/rider.auth.controller.js
-
 import { fail, success } from "../../../utils/response.js";
 import {
+  checkPhoneSchema,
   sendOtpSchema,
   verifyOtpSchema,
+  loginSchema,
+  setPasswordSchema,
   refreshTokenSchema,
 } from "./rider.auth.schema.js";
 import {
+  checkRiderPhone,
   sendRiderOtp,
   verifyRiderOtp,
+  loginRider,
+  setRiderPassword,
   refreshRiderToken,
   logoutRider,
   logoutAllRider,
   getRiderMe,
 } from "./rider.auth.service.js";
+
+// ── checkPhone ────────────────────────────────────────────────
+
+export async function checkPhone(req, res) {
+  const parsed = checkPhoneSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, parsed.error.errors[0].message, 400);
+  }
+
+  try {
+    const result = await checkRiderPhone(parsed.data.phone);
+    return success(res, "Phone checked", result);
+  } catch {
+    return fail(res, "Failed to check phone", 500);
+  }
+}
+
+// ── sendOtp ───────────────────────────────────────────────────
 
 export async function sendOtp(req, res) {
   const parsed = sendOtpSchema.safeParse(req.body);
@@ -37,6 +59,8 @@ export async function sendOtp(req, res) {
   }
 }
 
+// ── verifyOtp ─────────────────────────────────────────────────
+
 export async function verifyOtp(req, res) {
   const parsed = verifyOtpSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -44,11 +68,7 @@ export async function verifyOtp(req, res) {
   }
 
   const { phone, otp, ...deviceInfo } = parsed.data;
-
-  const requestMeta = {
-    ip:        req.ip,
-    userAgent: req.headers["user-agent"],
-  };
+  const requestMeta = { ip: req.ip, userAgent: req.headers["user-agent"] };
 
   try {
     const result = await verifyRiderOtp(phone, otp, deviceInfo, requestMeta);
@@ -64,6 +84,58 @@ export async function verifyOtp(req, res) {
     return fail(res, err.message, statusMap[err.code] ?? 500);
   }
 }
+
+// ── login ─────────────────────────────────────────────────────
+
+export async function login(req, res) {
+  const parsed = loginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, parsed.error.errors[0].message, 400);
+  }
+
+  const { phone, password, ...deviceInfo } = parsed.data;
+  const requestMeta = { ip: req.ip, userAgent: req.headers["user-agent"] };
+
+  try {
+    const result = await loginRider(phone, password, deviceInfo, requestMeta);
+    return success(res, "Login successful", result);
+  } catch (err) {
+    const statusMap = {
+      NOT_FOUND:          404,
+      INVALID_PASSWORD:   401,
+      NO_PASSWORD:        400,
+      ACCOUNT_SUSPENDED:  403,
+      ACCOUNT_BLOCKED:    403,
+    };
+    return fail(res, err.message, statusMap[err.code] ?? 500);
+  }
+}
+
+// ── setPassword ───────────────────────────────────────────────
+
+export async function setPassword(req, res) {
+  const parsed = setPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return fail(res, parsed.error.errors[0].message, 400);
+  }
+
+  const { temp_token, password, ...deviceInfo } = parsed.data;
+  const requestMeta = { ip: req.ip, userAgent: req.headers["user-agent"] };
+
+  try {
+    const result = await setRiderPassword(temp_token, password, deviceInfo, requestMeta);
+    return success(res, "Password set successfully", result);
+  } catch (err) {
+    const statusMap = {
+      INVALID_TEMP_TOKEN: 401,
+      NOT_FOUND:          404,
+      ALREADY_SET:        400,
+    };
+    return fail(res, err.message, statusMap[err.code] ?? 500);
+  }
+}
+
+// ── refreshToken ──────────────────────────────────────────────
 
 export async function refreshToken(req, res) {
   const parsed = refreshTokenSchema.safeParse(req.body);
@@ -88,6 +160,8 @@ export async function refreshToken(req, res) {
   }
 }
 
+// ── logout ────────────────────────────────────────────────────
+
 export async function logout(req, res) {
   try {
     await logoutRider(req.riderSession.id);
@@ -97,6 +171,8 @@ export async function logout(req, res) {
   }
 }
 
+// ── logoutAll ─────────────────────────────────────────────────
+
 export async function logoutAll(req, res) {
   try {
     await logoutAllRider(req.rider.rider_id);
@@ -105,6 +181,8 @@ export async function logoutAll(req, res) {
     return fail(res, "Logout failed", 500);
   }
 }
+
+// ── getMe ─────────────────────────────────────────────────────
 
 export async function getMe(req, res) {
   try {

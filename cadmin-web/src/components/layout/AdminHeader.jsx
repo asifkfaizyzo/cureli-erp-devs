@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Store,
+  Truck,
 } from "lucide-react";
 import logo from "../../assets/icons/curelinew.svg";
 import { useAuth } from "../../context/AuthContext";
@@ -22,7 +23,7 @@ import { useMenuStore } from "../../store/useMenuStore";
 const AdminHeader = () => {
   const navigate = useNavigate();
   const { admin, loading, logout, refreshProfile } = useAuth();
-  const { activeModule, setActiveModule, isAdmin, isMarketplace } =
+  const { activeModule, setActiveModule, isAdmin, isMarketplace, isFleet } =
     useAdminMode();
   const setActiveMenu = useMenuStore((s) => s.setActiveMenu);
   const setBreadcrumbs = useMenuStore((s) => s.setBreadcrumbs);
@@ -54,12 +55,12 @@ const AdminHeader = () => {
     setBreadcrumbs(["Marketplace", "Users"]);
     setTimeout(() => navigate("/marketplace/dashboard"), 50);
   };
-  const handleSwitchToRiderApp = () => {
-    if (isMarketplace) return;
-    setActiveModule("marketplace");
-    setActiveMenu("mp-users");
-    setBreadcrumbs(["Delivery Partner", "Users"]);
-    setTimeout(() => navigate("/rider/dashboard"), 50);
+  const handleSwitchToFleet = () => {
+    if (isFleet) return;
+    setActiveModule("fleet");
+    setActiveMenu("fleet-riders");
+    setBreadcrumbs(["Fleet", "Riders"]);
+    setTimeout(() => navigate("/fleet/riders"), 50);
   };
 
   // ============================================
@@ -208,21 +209,21 @@ const AdminHeader = () => {
               <Store size={13} />
               <span className="hidden sm:block">Marketplace</span>
             </button>
-            {/* <button
-              onClick={handleSwitchToRiderApp}
+            <button
+              onClick={handleSwitchToFleet}
               className={`
                 flex items-center gap-1.5 px-3 py-1.5 rounded-md
                 text-xs font-semibold transition-all duration-150
                 ${
-                  isMarketplace
+                  isFleet
                     ? "bg-white text-[#05015A] shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 }
               `}
             >
-              <Store size={13} />
+              <Truck size={13} />
               <span className="hidden sm:block">Fleet</span>
-            </button> */}
+            </button>
           </div>
 
           {/* Divider */}

@@ -1,4 +1,31 @@
 {
   "java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable",
-  "java.configuration.updateBuildConfiguration": "interactive"
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#2a2a5c",
+    "activityBar.background": "#2a2a5c",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#994646",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "activityBarTop.activeBackground": "#2a2a5c",
+    "activityBarTop.background": "#2a2a5c",
+    "activityBarTop.foreground": "#e7e7e7",
+    "activityBarTop.inactiveForeground": "#e7e7e799",
+    "commandCenter.border": "#e7e7e799",
+    "commandCenter.foreground": "#e7e7e7",
+    "sash.hoverBorder": "#2a2a5c",
+    "statusBar.background": "#1a1a39",
+    "statusBar.debuggingBackground": "#1a1a39",
+    "statusBar.debuggingForeground": "#e7e7e7",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#2a2a5c",
+    "statusBarItem.remoteBackground": "#833c3c",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#1a1a39",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#1a1a3999",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "rgba(26, 26, 57, 1)"
 }

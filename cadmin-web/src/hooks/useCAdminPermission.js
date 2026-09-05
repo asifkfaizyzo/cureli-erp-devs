@@ -152,6 +152,14 @@ export function useCAdminMenuPermissions() {
       ),
       notifications: { visible: true, disabled: false },
       settings: show(CADMIN_PERMISSIONS.SETTINGS_VIEW),
+
+      fleet: showAny(
+        CADMIN_PERMISSIONS.FLEET_RIDERS_VIEW,
+        CADMIN_PERMISSIONS.FLEET_VERIFICATION_VIEW,
+        CADMIN_PERMISSIONS.FLEET_DASHBOARD_VIEW,
+      ),
+      fleetRiders: show(CADMIN_PERMISSIONS.FLEET_RIDERS_VIEW),
+      fleetVerification: show(CADMIN_PERMISSIONS.FLEET_VERIFICATION_VIEW),
     };
   }, [hasPermission, hasAnyPermission, isSuperCAdmin]);
 }

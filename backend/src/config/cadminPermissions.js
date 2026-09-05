@@ -1,3 +1,5 @@
+//backend\src\config\cadminPermissions.js
+
 export const CADMIN_PERMISSIONS = {
   ADMINS_VIEW: "admins.view",
   ADMINS_VIEW_DETAIL: "admins.view_detail",

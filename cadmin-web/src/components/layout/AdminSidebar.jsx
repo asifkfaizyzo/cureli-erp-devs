@@ -1,5 +1,3 @@
-// cadmin-web/src/components/layout/AdminSidebar.jsx
-
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -18,6 +16,8 @@ import {
   ShoppingBag,
   SlidersHorizontal,
   BadgeIndianRupee,
+  Truck,
+  Bike,
 } from "lucide-react";
 
 import { useMenuStore } from "../../store/useMenuStore";
@@ -171,7 +171,7 @@ const MARKETPLACE_MENU_ITEMS = [
     id: "master-medicines",
     label: "Medicine Catalog",
     icon: Pill,
-    path: "/marketplace/master-medicines", // ← fixed: was /master-medicines
+    path: "/marketplace/master-medicines",
     breadcrumbs: ["Master Medicines"],
     permissionKey: "masterMedicines",
   },
@@ -187,17 +187,62 @@ const MARKETPLACE_MENU_ITEMS = [
     label: "Pricing",
     icon: BadgeIndianRupee,
     path: "/marketplace/pricing",
-    breadcrumbs: [, "Pricing"],
+    breadcrumbs: ["Marketplace", "Pricing"],
   },
   {
     id: "app-config",
     label: "App Config",
     icon: SlidersHorizontal,
     path: "/marketplace/app-config",
-    breadcrumbs: [, "App Config"],
+    breadcrumbs: ["Marketplace", "App Config"],
     permissionKey: "appConfig",
   },
 ];
+
+const FLEET_MENU_ITEMS = [
+  {
+    id: "fleet-dashboard",
+    label: "Dashboard",
+    icon: LayoutGrid,
+    path: "/fleet/dashboard",
+    breadcrumbs: ["Fleet", "Dashboard"],
+    permissionKey: "fleet",
+  },
+  {
+    id: "fleet-riders",
+    label: "Riders",
+    icon: Users,
+    path: "/fleet/riders",
+    breadcrumbs: ["Fleet", "Riders"],
+    permissionKey: "fleetRiders",
+  },
+  {
+    id: "fleet-verification",
+    label: "Verification",
+    icon: ShieldCheck,
+    path: "/fleet/verification",
+    breadcrumbs: ["Fleet", "Verification"],
+    permissionKey: "fleetVerification",
+  },
+  {
+    id: "fleet-communications",
+    label: "Communications",
+    icon: MessageSquare,
+    path: "/fleet/communications",
+    breadcrumbs: ["Fleet", "Communications"],
+    permissionKey: "fleet",
+  },
+  {
+    id: "fleet-pricing",
+    label: "Pricing",
+    icon: BadgeIndianRupee,
+    path: "/fleet/pricing",
+    breadcrumbs: ["Fleet", "Pricing"],
+    permissionKey: "fleet",
+  },
+];
+
+const FLEET_CHILD_ROUTES = {};
 
 const ADMIN_CHILD_ROUTES = {
   "/communications/tickets": {
@@ -244,12 +289,10 @@ const MARKETPLACE_CHILD_ROUTES = {
     breadcrumbs: ["Orders", "Details"],
   },
   "/marketplace/app-config/categories": {
-    // ← fixed: was /app-config/categories
     parentId: "app-config",
     breadcrumbs: ["App Config", "Categories"],
   },
   "/marketplace/app-config/banners": {
-    // ← fixed: was /app-config/banners
     parentId: "app-config",
     breadcrumbs: ["App Config", "Banners"],
   },
@@ -325,7 +368,9 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
 
   const permissions = useCAdminMenuPermissions();
   const { isSuperCAdmin } = useCAdminPermission();
-  const { isMarketplace, isAdmin } = useAdminMode();
+  
+  // ── FIX: Destructure isFleet from useAdminMode() ──
+  const { isMarketplace, isAdmin, isFleet } = useAdminMode();
 
   const pendingTickets = useCommunicationBadgeStore((s) => s.pendingTickets);
   const pendingEnquiries = useCommunicationBadgeStore(
@@ -341,17 +386,31 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const currentMenuItems = isMarketplace
-    ? MARKETPLACE_MENU_ITEMS
-    : ADMIN_MENU_ITEMS;
-  const currentChildRoutes = isMarketplace
-    ? MARKETPLACE_CHILD_ROUTES
-    : ADMIN_CHILD_ROUTES;
-  const defaultMenuId = isMarketplace ? "mp-users" : "dashboard";
-  const defaultPath = isMarketplace ? "/marketplace/users" : "/dashboard";
-  const defaultBreadcrumbs = isMarketplace
-    ? ["Marketplace", "Users"]
-    : ["Dashboard"];
+  const currentMenuItems = isFleet
+    ? FLEET_MENU_ITEMS
+    : isMarketplace
+      ? MARKETPLACE_MENU_ITEMS
+      : ADMIN_MENU_ITEMS;
+  const currentChildRoutes = isFleet
+    ? FLEET_CHILD_ROUTES
+    : isMarketplace
+      ? MARKETPLACE_CHILD_ROUTES
+      : ADMIN_CHILD_ROUTES;
+  const defaultMenuId = isFleet
+    ? "fleet-riders"
+    : isMarketplace
+      ? "mp-users"
+      : "dashboard";
+  const defaultPath = isFleet
+    ? "/fleet/riders"
+    : isMarketplace
+      ? "/marketplace/users"
+      : "/dashboard";
+  const defaultBreadcrumbs = isFleet
+    ? ["Fleet", "Riders"]
+    : isMarketplace
+      ? ["Marketplace", "Users"]
+      : ["Dashboard"];
 
   const visibleMenuItems = useMemo(() => {
     return currentMenuItems.filter((item) => {
@@ -421,8 +480,10 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     const currentPath = location.pathname;
     if (currentPath === defaultPath) return;
 
-    if (isMarketplace && !currentPath.startsWith("/marketplace")) return;
-    if (isAdmin && currentPath.startsWith("/marketplace")) return;
+    // Direct routing filters based on mode context
+    if (isFleet && !currentPath.startsWith("/fleet") && currentPath !== "/settings" && currentPath !== "/notifications") return;
+    if (isMarketplace && !currentPath.startsWith("/marketplace") && currentPath !== "/settings" && currentPath !== "/notifications") return;
+    if (isAdmin && (currentPath.startsWith("/marketplace") || currentPath.startsWith("/fleet"))) return;
 
     const isValidMain = visibleMenuItems.some((m) => m.path === currentPath);
     const isValidChild = Object.keys(currentChildRoutes).includes(currentPath);
@@ -454,6 +515,7 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
     defaultBreadcrumbs,
     isMarketplace,
     isAdmin,
+    isFleet,
   ]);
 
   return (
@@ -484,7 +546,11 @@ const AdminSidebar = ({ expanded, onExpandChange }) => {
         >
           {expanded && (
             <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              {isMarketplace ? "Marketplace" : "Administration"}
+              {isFleet
+                ? "Fleet"
+                : isMarketplace
+                  ? "Marketplace"
+                  : "Administration"}
             </span>
           )}
         </motion.div>

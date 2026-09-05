@@ -44,6 +44,13 @@ const BREADCRUMB_PATHS = {
   "Home Layout": "/marketplace/app-config/home-screen",
   loyalty: "/marketplace/app-config/loyalty",
   coupons: "/marketplace/app-config/coupons",
+
+    // ── Fleet ─────────────────────────────────────────────────────────────────
+  Fleet: "/fleet/riders",
+  "Riders": "/fleet/riders",
+  "Rider Verification": "/fleet/verification",
+  "Fleet Communications": "/fleet/communications",
+  "Fleet Pricing": "/fleet/pricing",
 };
 
 const getBreadcrumbPath = (crumb) => BREADCRUMB_PATHS[crumb] ?? null;

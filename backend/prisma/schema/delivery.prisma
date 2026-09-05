@@ -9,7 +9,6 @@ model DeliveryZone {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  riders             Rider[]
   zoneChangeRequests ZoneChangeRequest[]
   trainingContent    RiderTrainingContent[]
 
@@ -81,66 +80,76 @@ model DeliveryIncentive {
 model Rider {
   rider_id                 String       @id @default(uuid()) @db.Uuid
   phone                    String       @unique @db.VarChar(15)
+  password_hash            String?      @db.VarChar(255)
+  rider_type               RiderType    @default(INDEPENDENT)
+
+  // ── Personal Details ──────────────────────────────────────
   full_name                String?      @db.VarChar(200)
+  email                    String?      @unique @db.VarChar(255)
   date_of_birth            DateTime?    @db.Date
   sex                      UserSex?
-
-  // Profile
   profile_photo_key        String?      @db.VarChar(500)
 
-  // Vehicle details
+  // ── Location (no zones — radial dispatch) ─────────────────
+  current_city             String?      @db.VarChar(100)
+  residential_address      String?      @db.VarChar(500)
+  preferred_lat            Decimal?     @db.Decimal(10, 8)
+  preferred_lng            Decimal?     @db.Decimal(11, 8)
+  preferred_address        String?      @db.VarChar(500)
+
+  // ── Vehicle ───────────────────────────────────────────────
   vehicle_type             String?      @db.VarChar(20)
   vehicle_number           String?      @db.VarChar(20)
   vehicle_make_model       String?      @db.VarChar(100)
 
-  // Status
+  // ── Status ────────────────────────────────────────────────
   status                   RiderStatus  @default(PENDING_REVIEW)
 
-  // Zone
-  zone_id                  String?      @db.Uuid
-
-  // Online state
+  // ── Real-time telemetry (radial matching) ─────────────────
   is_online                Boolean      @default(false)
   current_lat              Decimal?     @db.Decimal(10, 8)
   current_lng              Decimal?     @db.Decimal(11, 8)
   last_location_at         DateTime?    @db.Timestamptz(6)
 
-  // Bank details (flat fields — required for payout processing)
+  // ── Bank details (post-approval) ──────────────────────────
   bank_account_number      String?      @db.VarChar(30)
   bank_ifsc                String?      @db.VarChar(15)
   bank_holder_name         String?      @db.VarChar(200)
   bank_name                String?      @db.VarChar(100)
   bank_verified            Boolean      @default(false)
 
-  // Emergency contact (flat fields — used in SOS critical path)
+  // ── Compliance ────────────────────────────────────────────
+  terms_accepted_at        DateTime?    @db.Timestamptz(6)
+
+  // ── Emergency contact ─────────────────────────────────────
   emergency_contact_name   String?      @db.VarChar(200)
   emergency_contact_phone  String?      @db.VarChar(15)
 
-  // Ratings
+  // ── Ratings ───────────────────────────────────────────────
   rating                   Float        @default(0)
   total_ratings            Int          @default(0)
   total_deliveries         Int          @default(0)
 
-  // Referral
+  // ── Referral ──────────────────────────────────────────────
   referral_code            String?      @unique @db.VarChar(20)
   referred_by_code         String?      @db.VarChar(20)
 
-  // Suspension
+  // ── Suspension ────────────────────────────────────────────
   suspension_reason        String?      @db.VarChar(500)
   suspended_at             DateTime?    @db.Timestamptz(6)
   suspended_by             String?      @db.Uuid
 
-  // Auth OTP fields — mirrors CureliMobileUser exactly
+  // ── Auth OTP fields ───────────────────────────────────────
   login_otp_hash           String?
   login_otp_expires        DateTime?    @db.Timestamptz(6)
   login_otp_attempts       Int          @default(0)
   otp_cycle_failures       Int          @default(0)
   otp_locked_until         DateTime?    @db.Timestamptz(6)
 
-  // Session control
+  // ── Session control ───────────────────────────────────────
   logout_all_issued_at     DateTime?    @db.Timestamptz(6)
 
-  // Soft delete
+  // ── Soft delete ───────────────────────────────────────────
   deleted_at               DateTime?    @db.Timestamptz(6)
   deletion_reason          String?      @db.VarChar(500)
 
@@ -148,8 +157,8 @@ model Rider {
   updated_at               DateTime     @updatedAt @db.Timestamptz(6)
   last_seen_at             DateTime?    @db.Timestamptz(6)
 
-  // Relations
-  zone                     DeliveryZone?          @relation(fields: [zone_id], references: [zone_id])
+  // ── Relations ─────────────────────────────────────────────
+  // REMOVED: zone DeliveryZone? relation
   sessions                 RiderSession[]
   documents                RiderDocument[]
   zoneChangeRequests       ZoneChangeRequest[]
@@ -166,7 +175,8 @@ model Rider {
 
   @@index([phone])
   @@index([status])
-  @@index([zone_id, is_online, status])
+  @@index([is_online, status])
+  @@index([rider_type, status])
   @@index([referral_code])
   @@index([deleted_at])
   @@index([created_at(sort: Desc)])

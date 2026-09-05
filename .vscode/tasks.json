@@ -32,7 +32,7 @@
     {
       "label": "Backend tree",
       "type": "shell",
-      "command": "ls; cd src; tree /f; powershell",
+      "command": "ls; cd src; tree /f; cd ..; cd prisma/schema; tree /f; powershell",
       "isBackground": true,
       "options": {
         "cwd": "${workspaceFolder}/backend"

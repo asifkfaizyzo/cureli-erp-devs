@@ -9,10 +9,16 @@ import jwt from "jsonwebtoken";
 const ACCESS_TOKEN_SECRET = process.env.RIDER_JWT_SECRET;
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY_DAYS = 90;
+const TEMP_TOKEN_EXPIRY = "15m";
 
 if (!ACCESS_TOKEN_SECRET) {
   throw new Error("RIDER_JWT_SECRET is not set in environment variables");
 }
+
+export const RIDER_REFRESH_TOKEN_EXPIRY_MS =
+  REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+export const RIDER_ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60; // 900 seconds (15m)
 
 /**
  * Sign a rider access token.
@@ -42,7 +48,7 @@ export function signRiderAccessToken({ riderId, sessionId }) {
  * Guards against non-rider tokens being used on rider endpoints.
  *
  * @param {string} token
- * @returns {{ sub: string, sessionId: string, type: string }}
+ * @returns {{ sub: string, sessionId: string, type: string, iat: number, exp: number }}
  */
 export function verifyRiderAccessToken(token) {
   const payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
@@ -56,7 +62,41 @@ export function verifyRiderAccessToken(token) {
   return payload;
 }
 
-export const RIDER_REFRESH_TOKEN_EXPIRY_MS =
-  REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+// ── Temp token for registration flow ──────────────────────────
+// Short-lived JWT issued after OTP verification for new riders.
+// Contains only the phone number — used once to set password.
 
-export const RIDER_ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60; // 900
+/**
+ * Sign a temporary registration token for onboarding.
+ *
+ * @param {string} phone
+ * @returns {string} Signed temporary JWT
+ */
+export function signRiderTempToken(phone) {
+  return jwt.sign(
+    {
+      phone,
+      type: "rider_temp",
+    },
+    ACCESS_TOKEN_SECRET,
+    { expiresIn: TEMP_TOKEN_EXPIRY }
+  );
+}
+
+/**
+ * Verify a temporary registration token.
+ *
+ * @param {string} token
+ * @returns {{ phone: string, type: string, iat: number, exp: number }}
+ */
+export function verifyRiderTempToken(token) {
+  const payload = jwt.verify(token, ACCESS_TOKEN_SECRET);
+
+  if (payload.type !== "rider_temp") {
+    const err = new Error("Invalid temp token type");
+    err.code = "INVALID_TOKEN_TYPE";
+    throw err;
+  }
+
+  return payload;
+}

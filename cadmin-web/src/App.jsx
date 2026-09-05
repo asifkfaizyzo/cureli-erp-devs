@@ -1,5 +1,3 @@
-// cadmin-web/src/App.jsx
-
 import {
   BrowserRouter as Router,
   Routes,
@@ -22,7 +20,7 @@ import RiskMonitorPage from "./pages/Subscription-management/RiskMonitorPage";
 import SubscriptionPage from "./pages/Subscription-management/SubscriptionPage";
 import CommunicationsPage from "./pages/Communications/CommunicationsPage";
 import TicketsPage from "./pages/Communications/pages/Tickets/TicketsPage";
-import CustomerTicketsPage from "./pages/Communications/pages/CustomerTickets/CustomerTicketsPage"; 
+import CustomerTicketsPage from "./pages/Communications/pages/CustomerTickets/CustomerTicketsPage";
 import EnquiriesPage from "./pages/Communications/pages/Enquiries/EnquiriesPage";
 import BroadcastPage from "./pages/Communications/pages/Broadcast/BroadcastPage";
 import InAppBroadcastPage from "./pages/Communications/pages/Broadcast/InApp/InAppBroadcastPage";
@@ -44,6 +42,13 @@ import MarketplacePricingPage from "./pages/marketplace/Pricing/MarketplacePrici
 import AppConfigPage from "./pages/AppConfig/AppConfigPage";
 import BannersPage from "./pages/AppConfig/banners/BannersPage";
 import HomeScreenPage from "./pages/AppConfig/home-screen/HomeScreenPage";
+
+// ── Fleet (Lowercased folder paths to match project style) ────────────────────
+import FleetDashboard from "./pages/fleet/Dashboard/FleetDashboard";
+import RidersPage from "./pages/Fleet/Riders/RidersPage";
+import RiderVerificationPage from "./pages/Fleet/Verification/RiderVerificationPage";
+import FleetCommunicationsPage from "./pages/fleet/Communications/FleetCommunicationsPage";
+import FleetPricingPage from "./pages/fleet/Pricing/FleetPricingPage";
 
 import AppLayout from "./components/layout/AppLayout";
 import { AuthProvider } from "./context/AuthContext";
@@ -93,7 +98,7 @@ function App() {
         />
         <Route path="/reset-password" element={<CAdminResetPassword />} />
 
-        {/* ── Protected ───────────────────────────────────────────────── */}
+        {/* ── Protected (AuthProvider & Sidebar Context Active) ───────── */}
         <Route element={<ProtectedLayout />}>
           {/* Dashboard */}
           <Route path="/dashboard" element={<AdminDashboard />} />
@@ -207,7 +212,7 @@ function App() {
               <PermissionGuard
                 permissions={[
                   CADMIN_PERMISSIONS.TICKETS_VIEW,
-                  CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW, // ◄ Added Customer Tickets view to Group permissions
+                  CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW,
                   CADMIN_PERMISSIONS.ENQUIRIES_VIEW,
                   CADMIN_PERMISSIONS.BROADCAST_EMAIL_SEND,
                   CADMIN_PERMISSIONS.BROADCAST_EMAIL_VIEW_HISTORY,
@@ -224,12 +229,14 @@ function App() {
               </PermissionGuard>
             }
           />
-          
+
           {/* ── Customer Tickets Route ── */}
           <Route
             path="/communications/customer-tickets"
             element={
-              <PermissionGuard permission={CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW}>
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.CUSTOMER_TICKETS_VIEW}
+              >
                 <CustomerTicketsPage />
               </PermissionGuard>
             }
@@ -397,6 +404,34 @@ function App() {
               </PermissionGuard>
             }
           />
+
+          {/* ── Fleet (Correctly nested under ProtectedLayout) ─────────── */}
+          <Route path="/fleet/dashboard" element={<FleetDashboard />} />
+          <Route
+            path="/fleet/riders"
+            element={
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.FLEET_RIDERS_VIEW}
+              >
+                <RidersPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/fleet/verification"
+            element={
+              <PermissionGuard
+                permission={CADMIN_PERMISSIONS.FLEET_VERIFICATION_VIEW}
+              >
+                <RiderVerificationPage />
+              </PermissionGuard>
+            }
+          />
+          <Route
+            path="/fleet/communications"
+            element={<FleetCommunicationsPage />}
+          />
+          <Route path="/fleet/pricing" element={<FleetPricingPage />} />
         </Route>
 
         {/* ── Catch-all ───────────────────────────────────────────────── */}

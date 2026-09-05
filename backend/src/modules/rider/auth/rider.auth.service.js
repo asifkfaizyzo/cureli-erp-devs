@@ -1,20 +1,21 @@
-// backend/src/modules/rider/auth/rider.auth.service.js
-
 import crypto from "crypto";
 import prisma from "../../../config/prisma.js";
 import {
   signRiderAccessToken,
+  signRiderTempToken,
+  verifyRiderTempToken,
   RIDER_REFRESH_TOKEN_EXPIRY_MS,
   RIDER_ACCESS_TOKEN_EXPIRY_SECONDS,
 } from "../../../config/rider_jwt.js";
 import { generateOtp, hashOtp, verifyOtp } from "../../../utils/otp.js";
+import { hashPassword, comparePassword } from "../../../utils/hash.js";
 import { checkSmsOtpLimit } from "../../../utils/otpLimiter.js";
 import {
   msg91SendSms,
   formatPhoneNumber,
 } from "../../../providers/msg91/sendSms.js";
 
-// ── Constants — mirrors mobile.auth.service.js exactly ────────
+// ── Constants ─────────────────────────────────────────────────
 const OTP_LENGTH = 6;
 const OTP_VALIDITY_MS = 5 * 60 * 1000;
 const OTP_VALIDITY_SECONDS = 5 * 60;
@@ -34,20 +35,26 @@ function hashRefreshToken(token) {
 }
 
 function normalizePhone(phone) {
-  // Strip country code if present, return raw 10-digit
-  return phone
-    .replace(/^\+?91/, "")
-    .replace(/\s+/g, "")
+  if (!phone) return "";
+  const cleaned = String(phone)
+    .replace(/[^\d+]/g, "")
     .trim();
+  return cleaned.replace(/^\+?91/, "");
+}
+
+function getPhoneVariants(phone) {
+  const raw10 = normalizePhone(phone);
+  return [phone, `+91${raw10}`, `91${raw10}`, raw10];
 }
 
 function formatRiderForResponse(rider) {
   return {
     rider_id: rider.rider_id,
     phone: rider.phone,
+    rider_type: rider.rider_type,
     full_name: rider.full_name,
+    email: rider.email,
     status: rider.status,
-    zone_id: rider.zone_id,
     is_online: rider.is_online,
     rating: rider.rating,
     total_deliveries: rider.total_deliveries,
@@ -55,17 +62,48 @@ function formatRiderForResponse(rider) {
     suspension_reason: rider.suspension_reason,
     created_at: rider.created_at,
     last_seen_at: rider.last_seen_at,
-    // Onboarding completeness flags
     has_personal_details: !!(rider.full_name && rider.date_of_birth),
+    has_location: !!(rider.current_city && rider.residential_address),
     has_vehicle_details: !!(rider.vehicle_type && rider.vehicle_number),
     has_bank_details: !!(rider.bank_account_number && rider.bank_ifsc),
+    has_accepted_terms: !!rider.terms_accepted_at,
+  };
+}
+
+// ── checkPhone ────────────────────────────────────────────────
+
+export async function checkRiderPhone(phone) {
+  const phoneVariants = getPhoneVariants(phone);
+
+  const rider = await prisma.rider.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+    select: {
+      rider_id: true,
+      password_hash: true,
+      rider_type: true,
+      status: true,
+    },
+  });
+
+  if (!rider) {
+    return { exists: false, has_password: false, status: null };
+  }
+
+  return {
+    exists: true,
+    has_password: !!rider.password_hash,
+    rider_type: rider.rider_type,
+    status: rider.status,
   };
 }
 
 // ── sendRiderOtp ──────────────────────────────────────────────
 
 export async function sendRiderOtp(phone) {
-  // ── 1. Daily SMS limit ──────────────────────────────────
+  // 1. Daily SMS limit
   const limitCheck = await checkSmsOtpLimit(`rider:${phone}`);
   if (!limitCheck.allowed) {
     const err = new Error(
@@ -75,9 +113,8 @@ export async function sendRiderOtp(phone) {
     throw err;
   }
 
-  // ── 2. Find existing rider ──────────────────────────────
-  const raw10 = normalizePhone(phone);
-  const phoneVariants = [phone, `+91${raw10}`, `91${raw10}`, raw10];
+  // 2. Find existing rider
+  const phoneVariants = getPhoneVariants(phone);
 
   let rider = await prisma.rider.findFirst({
     where: {
@@ -86,7 +123,7 @@ export async function sendRiderOtp(phone) {
     },
   });
 
-  // ── 3. Account state checks ─────────────────────────────
+  // 3. Account state checks
   if (rider) {
     if (rider.status === "BLOCKED") {
       const err = new Error(
@@ -105,7 +142,22 @@ export async function sendRiderOtp(phone) {
       throw err;
     }
 
-    // ── 4. Cooldown check ────────────────────────────────
+    // 4. Lockout check
+    if (
+      rider.otp_locked_until &&
+      new Date(rider.otp_locked_until) > new Date()
+    ) {
+      const minutesRemaining = Math.ceil(
+        (new Date(rider.otp_locked_until) - new Date()) / 60000,
+      );
+      const err = new Error(
+        `Too many failed attempts. Try again in ${minutesRemaining} minute${minutesRemaining !== 1 ? "s" : ""}.`,
+      );
+      err.code = "OTP_LOCKED";
+      throw err;
+    }
+
+    // 5. Cooldown check
     if (rider.login_otp_expires) {
       const expiresAt = new Date(rider.login_otp_expires);
       const now = new Date();
@@ -125,24 +177,9 @@ export async function sendRiderOtp(phone) {
         }
       }
     }
-
-    // ── 5. Lockout check ─────────────────────────────────
-    if (
-      rider.otp_locked_until &&
-      new Date(rider.otp_locked_until) > new Date()
-    ) {
-      const minutesRemaining = Math.ceil(
-        (new Date(rider.otp_locked_until) - new Date()) / 60000,
-      );
-      const err = new Error(
-        `Too many failed attempts. Try again in ${minutesRemaining} minute${minutesRemaining !== 1 ? "s" : ""}.`,
-      );
-      err.code = "OTP_LOCKED";
-      throw err;
-    }
   }
 
-  // ── 6. Generate and store OTP ───────────────────────────
+  // 6. Generate and store OTP
   const otp = generateOtp(OTP_LENGTH);
   const otpHash = await hashOtp(otp);
   const otpExpires = new Date(Date.now() + OTP_VALIDITY_MS);
@@ -157,11 +194,11 @@ export async function sendRiderOtp(phone) {
       },
     });
   } else {
-    // New rider — create a minimal record
     rider = await prisma.rider.create({
       data: {
         phone: phone,
         status: "PENDING_REVIEW",
+        rider_type: "INDEPENDENT",
         login_otp_hash: otpHash,
         login_otp_expires: otpExpires,
         login_otp_attempts: 0,
@@ -169,13 +206,13 @@ export async function sendRiderOtp(phone) {
     });
   }
 
-  // ── 7. Dev bypass ────────────────────────────────────────
+  // 7. Dev bypass
   if (process.env.NODE_ENV === "development") {
     console.log(`[RiderAuth] DEV OTP for ${phone}: ${otp}`);
     return { timeout: OTP_VALIDITY_SECONDS };
   }
 
-  // ── 8. Send SMS ──────────────────────────────────────────
+  // 8. Send SMS
   try {
     await msg91SendSms({
       templateId: process.env.MSG91_LOGIN_TEMPLATE,
@@ -183,7 +220,6 @@ export async function sendRiderOtp(phone) {
       variables: { number: otp },
     });
   } catch (providerErr) {
-    // Roll back OTP on SMS failure
     await prisma.rider.update({
       where: { rider_id: rider.rider_id },
       data: {
@@ -209,8 +245,7 @@ export async function verifyRiderOtp(
   deviceInfo = {},
   requestMeta = {},
 ) {
-  const raw10 = normalizePhone(phone);
-  const phoneVariants = [phone, `+91${raw10}`, `91${raw10}`, raw10];
+  const phoneVariants = getPhoneVariants(phone);
 
   const rider = await prisma.rider.findFirst({
     where: {
@@ -222,6 +257,34 @@ export async function verifyRiderOtp(
   if (!rider) {
     const err = new Error("OTP not requested for this number.");
     err.code = "NO_OTP";
+    throw err;
+  }
+
+  if (rider.status === "BLOCKED") {
+    const err = new Error(
+      "Your account has been blocked. Please contact support.",
+    );
+    err.code = "ACCOUNT_BLOCKED";
+    throw err;
+  }
+
+  if (rider.status === "SUSPENDED") {
+    const err = new Error(
+      rider.suspension_reason ||
+        "Your account has been suspended. Please contact support.",
+    );
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  if (rider.otp_locked_until && new Date(rider.otp_locked_until) > new Date()) {
+    const minutesRemaining = Math.ceil(
+      (new Date(rider.otp_locked_until) - new Date()) / 60000,
+    );
+    const err = new Error(
+      `Too many failed attempts. Try again in ${minutesRemaining} minute${minutesRemaining !== 1 ? "s" : ""}.`,
+    );
+    err.code = "OTP_LOCKED";
     throw err;
   }
 
@@ -247,7 +310,7 @@ export async function verifyRiderOtp(
 
   // Dev bypass
   if (otp === "000000" && process.env.NODE_ENV === "development") {
-    return await _completeRiderVerification(rider, deviceInfo, requestMeta);
+    return await _handlePostOtpVerification(rider, deviceInfo, requestMeta);
   }
 
   const isValid = await verifyOtp(otp, rider.login_otp_hash);
@@ -290,7 +353,165 @@ export async function verifyRiderOtp(
     throw err;
   }
 
+  return await _handlePostOtpVerification(rider, deviceInfo, requestMeta);
+}
+
+// ── _handlePostOtpVerification ────────────────────────────────
+
+async function _handlePostOtpVerification(rider, deviceInfo, requestMeta) {
+  // New rider (no password set) → clear OTP state and return temp token
+  if (!rider.password_hash) {
+    await prisma.rider.update({
+      where: { rider_id: rider.rider_id },
+      data: {
+        login_otp_hash: null,
+        login_otp_expires: null,
+        login_otp_attempts: 0,
+        otp_cycle_failures: 0,
+        otp_locked_until: null,
+      },
+    });
+
+    const tempToken = signRiderTempToken(rider.phone);
+    return {
+      is_new: true,
+      temp_token: tempToken,
+    };
+  }
+
+  // Existing rider — complete verification directly (transaction clears OTP fields)
   return await _completeRiderVerification(rider, deviceInfo, requestMeta);
+}
+
+// ── loginRider (password) ─────────────────────────────────────
+
+export async function loginRider(
+  phone,
+  password,
+  deviceInfo = {},
+  requestMeta = {},
+) {
+  const phoneVariants = getPhoneVariants(phone);
+
+  const rider = await prisma.rider.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (!rider) {
+    const err = new Error("No account found with this number.");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (rider.status === "BLOCKED") {
+    const err = new Error(
+      "Your account has been blocked. Please contact support.",
+    );
+    err.code = "ACCOUNT_BLOCKED";
+    throw err;
+  }
+
+  if (rider.status === "SUSPENDED") {
+    const err = new Error(
+      rider.suspension_reason || "Your account has been suspended.",
+    );
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  if (!rider.password_hash) {
+    const err = new Error("No password set. Please login with OTP instead.");
+    err.code = "NO_PASSWORD";
+    throw err;
+  }
+
+  const isValid = await comparePassword(password, rider.password_hash);
+  if (!isValid) {
+    const err = new Error("Incorrect password.");
+    err.code = "INVALID_PASSWORD";
+    throw err;
+  }
+
+  return await _completeRiderVerification(rider, deviceInfo, requestMeta);
+}
+
+// ── setRiderPassword ──────────────────────────────────────────
+
+export async function setRiderPassword(
+  tempToken,
+  password,
+  deviceInfo = {},
+  requestMeta = {},
+) {
+  // 1. Verify temp token
+  let payload;
+  try {
+    payload = verifyRiderTempToken(tempToken);
+  } catch {
+    const err = new Error(
+      "Invalid or expired temp token. Please verify OTP again.",
+    );
+    err.code = "INVALID_TEMP_TOKEN";
+    throw err;
+  }
+
+  const phone = payload.phone;
+
+  // 2. Find rider
+  const phoneVariants = getPhoneVariants(phone);
+
+  const rider = await prisma.rider.findFirst({
+    where: {
+      phone: { in: phoneVariants },
+      deleted_at: null,
+    },
+  });
+
+  if (!rider) {
+    const err = new Error("Rider not found.");
+    err.code = "NOT_FOUND";
+    throw err;
+  }
+
+  if (rider.status === "BLOCKED") {
+    const err = new Error(
+      "Your account has been blocked. Please contact support.",
+    );
+    err.code = "ACCOUNT_BLOCKED";
+    throw err;
+  }
+
+  if (rider.status === "SUSPENDED") {
+    const err = new Error(
+      rider.suspension_reason || "Your account has been suspended.",
+    );
+    err.code = "ACCOUNT_SUSPENDED";
+    throw err;
+  }
+
+  if (rider.password_hash) {
+    const err = new Error("Password already set. Please login.");
+    err.code = "ALREADY_SET";
+    throw err;
+  }
+
+  // 3. Hash and save password
+  const hashed = await hashPassword(password);
+
+  const updatedRider = await prisma.rider.update({
+    where: { rider_id: rider.rider_id },
+    data: { password_hash: hashed },
+  });
+
+  // 4. Create session and return full tokens
+  return await _completeRiderVerification(
+    updatedRider,
+    deviceInfo,
+    requestMeta,
+  );
 }
 
 // ── _completeRiderVerification ────────────────────────────────
@@ -438,8 +659,8 @@ export async function refreshRiderToken(refreshToken) {
 // ── logoutRider ───────────────────────────────────────────────
 
 export async function logoutRider(sessionId) {
-  await prisma.riderSession.update({
-    where: { id: sessionId },
+  await prisma.riderSession.updateMany({
+    where: { id: sessionId, is_active: true },
     data: {
       is_active: false,
       revoked_at: new Date(),
@@ -451,10 +672,20 @@ export async function logoutRider(sessionId) {
 // ── logoutAllRider ────────────────────────────────────────────
 
 export async function logoutAllRider(riderId) {
-  await prisma.rider.update({
-    where: { rider_id: riderId },
-    data: { logout_all_issued_at: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.rider.update({
+      where: { rider_id: riderId },
+      data: { logout_all_issued_at: new Date() },
+    }),
+    prisma.riderSession.updateMany({
+      where: { rider_id: riderId, is_active: true },
+      data: {
+        is_active: false,
+        revoked_at: new Date(),
+        revoked_reason: "logout_all",
+      },
+    }),
+  ]);
 }
 
 // ── getRiderMe ────────────────────────────────────────────────
@@ -465,13 +696,19 @@ export async function getRiderMe(riderId) {
     select: {
       rider_id: true,
       phone: true,
+      rider_type: true,
       full_name: true,
+      email: true,
       date_of_birth: true,
       sex: true,
       profile_photo_key: true,
       status: true,
       suspension_reason: true,
-      zone_id: true,
+      current_city: true,
+      residential_address: true,
+      preferred_lat: true,
+      preferred_lng: true,
+      preferred_address: true,
       is_online: true,
       rating: true,
       total_ratings: true,
@@ -481,13 +718,12 @@ export async function getRiderMe(riderId) {
       vehicle_make_model: true,
       bank_account_number: true,
       bank_holder_name: true,
+      bank_ifsc: true,
       bank_verified: true,
+      terms_accepted_at: true,
       referral_code: true,
       created_at: true,
       last_seen_at: true,
-      zone: {
-        select: { zone_id: true, name: true, city: true, state: true },
-      },
       documents: {
         select: {
           document_id: true,
@@ -509,7 +745,9 @@ export async function getRiderMe(riderId) {
   return {
     rider_id: rider.rider_id,
     phone: rider.phone,
+    rider_type: rider.rider_type,
     full_name: rider.full_name,
+    email: rider.email,
     date_of_birth: rider.date_of_birth
       ? rider.date_of_birth.toISOString().split("T")[0]
       : null,
@@ -517,7 +755,11 @@ export async function getRiderMe(riderId) {
     profile_photo_key: rider.profile_photo_key,
     status: rider.status,
     suspension_reason: rider.suspension_reason,
-    zone: rider.zone ?? null,
+    current_city: rider.current_city,
+    residential_address: rider.residential_address,
+    preferred_lat: rider.preferred_lat ? Number(rider.preferred_lat) : null,
+    preferred_lng: rider.preferred_lng ? Number(rider.preferred_lng) : null,
+    preferred_address: rider.preferred_address,
     is_online: rider.is_online,
     rating: rider.rating,
     total_ratings: rider.total_ratings,
@@ -526,20 +768,23 @@ export async function getRiderMe(riderId) {
     vehicle_number: rider.vehicle_number,
     vehicle_make_model: rider.vehicle_make_model,
     bank_holder_name: rider.bank_holder_name,
+    bank_ifsc: rider.bank_ifsc,
     bank_account_last4: rider.bank_account_number
       ? rider.bank_account_number.slice(-4)
       : null,
     bank_verified: rider.bank_verified,
+    terms_accepted_at: rider.terms_accepted_at,
     referral_code: rider.referral_code,
     created_at: rider.created_at,
     last_seen_at: rider.last_seen_at,
     documents: rider.documents,
-    // Onboarding completeness
     has_personal_details: !!(rider.full_name && rider.date_of_birth),
+    has_location: !!(rider.current_city && rider.residential_address),
     has_vehicle_details: !!(rider.vehicle_type && rider.vehicle_number),
     has_bank_details: !!(rider.bank_account_number && rider.bank_ifsc),
     has_all_documents:
-      rider.documents.length >= 7 &&
+      rider.documents.length >= 5 &&
       rider.documents.every((d) => d.status === "APPROVED"),
+    has_accepted_terms: !!rider.terms_accepted_at,
   };
 }
